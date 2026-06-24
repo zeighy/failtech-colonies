@@ -1,0 +1,155 @@
+{
+"global": {
+"tickRateMs": 60000,
+"convoyIntervalTicks": 240,
+"moraleFailureThresholdTicks": 10,
+"startingMorale": 100,
+"populationConsumptionPerTick": {
+"clean_water": 0.1,
+"rations": 0.1
+},
+"startingState": {
+"population": 20,
+"credits": 500,
+"resources": {
+"scrap": 1000,
+"energy": 100,
+"unpurified_water": 50,
+"clean_water": 50,
+"rations": 50,
+"machined_parts": 0
+}
+}
+},
+"hubLevels": {
+"1": {
+"maxStorage": 2000,
+"unlockedRings": 1,
+"ringCapacities": { "1": 6 },
+"upgradeCost": null
+},
+"2": {
+"maxStorage": 5000,
+"unlockedRings": 2,
+"ringCapacities": { "1": 6, "2": 12 },
+"upgradeCost": {
+"scrap": 2000,
+"machined_parts": 100
+}
+},
+"3": {
+"maxStorage": 10000,
+"unlockedRings": 3,
+"ringCapacities": { "1": 6, "2": 12, "3": 18 },
+"upgradeCost": {
+"scrap": 5000,
+"machined_parts": 300,
+"building_materials": 100
+}
+}
+},
+"buildings": {
+"solar_array": {
+"name": "Solar Array",
+"type": "generator",
+"constructionTicks": 2,
+"cost": {
+"scrap": 100
+},
+"inputsPerTick": {},
+"outputsPerTick": {
+"energy": 10
+}
+},
+"scrap_extractor": {
+"name": "Scrap Extractor",
+"type": "extractor",
+"constructionTicks": 3,
+"cost": {
+"scrap": 200
+},
+"inputsPerTick": {
+"energy": 5
+},
+"outputsPerTick": {
+"scrap": 25
+}
+},
+"water_pump": {
+"name": "Groundwater Pump",
+"type": "extractor",
+"constructionTicks": 3,
+"cost": {
+"scrap": 150
+},
+"inputsPerTick": {
+"energy": 5
+},
+"outputsPerTick": {
+"unpurified_water": 20
+}
+},
+"water_purifier": {
+"name": "Filtration Plant",
+"type": "refinery",
+"constructionTicks": 5,
+"cost": {
+"scrap": 300,
+"machined_parts": 10
+},
+"inputsPerTick": {
+"energy": 10,
+"unpurified_water": 15
+},
+"outputsPerTick": {
+"clean_water": 15
+}
+},
+"parts_assembler": {
+"name": "Parts Assembler",
+"type": "refinery",
+"constructionTicks": 6,
+"cost": {
+"scrap": 400
+},
+"inputsPerTick": {
+"energy": 10,
+"scrap": 30
+},
+"outputsPerTick": {
+"machined_parts": 5
+}
+},
+"hydroponics_bay": {
+"name": "Hydroponics Bay",
+"type": "producer",
+"constructionTicks": 8,
+"cost": {
+"scrap": 500,
+"machined_parts": 25
+},
+"inputsPerTick": {
+"energy": 15,
+"clean_water": 5
+},
+"outputsPerTick": {
+"rations": 10
+}
+}
+},
+"adjacencyModifiers": {
+"description": "Multipliers applied to output if adjacent to specific types",
+"rules": [
+{
+"targetBuilding": "water_purifier",
+"adjacentBuilding": "water_pump",
+"outputMultiplier": 1.15
+},
+{
+"targetBuilding": "parts_assembler",
+"adjacentBuilding": "scrap_extractor",
+"outputMultiplier": 1.10
+}
+]
+}
+}
