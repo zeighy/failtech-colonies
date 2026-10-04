@@ -1,0 +1,199 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const os = require('os');
+const path = require('path');
+const fs = require('fs');
+
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-'));
+process.env.DB_PATH = path.join(dir, 'test.db');
+process.env.SESSION_SECRET = 'test-secret';
+process.env.AUTH_RATE_LIMIT = '1000';
+
+const app = require('../server');
+const engine = require('../src/engine');
+const store = require('../src/db');
+
+let server, base;
+test.before(async () => {
+  await new Promise((r) => { server = app.listen(0, r); });
+  base = `http://127.0.0.1:${server.address().port}`;
+});
+test.after(() => { server.close(); store.db.close(); fs.rmSync(dir, { recursive: true, force: true }); });
+
+function client() {
+  let cookie = '';
+  const call = async (method, url, body) => {
+    const res = await fetch(base + url, {
+      method, redirect: 'manual',
+      headers: { 'Content-Type': 'application/json', ...(cookie ? { cookie } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const set = res.headers.get('set-cookie');
+    if (set) cookie = set.split(';')[0];
+    const type = res.headers.get('content-type') || '';
+    return { status: res.status, body: type.includes('json') ? await res.json() : await res.text() };
+  };
+  return { get: (u) => call('GET', u), post: (u, b) => call('POST', u, b || {}) };
+}
+let n = 0;
+async function newPlayer() {
+  const c = client();
+  const r = await c.post('/api/register', { username: `player_${++n}`, password: 'hunter22' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  return c;
+}
+const tick = (k = 1) => { for (let i = 0; i < k; i++) engine.processTick(); };
+
+test('auth: validation, duplicates, wrong password, protected routes', async () => {
+  const c = client();
+  assert.equal((await c.get('/api/state')).status, 401);
+  assert.equal((await c.post('/api/register', { username: 'x', password: 'hunter22' })).status, 400);
+  assert.equal((await c.post('/api/register', { username: 'okname', password: '123' })).status, 400);
+  assert.equal((await c.post('/api/register', { username: 'okname', password: 'hunter22' })).status, 200);
+  const dup = client();
+  assert.equal((await dup.post('/api/register', { username: 'OKNAME', password: 'hunter22' })).status, 409);
+  assert.equal((await dup.post('/api/login', { username: 'okname', password: 'wrong-one' })).status, 401);
+  assert.equal((await dup.post('/api/login', { username: 'okname', password: 'hunter22' })).status, 200);
+  assert.equal((await dup.get('/api/state')).status, 200);
+  assert.equal((await dup.post('/api/logout')).status, 200);
+  assert.equal((await dup.get('/api/state')).status, 401);
+});
+
+test('new colony starts with the configured stockpile and no buildings', async () => {
+  const c = await newPlayer();
+  const { body: s } = await c.get('/api/state');
+  assert.equal(s.colony.population, 20);
+  assert.equal(s.resources.scrap.amount, store.config.global.startingState.resources.scrap);
+  assert.deepEqual(s.buildings, []);
+  assert.deepEqual(s.hub.rings, { 1: 6 });
+});
+
+test('build: validates, charges, queues, completes after N ticks', async () => {
+  const c = await newPlayer();
+  assert.equal((await c.post('/api/build', { ring: 1, slot: 0, type: 'nope' })).status, 400);
+  assert.equal((await c.post('/api/build', { ring: 2, slot: 0, type: 'solar_array' })).body.error, 'That slot is locked. Upgrade the hub.');
+  assert.equal((await c.post('/api/build', { ring: 1, slot: 6, type: 'solar_array' })).status, 400);
+  assert.match((await c.post('/api/build', { ring: 1, slot: 0, type: 'fabrication_works' })).body.error, /requires hub level 2/);
+  const r = await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.state.resources.scrap.amount, 1500 - 100);
+  assert.equal(r.body.state.orders.length, 1);
+  assert.match((await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' })).body.error, /in use/);
+  tick(1);
+  assert.equal((await c.get('/api/state')).body.buildings.length, 0);
+  tick(1);
+  const s = (await c.get('/api/state')).body;
+  assert.equal(s.buildings.length, 1);
+  assert.equal(s.orders.length, 0);
+  assert.equal(s.energy.supply, 20 + 25);
+});
+
+test('build: cannot afford', async () => {
+  const c = await newPlayer();
+  const r = await c.post('/api/build', { ring: 1, slot: 0, type: 'hydroponics_bay' });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /Not enough resources/);
+});
+
+test('cancel refunds in full; demolish refunds half and frees the slot; toggle pauses', async () => {
+  const c = await newPlayer();
+  const q = (await c.post('/api/build', { ring: 1, slot: 1, type: 'scrap_extractor' })).body.state;
+  const cancel = await c.post('/api/cancel', { orderId: q.orders[0].id });
+  assert.equal(cancel.body.state.resources.scrap.amount, 1500);
+  await c.post('/api/build', { ring: 1, slot: 1, type: 'scrap_extractor' });
+  tick(3);
+  let s = (await c.get('/api/state')).body;
+  assert.equal(s.buildings[0].paused, false);
+  s = (await c.post('/api/toggle', { ring: 1, slot: 1 })).body.state;
+  assert.equal(s.buildings[0].paused, true);
+  assert.equal(s.buildings[0].status, 'paused');
+  const before = s.resources.scrap.amount;
+  s = (await c.post('/api/demolish', { ring: 1, slot: 1 })).body.state;
+  assert.equal(s.buildings.length, 0);
+  assert.equal(Math.floor(s.resources.scrap.amount), Math.floor(before) + 100);
+  assert.equal((await c.post('/api/build', { ring: 1, slot: 1, type: 'solar_array' })).status, 200);
+});
+
+test('players cannot touch each other\'s colonies', async () => {
+  const a = await newPlayer(); const b = await newPlayer();
+  await a.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' });
+  assert.equal((await b.get('/api/state')).body.orders.length, 0);
+  assert.equal((await b.post('/api/cancel', { orderId: (await a.get('/api/state')).body.orders[0].id })).status, 400);
+});
+
+test('hub upgrade needs resources, takes time, unlocks ring 2', async () => {
+  const c = await newPlayer();
+  assert.equal((await c.post('/api/upgrade')).status, 400);
+  const colony = store.db.prepare('SELECT id FROM colonies ORDER BY id DESC LIMIT 1').get();
+  store.db.prepare("UPDATE colony_inventory SET amount = 5000 WHERE colony_id = ? AND resource_id IN ('scrap','machined_parts')").run(colony.id);
+  const r = await c.post('/api/upgrade');
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal((await c.post('/api/upgrade')).body.error, 'An upgrade is already underway.');
+  tick(store.config.hubLevels['2'].upgradeTicks);
+  const s = (await c.get('/api/state')).body;
+  assert.equal(s.colony.hubLevel, 2);
+  assert.deepEqual(s.hub.rings, { 1: 6, 2: 12 });
+  assert.equal((await c.post('/api/build', { ring: 2, slot: 11, type: 'solar_array' })).status, 200);
+});
+
+test('convoy: standing contracts execute when the convoy arrives', async () => {
+  const c = await newPlayer();
+  const colony = store.db.prepare('SELECT id FROM colonies ORDER BY id DESC LIMIT 1').get();
+  store.db.prepare("UPDATE colony_inventory SET amount = 1000 WHERE colony_id = ? AND resource_id = 'rations'").run(colony.id);
+  assert.equal((await c.post('/api/contract', { resource: 'rations', side: 'export', amount: 30 })).status, 200);
+  assert.equal((await c.post('/api/contract', { resource: 'machined_parts', side: 'import', amount: 10 })).status, 200);
+  assert.equal((await c.post('/api/contract', { resource: 'gold', side: 'import', amount: 10 })).status, 400);
+  const before = (await c.get('/api/state')).body;
+  const interval = store.config.global.convoyIntervalTicks;
+  tick(before.convoy.ticksLeft);
+  const after = (await c.get('/api/state')).body;
+  assert.ok(after.events.some((e) => /Convoy bought 30 Rations/.test(e.message)), JSON.stringify(after.events.map((e) => e.message)));
+  assert.equal(after.resources.machined_parts.amount, 10);
+  assert.equal(after.convoy.ticksLeft, interval);
+  // clearing a contract removes it
+  const cleared = await c.post('/api/contract', { resource: 'rations', side: 'export', amount: 0 });
+  assert.deepEqual(cleared.body.state.contracts.export, {});
+});
+
+test('collapse: failed colony stops ticking, restart keeps part of the credits', async () => {
+  const c = await newPlayer();
+  tick(80);
+  let s = (await c.get('/api/state')).body;
+  assert.equal(s.colony.status, 'failed');
+  assert.equal((await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' })).status, 400);
+  const r = await c.post('/api/restart');
+  assert.equal(r.status, 200);
+  s = r.body.state;
+  assert.equal(s.colony.status, 'active');
+  assert.equal(s.colony.failures, 1);
+  assert.equal(s.buildings.length, 0);
+  assert.equal((await c.post('/api/restart')).status, 400); // only valid after a collapse
+});
+
+test('manual reset wipes everything back to the start', async () => {
+  const c = await newPlayer();
+  await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' });
+  const s = (await c.post('/api/reset')).body.state;
+  assert.equal(s.orders.length, 0);
+  assert.equal(s.resources.scrap.amount, store.config.global.startingState.resources.scrap);
+  assert.equal(s.colony.credits, store.config.global.startingState.credits);
+});
+
+test('offline progress: runDueTicks catches up missed ticks, capped', () => {
+  const t0 = Date.now();
+  store.setMeta('last_tick_at', t0);
+  const before = engine.timing().globalTick;
+  const done = engine.runDueTicks(t0 + engine.TICK_MS * 5 + 10);
+  assert.equal(done, 5);
+  assert.equal(engine.timing().globalTick, before + 5);
+  const huge = engine.runDueTicks(Number(store.getMeta('last_tick_at')) + engine.TICK_MS * 100000);
+  assert.equal(huge, store.config.global.maxOfflineTicks);
+});
+
+test('pages: game requires login, static assets served', async () => {
+  const c = client();
+  assert.equal((await c.get('/game')).status, 302);
+  assert.equal((await c.get('/')).status, 200);
+  assert.equal((await c.get('/js/game.js')).status, 200);
+});

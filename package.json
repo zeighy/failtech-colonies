@@ -1,17 +1,17 @@
 {
-  "name": "app",
-  "version": "1.0.0",
-  "description": "** populate me with description, overview, setup guide, and other details once the MVP code has been created **",
-  "main": "index.js",
+  "name": "failtech-colonies",
+  "version": "2.0.0",
+  "description": "FAILTECH - Radial Command: a browser colony-management game with a server-authoritative tick simulation.",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "TICK_MS=1000 node server.js",
+    "test": "node --test \"test/*.test.js\""
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zeighy/failtech-colonies.git"
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
@@ -21,7 +21,6 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.11.1",
-    "ejs": "^6.0.1",
     "express": "^5.2.1",
     "express-session": "^1.19.0"
   }
