@@ -11,19 +11,20 @@ const nm = sim.buildNeighborMap(config);
 function fresh(overrides = {}) {
   return {
     hubLevel: 1, population: config.global.startingState.population, morale: 100, age: 0,
-    goalTicks: 0, won: false, credits: 500,
+    progress: 0, won: false, credits: 500,
     inventory: { ...config.global.startingState.resources }, buildings: [], ...overrides,
   };
 }
 let nextId = 1;
 const b = (ring, slot, type, status = 'active') => ({ id: nextId++, ring, slot, type, status });
 const advance = (s, r) => ({ ...s, inventory: r.inventory, population: r.population, morale: r.morale,
-  age: s.age + 1, goalTicks: r.goalTicks, won: r.won });
+  age: s.age + 1, progress: r.progress, won: r.won });
 
 test('neighbour map: rings wrap and touch the rings above and below', () => {
   assert.deepEqual(nm.get('1:0').filter(([r]) => r === 1).map(([, s]) => s).sort(), [1, 5]);
+  // ring 1 has 6 slots and ring 2 has 8, so slot 0 of ring 1 touches the first two of ring 2
   assert.deepEqual(nm.get('1:0').filter(([r]) => r === 2).map(([, s]) => s).sort(), [0, 1]);
-  assert.deepEqual(nm.get('2:3').filter(([r]) => r === 1).map(([, s]) => s), [1]);
+  assert.deepEqual(nm.get('2:3').filter(([r]) => r === 1).map(([, s]) => s), [2]);
   // symmetric: if A neighbours B then B neighbours A
   for (const [k, list] of nm) for (const [r, s] of list) {
     assert.ok(nm.get(`${r}:${s}`).some(([r2, s2]) => `${r2}:${s2}` === k), `${k} <-> ${r}:${s}`);
@@ -101,21 +102,109 @@ test('a greedy but sensible opening (paying real costs) survives and stabilises'
   assert.ok(r.flows.rations.produced - r.flows.rations.consumed > 0);
 });
 
+const basePrices = Object.fromEntries(Object.entries(config.resources).map(([k, d]) => [k, { buy: d.buy, sell: d.sell }]));
+
 test('convoy sells exports, buys imports, respects credits and storage', () => {
   const s = { hubLevel: 1, credits: 100, inventory: { scrap: 100, rations: 100, machined_parts: 0 } };
-  const out = sim.runConvoy(config, s, { export: { rations: 40 }, import: { machined_parts: 100 } });
+  const out = sim.runConvoy(config, s, { export: { rations: 40 }, import: { machined_parts: 100 } }, basePrices);
   assert.equal(out.inventory.rations, 60);
-  assert.equal(out.credits, 100 + 40 * config.resources.rations.sell - Math.floor((100 + 100) / config.resources.machined_parts.buy) * config.resources.machined_parts.buy);
-  assert.equal(out.inventory.machined_parts, Math.floor(200 / config.resources.machined_parts.buy));
-  // storage cap
-  const full = sim.runConvoy(config, { hubLevel: 1, credits: 1e6, inventory: { scrap: 1990 } }, { import: { scrap: 500 } });
+  const bought = Math.floor((100 + 40 * config.resources.rations.sell) / config.resources.machined_parts.buy);
+  assert.equal(out.inventory.machined_parts, bought);
+  assert.equal(out.credits, Math.round(100 + 40 * config.resources.rations.sell - bought * config.resources.machined_parts.buy));
+  const full = sim.runConvoy(config, { hubLevel: 1, credits: 1e6, inventory: { scrap: 1990 } }, { import: { scrap: 500 } }, basePrices);
   assert.equal(full.inventory.scrap, 2000);
+  // per-resource convoy limits apply to the high tiers
+  const rich = sim.runConvoy(config, { hubLevel: 5, credits: 1e6, inventory: {} }, { import: { power_cells: 500 } }, basePrices);
+  assert.equal(rich.inventory.power_cells, config.resources.power_cells.convoyMax);
 });
 
-test('hub level 3 + stable loop for N ticks wins the game', () => {
-  let s = fresh({ hubLevel: 3, buildings: [b(1, 0, 'solar_array'), b(1, 1, 'water_pump'), b(1, 2, 'water_purifier'),
-    b(1, 3, 'hydroponics_bay'), b(1, 4, 'scrap_extractor')] });
+test('market prices drift per convoy, are deterministic, and stay in range', () => {
+  const a = sim.marketPrices(config, 5), b = sim.marketPrices(config, 5), c = sim.marketPrices(config, 6);
+  assert.deepEqual(a, b);
+  assert.notDeepEqual(a, c);
+  const seen = new Set();
+  for (let k = 0; k < 40; k++) for (const [res, p] of Object.entries(sim.marketPrices(config, k))) {
+    assert.ok(p.mult >= config.market.min - 1e-9 && p.mult <= config.market.max + 1e-9);
+    assert.ok(p.buy > p.sell, `${res} buy should exceed sell`);
+    seen.add(p.buy);
+  }
+  assert.ok(seen.size > 30, 'prices actually move');
+});
+
+test('plots: output is penalised per missing size step; inputs are not', () => {
+  const big = fresh({ buildings: [b(3, 0, 'foundry')] });  // ring 3 is a Large plot: fits
+  const small = fresh({ buildings: [b(1, 0, 'foundry')] }); // ring 1 is Small: two steps short
+  for (const s of [big, small]) Object.assign(s.inventory, { scrap: 500, machined_parts: 50 });
+  const rb = sim.step(config, big, nm), rs = sim.step(config, small, nm);
+  const pen = config.global.plotPenaltyPerStep ** 2;
+  assert.ok(Math.abs(rs.flows.alloys.produced - rb.flows.alloys.produced * pen) < 1e-9);
+  assert.equal(rs.flows.scrap.consumed, rb.flows.scrap.consumed);
+  assert.equal(sim.plotMultiplier(config, config.buildings.foundry, 3), 1);
+  assert.ok(Math.abs(sim.plotMultiplier(config, config.buildings.foundry, 1) - pen) < 1e-9);
+});
+
+test('plots get bigger outward, and every ring slot is genuinely larger than the one inside it', () => {
+  const sizes = Object.keys(config.ringPlotSize).map((r) => config.ringPlotSize[r]);
+  assert.deepEqual(sizes, [...sizes].sort((x, y) => x - y));
+  assert.equal(new Set(sizes).size, sizes.length);
+});
+
+test('hub upkeep (level 3+) drains stock; unmet upkeep cuts the hub\'s own power', () => {
+  const s = fresh({ hubLevel: 3 });
+  s.inventory.machined_parts = 100;
+  const ok = sim.step(config, s, nm);
+  const up = config.hubLevels['3'].upkeepPerTick;
+  assert.equal(ok.flows.machined_parts.consumed, up.machined_parts);
+  assert.ok(Math.abs(ok.energy.supply - (config.hubLevels['3'].baseEnergy - up.energy)) < 1e-9);
   s.inventory.machined_parts = 0;
-  for (let t = 0; t < config.global.goalSustainTicks + 2 && !s.won; t++) s = advance(s, sim.step(config, s, nm));
+  const bad = sim.step(config, s, nm);
+  assert.equal(bad.hub.eff, 0);
+  assert.equal(bad.hub.limiting, 'machined_parts');
+  assert.equal(bad.energy.supply, 0);
+  assert.equal(sim.step(config, fresh({ hubLevel: 2 }), nm).hub.eff, 1); // no upkeep below level 3
+});
+
+test('fuel generators burn their input; without it they stop supplying power', () => {
+  const s = fresh({ buildings: [b(3, 0, 'scrap_generator')] });
+  const on = sim.step(config, s, nm);
+  assert.equal(on.energy.supply, 20 + config.buildings.scrap_generator.outputsPerTick.energy);
+  assert.equal(on.flows.scrap.consumed, config.buildings.scrap_generator.inputsPerTick.scrap);
+  s.inventory.scrap = 0;
+  assert.equal(sim.step(config, s, nm).energy.supply, 20);
+});
+
+test('warehouses raise the storage cap; watch posts add defence', () => {
+  const s = fresh({ buildings: [b(2, 0, 'warehouse'), b(1, 0, 'watch_post')] });
+  s.inventory.scrap = 1990;
+  const r = sim.step(config, s, nm);
+  assert.equal(r.cap, 2000 + config.buildings.warehouse.storageBonus);
+  assert.ok(r.defense > 0 && r.defense <= config.buildings.watch_post.defense);
+});
+
+test('damaged (hazard-disabled) buildings stop; hazard output multipliers apply', () => {
+  const s = fresh({ buildings: [b(1, 0, 'solar_array'), b(1, 1, 'scrap_extractor')] });
+  const base = sim.step(config, s, nm);
+  const hit = sim.step(config, s, nm, { outputMult: { solar_array: 0.3 }, disabled: new Set([s.buildings[1].id]) });
+  assert.ok(hit.energy.supply < base.energy.supply);
+  const st = hit.buildings.get(s.buildings[1].id);
+  assert.equal(st.status, 'damaged');
+  assert.equal(hit.flows.scrap.produced, 0);
+});
+
+test('beacon: transmits only while running; a full-size plot is faster than a cramped one; completing it wins', () => {
+  const mk = (ring) => {
+    const s = fresh({ hubLevel: 5, buildings: [b(1, 0, 'solar_array'), b(1, 1, 'solar_array'), b(1, 2, 'solar_array'),
+      b(2, 0, 'scrap_generator'), b(2, 1, 'scrap_generator'), b(ring, 0, 'beacon_array')] });
+    Object.assign(s.inventory, { power_cells: 100, scrap: 1000, machined_parts: 100, alloys: 100, circuits: 100 });
+    return s;
+  };
+  const gain = (ring) => sim.step(config, mk(ring), nm).progressGain;
+  assert.ok(gain(5) > 0.99 && gain(5) <= 1.0001, `ring 5 gain ${gain(5)}`);
+  assert.ok(Math.abs(gain(4) - config.global.plotPenaltyPerStep) < 0.02);
+  const dead = mk(5); dead.inventory.power_cells = 0;
+  assert.equal(sim.step(config, dead, nm).progressGain, 0);
+  let s = mk(5); let t = 0;
+  while (!s.won && t < 200) { s = advance(s, sim.step(config, s, nm)); t++; s.inventory.power_cells = 100; s.inventory.scrap = 1000; s.inventory.machined_parts = 100; s.inventory.alloys = 100; s.inventory.circuits = 100; }
   assert.ok(s.won);
+  assert.ok(t >= config.global.beacon.transmitTicks && t < config.global.beacon.transmitTicks + 3, `won after ${t} ticks`);
 });

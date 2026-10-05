@@ -9,7 +9,7 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failt
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -18,9 +18,13 @@ function migrate() {
     password TEXT NOT NULL
   )`);
   const v = db.pragma('user_version', { simple: true });
-  if (v < 2) {
-    // v1 was the throwaway prototype; accounts survive, colonies are re-founded on next login.
+  if (v < 4) {
+    // Ring sizes and the economy changed in v4, so old colonies no longer fit the map.
+    // Accounts survive; colonies are re-founded on next login.
     db.exec(`
+      DROP TABLE IF EXISTS colony_hazards;
+      DROP TABLE IF EXISTS colony_events;
+      DROP TABLE IF EXISTS colony_contracts;
       DROP TABLE IF EXISTS colony_work_orders;
       DROP TABLE IF EXISTS colony_buildings;
       DROP TABLE IF EXISTS colony_inventory;
@@ -40,11 +44,16 @@ function migrate() {
       age INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active',
       won INTEGER NOT NULL DEFAULT 0,
-      goal_ticks INTEGER NOT NULL DEFAULT 0,
+      progress REAL NOT NULL DEFAULT 0,
       starving INTEGER NOT NULL DEFAULT 0,
       brownout INTEGER NOT NULL DEFAULT 0,
       failures INTEGER NOT NULL DEFAULT 0,
-      milestones TEXT NOT NULL DEFAULT '[]'
+      milestones TEXT NOT NULL DEFAULT '[]',
+      last_seen_at INTEGER NOT NULL DEFAULT 0,
+      next_hazard_age INTEGER NOT NULL DEFAULT 0,
+      hazard_count INTEGER NOT NULL DEFAULT 0,
+      hazards_survived INTEGER NOT NULL DEFAULT 0,
+      report_cursor INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS colony_inventory (
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
@@ -81,13 +90,20 @@ function migrate() {
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
       tick INTEGER NOT NULL,
       kind TEXT NOT NULL,
-      message TEXT NOT NULL
+      message TEXT NOT NULL,
+      tag TEXT
+    );
+    CREATE TABLE IF NOT EXISTS colony_hazards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      state TEXT NOT NULL,             -- 'forecast' | 'active'
+      strikes_tick INTEGER NOT NULL,
+      ends_tick INTEGER NOT NULL DEFAULT 0,
+      severity REAL NOT NULL DEFAULT 0,
+      data TEXT NOT NULL DEFAULT '{}'
     );
   `);
-  // v3: sticky onboarding milestones
-  if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'milestones'").get()) {
-    db.exec("ALTER TABLE colonies ADD COLUMN milestones TEXT NOT NULL DEFAULT '[]'");
-  }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
 migrate();
@@ -125,8 +141,8 @@ class SqliteStore extends session.Store {
 function foundColony(userId, { credits = config.global.startingState.credits, failures = 0 } = {}) {
   const s = config.global.startingState;
   const id = db.prepare(
-    'INSERT INTO colonies (user_id, credits, morale, population, failures) VALUES (?, ?, ?, ?, ?)'
-  ).run(userId, credits, config.global.startingMorale, s.population, failures).lastInsertRowid;
+    'INSERT INTO colonies (user_id, credits, morale, population, failures, last_seen_at, next_hazard_age) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(userId, credits, config.global.startingMorale, s.population, failures, Date.now(), config.hazards.firstAtAge).lastInsertRowid;
   const ins = db.prepare('INSERT INTO colony_inventory (colony_id, resource_id, amount) VALUES (?, ?, ?)');
   for (const res of Object.keys(config.resources)) ins.run(id, res, s.resources[res] || 0);
   addEvent(id, 0, 'info', 'Colony founded. Keep your people fed, watered and powered.');
@@ -144,11 +160,12 @@ function wipeColony(colonyId) {
   return row;
 }
 
-function addEvent(colonyId, tick, kind, message) {
-  db.prepare('INSERT INTO colony_events (colony_id, tick, kind, message) VALUES (?, ?, ?, ?)').run(colonyId, tick, kind, message);
+function addEvent(colonyId, tick, kind, message, tag = null) {
+  const id = db.prepare('INSERT INTO colony_events (colony_id, tick, kind, message, tag) VALUES (?, ?, ?, ?, ?)').run(colonyId, tick, kind, message, tag).lastInsertRowid;
   db.prepare(`DELETE FROM colony_events WHERE colony_id = ? AND id NOT IN
     (SELECT id FROM colony_events WHERE colony_id = ? ORDER BY id DESC LIMIT ?)`)
     .run(colonyId, colonyId, config.global.eventLogSize);
+  return Number(id);
 }
 
 function loadInventory(colonyId) {
@@ -171,6 +188,11 @@ function loadOrders(colonyId) {
     .map((o) => ({ ...o, data: JSON.parse(o.target_data) }));
 }
 
+function loadHazard(colonyId) {
+  const h = db.prepare('SELECT * FROM colony_hazards WHERE colony_id = ? ORDER BY id DESC LIMIT 1').get(colonyId);
+  return h ? { ...h, data: JSON.parse(h.data) } : null;
+}
+
 function loadContracts(colonyId) {
   const out = { export: {}, import: {} };
   for (const c of db.prepare('SELECT resource_id, side, amount FROM colony_contracts WHERE colony_id = ?').all(colonyId)) out[c.side][c.resource_id] = c.amount;
@@ -180,5 +202,5 @@ function loadContracts(colonyId) {
 module.exports = {
   db, config, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
-  loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts,
+  loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts, loadHazard,
 };

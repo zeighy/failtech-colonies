@@ -1,7 +1,7 @@
 {
   "global": {
-    "tickRateMs": 3000,
-    "convoyIntervalTicks": 60,
+    "tickRateMs": 15000,
+    "convoyIntervalTicks": 40,
     "convoyMaxPerResource": 500,
     "moraleFailureThresholdTicks": 10,
     "moraleRecoveryPerTick": 2,
@@ -28,54 +28,106 @@
         "clean_water": 80,
         "rations": 100,
         "machined_parts": 0,
-        "building_materials": 0
+        "building_materials": 0,
+        "raw_synthetics": 0,
+        "alloys": 0,
+        "circuits": 0,
+        "power_cells": 0
       }
-    }
+    },
+    "beacon": {
+      "transmitTicks": 25
+    },
+    "activeWindowSeconds": 120,
+    "plotPenaltyPerStep": 0.6
   },
   "resources": {
     "scrap": {
       "name": "Scrap",
       "color": "#c08552",
       "buy": 2,
-      "sell": 0.5
+      "sell": 0.5,
+      "tier": 0
     },
     "unpurified_water": {
       "name": "Raw Water",
       "color": "#6f9a8d",
       "buy": 1.5,
-      "sell": 0.4
+      "sell": 0.4,
+      "tier": 0
     },
     "clean_water": {
       "name": "Clean Water",
       "color": "#4cc9f0",
       "buy": 4,
       "sell": 1.5,
-      "critical": true
+      "critical": true,
+      "tier": 1
     },
     "rations": {
       "name": "Rations",
       "color": "#9ad66b",
       "buy": 6,
       "sell": 2.5,
-      "critical": true
+      "critical": true,
+      "tier": 1
     },
     "machined_parts": {
       "name": "Machined Parts",
       "color": "#c3cad4",
       "buy": 15,
-      "sell": 6
+      "sell": 6,
+      "tier": 1
     },
     "building_materials": {
       "name": "Building Materials",
       "color": "#e8b06a",
       "buy": 30,
-      "sell": 12
+      "sell": 12,
+      "tier": 2
+    },
+    "raw_synthetics": {
+      "name": "Raw Synthetics",
+      "color": "#b08ad6",
+      "buy": 3,
+      "sell": 1,
+      "tier": 0,
+      "showFromHub": 2
+    },
+    "alloys": {
+      "name": "Alloys",
+      "color": "#e07a5f",
+      "buy": 40,
+      "sell": 15,
+      "tier": 3,
+      "showFromHub": 2,
+      "convoyMax": 80
+    },
+    "circuits": {
+      "name": "Circuits",
+      "color": "#6ee7b7",
+      "buy": 60,
+      "sell": 22,
+      "tier": 3,
+      "showFromHub": 2,
+      "convoyMax": 60
+    },
+    "power_cells": {
+      "name": "Power Cells",
+      "color": "#f9e07f",
+      "buy": 150,
+      "sell": 55,
+      "tier": 4,
+      "showFromHub": 3,
+      "convoyMax": 20
     }
   },
   "tierOrder": [
     "extractor",
     "refinery",
-    "producer"
+    "assembler",
+    "producer",
+    "beacon"
   ],
   "hubLevels": {
     "1": {
@@ -89,34 +141,86 @@
       "upgradeTicks": 0
     },
     "2": {
-      "maxStorage": 5000,
-      "maxPopulation": 60,
+      "maxStorage": 4000,
+      "maxPopulation": 50,
       "baseEnergy": 30,
       "ringCapacities": {
         "1": 6,
-        "2": 12
+        "2": 8
       },
       "upgradeCost": {
-        "scrap": 1500,
+        "scrap": 1200,
         "machined_parts": 60
       },
       "upgradeTicks": 10
     },
     "3": {
-      "maxStorage": 10000,
-      "maxPopulation": 100,
+      "maxStorage": 6000,
+      "maxPopulation": 80,
       "baseEnergy": 40,
       "ringCapacities": {
         "1": 6,
-        "2": 12,
-        "3": 18
+        "2": 8,
+        "3": 10
       },
       "upgradeCost": {
-        "scrap": 4000,
-        "machined_parts": 200,
+        "scrap": 2500,
+        "machined_parts": 120,
         "building_materials": 60
       },
-      "upgradeTicks": 16
+      "upgradeTicks": 14,
+      "upkeepPerTick": {
+        "energy": 12,
+        "machined_parts": 1
+      }
+    },
+    "4": {
+      "maxStorage": 8000,
+      "maxPopulation": 110,
+      "baseEnergy": 50,
+      "ringCapacities": {
+        "1": 6,
+        "2": 8,
+        "3": 10,
+        "4": 12
+      },
+      "upgradeCost": {
+        "scrap": 3500,
+        "machined_parts": 180,
+        "building_materials": 140,
+        "alloys": 50
+      },
+      "upgradeTicks": 14,
+      "upkeepPerTick": {
+        "energy": 25,
+        "machined_parts": 1,
+        "alloys": 1
+      }
+    },
+    "5": {
+      "maxStorage": 12000,
+      "maxPopulation": 150,
+      "baseEnergy": 60,
+      "ringCapacities": {
+        "1": 6,
+        "2": 8,
+        "3": 10,
+        "4": 12,
+        "5": 14
+      },
+      "upgradeCost": {
+        "scrap": 5000,
+        "building_materials": 220,
+        "alloys": 100,
+        "circuits": 50
+      },
+      "upgradeTicks": 18,
+      "upkeepPerTick": {
+        "energy": 40,
+        "machined_parts": 2,
+        "alloys": 2,
+        "circuits": 1
+      }
     }
   },
   "buildings": {
@@ -132,7 +236,8 @@
       "outputsPerTick": {
         "energy": 25
       },
-      "color": "#ffd23f"
+      "color": "#ffd23f",
+      "minPlotSize": 1
     },
     "scrap_extractor": {
       "name": "Scrap Extractor",
@@ -146,9 +251,10 @@
         "energy": 5
       },
       "outputsPerTick": {
-        "scrap": 40
+        "scrap": 50
       },
-      "color": "#d08a4e"
+      "color": "#d08a4e",
+      "minPlotSize": 1
     },
     "water_pump": {
       "name": "Groundwater Pump",
@@ -164,7 +270,8 @@
       "outputsPerTick": {
         "unpurified_water": 20
       },
-      "color": "#4fb3a6"
+      "color": "#4fb3a6",
+      "minPlotSize": 1
     },
     "water_purifier": {
       "name": "Filtration Plant",
@@ -182,7 +289,8 @@
       "outputsPerTick": {
         "clean_water": 15
       },
-      "color": "#4cc9f0"
+      "color": "#4cc9f0",
+      "minPlotSize": 1
     },
     "parts_assembler": {
       "name": "Parts Assembler",
@@ -197,9 +305,10 @@
         "scrap": 30
       },
       "outputsPerTick": {
-        "machined_parts": 5
+        "machined_parts": 6
       },
-      "color": "#c3cad4"
+      "color": "#c3cad4",
+      "minPlotSize": 1
     },
     "hydroponics_bay": {
       "name": "Hydroponics Bay",
@@ -217,12 +326,12 @@
       "outputsPerTick": {
         "rations": 10
       },
-      "color": "#8be05a"
+      "color": "#8be05a",
+      "minPlotSize": 1
     },
     "fabrication_works": {
       "name": "Fabrication Works",
       "type": "refinery",
-      "minHubLevel": 2,
       "desc": "Forges building materials for the largest structures. Hub upgrades need them.",
       "constructionTicks": 7,
       "cost": {
@@ -232,12 +341,168 @@
       "inputsPerTick": {
         "energy": 12,
         "scrap": 20,
-        "machined_parts": 3
+        "machined_parts": 2
       },
       "outputsPerTick": {
         "building_materials": 4
       },
-      "color": "#ff9f1c"
+      "color": "#ff9f1c",
+      "minPlotSize": 2
+    },
+    "scrap_generator": {
+      "name": "Scrap Burner",
+      "type": "generator",
+      "desc": "Burns scrap for serious power. Wants a big plot to breathe.",
+      "constructionTicks": 6,
+      "cost": {
+        "scrap": 400,
+        "machined_parts": 30
+      },
+      "inputsPerTick": {
+        "scrap": 15
+      },
+      "outputsPerTick": {
+        "energy": 80
+      },
+      "minPlotSize": 3,
+      "color": "#ff7b3a"
+    },
+    "synth_reclaimer": {
+      "name": "Synthetics Reclaimer",
+      "type": "extractor",
+      "desc": "Strips old-world plastics from the wreckage into raw synthetics.",
+      "constructionTicks": 4,
+      "cost": {
+        "scrap": 250,
+        "machined_parts": 10
+      },
+      "inputsPerTick": {
+        "energy": 8
+      },
+      "outputsPerTick": {
+        "raw_synthetics": 12
+      },
+      "minPlotSize": 1,
+      "color": "#b08ad6"
+    },
+    "foundry": {
+      "name": "Foundry",
+      "type": "refinery",
+      "desc": "Smelts scrap and parts into structural alloys. Big furnaces need big plots.",
+      "constructionTicks": 8,
+      "cost": {
+        "scrap": 600,
+        "machined_parts": 40,
+        "building_materials": 20
+      },
+      "inputsPerTick": {
+        "energy": 22,
+        "scrap": 40,
+        "machined_parts": 2
+      },
+      "outputsPerTick": {
+        "alloys": 3
+      },
+      "minPlotSize": 3,
+      "color": "#e07a5f"
+    },
+    "circuit_fab": {
+      "name": "Circuit Fabricator",
+      "type": "refinery",
+      "desc": "Prints circuitry from synthetics. Precision work needs room.",
+      "constructionTicks": 8,
+      "cost": {
+        "scrap": 500,
+        "machined_parts": 50,
+        "building_materials": 30
+      },
+      "inputsPerTick": {
+        "energy": 18,
+        "raw_synthetics": 10,
+        "machined_parts": 1
+      },
+      "outputsPerTick": {
+        "circuits": 2
+      },
+      "minPlotSize": 3,
+      "color": "#6ee7b7"
+    },
+    "cell_forge": {
+      "name": "Cell Forge",
+      "type": "assembler",
+      "desc": "Assembles power cells from alloys and circuits. The most demanding build in the colony.",
+      "constructionTicks": 10,
+      "cost": {
+        "scrap": 900,
+        "machined_parts": 80,
+        "building_materials": 80,
+        "alloys": 30,
+        "circuits": 20
+      },
+      "inputsPerTick": {
+        "energy": 30,
+        "alloys": 3,
+        "circuits": 2
+      },
+      "outputsPerTick": {
+        "power_cells": 1
+      },
+      "minPlotSize": 4,
+      "color": "#f9e07f"
+    },
+    "warehouse": {
+      "name": "Warehouse",
+      "type": "utility",
+      "desc": "Extra racking: raises the storage cap of every resource.",
+      "constructionTicks": 4,
+      "cost": {
+        "scrap": 300,
+        "machined_parts": 15
+      },
+      "inputsPerTick": {},
+      "outputsPerTick": {},
+      "minPlotSize": 2,
+      "color": "#9aa5b1",
+      "storageBonus": 1000
+    },
+    "watch_post": {
+      "name": "Watch Post",
+      "type": "defense",
+      "desc": "Armed lookouts. Their combined strength decides how badly raiders hurt you.",
+      "constructionTicks": 4,
+      "cost": {
+        "scrap": 250,
+        "machined_parts": 20
+      },
+      "inputsPerTick": {
+        "energy": 4
+      },
+      "outputsPerTick": {},
+      "minPlotSize": 1,
+      "color": "#ef6f6f",
+      "defense": 1
+    },
+    "beacon_array": {
+      "name": "Beacon Array",
+      "type": "beacon",
+      "desc": "A transmitter that can reach what is left of the world. Only one can be built.",
+      "constructionTicks": 20,
+      "cost": {
+        "scrap": 1000,
+        "building_materials": 200,
+        "alloys": 160,
+        "circuits": 100,
+        "power_cells": 30
+      },
+      "inputsPerTick": {
+        "energy": 60,
+        "power_cells": 1
+      },
+      "outputsPerTick": {},
+      "minPlotSize": 5,
+      "color": "#ffffff",
+      "maxCount": 1,
+      "transmit": true
     }
   },
   "adjacencyModifiers": {
@@ -277,7 +542,191 @@
         "targetBuilding": "solar_array",
         "adjacentBuilding": "solar_array",
         "outputMultiplier": 0.95
+      },
+      {
+        "targetBuilding": "foundry",
+        "adjacentBuilding": "scrap_extractor",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "circuit_fab",
+        "adjacentBuilding": "synth_reclaimer",
+        "outputMultiplier": 1.15
+      },
+      {
+        "targetBuilding": "cell_forge",
+        "adjacentBuilding": "foundry",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "cell_forge",
+        "adjacentBuilding": "circuit_fab",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "scrap_generator",
+        "adjacentBuilding": "scrap_extractor",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "watch_post",
+        "adjacentBuilding": "watch_post",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "circuit_fab",
+        "adjacentBuilding": "foundry",
+        "outputMultiplier": 0.9
       }
     ]
+  },
+  "market": {
+    "amplitude": 0.28,
+    "noise": 0.12,
+    "period": 7,
+    "min": 0.6,
+    "max": 1.6
+  },
+  "plotSizes": {
+    "1": {
+      "name": "Small"
+    },
+    "2": {
+      "name": "Medium"
+    },
+    "3": {
+      "name": "Large"
+    },
+    "4": {
+      "name": "Heavy"
+    },
+    "5": {
+      "name": "Colossal"
+    }
+  },
+  "ringPlotSize": {
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "4": 4,
+    "5": 5
+  },
+  "hazards": {
+    "firstAtAge": 45,
+    "gapTicks": [
+      32,
+      52
+    ],
+    "scalingPerHubLevel": 0.35,
+    "types": {
+      "dust_storm": {
+        "name": "Dust Storm",
+        "minHubLevel": 1,
+        "weight": 3,
+        "warningTicks": [
+          20,
+          30
+        ],
+        "durationTicks": 10,
+        "desc": "A wall of grit is rolling in. Solar output will collapse while it lasts.",
+        "requires": [
+          {
+            "kind": "stock",
+            "resource": "machined_parts",
+            "amount": 20,
+            "label": "Spare panel filters"
+          }
+        ],
+        "effect": {
+          "kind": "output_mult",
+          "buildings": [
+            "solar_array"
+          ],
+          "mult": 0.3
+        }
+      },
+      "equipment_fault": {
+        "name": "Equipment Fault",
+        "minHubLevel": 1,
+        "weight": 3,
+        "warningTicks": [
+          18,
+          28
+        ],
+        "durationTicks": 12,
+        "desc": "Worn machinery is about to fail. One structure will go offline until repaired.",
+        "requires": [
+          {
+            "kind": "stock",
+            "resource": "machined_parts",
+            "amount": 10,
+            "label": "Repair parts"
+          },
+          {
+            "kind": "stock",
+            "resource": "scrap",
+            "amount": 80,
+            "label": "Repair scrap"
+          }
+        ],
+        "effect": {
+          "kind": "disable_random",
+          "count": 1
+        }
+      },
+      "blight": {
+        "name": "Crop Blight",
+        "minHubLevel": 2,
+        "weight": 2,
+        "warningTicks": [
+          24,
+          32
+        ],
+        "durationTicks": 14,
+        "desc": "Spores are spreading through the growing beds. Food output will crash.",
+        "requires": [
+          {
+            "kind": "stock",
+            "resource": "clean_water",
+            "amount": 100,
+            "label": "Flushing water"
+          }
+        ],
+        "effect": {
+          "kind": "output_mult",
+          "buildings": [
+            "hydroponics_bay"
+          ],
+          "mult": 0.3
+        }
+      },
+      "raid": {
+        "name": "Raid",
+        "minHubLevel": 2,
+        "weight": 2,
+        "warningTicks": [
+          26,
+          36
+        ],
+        "durationTicks": 0,
+        "desc": "Raiders have spotted the colony. Unguarded stockpiles will be looted.",
+        "requires": [
+          {
+            "kind": "defense",
+            "amount": 2,
+            "label": "Watch post strength"
+          }
+        ],
+        "effect": {
+          "kind": "raid",
+          "steal": {
+            "scrap": 0.3,
+            "rations": 0.25,
+            "machined_parts": 0.2,
+            "credits": 0.25
+          }
+        }
+      }
+    }
   }
 }

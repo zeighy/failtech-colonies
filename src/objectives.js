@@ -95,14 +95,16 @@ function etaFor(v, cost) {
 const DIRECTIVES = (config, v) => {
   const netOf = (r) => v.resources[r].net;
   const made = (r) => v.resources[r].produced > EPS;
-  const next = config.hubLevels[v.colony.hubLevel + 1];
-  const maxHub = Math.max(...Object.keys(config.hubLevels).map(Number));
-  const sustain = config.global.goalSustainTicks;
-  const base = config.hubLevels[v.colony.hubLevel].baseEnergy;
+  const lvl = v.colony.hubLevel;
+  const nextLevel = config.hubLevels[lvl + 1];
+  const hubGoal = (n) => ({ done: lvl >= n, timing: () => (lvl === n - 1 ? etaFor(v, config.hubLevels[n].upgradeCost) : null) });
+  const need = config.global.beacon.transmitTicks;
+  const beacon = config.buildings.beacon_array;
+  const hasBuilding = (type) => v.buildings.some((b) => b.type === type);
   return [
     { id: 'power', title: 'Lights out',
       hint: "The hub's own supply won't carry much. Everything that wants energy competes for the same grid, and a shortfall slows all of it.",
-      done: v.energy.supply > base + EPS },
+      done: v.buildings.some((b) => config.buildings[b.type].type === 'generator') },
     { id: 'scrap', title: 'Running on fumes',
       hint: 'Scrap pays for every structure and some machines eat it. The cache only ever goes down unless something is digging.',
       done: made('scrap') },
@@ -110,32 +112,55 @@ const DIRECTIVES = (config, v) => {
       hint: "The advanced structures need parts you aren't holding. Nobody sells them cheaply, and they don't appear on their own.",
       done: made('machined_parts') },
     { id: 'water', title: 'Something drinkable', timing: () => deadlineFor(config, v, 'clean_water'),
-      hint: "Water from the ground is poison. The colony drinks from clean tanks, and the tanks are draining.",
+      hint: 'Water from the ground is poison. The colony drinks from clean tanks, and the tanks are draining.',
       done: made('clean_water') },
     { id: 'food', title: 'Something edible', timing: () => deadlineFor(config, v, 'rations'),
       hint: "Rations don't appear on their own. Growing food needs light, clean water and components, and it takes time to build.",
       done: made('rations') },
     { id: 'adjacency', title: 'Good neighbours',
-      hint: "Placement matters. Inspect a structure to see who sits beside it, and think about who shouldn't.",
-      done: v.buildings.some((b) => b.mult > 1 + EPS) },
+      hint: 'Placement matters. Inspect a structure to see who sits beside it, and think about who shouldn\'t.',
+      done: v.buildings.some((b) => b.adj > 1 + EPS) },
     { id: 'steady', title: 'Break even', live: true,
       hint: 'Everything the colony consumes must be replaced. Watch the green and red rates beside your stockpiles and the grid at the top.',
       done: made('clean_water') && made('rations') && netOf('clean_water') >= -EPS && netOf('rations') >= -EPS && v.energy.satisfaction >= 1 - EPS },
     { id: 'market', title: 'Open the market', timing: () => ({ kind: 'convoy', ticks: v.convoy.ticksLeft }),
-      hint: 'A convoy passes on a schedule. It only trades what you arranged before it arrived, and it pays for surplus.',
+      hint: 'A convoy passes on a schedule, at prices that move. It only trades what you arranged before it arrived, and it pays for surplus.',
       done: Object.keys(v.contracts.export).length + Object.keys(v.contracts.import).length > 0 },
-    { id: 'hub2', title: 'Room to grow', timing: () => (next ? etaFor(v, next.upgradeCost) : null),
-      hint: 'The first ring fills quickly. The hub itself can be pushed further, at a price, and more of the map opens up with it.',
-      done: v.colony.hubLevel >= 2 },
+    { id: 'hub2', title: 'Room to grow', ...hubGoal(2),
+      hint: 'The first ring fills quickly. The hub itself can be pushed further, at a price, and more of the map opens up with it.' },
+    { id: 'plots', title: 'Elbow room',
+      hint: 'Some structures want more room than the inner rings offer. A cramped plot still works, at a cost. The outer rings are bigger.',
+      done: v.buildings.some((b) => config.buildings[b.type].minPlotSize > 1 && b.plot >= 1 - EPS) },
+    { id: 'storm', title: 'Trouble comes with a warning',
+      hint: 'Something will eventually be headed your way. What the colony has in reserve when it lands decides how badly it hurts.',
+      done: v.colony.hazardsSurvived >= 1 },
     { id: 'materials', title: 'Heavy lifting',
-      hint: 'The largest upgrade wants a material nobody mines. Something has to forge it, and that something has to be unlocked first.',
+      hint: 'The larger upgrades want a material nobody mines. Something has to forge it, and that something wants a bigger plot.',
       done: made('building_materials') || v.resources.building_materials.amount >= 1 },
-    { id: 'hub3', title: 'Final tier', timing: () => (v.colony.hubLevel === maxHub - 1 ? etaFor(v, next.upgradeCost) : null),
-      hint: 'One more push of the hub. It will not be cheap, and the colony has to survive the wait.',
-      done: v.colony.hubLevel >= maxHub },
-    { id: 'hold', title: 'Hold the line', live: true,
-      hint: `Power, water and food all in surplus, with the hub at its peak, for ${sustain} ticks running.`,
-      progress: { value: v.colony.won ? sustain : v.colony.goalTicks, max: sustain },
+    { id: 'hub3', title: "The crown's price", ...hubGoal(3),
+      hint: 'A bigger hub is a hungrier one. From here it draws on the colony just to stay standing, so plan for the drain before you pay for it.' },
+    { id: 'synth', title: 'Something synthetic',
+      hint: 'The old world left plastics in the wreckage. They are where anything delicate begins.',
+      done: made('raw_synthetics') || v.resources.raw_synthetics.amount >= 1 },
+    { id: 'alloys', title: 'Hard metal',
+      hint: 'Structural metals need furnaces, and furnaces need room to breathe.',
+      done: made('alloys') || v.resources.alloys.amount >= 1 },
+    { id: 'circuits', title: 'Fine work',
+      hint: 'Precision parts need synthetics, patience, and a plot that gives them space.',
+      done: made('circuits') || v.resources.circuits.amount >= 1 },
+    { id: 'hub4', title: 'A wider circle', ...hubGoal(4),
+      hint: 'Another ring, another bill. The upkeep climbs, and it now includes things you had to make.' },
+    { id: 'cells', title: 'Concentrated power',
+      hint: 'Something has to combine your best metals and your finest circuits into a compact power source. It is the most demanding thing you will build.',
+      done: made('power_cells') || v.resources.power_cells.amount >= 1 },
+    { id: 'hub5', title: 'The far ring', ...hubGoal(5),
+      hint: 'The outermost ring has plots big enough for anything. The hub has to be strong enough to open it.' },
+    { id: 'beacon', title: 'Reach out', timing: () => (hasBuilding('beacon_array') ? null : etaFor(v, beacon.cost)),
+      hint: 'A transmitter big enough to be heard across the wastes wants the largest plot, the finest materials, and a great deal of power.',
+      done: hasBuilding('beacon_array') },
+    { id: 'transmit', title: 'Hold the signal', live: true,
+      hint: 'It has to keep running, powered and supplied, until the message gets through. Anything that interrupts it costs you time.',
+      progress: { value: Math.floor(v.colony.won ? need : v.colony.progress), max: need },
       done: v.colony.won },
   ];
 };

@@ -99,7 +99,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .map-alert { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; z-index: 2; }
 .alert { background: rgba(40,12,12,.92); border: 1px solid #7a2a2a; color: #ffb0b0; padding: 6px 12px; border-radius: 99px; font-size: 12px; display: flex; gap: 8px; align-items: center; }
 .alert.warn { background: rgba(40,32,8,.92); border-color: #7a6320; color: #ffe08a; }
-.map-hint { position: absolute; left: 12px; top: 10px; color: var(--faint); font-size: 11px; pointer-events: none; }
+.map-hint { position: absolute; left: 12px; bottom: 10px; color: var(--faint); font-size: 11px; pointer-events: none; }
 .legend { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 12px; font-size: 10px; color: var(--dim); pointer-events: none; flex-wrap: wrap; justify-content: flex-end; }
 .legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; background: var(--c); vertical-align: -1px; }
 
@@ -262,3 +262,20 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .st { display: inline-block; padding: 0 6px; border-radius: 99px; font-size: 10px; margin-right: 4px; border: 1px solid; }
 .st.ok { color: var(--good); border-color: #2a6a42; } .st.tight { color: var(--warn); border-color: #7a6320; }
 .st.late { color: var(--bad); border-color: #7a2a2a; } .st.blocked { color: var(--warn); border-color: #7a6320; }
+
+/* ---------- plots, hazards, tiers ---------- */
+.res.hidden { display: none; }
+.res { padding: 6px 0; }
+.ring-label.open { fill: #2c3944; font-size: 8px; }
+.slot.cramped .tag { fill: var(--amber); }
+.slot.cramped .cell { stroke-dasharray: 2 3; }
+.slot.cramped.sel .cell, .slot.cramped.nb .cell { stroke-dasharray: none; }
+.slot.stalled .tag { fill: var(--bad); }
+.legend { display: none; }
+.threat { padding: 12px; border: 1px solid var(--line2); border-left: 3px solid var(--warn); border-radius: var(--radius); background: var(--bg2); margin-bottom: 10px; }
+.threat.good { border-left-color: var(--good); } .threat.bad { border-left-color: var(--bad); background: rgba(60,16,16,.35); }
+.threat .big { font-size: 17px; font-weight: 700; margin: 3px 0 4px; }
+.threat .big.bad { color: var(--bad); }
+.req { margin: 6px 0; } .req .row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+.modal ul.log { max-height: 280px; overflow-y: auto; margin-top: 4px; }
+.modal.report h2 { color: var(--amber); }

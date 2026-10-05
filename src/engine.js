@@ -2,6 +2,7 @@
 const EventEmitter = require('events');
 const sim = require('./sim');
 const store = require('./db');
+const hazards = require('./hazards');
 const { db, config } = store;
 
 const neighborMap = sim.buildNeighborMap(config);
@@ -19,14 +20,16 @@ const timing = () => ({
 function loadState(c) {
   return {
     hubLevel: c.hub_level, population: c.population, morale: c.morale, age: c.age,
-    goalTicks: c.goal_ticks, won: !!c.won, credits: c.credits,
+    progress: c.progress, won: !!c.won, credits: c.credits,
     inventory: store.loadInventory(c.id), buildings: store.loadBuildings(c.id),
   };
 }
 
-function tickColony(c, globalTick) {
+function tickColony(c, globalTick, tickTime) {
   const state = loadState(c);
-  const res = sim.step(config, state, neighborMap);
+  const hazard = store.loadHazard(c.id);
+  const mods = hazards.modifiersFor(config, hazard, state.buildings);
+  const res = sim.step(config, state, neighborMap, mods);
   const ev = (kind, msg) => store.addEvent(c.id, globalTick, kind, msg);
   const names = (list) => list.map((r) => config.resources[r].name).join(' and ');
 
@@ -42,7 +45,11 @@ function tickColony(c, globalTick) {
   if (brownout && !c.brownout) ev('warn', `Brownout: grid supplies ${Math.floor(res.energy.supply)} of ${Math.ceil(res.energy.demand)} power. Production is throttled.`);
   if (!brownout && c.brownout) ev('good', 'Power grid stable again.');
   if (res.grew) ev('info', `Population grew to ${population}.`);
-  if (res.won && !c.won) ev('good', 'COLONY SELF-SUSTAINING. Hub level 3 with a stable power and supply loop. Mission accomplished.');
+  const need = config.global.beacon.transmitTicks;
+  for (const q of [0.25, 0.5, 0.75]) {
+    if (c.progress < need * q && res.progress >= need * q && !res.won) ev('info', `Beacon transmission ${Math.round(q * 100)}% complete.`);
+  }
+  if (res.won && !c.won) ev('good', 'THE BEACON HAS REACHED THE WORLD. Transmission complete. Mission accomplished.');
 
   // Work orders
   for (const o of store.loadOrders(c.id)) {
@@ -63,7 +70,8 @@ function tickColony(c, globalTick) {
 
   // Convoy
   if (globalTick % config.global.convoyIntervalTicks === 0) {
-    const out = sim.runConvoy(config, { hubLevel, inventory, credits }, store.loadContracts(c.id));
+    const k = globalTick / config.global.convoyIntervalTicks;
+    const out = sim.runConvoy(config, { hubLevel, inventory, credits, cap: res.cap }, store.loadContracts(c.id), sim.marketPrices(config, k));
     inventory = out.inventory;
     credits = out.credits;
     ev('info', 'The convoy has arrived.');
@@ -76,15 +84,24 @@ function tickColony(c, globalTick) {
     ev('bad', 'The population has lost all hope. The colony is abandoned.');
   }
 
+  // Hazards: forecasts, strikes and expiries. Players only start new ones while active,
+  // but a forecast hazard always lands on its tick, logged in or not.
+  if (status === 'active') {
+    const active = c.last_seen_at >= tickTime - config.global.activeWindowSeconds * 1000;
+    const out = hazards.advance({ config, c, globalTick, active, inventory, credits, defense: res.defense, buildings: state.buildings });
+    inventory = out.inventory;
+    credits = out.credits;
+  }
+
   store.saveInventory(c.id, inventory);
   db.prepare(`UPDATE colonies SET hub_level = ?, credits = ?, morale = ?, population = ?, age = age + 1, status = ?,
-    won = ?, goal_ticks = ?, starving = ?, brownout = ? WHERE id = ?`)
-    .run(hubLevel, credits, res.morale, population, status, res.won ? 1 : 0, res.goalTicks, starving ? 1 : 0, brownout ? 1 : 0, c.id);
+    won = ?, progress = ?, starving = ?, brownout = ? WHERE id = ?`)
+    .run(hubLevel, Math.floor(credits), res.morale, population, status, res.won ? 1 : 0, res.progress, starving ? 1 : 0, brownout ? 1 : 0, c.id);
 }
 
-const processTick = db.transaction(() => {
+const processTick = db.transaction((tickTime = Date.now()) => {
   const globalTick = Number(store.getMeta('global_tick', 0)) + 1;
-  for (const c of db.prepare("SELECT * FROM colonies WHERE status = 'active'").all()) tickColony(c, globalTick);
+  for (const c of db.prepare("SELECT * FROM colonies WHERE status = 'active'").all()) tickColony(c, globalTick, tickTime);
   store.setMeta('global_tick', globalTick);
   return globalTick;
 });
@@ -99,7 +116,8 @@ function runDueTicks(now = Date.now()) {
     last = now - config.global.maxOfflineTicks * TICK_MS;
     due = config.global.maxOfflineTicks;
   }
-  for (let i = 0; i < due; i++) processTick();
+  // Catch-up ticks carry their own virtual time, so "was the player around?" is judged then, not now.
+  for (let i = 0; i < due; i++) processTick(last + (i + 1) * TICK_MS);
   store.setMeta('last_tick_at', last + due * TICK_MS);
   events.emit('tick', timing());
   return due;
