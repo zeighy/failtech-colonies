@@ -10,6 +10,13 @@ A browser-based colony management game set in a gritty, post-2200 survival-indus
 4. Your people drink and eat every tick. If clean water or rations run out, morale falls; at 0 morale the colony is abandoned.
 5. **Goal:** upgrade the Hub to level 3 and hold a self-sustaining loop (power covers demand, water and rations in surplus) for 10 ticks.
 
+### The Brief tab: directives and the collapse clock
+
+New commanders start on the **Brief** tab. It has two parts:
+
+- **Collapse clock** (also in the top bar): ticks until the colony collapses *if nothing changes*: time until the first critical stock runs dry, plus the morale runway after that. Change your production and the clock moves.
+- **Directives:** a 12-step roadmap from "keep the lights on" to "hold a self-sustaining loop". Each one hints at what is *missing* without naming what to build. Milestones stay ticked once earned. The survival directives (water, food) compare how long your stock lasts against the earliest you could realistically finish the structure that fixes it, and tell you whether you are **on track**, **tight**, **behind schedule** or **blocked** (waiting on a resource with no income yet). Upgrade directives show how many ticks until you can afford them at current income, and the market directive shows the convoy countdown.
+
 ### The opening
 
 Power is a *grid*, not a stockpile: every consumer needs its share of the supply every tick, and a shortfall throttles everything proportionally (a brownout). The Hub gives a little free power; Solar Arrays give the rest. A solid first few minutes:

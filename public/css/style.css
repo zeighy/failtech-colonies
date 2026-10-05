@@ -242,3 +242,23 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
   .map-hint { display: none; }
   .chip { min-width: 0; }
 }
+
+/* ---------- brief: collapse clock + directives ---------- */
+.tab .count { margin-left: 5px; padding: 0 5px; border-radius: 99px; background: var(--amber); color: #1a1000; font-size: 9px; font-weight: 700; }
+.doom { padding: 12px; border: 1px solid var(--line2); border-left: 3px solid var(--good); border-radius: var(--radius); background: var(--bg2); }
+.doom.warn { border-left-color: var(--warn); } .doom.bad { border-left-color: var(--bad); background: rgba(60,16,16,.35); }
+.doom .big { font-size: 18px; font-weight: 700; margin: 4px 0 6px; }
+.doom .drain { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.dir { display: flex; gap: 10px; padding: 9px 8px; border-radius: var(--radius); border-left: 2px solid transparent; }
+.dir .tick { width: 16px; height: 16px; border: 1px solid var(--line2); border-radius: 50%; flex: none; margin-top: 1px; display: grid; place-items: center; color: transparent; }
+.dir .body { min-width: 0; flex: 1; }
+.dir .hint { color: var(--dim); font-size: 12px; margin-top: 3px; }
+.dir .tm { font-size: 11px; color: var(--dim); margin-top: 6px; }
+.dir:not(.done) { color: var(--text); }
+.dir.current { background: var(--panel2); border-left-color: var(--amber); }
+.dir.current .hint { color: var(--text); }
+.dir.done { color: var(--dim); } .dir.done .tick { background: var(--good); border-color: var(--good); color: #04210e; }
+.dir.done b { font-weight: 400; text-decoration: line-through; text-decoration-color: var(--faint); }
+.st { display: inline-block; padding: 0 6px; border-radius: 99px; font-size: 10px; margin-right: 4px; border: 1px solid; }
+.st.ok { color: var(--good); border-color: #2a6a42; } .st.tight { color: var(--warn); border-color: #7a6320; }
+.st.late { color: var(--bad); border-color: #7a2a2a; } .st.blocked { color: var(--warn); border-color: #7a6320; }

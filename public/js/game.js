@@ -24,7 +24,7 @@
   var CFG = null;          // static config
   var S = null;            // latest server view
   var sel = null;          // { ring, slot } | { hub: true } | null
-  var tab = 'site';
+  var tab = 'brief';
   var offset = 0;          // server clock - client clock
   var lastEventId = null;
   var shown = {};          // modals already shown (per page load)
@@ -35,7 +35,7 @@
   var ringLabels = {};     // ring -> svg text shown while the ring is locked
   var hubEl = null;
   var STEP = { scrap: 50, unpurified_water: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5 };
-  var TABS = [['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['convoy', 'Convoy', 'truck'], ['log', 'Log', 'list']];
+  var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['convoy', 'Convoy', 'truck'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
   function api(path, body) {
@@ -261,6 +261,14 @@
     $('c-energy').innerHTML = '<span class="' + (ok ? '' : 'bad') + '">' + Math.floor(e.supply) + '</span><small>/ ' + Math.ceil(e.demand) + ' used</small>';
     var eb = $('c-energy-bar'); eb.style.width = (e.demand ? clamp(e.supply / e.demand, 0, 1) * 100 : 100) + '%';
     eb.style.background = ok ? 'var(--energy)' : e.satisfaction > 0.5 ? 'var(--warn)' : 'var(--bad)';
+    var d = S.doom, dc = $('c-doom');
+    if (!d) { dc.innerHTML = '<span class="good">Stable</span>'; dc.title = 'No critical supply is draining at current rates.'; }
+    else {
+      var urgent = d.phase === 'starving' || d.ticks <= 20;
+      dc.innerHTML = '<span class="' + (urgent ? 'bad' : d.ticks <= 40 ? 'warn' : '') + '">' + d.ticks + 't</span><small>' + clock(d.ticks * S.tickMs) + '</small>';
+      dc.title = d.phase === 'starving' ? 'Collapse in ' + d.ticks + ' ticks unless supplies are restored.'
+        : 'If nothing changes, ' + d.resources.map(function (r) { return CFG.resources[r].name; }).join(' & ') + ' runs short in ' + d.untilShortage + ' ticks and the colony collapses ' + d.ticks + ' ticks from now.';
+    }
     $('c-tick').textContent = '#' + S.tick;
     $('c-user').textContent = S.user;
   }
@@ -328,7 +336,8 @@
     var dot = next && !S.hub.upgrading && canAfford(next.upgradeCost);
     var h = TABS.map(function (t) {
       return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] +
-        (t[0] === 'hub' && dot ? '<span class="badge" style="background:var(--good)"></span>' : '') + '</button>';
+        (t[0] === 'hub' && dot ? '<span class="badge" style="background:var(--good)"></span>' : '') +
+        (t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') + '</button>';
     }).join('');
     if ($('tabs').dataset.h !== h) { $('tabs').innerHTML = h; $('tabs').dataset.h = h; }
   }
@@ -404,6 +413,59 @@
     return h + '</div>';
   }
 
+
+  // ---- Brief: doom clock + directives ----------------------------------------
+  function span(n) { return n + ' tick' + (n === 1 ? '' : 's') + ' <span class="dim">(' + clock(n * S.tickMs) + ')</span>'; }
+  function names(list) { return list.map(function (r) { return CFG.resources[r].name; }).join(', '); }
+  function doomCard() {
+    var d = S.doom;
+    if (!d) {
+      return '<div class="doom ok"><div class="label">Collapse clock</div><div class="big good">STABLE</div>' +
+        '<div class="dim">Nothing critical is draining at current rates. Growth or losses can change that.</div></div>';
+    }
+    var urgent = d.phase === 'starving' || d.ticks <= 20, cls = urgent ? 'bad' : d.ticks <= 40 ? 'warn' : '';
+    var h = '<div class="doom ' + cls + '"><div class="label">Collapse clock</div><div class="big ' + cls + '">' + span(d.ticks) + '</div>';
+    if (d.phase === 'starving') {
+      h += '<div>Shortage of ' + esc(names(d.resources)) + '. Morale is falling every tick.</div>';
+    } else {
+      h += '<div>First shortage in ' + span(d.untilShortage) + ', then morale runs out.</div><div class="drain">';
+      d.draining.forEach(function (x) {
+        h += '<span class="pill"><i style="background:' + CFG.resources[x.resource].color + '"></i>' + esc(CFG.resources[x.resource].name) + ' ' + x.ticks + 't</span>';
+      });
+      h += '</div>';
+    }
+    return h + '<div class="dim" style="margin-top:6px;font-size:11px">At current rates. Change the rates, change the clock.</div></div>';
+  }
+  var TIMING_LABEL = { ok: 'On track', tight: 'Tight', late: 'Behind schedule', blocked: 'Blocked' };
+  function timingLine(tm) {
+    if (!tm) return '';
+    if (tm.kind === 'convoy') return '<div class="tm">Next convoy in ' + span(tm.ticks) + '</div>';
+    if (tm.kind === 'eta') {
+      if (tm.affordable) return '<div class="tm good">Within your means right now</div>';
+      if (tm.ticks === null) return '<div class="tm warn">No income yet of ' + esc(names(tm.blocked)) + '</div>';
+      return '<div class="tm">Affordable in ~' + span(tm.ticks) + ' at current income</div>';
+    }
+    if (tm.stockTicks === null) return '';
+    var h = '<div class="tm"><span class="st ' + tm.status + '">' + TIMING_LABEL[tm.status] + '</span> Stock lasts ~' + tm.stockTicks + ' ticks';
+    if (tm.lead !== null) h += '; earliest finish ~' + tm.lead + ' ticks';
+    else if (tm.blocked.length) h += '; waiting on ' + esc(names(tm.blocked));
+    return h + '</div>';
+  }
+  function briefTab() {
+    var ds = S.brief.directives, done = ds.filter(function (d) { return d.done; }).length;
+    var h = doomCard() + '<div class="p-title" style="margin-top:16px"><h3>Directives</h3><span class="dim num" style="margin-left:auto">' + done + ' / ' + ds.length + '</span></div>' +
+      '<div class="meter" style="margin:4px 0 10px"><i style="width:' + (done / ds.length * 100).toFixed(0) + '%;background:var(--amber)"></i></div>';
+    ds.forEach(function (d) {
+      h += '<div class="dir' + (d.done ? ' done' : '') + (d.current ? ' current' : '') + '"><span class="tick">' + icon('check', 11) + '</span><div class="body"><b>' + esc(d.title) + '</b>';
+      if (!d.done) {
+        h += '<div class="hint">' + esc(d.hint) + '</div>' + timingLine(d.timing);
+        if (d.progress) h += '<div class="meter" style="margin-top:6px"><i style="width:' + (d.progress.value / d.progress.max * 100).toFixed(0) + '%;background:var(--good)"></i></div><div class="tm num">' + d.progress.value + ' / ' + d.progress.max + ' ticks held</div>';
+      }
+      h += '</div></div>';
+    });
+    return h + '<div class="note" style="margin-top:14px">Directives only point at what is missing. Working out how is the game.</div>';
+  }
+
   function hubTab() {
     var c = S.colony, lv = CFG.hubLevels[c.hubLevel], next = CFG.hubLevels[c.hubLevel + 1];
     var max = Math.max.apply(null, Object.keys(CFG.hubLevels).map(Number));
@@ -458,7 +520,7 @@
 
   var lastPanel = '';
   function renderPanel() {
-    var h = tab === 'hub' ? hubTab() : tab === 'convoy' ? convoyTab() : tab === 'log' ? logTab() : siteTab();
+    var h = tab === 'hub' ? hubTab() : tab === 'convoy' ? convoyTab() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
     if (h === lastPanel) return;
     lastPanel = h;
     var p = $('panel'), top = p.scrollTop;

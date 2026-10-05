@@ -197,3 +197,70 @@ test('pages: game requires login, static assets served', async () => {
   assert.equal((await c.get('/')).status, 200);
   assert.equal((await c.get('/js/game.js')).status, 200);
 });
+
+// ---- onboarding directives & collapse clock ------------------------------------
+const lastColonyId = () => store.db.prepare('SELECT id FROM colonies ORDER BY id DESC LIMIT 1').get().id;
+const setStock = (id, res, amt) => store.db.prepare('UPDATE colony_inventory SET amount = ? WHERE colony_id = ? AND resource_id = ?').run(amt, id, res);
+const directive = (s, id) => s.brief.directives.find((d) => d.id === id);
+
+test('brief: fresh colony has a full roadmap, a correct collapse clock, and hints that never name a building', async () => {
+  const c = await newPlayer();
+  const s = (await c.get('/api/state')).body;
+  assert.equal(s.brief.directives.length, 12);
+  assert.equal(s.brief.remaining, 12);
+  assert.equal(s.brief.directives.filter((d) => d.current).length, 1);
+  assert.equal(s.brief.directives.find((d) => d.current).id, 'power');
+  // 80 water at -2/tick = 40 ticks to shortage, then 10 ticks of morale: matches the sim's collapse at tick 50
+  assert.equal(s.doom.phase, 'depleting');
+  assert.equal(s.doom.untilShortage, 40);
+  assert.equal(s.doom.ticks, 50);
+  // hints point at what is missing, never at the thing to build
+  const banned = Object.values(store.config.buildings).map((b) => b.name.toLowerCase());
+  for (const d of s.brief.directives) {
+    for (const name of banned) assert.ok(!d.hint.toLowerCase().includes(name) && !d.title.toLowerCase().includes(name), `"${d.id}" names ${name}`);
+  }
+});
+
+test('brief: milestones tick off and stay ticked; live directives do not stick', async () => {
+  const c = await newPlayer();
+  await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' });
+  tick(2);
+  let s = (await c.get('/api/state')).body;
+  assert.equal(directive(s, 'power').done, true);
+  assert.equal(s.brief.directives.find((d) => d.current).id, 'scrap');
+  await c.post('/api/demolish', { ring: 1, slot: 0 });
+  s = (await c.get('/api/state')).body;
+  assert.equal(directive(s, 'power').done, true, 'sticky after the generator is gone');
+  assert.equal(directive(s, 'steady').done, false);
+});
+
+test('brief: survival deadline reports blocked, then on-track / behind schedule from stock vs. lead time', async () => {
+  const c = await newPlayer();
+  const id = lastColonyId();
+  let s = (await c.get('/api/state')).body;
+  assert.equal(directive(s, 'water').timing.status, 'blocked'); // no parts income yet
+  assert.deepEqual(directive(s, 'water').timing.blocked, ['machined_parts']);
+  setStock(id, 'machined_parts', 50);
+  s = (await c.get('/api/state')).body;
+  let t = directive(s, 'water').timing;
+  assert.equal(t.lead, store.config.buildings.water_purifier.constructionTicks); // affordable now, so only build time remains
+  assert.equal(t.status, 'ok');
+  setStock(id, 'clean_water', 6); // 3 ticks of stock vs. a 5-tick build
+  s = (await c.get('/api/state')).body;
+  t = directive(s, 'water').timing;
+  assert.equal(t.stockTicks, 3);
+  assert.equal(t.status, 'late');
+});
+
+test('brief: collapse clock switches to starving and counts the morale runway down', async () => {
+  const c = await newPlayer();
+  const id = lastColonyId();
+  setStock(id, 'clean_water', 0);
+  tick(1);
+  let s = (await c.get('/api/state')).body;
+  assert.equal(s.doom.phase, 'starving');
+  assert.equal(s.doom.ticks, 9); // morale 90 after one starving tick, 10 per tick
+  tick(3);
+  s = (await c.get('/api/state')).body;
+  assert.equal(s.doom.ticks, 6);
+});

@@ -9,7 +9,7 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failt
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -18,7 +18,7 @@ function migrate() {
     password TEXT NOT NULL
   )`);
   const v = db.pragma('user_version', { simple: true });
-  if (v < SCHEMA_VERSION) {
+  if (v < 2) {
     // v1 was the throwaway prototype; accounts survive, colonies are re-founded on next login.
     db.exec(`
       DROP TABLE IF EXISTS colony_work_orders;
@@ -43,7 +43,8 @@ function migrate() {
       goal_ticks INTEGER NOT NULL DEFAULT 0,
       starving INTEGER NOT NULL DEFAULT 0,
       brownout INTEGER NOT NULL DEFAULT 0,
-      failures INTEGER NOT NULL DEFAULT 0
+      failures INTEGER NOT NULL DEFAULT 0,
+      milestones TEXT NOT NULL DEFAULT '[]'
     );
     CREATE TABLE IF NOT EXISTS colony_inventory (
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
@@ -83,6 +84,10 @@ function migrate() {
       message TEXT NOT NULL
     );
   `);
+  // v3: sticky onboarding milestones
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'milestones'").get()) {
+    db.exec("ALTER TABLE colonies ADD COLUMN milestones TEXT NOT NULL DEFAULT '[]'");
+  }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
 migrate();

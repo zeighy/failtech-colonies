@@ -2,6 +2,7 @@
 const sim = require('./sim');
 const store = require('./db');
 const engine = require('./engine');
+const objectives = require('./objectives');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -54,7 +55,7 @@ function viewFor(userId, now = Date.now()) {
   const ticksToConvoy = config.global.convoyIntervalTicks - (t.globalTick % config.global.convoyIntervalTicks);
   const nextTickAt = t.lastTickAt + t.tickMs;
 
-  return {
+  const view = {
     user: user.username,
     tick: t.globalTick, tickMs: t.tickMs, nextTickAt, serverNow: now,
     convoy: { ticksLeft: ticksToConvoy, arrivesAt: nextTickAt + (ticksToConvoy - 1) * t.tickMs },
@@ -80,6 +81,17 @@ function viewFor(userId, now = Date.now()) {
     contracts: store.loadContracts(c.id),
     events: db.prepare('SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? ORDER BY id DESC LIMIT 40').all(c.id),
   };
+
+  // Directives are sticky: newly earned milestones are saved as the view is
+  // built (idempotent progress tracking, only writes when something changed).
+  const known = JSON.parse(c.milestones);
+  const brief = objectives.evaluate(config, view, known);
+  if (brief.doneIds.length !== known.length) {
+    db.prepare('UPDATE colonies SET milestones = ? WHERE id = ?').run(JSON.stringify(brief.doneIds), c.id);
+  }
+  view.brief = { directives: brief.list, remaining: brief.remaining };
+  view.doom = brief.doom;
+  return view;
 }
 
 module.exports = { clientConfig, viewFor };
