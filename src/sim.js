@@ -258,7 +258,7 @@ function runConvoy(config, state, contracts, prices) {
   let credits = state.credits;
   const cap = state.cap !== undefined ? state.cap : config.hubLevels[state.hubLevel].maxStorage;
   const log = [];
-  const maxFor = (res) => config.resources[res].convoyMax || config.global.convoyMaxPerResource;
+  const maxFor = (res) => convoyLimit(config, state.hubLevel, res);
   for (const [res, amount] of Object.entries(contracts.export || {})) {
     const def = config.resources[res];
     if (!def || amount <= 0) continue;
@@ -288,6 +288,12 @@ function runConvoy(config, state, contracts, prices) {
   return { inventory: inv, credits, log };
 }
 
+// Per-convoy trade limit for a resource: its base limit scaled by the hub level.
+function convoyLimit(config, hubLevel, res) {
+  const base = config.resources[res].convoyMax || config.global.convoyMaxPerResource;
+  return Math.floor(base * (config.hubLevels[hubLevel].convoyCapMult || 1));
+}
+
 function slotUnlocked(config, hubLevel, ring, slot) {
   const cap = config.hubLevels[hubLevel].ringCapacities[ring];
   return Number.isInteger(slot) && !!cap && slot >= 0 && slot < cap;
@@ -295,5 +301,5 @@ function slotUnlocked(config, hubLevel, ring, slot) {
 
 module.exports = {
   key, maxLevel, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
-  marketMult, marketPrices, step, runConvoy, slotUnlocked,
+  marketMult, marketPrices, convoyLimit, step, runConvoy, slotUnlocked,
 };

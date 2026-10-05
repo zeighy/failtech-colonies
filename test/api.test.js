@@ -153,6 +153,16 @@ test('convoy: standing contracts execute when the convoy arrives', async () => {
   assert.ok(after.events.some((e) => /Convoy bought 30 Rations/.test(e.message)), JSON.stringify(after.events.map((e) => e.message)));
   assert.equal(after.resources.machined_parts.amount, 10);
   assert.equal(after.convoy.ticksLeft, interval);
+  // contract amounts are clamped to this resource's limit at the current hub level
+  const big = await c.post('/api/contract', { resource: 'power_cells', side: 'import', amount: 9999 });
+  assert.equal(big.body.state.contracts.import.power_cells, store.config.resources.power_cells.convoyMax);
+  assert.equal(big.body.state.market.limits.power_cells, store.config.resources.power_cells.convoyMax);
+  assert.equal(big.body.state.market.limits.scrap, store.config.global.convoyMaxPerResource);
+  store.db.prepare('UPDATE colonies SET hub_level = 3 WHERE id = ?').run(colony.id);
+  const grown = (await c.get('/api/state')).body.market.limits;
+  assert.equal(grown.power_cells, Math.floor(store.config.resources.power_cells.convoyMax * store.config.hubLevels['3'].convoyCapMult));
+  const more = await c.post('/api/contract', { resource: 'power_cells', side: 'import', amount: 9999 });
+  assert.equal(more.body.state.contracts.import.power_cells, grown.power_cells);
   // clearing a contract removes it
   const cleared = await c.post('/api/contract', { resource: 'rations', side: 'export', amount: 0 });
   assert.deepEqual(cleared.body.state.contracts.export, {});

@@ -23,7 +23,6 @@ function clientConfig() {
     rings: caps,
     neighbors,
     convoyIntervalTicks: config.global.convoyIntervalTicks,
-    convoyMax: config.global.convoyMaxPerResource,
     demolishRefund: config.global.demolishRefund,
     failureThresholdTicks: config.global.moraleFailureThresholdTicks,
   };
@@ -99,7 +98,9 @@ function viewFor(userId, now = Date.now()) {
   for (const res of Object.keys(config.resources)) {
     prices[res] = { buy: now_[res].buy, sell: now_[res].sell, trend: now_[res].mult / before[res].mult - 1, mult: now_[res].mult };
   }
-  view.market = { prices };
+  const limits = {};
+  for (const res of Object.keys(config.resources)) limits[res] = sim.convoyLimit(config, c.hub_level, res);
+  view.market = { prices, limits };
 
   if (hazard) {
     const def = config.hazards.types[hazard.type];

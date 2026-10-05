@@ -574,11 +574,11 @@
   }
   function convoyTab() {
     var h = '<div class="convoy-head"><div class="label">Next convoy in</div><div class="big num" data-f="convoy">–</div><div class="dim" style="font-size:11px" data-f="convoyTicks"></div></div>' +
-      '<p class="p-desc">Standing orders repeat every convoy at that convoy\'s prices. Prices drift from convoy to convoy; the figures below are what the <b>next</b> convoy will pay and charge, and the arrows show the change from the last one.</p>';
+      '<p class="p-desc">Standing orders repeat every convoy at that convoy\'s prices. The trade limit per resource grows with your hub level (currently ×' + (CFG.hubLevels[S.colony.hubLevel].convoyCapMult || 1) + '). Prices drift from convoy to convoy; the figures below are what the <b>next</b> convoy will pay and charge, and the arrows show the change from the last one.</p>';
     var net = 0;
     Object.keys(CFG.resources).forEach(function (k) {
       var r = CFG.resources[k], ex = S.contracts.export[k] || 0, im = S.contracts.import[k] || 0, st = STEP[k] || 10;
-      var mp = S.market.prices[k], max = r.convoyMax || CFG.convoyMax;
+      var mp = S.market.prices[k], max = S.market.limits[k];
       if (r.showFromHub && r.showFromHub > S.colony.hubLevel + 1 && !ex && !im && S.resources[k].amount < 0.5) return;
       net += ex * mp.sell - im * mp.buy;
       var stepper = function (side, v) {
@@ -586,7 +586,7 @@
           '<span class="val num">' + v + '</span><button data-act="contract" data-res="' + k + '" data-side="' + side + '" data-delta="' + st + '"' + (v >= max ? ' disabled' : '') + ' aria-label="Increase ' + side + '">+</button></div>';
       };
       h += '<div class="trade" style="--c:' + r.color + '"><div class="nm"><i></i>' + esc(r.name) + '</div>' +
-        '<div class="stock">stock <span class="num" data-b="amt:' + k + '"></span> · max ' + max + '</div>' + stepper('export', ex) + stepper('import', im) +
+        '<div class="stock">stock <span class="num" data-b="amt:' + k + '"></span> · max ' + max + ' per convoy</div>' + stepper('export', ex) + stepper('import', im) +
         '<div class="sub"><span>sells for ' + mp.sell + ' cr' + trendTxt(mp.trend, true) + '</span><span>buys for ' + mp.buy + ' cr' + trendTxt(mp.trend, false) + '</span></div></div>';
     });
     h += '<div class="note ' + (net >= 0 ? 'good' : '') + '" style="margin-top:12px">Estimated convoy balance at forecast prices: <b>' + (net >= 0 ? '+' : '−') + fmt(Math.abs(net)) + ' cr</b></div>';
@@ -720,7 +720,7 @@
     else if (a === 'upgrade') act('upgrade', {}, 'Hub upgrade started.');
     else if (a === 'contract') {
       var side = el.dataset.side, res = el.dataset.res;
-      var cur = S.contracts[side][res] || 0, v = clamp(cur + (+el.dataset.delta), 0, CFG.resources[res].convoyMax || CFG.convoyMax);
+      var cur = S.contracts[side][res] || 0, v = clamp(cur + (+el.dataset.delta), 0, S.market.limits[res]);
       S.contracts[side][res] = v; if (!v) delete S.contracts[side][res];
       renderPanel();
       act('contract', { resource: res, side: side, amount: v });

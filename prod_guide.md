@@ -81,13 +81,13 @@ Neighbours are the two slots beside a building in its ring plus every touching s
 
 ## **7. Hub levels**
 
-| Level | Upgrade cost | Time | Storage | Max pop | Base power | Rings | Upkeep / tick |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | start | – | 2,000 | 30 | 20 | 1 | – |
-| 2 | 1200 scrap, 60 machined parts | 10 | 4,000 | 50 | 30 | 2 | – |
-| 3 | 2500 scrap, 120 machined parts, 60 building materials | 14 | 6,000 | 80 | 40 | 3 | 12 power, 1 machined parts |
-| 4 | 3500 scrap, 180 machined parts, 140 building materials, 50 alloys | 14 | 8,000 | 110 | 50 | 4 | 25 power, 1 machined parts, 1 alloys |
-| 5 | 5000 scrap, 220 building materials, 100 alloys, 50 circuits | 18 | 12,000 | 150 | 60 | 5 | 40 power, 2 machined parts, 2 alloys, 1 circuits |
+| Level | Upgrade cost | Time | Storage | Max pop | Base power | Rings | Upkeep / tick | Convoy limit |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | start | – | 2,000 | 30 | 20 | 1 | – | ×1 |
+| 2 | 1200 scrap, 60 machined parts | 10 | 4,000 | 50 | 30 | 2 | – | ×1.5 |
+| 3 | 2500 scrap, 120 machined parts, 60 building materials | 14 | 6,000 | 80 | 40 | 3 | 12 power, 1 machined parts | ×2 |
+| 4 | 3500 scrap, 180 machined parts, 140 building materials, 50 alloys | 14 | 8,000 | 110 | 50 | 4 | 25 power, 1 machined parts, 1 alloys | ×3 |
+| 5 | 5000 scrap, 220 building materials, 100 alloys, 50 circuits | 18 | 12,000 | 150 | 60 | 5 | 40 power, 2 machined parts, 2 alloys, 1 circuits | ×4 |
 
 From **level 3** the hub has upkeep: it draws power and supplies every tick. If the upkeep can't be met, the hub's own power output drops with it, which cascades into brownouts. Warehouses add storage on top of the hub's cap.
 
@@ -110,7 +110,7 @@ Hazards are forecast, then strike on a fixed tick.
 
 ## **9. The Convoy**
 
-Every 40 ticks. Standing export and import orders execute on arrival at **that convoy's prices**. Prices drift per convoy (a slow wave plus noise, ×0.6 to ×1.6 of the base price) and are deterministic, so the next convoy's prices are shown in advance with the change from the last one. Per-convoy limits default to 500 per resource and are lower for the high tiers (alloys 80, circuits 60, power cells 20).
+Every 40 ticks. Standing export and import orders execute on arrival at **that convoy's prices**. Prices drift per convoy (a slow wave plus noise, ×0.6 to ×1.6 of the base price) and are deterministic, so the next convoy's prices are shown in advance with the change from the last one. Per-convoy limits scale with hub level (the "Convoy limit" column above multiplies each resource's base limit). Base limits default to 500 per resource and are lower for the high tiers (alloys 80, circuits 60, power cells 20).
 
 | Resource | Base buy | Base sell |
 | --- | --- | --- |

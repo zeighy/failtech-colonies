@@ -138,7 +138,8 @@
         "1": 6
       },
       "upgradeCost": null,
-      "upgradeTicks": 0
+      "upgradeTicks": 0,
+      "convoyCapMult": 1
     },
     "2": {
       "maxStorage": 4000,
@@ -152,7 +153,8 @@
         "scrap": 1200,
         "machined_parts": 60
       },
-      "upgradeTicks": 10
+      "upgradeTicks": 10,
+      "convoyCapMult": 1.5
     },
     "3": {
       "maxStorage": 6000,
@@ -172,7 +174,8 @@
       "upkeepPerTick": {
         "energy": 12,
         "machined_parts": 1
-      }
+      },
+      "convoyCapMult": 2
     },
     "4": {
       "maxStorage": 8000,
@@ -195,7 +198,8 @@
         "energy": 25,
         "machined_parts": 1,
         "alloys": 1
-      }
+      },
+      "convoyCapMult": 3
     },
     "5": {
       "maxStorage": 12000,
@@ -220,7 +224,8 @@
         "machined_parts": 2,
         "alloys": 2,
         "circuits": 1
-      }
+      },
+      "convoyCapMult": 4
     }
   },
   "buildings": {

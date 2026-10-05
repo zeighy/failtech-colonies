@@ -100,7 +100,7 @@ const setContract = guarded((c, { resource, side, amount }) => {
   if (side !== 'export' && side !== 'import') return fail('Bad contract side.');
   amount = Math.floor(Number(amount));
   if (!Number.isFinite(amount) || amount < 0) return fail('Bad amount.');
-  amount = Math.min(amount, config.global.convoyMaxPerResource);
+  amount = Math.min(amount, sim.convoyLimit(config, c.hub_level, resource));
   if (amount === 0) db.prepare('DELETE FROM colony_contracts WHERE colony_id = ? AND resource_id = ? AND side = ?').run(c.id, resource, side);
   else db.prepare('INSERT INTO colony_contracts (colony_id, resource_id, side, amount) VALUES (?, ?, ?, ?) ON CONFLICT DO UPDATE SET amount = excluded.amount').run(c.id, resource, side, amount);
   return OK;

@@ -24,7 +24,7 @@ The **Brief** tab is your guide. It shows a **collapse clock** (ticks until coll
 | **Hub upkeep** | From level 3 the Hub consumes power and supplies every tick (later alloys and circuits too). If it can't be maintained, its own power output drops. |
 | **Storage** | The Hub caps every resource; Warehouses raise the cap. Excess production is lost (the UI warns you). |
 | **Hazards** | Dust storms, equipment faults, crop blight and raids are forecast ahead of time and strike on a fixed tick. The colony spends reserves automatically to avert or soften them; unprepared means a prorated penalty. See below. |
-| **Convoy** | Every 40 ticks. Standing export/import orders execute at that convoy's prices, which drift from convoy to convoy and are shown in advance with their change. |
+| **Convoy** | Every 40 ticks. Standing export/import orders execute at that convoy's prices, which drift from convoy to convoy and are shown in advance with their change. The per-resource trade limit grows with Hub level (×1 at level 1 up to ×4 at level 5). |
 | **Work orders** | Construction and upgrades take ticks. Costs are charged up front; cancelling refunds in full. |
 | **Failure** | Critical shortages drain morale; at zero the colony collapses. You keep half your credits for the next attempt. "Abandon colony" does a full reset. |
 | **Offline progress** | The server owns the clock. Production, consumption, convoys and already-forecast hazards continue while you are logged out (capped at 1,200 ticks of catch-up after downtime). |

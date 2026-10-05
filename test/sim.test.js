@@ -113,9 +113,28 @@ test('convoy sells exports, buys imports, respects credits and storage', () => {
   assert.equal(out.credits, Math.round(100 + 40 * config.resources.rations.sell - bought * config.resources.machined_parts.buy));
   const full = sim.runConvoy(config, { hubLevel: 1, credits: 1e6, inventory: { scrap: 1990 } }, { import: { scrap: 500 } }, basePrices);
   assert.equal(full.inventory.scrap, 2000);
-  // per-resource convoy limits apply to the high tiers
+  // per-resource convoy limits apply, and scale with hub level
   const rich = sim.runConvoy(config, { hubLevel: 5, credits: 1e6, inventory: {} }, { import: { power_cells: 500 } }, basePrices);
-  assert.equal(rich.inventory.power_cells, config.resources.power_cells.convoyMax);
+  assert.equal(rich.inventory.power_cells, sim.convoyLimit(config, 5, 'power_cells'));
+  const poor = sim.runConvoy(config, { hubLevel: 1, credits: 1e6, inventory: {} }, { import: { power_cells: 500 } }, basePrices);
+  assert.equal(poor.inventory.power_cells, config.resources.power_cells.convoyMax);
+});
+
+test('convoy trade limits grow with hub level and never shrink', () => {
+  for (const res of Object.keys(config.resources)) {
+    let prev = 0;
+    for (const lvl of Object.keys(config.hubLevels)) {
+      const lim = sim.convoyLimit(config, Number(lvl), res);
+      assert.ok(lim >= prev, `${res} limit fell at hub ${lvl}`);
+      prev = lim;
+    }
+    assert.ok(sim.convoyLimit(config, 5, res) > sim.convoyLimit(config, 1, res), `${res} should grow`);
+  }
+  assert.equal(sim.convoyLimit(config, 1, 'scrap'), config.global.convoyMaxPerResource);
+  assert.equal(sim.convoyLimit(config, 3, 'scrap'), Math.floor(config.global.convoyMaxPerResource * config.hubLevels['3'].convoyCapMult));
+  // exports are limited the same way
+  const sold = sim.runConvoy(config, { hubLevel: 2, credits: 0, inventory: { scrap: 5000 } }, { export: { scrap: 5000 } }, basePrices);
+  assert.equal(5000 - sold.inventory.scrap, sim.convoyLimit(config, 2, 'scrap'));
 });
 
 test('market prices drift per convoy, are deterministic, and stay in range', () => {
