@@ -88,6 +88,20 @@ function marketPrices(config, k) {
   return out;
 }
 
+// Convoy number of the next scheduled convoy after `tick`; its prices are the ones shown to players.
+const nextConvoyK = (config, tick) => Math.floor(tick / config.global.convoyIntervalTicks) + 1;
+
+// Express (player-dispatched) convoy terms for a given set of scheduled-convoy prices.
+function expressPrices(config, prices) {
+  const x = config.global.express;
+  const out = {};
+  for (const [res, p] of Object.entries(prices)) {
+    out[res] = { buy: Math.max(0.1, round1(p.buy * x.buyMult)), sell: Math.max(0.1, round1(p.sell * x.sellMult)) };
+  }
+  return out;
+}
+const expressFee = (config, hubLevel) => config.global.express.baseFee + config.global.express.feePerHubLevel * hubLevel;
+
 function sortBuildings(config, infos) {
   const rank = (def) => {
     if (def.type === 'generator') return -1;
@@ -98,13 +112,19 @@ function sortBuildings(config, infos) {
 }
 
 // state: { hubLevel, population, morale, age, progress, won, inventory, buildings:[{id,ring,slot,type,status}] }
-// mods (from active hazards): { outputMult: {buildingType: m}, disabled: Set<buildingId> }
+// mods (from active hazards):
+//   outputMult: {buildingType: m}   output multiplier by type
+//   degraded:   {buildingId: m}     output multiplier for specific buildings
+//   disabled:   Set<buildingId>     buildings knocked fully offline
+//   popConsumptionMult: number      multiplies what the population eats and drinks
+//   drain:      {resource: perTick} extra maintenance consumption
 function step(config, state, neighborMap, mods = {}) {
   const g = config.global;
   const lvl = config.hubLevels[state.hubLevel];
   const grid = new Map(state.buildings.map((b) => [key(b.ring, b.slot), b]));
   const disabled = mods.disabled || new Set();
   const outMult = mods.outputMult || {};
+  const degraded = mods.degraded || {};
 
   const infos = [];
   for (const b of state.buildings) {
@@ -116,7 +136,7 @@ function step(config, state, neighborMap, mods = {}) {
       .map((n) => n.type);
     const adj = adjacencyMultiplier(config, b.type, nTypes);
     const plot = plotMultiplier(config, def, b.ring);
-    const haz = outMult[b.type] === undefined ? 1 : outMult[b.type];
+    const haz = (outMult[b.type] === undefined ? 1 : outMult[b.type]) * (degraded[b.id] === undefined ? 1 : degraded[b.id]);
     infos.push({ b, def, adj, plot, haz, mult: adj * plot });
   }
   const offline = (i) => i.b.status !== 'active' || disabled.has(i.b.id);
@@ -198,7 +218,7 @@ function step(config, state, neighborMap, mods = {}) {
     const pEff = hasPower ? sat : 1;
     const eff = Math.min(mEff, pEff);
     apply(i, eff, inv, flows);
-    if (i.def.transmit) progressGain += eff * i.mult;
+    if (i.def.transmit) progressGain += eff * i.mult * i.haz;
     if (i.def.defense) defense += i.def.defense * eff * i.mult;
     if (i.def.storageBonus) storageBonus += i.def.storageBonus * i.mult;
     let status = 'running';
@@ -210,11 +230,20 @@ function step(config, state, neighborMap, mods = {}) {
     bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, status, limiting: why });
   }
 
+  // Hazard maintenance: extra consumption while a hazard is being weathered.
+  for (const [res, amt] of Object.entries(mods.drain || {})) {
+    if (!flows[res]) continue;
+    const take = Math.min(inv[res] || 0, amt);
+    inv[res] = (inv[res] || 0) - take;
+    flows[res].consumed += take;
+  }
+
   // Population draws on the stockpile.
   const cap = lvl.maxStorage + storageBonus;
   const starving = [];
+  const popMult = mods.popConsumptionMult || 1;
   for (const [res, rate] of Object.entries(g.populationConsumptionPerTick)) {
-    const need = rate * state.population;
+    const need = rate * state.population * popMult;
     const take = Math.min(inv[res], need);
     inv[res] -= take;
     flows[res].consumed += take;
@@ -301,5 +330,5 @@ function slotUnlocked(config, hubLevel, ring, slot) {
 
 module.exports = {
   key, maxLevel, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
-  marketMult, marketPrices, convoyLimit, step, runConvoy, slotUnlocked,
+  marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

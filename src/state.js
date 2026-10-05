@@ -105,16 +105,42 @@ function viewFor(userId, now = Date.now()) {
   if (hazard) {
     const def = config.hazards.types[hazard.type];
     const { reqs, prep } = hazards.assess(config, hazard.type, c.hub_level, inventory, proj.defense);
-    const sev = hazard.state === 'active' ? hazard.severity : 1 - prep;
+    const active = hazard.state === 'active';
+    const strikePrep = prep >= 0.98 ? 1 : prep;
+    const sev = active ? hazard.severity : 1 - strikePrep;
+    const shownPrep = active ? (hazard.data.prep === undefined ? 1 - hazard.severity : hazard.data.prep) : prep;
+    const data = active ? hazard.data : { prep: strikePrep };
+    const lines = hazards.effectLines(config, { type: hazard.type, state: 'active', severity: sev, data }, buildings, c.hub_level);
     const strikesIn = hazard.strikes_tick - t.globalTick;
     view.hazard = {
       type: hazard.type, name: def.name, desc: def.desc, state: hazard.state,
-      ticksUntil: hazard.state === 'forecast' ? strikesIn : 0,
+      ticksUntil: active ? 0 : strikesIn,
       strikesAt: nextTickAt + (strikesIn - 1) * t.tickMs,
-      ticksLeft: hazard.state === 'active' ? hazard.ends_tick - t.globalTick : 0,
-      requirements: reqs, prep, effect: hazards.describeEffect(config, { type: hazard.type, severity: sev, data: hazard.data }),
+      ticksLeft: active ? hazard.ends_tick - t.globalTick : 0,
+      durationTicks: def.durationTicks,
+      requirements: reqs, prep: shownPrep, severity: sev,
+      penalty: lines.penalty, cost: lines.cost,
     };
   } else view.hazard = null;
+
+  // Express convoy: terms, status and cooldown.
+  const x = config.global.express;
+  const expressNow = sim.expressPrices(config, now_);
+  const trip = store.loadExpress(c.id);
+  const xlimits = {};
+  for (const res of Object.keys(config.resources)) xlimits[res] = Math.max(1, Math.floor(limits[res] * x.limitFraction));
+  view.express = {
+    fee: sim.expressFee(config, c.hub_level), travelTicks: x.travelTicks, cooldownTicks: x.cooldownTicks,
+    buyMult: x.buyMult, sellMult: x.sellMult,
+    prices: Object.fromEntries(Object.entries(expressNow).map(([r, p]) => [r, { buy: p.buy, sell: p.sell }])),
+    limits: xlimits,
+    readyIn: Math.max(0, c.express_ready_tick - t.globalTick),
+    active: trip ? {
+      ticksLeft: Math.max(0, trip.arrives_tick - t.globalTick),
+      arrivesAt: nextTickAt + (trip.arrives_tick - t.globalTick - 1) * t.tickMs,
+      sell: trip.sell, buy: trip.buy,
+    } : null,
+  };
   view.report = db.prepare("SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? AND tag = 'hazard' AND id > ? ORDER BY id").all(c.id, c.report_cursor);
 
   // Directives are sticky: newly earned milestones are saved as the view is

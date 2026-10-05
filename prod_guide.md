@@ -93,20 +93,26 @@ From **level 3** the hub has upkeep: it draws power and supplies every tick. If 
 
 ## **8. Hazards**
 
-Hazards are forecast, then strike on a fixed tick.
+Hazards are forecast, then strike on a fixed tick, then **last for a while whatever the outcome**.
 
-* A new hazard is only **started while the player is active** (recently connected). The first can come at colony age 45, then every 32-52 ticks.
+* A new hazard is only **started while the player is active** (recently connected). The first can come at colony age 45, then every 32-52 ticks, shrinking by 7% per hub level above 1 (floor 60%).
 * Once forecast, the strike tick is fixed and fires **whether or not the player is logged in**.
-* At the strike the colony spends its **reserves automatically**. Each requirement is met in proportion to what is stocked, and that stock is consumed. Fully prepared means the hazard is averted. Otherwise the effect applies at a severity equal to the unprepared fraction (a prorated penalty).
+* At the strike the colony spends its **reserves automatically**, each requirement met in proportion to what is stocked. That gives a preparedness fraction (**prep**).
+* Then the hazard runs for its duration:
+  * the **failure effect** applies at severity = 1 − prep (output cuts, degraded buildings, higher consumption, looting);
+  * a **maintenance cost** applies in proportion to prep. **Weathering a hazard is never free**: a fully prepared colony takes no penalty but pays a running cost.
 * A player who was away gets a **While you were away** report on return.
-* Requirements scale with hub level (+35% per level above 1).
+* Requirements scale with hub level (+60% per level above 1). Some hazards only appear at higher levels, and the Signal Storm only if a Beacon exists.
 
-| Hazard | From hub | Warning (ticks) | Requirement (level 1) | Effect when unprepared |
-| --- | --- | --- | --- | --- |
-| Dust Storm | 1 | 20-30 | 20 machined parts (spare panel filters) | Solar Array output ×0.3 for 10 ticks |
-| Equipment Fault | 1 | 18-28 | 10 machined parts (repair parts), 80 scrap (repair scrap) | one random building offline for up to 12 ticks |
-| Crop Blight | 2 | 24-32 | 100 clean water (flushing water) | Hydroponics Bay output ×0.3 for 14 ticks |
-| Raid | 2 | 26-36 | 2 watch post strength (watch post strength) | raiders loot 30% scrap, 25% rations, 20% machined parts, 25% credits |
+| Hazard | From hub | Warning | Lasts | Requirement (hub 1) | Failure effect | Maintenance if prepared |
+| --- | --- | --- | --- | --- | --- | --- |
+| Dust Storm | 1 | 20-30 | 12 | 30 machined parts | Solar Array output ×0.3 | panel cleaning: 0.6 per solar array of machined parts per tick |
+| Equipment Fault | 1 | 18-28 | 14 | 25 machined parts, 150 scrap | 1 building(s) (+1 per 2 hub levels) at ×0.35 efficiency | round-the-clock repairs: 0.3 per running building of machined parts per tick |
+| Crop Blight | 2 | 24-32 | 16 | 150 clean water | Hydroponics Bay output ×0.3 | constant flushing: 4 per hydroponics bay of clean water per tick |
+| Raid | 2 | 26-36 | 8 | 3 defence | loots 30% scrap, 25% rations, 20% machined parts, 25% credits; 1 outer building(s) (+1 per 2 levels) at ×0.4 | ammunition and patrols: 3 per watch post of scrap per tick |
+| Toxic Spill | 3 | 24-34 | 14 | 50 building materials, 120 clean water | Groundwater Pump, Filtration Plant output ×0.3 | filter replacements: 0.5 per groundwater pump, 0.5 per filtration plant of machined parts per tick |
+| Cold Snap | 4 | 24-34 | 16 | 40 alloys, 150 rations | population consumption ×1.7 | heating and extra meals: consumption ×1.12 |
+| Signal Storm (needs a Beacon Array) | 5 | 20-28 | 12 | 40 circuits, 3 power cells | Beacon Array output ×0.25 | recalibration: 1.5 per beacon array of circuits per tick |
 
 ## **9. The Convoy**
 
@@ -124,6 +130,16 @@ Every 40 ticks. Standing export and import orders execute on arrival at **that c
 | Alloys | 40 | 15 |
 | Circuits | 60 | 22 |
 | Power Cells | 150 | 55 |
+
+### Express convoy
+
+A player-dispatched special trip, separate from the standing orders, for when you are short and can't wait for the scheduled convoy.
+
+* Costs a **fee** (100 + 50 per hub level credits), arrives in **3 ticks**, then needs **10 ticks** to rest. One at a time.
+* Prices are fixed at dispatch from the next scheduled convoy's prices, but **worse**: it charges ×1.5 when selling to you and pays ×0.6 when buying from you.
+* Carries at most 40% of the scheduled per-convoy limit for each resource (which itself grows with hub level).
+* **Goods and credits are held at dispatch**, so nothing can be spent twice. If storage is full on arrival, the undelivered share of the cost is refunded.
+* The incoming-hazard card has an **Order express resupply** button that pre-fills the order with whatever reserves you are short.
 
 ## **10. Win condition: the Beacon**
 

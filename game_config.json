@@ -39,7 +39,16 @@
       "transmitTicks": 25
     },
     "activeWindowSeconds": 120,
-    "plotPenaltyPerStep": 0.6
+    "plotPenaltyPerStep": 0.6,
+    "express": {
+      "baseFee": 100,
+      "feePerHubLevel": 50,
+      "travelTicks": 3,
+      "cooldownTicks": 10,
+      "buyMult": 1.5,
+      "sellMult": 0.6,
+      "limitFraction": 0.4
+    }
   },
   "resources": {
     "scrap": {
@@ -622,7 +631,9 @@
       32,
       52
     ],
-    "scalingPerHubLevel": 0.35,
+    "gapShrinkPerHubLevel": 0.07,
+    "gapFloor": 0.6,
+    "scalingPerHubLevel": 0.6,
     "types": {
       "dust_storm": {
         "name": "Dust Storm",
@@ -632,13 +643,13 @@
           20,
           30
         ],
-        "durationTicks": 10,
+        "durationTicks": 12,
         "desc": "A wall of grit is rolling in. Solar output will collapse while it lasts.",
         "requires": [
           {
             "kind": "stock",
             "resource": "machined_parts",
-            "amount": 20,
+            "amount": 30,
             "label": "Spare panel filters"
           }
         ],
@@ -648,6 +659,14 @@
             "solar_array"
           ],
           "mult": 0.3
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "machined_parts",
+          "perBuilding": {
+            "solar_array": 0.6
+          },
+          "label": "Panel cleaning"
         }
       },
       "equipment_fault": {
@@ -658,25 +677,33 @@
           18,
           28
         ],
-        "durationTicks": 12,
-        "desc": "Worn machinery is about to fail. One structure will go offline until repaired.",
+        "durationTicks": 14,
+        "desc": "Worn machinery is about to fail. Several structures will lose efficiency until repaired.",
         "requires": [
           {
             "kind": "stock",
             "resource": "machined_parts",
-            "amount": 10,
+            "amount": 25,
             "label": "Repair parts"
           },
           {
             "kind": "stock",
             "resource": "scrap",
-            "amount": 80,
+            "amount": 150,
             "label": "Repair scrap"
           }
         ],
         "effect": {
-          "kind": "disable_random",
-          "count": 1
+          "kind": "degrade_random",
+          "baseCount": 1,
+          "levelsPerExtra": 2,
+          "mult": 0.35
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "machined_parts",
+          "perRunning": 0.3,
+          "label": "Round-the-clock repairs"
         }
       },
       "blight": {
@@ -687,13 +714,13 @@
           24,
           32
         ],
-        "durationTicks": 14,
+        "durationTicks": 16,
         "desc": "Spores are spreading through the growing beds. Food output will crash.",
         "requires": [
           {
             "kind": "stock",
             "resource": "clean_water",
-            "amount": 100,
+            "amount": 150,
             "label": "Flushing water"
           }
         ],
@@ -703,6 +730,14 @@
             "hydroponics_bay"
           ],
           "mult": 0.3
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "clean_water",
+          "perBuilding": {
+            "hydroponics_bay": 4
+          },
+          "label": "Constant flushing"
         }
       },
       "raid": {
@@ -713,12 +748,12 @@
           26,
           36
         ],
-        "durationTicks": 0,
-        "desc": "Raiders have spotted the colony. Unguarded stockpiles will be looted.",
+        "durationTicks": 8,
+        "desc": "Raiders have spotted the colony. Unguarded stockpiles will be looted and outer buildings damaged.",
         "requires": [
           {
             "kind": "defense",
-            "amount": 2,
+            "amount": 3,
             "label": "Watch post strength"
           }
         ],
@@ -729,7 +764,137 @@
             "rations": 0.25,
             "machined_parts": 0.2,
             "credits": 0.25
+          },
+          "damage": {
+            "baseCount": 1,
+            "levelsPerExtra": 2,
+            "mult": 0.4
           }
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "scrap",
+          "perBuilding": {
+            "watch_post": 3
+          },
+          "label": "Ammunition and patrols"
+        }
+      },
+      "toxic_spill": {
+        "name": "Toxic Spill",
+        "minHubLevel": 3,
+        "weight": 2,
+        "warningTicks": [
+          24,
+          34
+        ],
+        "durationTicks": 14,
+        "desc": "The aquifer is fouling. Water extraction and filtration will crawl.",
+        "requires": [
+          {
+            "kind": "stock",
+            "resource": "building_materials",
+            "amount": 50,
+            "label": "Containment materials"
+          },
+          {
+            "kind": "stock",
+            "resource": "clean_water",
+            "amount": 120,
+            "label": "Clean water reserve"
+          }
+        ],
+        "effect": {
+          "kind": "output_mult",
+          "buildings": [
+            "water_pump",
+            "water_purifier"
+          ],
+          "mult": 0.3
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "machined_parts",
+          "perBuilding": {
+            "water_pump": 0.5,
+            "water_purifier": 0.5
+          },
+          "label": "Filter replacements"
+        }
+      },
+      "cold_snap": {
+        "name": "Cold Snap",
+        "minHubLevel": 4,
+        "weight": 2,
+        "warningTicks": [
+          24,
+          34
+        ],
+        "durationTicks": 16,
+        "desc": "A killing cold is coming. The colony will burn through water and rations far faster.",
+        "requires": [
+          {
+            "kind": "stock",
+            "resource": "alloys",
+            "amount": 40,
+            "label": "Insulation plating"
+          },
+          {
+            "kind": "stock",
+            "resource": "rations",
+            "amount": 150,
+            "label": "Emergency rations"
+          }
+        ],
+        "effect": {
+          "kind": "pop_consumption",
+          "mult": 1.7
+        },
+        "mitigated": {
+          "kind": "pop_consumption",
+          "mult": 1.12,
+          "label": "Heating and extra meals"
+        }
+      },
+      "signal_storm": {
+        "name": "Signal Storm",
+        "minHubLevel": 5,
+        "weight": 4,
+        "warningTicks": [
+          20,
+          28
+        ],
+        "durationTicks": 12,
+        "needsBuilding": "beacon_array",
+        "desc": "Interference is building across the bands. The beacon will struggle to transmit.",
+        "requires": [
+          {
+            "kind": "stock",
+            "resource": "circuits",
+            "amount": 40,
+            "label": "Shielding circuits"
+          },
+          {
+            "kind": "stock",
+            "resource": "power_cells",
+            "amount": 3,
+            "label": "Reserve power cells"
+          }
+        ],
+        "effect": {
+          "kind": "output_mult",
+          "buildings": [
+            "beacon_array"
+          ],
+          "mult": 0.25
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "circuits",
+          "perBuilding": {
+            "beacon_array": 1.5
+          },
+          "label": "Recalibration"
         }
       }
     }

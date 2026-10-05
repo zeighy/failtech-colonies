@@ -200,6 +200,30 @@ test('warehouses raise the storage cap; watch posts add defence', () => {
   assert.ok(r.defense > 0 && r.defense <= config.buildings.watch_post.defense);
 });
 
+test('hazard modifiers: per-building degradation, consumption multiplier, maintenance drain', () => {
+  const s = fresh({ buildings: [b(1, 0, 'solar_array'), b(1, 1, 'solar_array')] });
+  const base = sim.step(config, s, nm);
+  const deg = sim.step(config, s, nm, { degraded: { [s.buildings[0].id]: 0.5 } });
+  const each = 25 * sim.adjacencyMultiplier(config, 'solar_array', ['solar_array']); // adjacent solars shade each other
+  assert.ok(Math.abs(base.energy.supply - deg.energy.supply - each * 0.5) < 1e-9, 'only the degraded building loses output');
+  const cold = sim.step(config, fresh(), nm, { popConsumptionMult: 2 });
+  assert.ok(Math.abs(cold.flows.rations.consumed - 2 * sim.step(config, fresh(), nm).flows.rations.consumed) < 1e-9);
+  const drained = sim.step(config, fresh({ inventory: { ...config.global.startingState.resources, machined_parts: 10 } }), nm, { drain: { machined_parts: 4 } });
+  assert.equal(drained.flows.machined_parts.consumed, 4);
+  assert.equal(drained.inventory.machined_parts, 6);
+  const short = sim.step(config, fresh({ inventory: { ...config.global.startingState.resources, machined_parts: 1 } }), nm, { drain: { machined_parts: 4 } });
+  assert.equal(short.inventory.machined_parts, 0, 'drain takes what there is, never goes negative');
+});
+
+test('a hazard output cut applies to the beacon\'s signal too', () => {
+  const s = fresh({ hubLevel: 5, buildings: [b(1, 0, 'solar_array'), b(1, 1, 'solar_array'), b(1, 2, 'solar_array'),
+    b(2, 0, 'scrap_generator'), b(2, 1, 'scrap_generator'), b(5, 0, 'beacon_array')] });
+  Object.assign(s.inventory, { power_cells: 100, scrap: 1000 });
+  const full = sim.step(config, s, nm).progressGain;
+  const hit = sim.step(config, s, nm, { outputMult: { beacon_array: 0.25 } }).progressGain;
+  assert.ok(Math.abs(hit - full * 0.25) < 1e-9, `${hit} vs ${full}`);
+});
+
 test('damaged (hazard-disabled) buildings stop; hazard output multipliers apply', () => {
   const s = fresh({ buildings: [b(1, 0, 'solar_array'), b(1, 1, 'scrap_extractor')] });
   const base = sim.step(config, s, nm);

@@ -9,7 +9,7 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failt
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -93,6 +93,14 @@ function migrate() {
       message TEXT NOT NULL,
       tag TEXT
     );
+    CREATE TABLE IF NOT EXISTS colony_express (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      dispatched_tick INTEGER NOT NULL,
+      arrives_tick INTEGER NOT NULL,
+      sell TEXT NOT NULL DEFAULT '{}',   -- {res: {qty, pay}}  stock already taken, credits owed on arrival
+      buy TEXT NOT NULL DEFAULT '{}'     -- {res: {qty, cost}} credits already taken, goods delivered on arrival
+    );
     CREATE TABLE IF NOT EXISTS colony_hazards (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
@@ -104,6 +112,10 @@ function migrate() {
       data TEXT NOT NULL DEFAULT '{}'
     );
   `);
+  // v5 (additive): express convoy cooldown
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'express_ready_tick'").get()) {
+    db.exec('ALTER TABLE colonies ADD COLUMN express_ready_tick INTEGER NOT NULL DEFAULT 0');
+  }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
 migrate();
@@ -193,6 +205,11 @@ function loadHazard(colonyId) {
   return h ? { ...h, data: JSON.parse(h.data) } : null;
 }
 
+function loadExpress(colonyId) {
+  const e = db.prepare('SELECT * FROM colony_express WHERE colony_id = ? ORDER BY id DESC LIMIT 1').get(colonyId);
+  return e ? { ...e, sell: JSON.parse(e.sell), buy: JSON.parse(e.buy) } : null;
+}
+
 function loadContracts(colonyId) {
   const out = { export: {}, import: {} };
   for (const c of db.prepare('SELECT resource_id, side, amount FROM colony_contracts WHERE colony_id = ?').all(colonyId)) out[c.side][c.resource_id] = c.amount;
@@ -202,5 +219,5 @@ function loadContracts(colonyId) {
 module.exports = {
   db, config, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
-  loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts, loadHazard,
+  loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts, loadHazard, loadExpress,
 };
