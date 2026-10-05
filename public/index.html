@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAILTECH Radial Command</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2712%27 fill=%27%23160f04%27 stroke=%27%23ff9f1c%27 stroke-width=%273%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%274%27 fill=%27%23ff9f1c%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <form class="login-card" id="form" autocomplete="on" novalidate>
+    <div class="brand">FAILTECH</div>
+    <div class="brand-sub">Radial Command &middot; Territory Uplink</div>
+    <div class="seg" role="tablist">
+      <button type="button" role="tab" id="t-login" aria-selected="true">Sign in</button>
+      <button type="button" role="tab" id="t-reg" aria-selected="false">New commander</button>
+    </div>
+    <label class="field"><span class="label">Callsign</span>
+      <input name="username" id="username" autocomplete="username" maxlength="20" required autofocus></label>
+    <label class="field"><span class="label">Passcode</span>
+      <input name="password" id="password" type="password" autocomplete="current-password" maxlength="100" required></label>
+    <div class="form-error" id="error" role="alert"></div>
+    <button class="btn primary block" id="submit" type="submit">Enter command</button>
+    <div class="login-foot">The wastes don't care about your feelings. Keep the lights on, the water clean and the people fed.</div>
+  </form>
+</div>
+<script src="/js/login.js"></script>
+</body>
+</html>

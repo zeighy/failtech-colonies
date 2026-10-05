@@ -1,67 +1,60 @@
-# **FAILTECH Colony: Initial Production Chains & Early Economy**
+# **FAILTECH Colony: Production Chains & Early Economy**
 
-This document outlines the core production loops established in the MVP game configuration. It details how primary resources flow into secondary products and the immediate survival pressures the player faces upon starting a new colony.
+Numbers here mirror `game_config.json` (the config is the source of truth). Rates are per tick (default 3 s).
 
 ## **1\. The Baseline: Survival Drain**
 
-Before the player builds anything, they are already on a timer. The colony starts with a **Population of 20**.
+* The colony starts with **20 population**. Each colonist consumes 0.1 clean water and 0.1 rations per tick, so the drain starts at **2 + 2 per tick**.
+* Starting stock: 80 clean water, 100 rations. Do nothing and water runs out around tick 40; morale then falls 10 per tick and the colony collapses roughly 10 ticks later.
+* Population grows by 1 every 10 ticks while morale is high and both water and rations are in surplus (capped by Hub level), which raises the drain.
 
-* **Consumption Rate:** Each unit of population consumes 0.1 clean\_water and 0.1 rations per tick.  
-* **Colony Drain:** The starting colony loses **2 Clean Water** and **2 Rations** every single tick.  
-* **Buffer:** The player starts with 50 Clean Water and 50 Rations. If they do nothing, their colony will hit critical failure (zero food/water) in exactly 25 ticks.
+## **2\. Power is a grid**
 
-## **2\. Tier 1: Power & Heavy Industry**
+Energy is not stockpiled. Each tick, supply (Hub base power + Solar Arrays) is compared to demand (the energy input of everything running). If demand exceeds supply, **every consumer runs at supply/demand efficiency**. Paused buildings draw nothing.
 
-To build advanced structures to save the colony, the player needs machined\_parts. They start with 0\. Therefore, heavy industry must be prioritized.
+| Source | Power |
+| --- | --- |
+| Hub level 1 / 2 / 3 | 20 / 30 / 40 |
+| Solar Array | +25 |
 
-* **Solar Array (Generator):** The backbone of the colony.  
-  * *Output:* \+10 Energy/tick.  
-  * *Role:* Prevents the colony's energy grid from collapsing when industrial buildings are turned on.  
-* **Parts Assembler (Refinery):** The first required bottleneck.  
-  * *Input:* \-10 Energy, \-30 Scrap.  
-  * *Output:* \+5 Machined Parts.  
-  * *Role:* Converts raw scrap into the advanced materials needed to construct life-support systems (Water Purifiers and Hydroponics).  
-* **Scrap Extractor (Extractor):**  
-  * *Input:* \-5 Energy.  
-  * *Output:* \+25 Scrap.  
-  * *Role:* The Parts Assembler burns through 30 scrap per tick. The starting stash of 1000 scrap will vanish quickly without an Extractor to replenish it.
+## **3\. Buildings**
 
-## **3\. Tier 2: The Water Loop**
+| Building | Cost | Inputs / tick | Outputs / tick | Build |
+| --- | --- | --- | --- | --- |
+| Solar Array | 100 scrap | | 25 power | 2 |
+| Scrap Extractor | 200 scrap | 5 power | 40 scrap | 3 |
+| Groundwater Pump | 150 scrap | 5 power | 20 raw water | 3 |
+| Filtration Plant | 300 scrap, 10 parts | 10 power, 15 raw water | 15 clean water | 5 |
+| Parts Assembler | 400 scrap | 10 power, 30 scrap | 5 machined parts | 6 |
+| Hydroponics Bay | 500 scrap, 25 parts | 15 power, 5 clean water | 10 rations | 8 |
+| Fabrication Works (hub L2) | 450 scrap, 30 parts | 12 power, 20 scrap, 3 parts | 4 building materials | 7 |
 
-Once the player has manufactured at least 10 machined\_parts, they can address the colony's thirst. This requires a two-step logistical chain.
+A building with partial inputs runs at partial efficiency (limited by its scarcest input). Chains resolve in order (extractors, refineries, producers) so output made this tick can be consumed this tick.
 
-* **Step A: Groundwater Pump**  
-  * *Input:* \-5 Energy.  
-  * *Output:* \+20 Unpurified Water.  
-  * *Role:* Pulls toxic/raw water from the planet. This water cannot be consumed by the population.  
-* **Step B: Filtration Plant**  
-  * *Input:* \-10 Energy, \-15 Unpurified Water.  
-  * *Output:* \+15 Clean Water.  
-  * *Role:* Refines the raw water. The \+15 output easily covers the colony's \-2 consumption drain, allowing the player to stockpile a surplus for the Convoy.
+## **4\. Adjacency**
 
-## **4\. Tier 3: Sustenance**
+Neighbours are the two slots beside a building in its ring plus every touching slot in the rings above and below. Each matching neighbour multiplies output (clamped to x0.5 to x1.6):
 
-Food is the most resource-intensive chain to establish, requiring 25 machined\_parts just to construct the building.
+* Filtration Plant next to Groundwater Pump: x1.15
+* Parts Assembler next to Scrap Extractor: x1.10
+* Hydroponics Bay next to Filtration Plant: x1.15
+* Fabrication Works next to Parts Assembler: x1.10
+* Hydroponics Bay next to Scrap Extractor: x0.85 (pollution)
+* Groundwater Pump next to Scrap Extractor: x0.90
+* Solar Array next to Solar Array: x0.95
 
-* **Hydroponics Bay (Producer)**  
-  * *Input:* \-15 Energy, \-5 Clean Water.  
-  * *Output:* \+10 Rations.  
-  * *Role:* Halts the starvation timer. Note that it requires *Clean Water* to function, meaning the Water Loop must be fully operational before food production can begin.
+## **5\. Hub levels**
 
-## **5\. Strategic Spatial Placement (Adjacency)**
+| Level | Upgrade cost | Time | Storage / resource | Max pop | Rings |
+| --- | --- | --- | --- | --- | --- |
+| 1 | start | | 2,000 | 30 | 1 (6 slots) |
+| 2 | 1,500 scrap, 60 parts | 10 | 5,000 | 60 | 2 (+12) |
+| 3 | 4,000 scrap, 200 parts, 60 building materials | 16 | 10,000 | 100 | 3 (+18) |
 
-Players are rewarded for planning their concentric rings carefully:
+## **6\. The Convoy**
 
-* **The Industrial Sector:** Placing the *Parts Assembler* directly adjacent to the *Scrap Extractor* grants a \+10% bonus to machined part output.  
-* **The Water Sector:** Placing the *Filtration Plant* adjacent to the *Groundwater Pump* yields a \+15% boost to clean water production, heavily incentivizing players to group related supply chains together on the map.
+Every 60 ticks. Standing export and import orders (max 500 per resource) execute on arrival at the prices in `game_config.json`. Sell surplus rations and water to afford building materials.
 
-## **Summary of a Successful Start**
+## **7\. Win condition**
 
-To survive the first hour, a player must ideally follow this sequence:
-
-1. Build a **Solar Array** and **Parts Assembler** to start generating Machined Parts.  
-2. Build a **Scrap Extractor** to feed the Assembler before starting scrap runs out.  
-3. Once 10 parts are fabricated, build the **Groundwater Pump** and **Filtration Plant** to stabilize water.  
-4. Once 25 parts are fabricated, build the **Hydroponics Bay** to stabilize food.  
-5. Continuously build **Solar Arrays** throughout this process to handle the escalating energy inputs required by the new buildings.
-
+Hub level 3, power covering demand, and both clean water and rations net-positive, held for 10 consecutive ticks.

@@ -1,155 +1,283 @@
 {
-"global": {
-"tickRateMs": 60000,
-"convoyIntervalTicks": 240,
-"moraleFailureThresholdTicks": 10,
-"startingMorale": 100,
-"populationConsumptionPerTick": {
-"clean_water": 0.1,
-"rations": 0.1
-},
-"startingState": {
-"population": 20,
-"credits": 500,
-"resources": {
-"scrap": 1000,
-"energy": 100,
-"unpurified_water": 50,
-"clean_water": 50,
-"rations": 50,
-"machined_parts": 0
-}
-}
-},
-"hubLevels": {
-"1": {
-"maxStorage": 2000,
-"unlockedRings": 1,
-"ringCapacities": { "1": 6 },
-"upgradeCost": null
-},
-"2": {
-"maxStorage": 5000,
-"unlockedRings": 2,
-"ringCapacities": { "1": 6, "2": 12 },
-"upgradeCost": {
-"scrap": 2000,
-"machined_parts": 100
-}
-},
-"3": {
-"maxStorage": 10000,
-"unlockedRings": 3,
-"ringCapacities": { "1": 6, "2": 12, "3": 18 },
-"upgradeCost": {
-"scrap": 5000,
-"machined_parts": 300,
-"building_materials": 100
-}
-}
-},
-"buildings": {
-"solar_array": {
-"name": "Solar Array",
-"type": "generator",
-"constructionTicks": 2,
-"cost": {
-"scrap": 100
-},
-"inputsPerTick": {},
-"outputsPerTick": {
-"energy": 10
-}
-},
-"scrap_extractor": {
-"name": "Scrap Extractor",
-"type": "extractor",
-"constructionTicks": 3,
-"cost": {
-"scrap": 200
-},
-"inputsPerTick": {
-"energy": 5
-},
-"outputsPerTick": {
-"scrap": 25
-}
-},
-"water_pump": {
-"name": "Groundwater Pump",
-"type": "extractor",
-"constructionTicks": 3,
-"cost": {
-"scrap": 150
-},
-"inputsPerTick": {
-"energy": 5
-},
-"outputsPerTick": {
-"unpurified_water": 20
-}
-},
-"water_purifier": {
-"name": "Filtration Plant",
-"type": "refinery",
-"constructionTicks": 5,
-"cost": {
-"scrap": 300,
-"machined_parts": 10
-},
-"inputsPerTick": {
-"energy": 10,
-"unpurified_water": 15
-},
-"outputsPerTick": {
-"clean_water": 15
-}
-},
-"parts_assembler": {
-"name": "Parts Assembler",
-"type": "refinery",
-"constructionTicks": 6,
-"cost": {
-"scrap": 400
-},
-"inputsPerTick": {
-"energy": 10,
-"scrap": 30
-},
-"outputsPerTick": {
-"machined_parts": 5
-}
-},
-"hydroponics_bay": {
-"name": "Hydroponics Bay",
-"type": "producer",
-"constructionTicks": 8,
-"cost": {
-"scrap": 500,
-"machined_parts": 25
-},
-"inputsPerTick": {
-"energy": 15,
-"clean_water": 5
-},
-"outputsPerTick": {
-"rations": 10
-}
-}
-},
-"adjacencyModifiers": {
-"description": "Multipliers applied to output if adjacent to specific types",
-"rules": [
-{
-"targetBuilding": "water_purifier",
-"adjacentBuilding": "water_pump",
-"outputMultiplier": 1.15
-},
-{
-"targetBuilding": "parts_assembler",
-"adjacentBuilding": "scrap_extractor",
-"outputMultiplier": 1.10
-}
-]
-}
+  "global": {
+    "tickRateMs": 3000,
+    "convoyIntervalTicks": 60,
+    "convoyMaxPerResource": 500,
+    "moraleFailureThresholdTicks": 10,
+    "moraleRecoveryPerTick": 2,
+    "startingMorale": 100,
+    "populationConsumptionPerTick": {
+      "clean_water": 0.1,
+      "rations": 0.1
+    },
+    "populationGrowth": {
+      "everyTicks": 10,
+      "minMorale": 70
+    },
+    "goalSustainTicks": 10,
+    "maxOfflineTicks": 1200,
+    "failureCreditKeep": 0.5,
+    "demolishRefund": 0.5,
+    "eventLogSize": 80,
+    "startingState": {
+      "population": 20,
+      "credits": 500,
+      "resources": {
+        "scrap": 1500,
+        "unpurified_water": 50,
+        "clean_water": 80,
+        "rations": 100,
+        "machined_parts": 0,
+        "building_materials": 0
+      }
+    }
+  },
+  "resources": {
+    "scrap": {
+      "name": "Scrap",
+      "color": "#c08552",
+      "buy": 2,
+      "sell": 0.5
+    },
+    "unpurified_water": {
+      "name": "Raw Water",
+      "color": "#6f9a8d",
+      "buy": 1.5,
+      "sell": 0.4
+    },
+    "clean_water": {
+      "name": "Clean Water",
+      "color": "#4cc9f0",
+      "buy": 4,
+      "sell": 1.5,
+      "critical": true
+    },
+    "rations": {
+      "name": "Rations",
+      "color": "#9ad66b",
+      "buy": 6,
+      "sell": 2.5,
+      "critical": true
+    },
+    "machined_parts": {
+      "name": "Machined Parts",
+      "color": "#c3cad4",
+      "buy": 15,
+      "sell": 6
+    },
+    "building_materials": {
+      "name": "Building Materials",
+      "color": "#e8b06a",
+      "buy": 30,
+      "sell": 12
+    }
+  },
+  "tierOrder": [
+    "extractor",
+    "refinery",
+    "producer"
+  ],
+  "hubLevels": {
+    "1": {
+      "maxStorage": 2000,
+      "maxPopulation": 30,
+      "baseEnergy": 20,
+      "ringCapacities": {
+        "1": 6
+      },
+      "upgradeCost": null,
+      "upgradeTicks": 0
+    },
+    "2": {
+      "maxStorage": 5000,
+      "maxPopulation": 60,
+      "baseEnergy": 30,
+      "ringCapacities": {
+        "1": 6,
+        "2": 12
+      },
+      "upgradeCost": {
+        "scrap": 1500,
+        "machined_parts": 60
+      },
+      "upgradeTicks": 10
+    },
+    "3": {
+      "maxStorage": 10000,
+      "maxPopulation": 100,
+      "baseEnergy": 40,
+      "ringCapacities": {
+        "1": 6,
+        "2": 12,
+        "3": 18
+      },
+      "upgradeCost": {
+        "scrap": 4000,
+        "machined_parts": 200,
+        "building_materials": 60
+      },
+      "upgradeTicks": 16
+    }
+  },
+  "buildings": {
+    "solar_array": {
+      "name": "Solar Array",
+      "type": "generator",
+      "desc": "Collector fields feeding the colony grid. The backbone of everything else.",
+      "constructionTicks": 2,
+      "cost": {
+        "scrap": 100
+      },
+      "inputsPerTick": {},
+      "outputsPerTick": {
+        "energy": 25
+      },
+      "color": "#ffd23f"
+    },
+    "scrap_extractor": {
+      "name": "Scrap Extractor",
+      "type": "extractor",
+      "desc": "Strip-mines the wreckage fields. Feeds the assemblers.",
+      "constructionTicks": 3,
+      "cost": {
+        "scrap": 200
+      },
+      "inputsPerTick": {
+        "energy": 5
+      },
+      "outputsPerTick": {
+        "scrap": 40
+      },
+      "color": "#d08a4e"
+    },
+    "water_pump": {
+      "name": "Groundwater Pump",
+      "type": "extractor",
+      "desc": "Pulls toxic water from the aquifer. Undrinkable until filtered.",
+      "constructionTicks": 3,
+      "cost": {
+        "scrap": 150
+      },
+      "inputsPerTick": {
+        "energy": 5
+      },
+      "outputsPerTick": {
+        "unpurified_water": 20
+      },
+      "color": "#4fb3a6"
+    },
+    "water_purifier": {
+      "name": "Filtration Plant",
+      "type": "refinery",
+      "desc": "Turns raw water into something people can actually drink.",
+      "constructionTicks": 5,
+      "cost": {
+        "scrap": 300,
+        "machined_parts": 10
+      },
+      "inputsPerTick": {
+        "energy": 10,
+        "unpurified_water": 15
+      },
+      "outputsPerTick": {
+        "clean_water": 15
+      },
+      "color": "#4cc9f0"
+    },
+    "parts_assembler": {
+      "name": "Parts Assembler",
+      "type": "refinery",
+      "desc": "Presses scrap into machined parts. The first real bottleneck.",
+      "constructionTicks": 6,
+      "cost": {
+        "scrap": 400
+      },
+      "inputsPerTick": {
+        "energy": 10,
+        "scrap": 30
+      },
+      "outputsPerTick": {
+        "machined_parts": 5
+      },
+      "color": "#c3cad4"
+    },
+    "hydroponics_bay": {
+      "name": "Hydroponics Bay",
+      "type": "producer",
+      "desc": "Grows rations under lamps. Needs clean water to run.",
+      "constructionTicks": 8,
+      "cost": {
+        "scrap": 500,
+        "machined_parts": 25
+      },
+      "inputsPerTick": {
+        "energy": 15,
+        "clean_water": 5
+      },
+      "outputsPerTick": {
+        "rations": 10
+      },
+      "color": "#8be05a"
+    },
+    "fabrication_works": {
+      "name": "Fabrication Works",
+      "type": "refinery",
+      "minHubLevel": 2,
+      "desc": "Forges building materials for the largest structures. Hub upgrades need them.",
+      "constructionTicks": 7,
+      "cost": {
+        "scrap": 450,
+        "machined_parts": 30
+      },
+      "inputsPerTick": {
+        "energy": 12,
+        "scrap": 20,
+        "machined_parts": 3
+      },
+      "outputsPerTick": {
+        "building_materials": 4
+      },
+      "color": "#ff9f1c"
+    }
+  },
+  "adjacencyModifiers": {
+    "description": "Multipliers applied to a building's output for each neighbouring building of the given type. Neighbours are the two slots beside it in its ring, plus any touching slots in the rings above and below.",
+    "rules": [
+      {
+        "targetBuilding": "water_purifier",
+        "adjacentBuilding": "water_pump",
+        "outputMultiplier": 1.15
+      },
+      {
+        "targetBuilding": "parts_assembler",
+        "adjacentBuilding": "scrap_extractor",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "hydroponics_bay",
+        "adjacentBuilding": "water_purifier",
+        "outputMultiplier": 1.15
+      },
+      {
+        "targetBuilding": "fabrication_works",
+        "adjacentBuilding": "parts_assembler",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "hydroponics_bay",
+        "adjacentBuilding": "scrap_extractor",
+        "outputMultiplier": 0.85
+      },
+      {
+        "targetBuilding": "water_pump",
+        "adjacentBuilding": "scrap_extractor",
+        "outputMultiplier": 0.9
+      },
+      {
+        "targetBuilding": "solar_array",
+        "adjacentBuilding": "solar_array",
+        "outputMultiplier": 0.95
+      }
+    ]
+  }
 }

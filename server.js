@@ -1,245 +1,167 @@
+'use strict';
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const fs = require('fs');
 const path = require('path');
-const { db, seedColonyForUser, gameConfig } = require('./db');
-const { startEngine } = require('./engine');
 
-const app = express();
+const store = require('./src/db');
+const engine = require('./src/engine');
+const actions = require('./src/actions');
+const { viewFor, clientConfig } = require('./src/state');
+const { db } = store;
+
 const PORT = process.env.PORT || 3000;
+const PUBLIC = path.join(__dirname, 'public');
 
-// Setup EJS and middleware
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(express.static('public')); // In case of static assets
-
-app.use(session({
-    secret: 'failtech-mvp-secret-key', // Hardcoded for MVP only
-    resave: false,
-    saveUninitialized: false
-}));
-
-// Middleware to check authentication
-function isAuthenticated(req, res, next) {
-    if (req.session.userId) {
-        return next();
-    }
-    res.redirect('/');
+// Session secret: env var, else a generated one kept next to the database.
+function sessionSecret() {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  let s = store.getMeta('session_secret');
+  if (!s) { s = crypto.randomBytes(32).toString('hex'); store.setMeta('session_secret', s); }
+  return s;
 }
 
-// Routes
-app.get('/', (req, res) => {
-    if (req.session.userId) {
-        return res.redirect('/game');
-    }
-    res.render('login', { error: null });
+const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+app.use((req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'same-origin',
+    'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'",
+  });
+  next();
 });
+app.use(express.json({ limit: '10kb' }));
+app.use(session({
+  name: 'failtech.sid',
+  secret: sessionSecret(),
+  store: new store.SqliteStore(),
+  resave: false,
+  saveUninitialized: false,
+  cookie: { httpOnly: true, sameSite: 'lax', maxAge: 14 * 86400000, secure: 'auto' },
+}));
 
-app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-        return res.render('login', { error: 'Username and password are required' });
-    }
+// ---- auth -------------------------------------------------------------------
+const attempts = new Map();
+const MAX_ATTEMPTS = Number(process.env.AUTH_RATE_LIMIT) || 20; // per IP per minute
+function rateLimit(req, res, next) {
+  const now = Date.now();
+  const rec = (attempts.get(req.ip) || []).filter((t) => now - t < 60000);
+  if (rec.length >= MAX_ATTEMPTS) return res.status(429).json({ ok: false, error: 'Too many attempts. Wait a minute.' });
+  rec.push(now);
+  attempts.set(req.ip, rec);
+  next();
+}
+setInterval(() => { const now = Date.now(); for (const [k, v] of attempts) if (!v.some((t) => now - t < 60000)) attempts.delete(k); }, 60000).unref();
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const insertUser = db.prepare('INSERT INTO users (username, password) VALUES (?, ?)');
-        const result = insertUser.run(username, hashedPassword);
+function requireAuth(req, res, next) {
+  if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Not signed in.' });
+  next();
+}
 
-        // Seed new colony for user
-        seedColonyForUser(result.lastInsertRowid);
+function credentials(body) {
+  const username = String((body && body.username) || '').trim();
+  const password = String((body && body.password) || '');
+  if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) return { error: 'Callsign must be 3-20 letters, numbers or underscores.' };
+  if (password.length < 6 || password.length > 100) return { error: 'Passcode must be at least 6 characters.' };
+  return { username, password };
+}
 
-        req.session.userId = result.lastInsertRowid;
-        res.redirect('/game');
-    } catch (error) {
-        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-            return res.render('login', { error: 'Username already exists' });
-        }
-        console.error(error);
-        res.render('login', { error: 'Registration failed' });
-    }
-});
-
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-        return res.render('login', { error: 'Username and password are required' });
-    }
-
-    try {
-        const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-        if (user && await bcrypt.compare(password, user.password)) {
-            req.session.userId = user.id;
-            res.redirect('/game');
-        } else {
-            res.render('login', { error: 'Invalid username or password' });
-        }
-    } catch (error) {
-        console.error(error);
-        res.render('login', { error: 'Login failed' });
-    }
-});
-
-app.post('/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/');
-});
-
-// Main Game Dashboard
-app.get('/game', isAuthenticated, (req, res) => {
-    const colony = db.prepare('SELECT * FROM colonies WHERE user_id = ?').get(req.session.userId);
-    if (!colony) {
-        return res.status(404).send("Colony not found.");
-    }
-
-    const inventoryRows = db.prepare('SELECT resource_id, amount FROM colony_inventory WHERE colony_id = ?').all(colony.id);
-    const inventory = {};
-    for (let row of inventoryRows) {
-        inventory[row.resource_id] = row.amount;
-    }
-
-    const buildings = db.prepare('SELECT * FROM colony_buildings WHERE colony_id = ?').all(colony.id);
-    const workOrders = db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ?').all(colony.id);
-
-    // Prepare map data (Ring 1 for MVP)
-    const mapSlots = Array(6).fill(null); // MVP hardcoded 6 slots
-    buildings.forEach(b => {
-        if (b.ring_index === 1 && b.slot_index >= 0 && b.slot_index < 6) {
-            mapSlots[b.slot_index] = gameConfig.buildings[b.building_type];
-        }
+function signIn(req, userId) {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => {
+      if (err) return reject(err);
+      req.session.userId = userId;
+      store.ensureColony(userId);
+      req.session.save((e) => (e ? reject(e) : resolve()));
     });
+  });
+}
 
-    workOrders.forEach(w => {
-         if (w.action_type === 'build') {
-             const data = JSON.parse(w.target_data);
-             if (data.ring_index === 1 && data.slot_index >= 0 && data.slot_index < 6) {
-                 mapSlots[data.slot_index] = { name: "Under Construction (" + w.ticks_remaining + "t)", type: "construction" };
-             }
-         }
-    });
-
-    res.render('game', { colony, inventory, mapSlots, workOrders, gameConfig, error: null });
+app.post('/api/register', rateLimit, async (req, res, next) => {
+  try {
+    const c = credentials(req.body);
+    if (c.error) return res.status(400).json({ ok: false, error: c.error });
+    if (db.prepare('SELECT 1 FROM users WHERE username = ? COLLATE NOCASE').get(c.username)) {
+      return res.status(409).json({ ok: false, error: 'That callsign is taken.' });
+    }
+    const hash = await bcrypt.hash(c.password, 10);
+    const id = db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(c.username, hash).lastInsertRowid;
+    await signIn(req, Number(id));
+    res.json({ ok: true });
+  } catch (e) { next(e); }
 });
 
-// Build Endpoint (HTMX)
-app.post('/game/build', isAuthenticated, (req, res) => {
-    const { ring_index, slot_index, building_type } = req.body;
-    const rIdx = parseInt(ring_index);
-    const sIdx = parseInt(slot_index);
-
-    const bldgConfig = gameConfig.buildings[building_type];
-    if (!bldgConfig) {
-        return res.send(`<div id="error-toast" hx-swap-oob="true" class="bg-red-500 text-white p-2 rounded mb-2">Invalid building type</div>`);
-    }
-
-    const colony = db.prepare('SELECT id FROM colonies WHERE user_id = ?').get(req.session.userId);
-
-    // Check if slot is occupied
-    const existingBuilding = db.prepare('SELECT id FROM colony_buildings WHERE colony_id = ? AND ring_index = ? AND slot_index = ?').get(colony.id, rIdx, sIdx);
-    const existingWO = db.prepare("SELECT id FROM colony_work_orders WHERE colony_id = ? AND action_type = 'build' AND json_extract(target_data, '$.ring_index') = ? AND json_extract(target_data, '$.slot_index') = ?").get(colony.id, rIdx, sIdx);
-
-    if (existingBuilding || existingWO) {
-         return res.send(`<div id="error-toast" hx-swap-oob="true" class="bg-red-500 text-white p-2 rounded mb-2">Slot already occupied</div>`);
-    }
-
-    // Check cost
-    const transaction = db.transaction(() => {
-        let canAfford = true;
-        for (let [resId, costAmt] of Object.entries(bldgConfig.cost)) {
-            const current = db.prepare('SELECT amount FROM colony_inventory WHERE colony_id = ? AND resource_id = ?').get(colony.id, resId);
-            if (!current || current.amount < costAmt) {
-                canAfford = false;
-                break;
-            }
-        }
-
-        if (!canAfford) {
-            return false;
-        }
-
-        // Deduct cost
-        for (let [resId, costAmt] of Object.entries(bldgConfig.cost)) {
-            db.prepare('UPDATE colony_inventory SET amount = amount - ? WHERE colony_id = ? AND resource_id = ?').run(costAmt, colony.id, resId);
-        }
-
-        // Queue Work Order
-        db.prepare('INSERT INTO colony_work_orders (colony_id, action_type, target_data, ticks_remaining) VALUES (?, ?, ?, ?)')
-            .run(colony.id, 'build', JSON.stringify({ ring_index: rIdx, slot_index: sIdx, building_type }), bldgConfig.constructionTicks);
-
-        return true;
-    });
-
-    const success = transaction();
-
-    if (!success) {
-        return res.send(`<div id="error-toast" hx-swap-oob="true" class="bg-red-500 text-white p-2 rounded mb-2">Insufficient resources</div>`);
-    }
-
-    // Instead of rendering full page or complex HTMX response, we will just trigger a full page refresh via HX-Refresh
-    // or return a simple success and let the polling update the UI. For MVP, tell HTMX to refresh.
-    res.set('HX-Refresh', 'true');
-    res.send('');
+app.post('/api/login', rateLimit, async (req, res, next) => {
+  try {
+    const c = credentials(req.body);
+    const user = c.error ? null : db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(c.username);
+    // Always run a compare so response time doesn't reveal which usernames exist.
+    const ok = await bcrypt.compare(c.password || '', user ? user.password : '$2b$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvali');
+    if (!user || !ok) return res.status(401).json({ ok: false, error: 'Invalid callsign or passcode.' });
+    await signIn(req, user.id);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
 });
 
-// Reset Colony Endpoint (Destructive)
-app.post('/game/reset', isAuthenticated, (req, res) => {
-    const colony = db.prepare('SELECT id FROM colonies WHERE user_id = ?').get(req.session.userId);
-    if (!colony) return res.redirect('/game');
-
-    const transaction = db.transaction(() => {
-        db.prepare('DELETE FROM colony_work_orders WHERE colony_id = ?').run(colony.id);
-        db.prepare('DELETE FROM colony_buildings WHERE colony_id = ?').run(colony.id);
-        db.prepare('DELETE FROM colony_inventory WHERE colony_id = ?').run(colony.id);
-        db.prepare('DELETE FROM colonies WHERE id = ?').run(colony.id);
-        seedColonyForUser(req.session.userId);
-    });
-
-    transaction();
-    res.redirect('/game');
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(() => { res.clearCookie('failtech.sid'); res.json({ ok: true }); });
 });
 
-// State Endpoint for polling
-app.get('/game/state', isAuthenticated, (req, res) => {
-    // Return a partial view containing just the dashboard updates
-    const colony = db.prepare('SELECT * FROM colonies WHERE user_id = ?').get(req.session.userId);
-    if (!colony) {
-        return res.status(404).send("");
-    }
+// ---- game api -----------------------------------------------------------------
+const cfgJson = JSON.stringify(clientConfig());
+app.get('/api/config', requireAuth, (req, res) => res.type('json').send(cfgJson));
+app.get('/api/state', requireAuth, (req, res) => res.json(viewFor(req.session.userId)));
 
-    const inventoryRows = db.prepare('SELECT resource_id, amount FROM colony_inventory WHERE colony_id = ?').all(colony.id);
-    const inventory = {};
-    for (let row of inventoryRows) {
-        inventory[row.resource_id] = row.amount;
-    }
+// Live updates: the server pushes a fresh view to each connected player every tick.
+const streams = new Map(); // userId -> Set<res>
+function push(userId) {
+  const set = streams.get(userId);
+  if (!set || !set.size) return;
+  const payload = `data: ${JSON.stringify(viewFor(userId))}\n\n`;
+  for (const r of set) r.write(payload);
+}
+app.get('/api/stream', requireAuth, (req, res) => {
+  const userId = req.session.userId;
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders();
+  res.write('retry: 2000\n\n');
+  if (!streams.has(userId)) streams.set(userId, new Set());
+  streams.get(userId).add(res);
+  res.write(`data: ${JSON.stringify(viewFor(userId))}\n\n`);
+  const hb = setInterval(() => res.write(': keepalive\n\n'), 20000);
+  req.on('close', () => { clearInterval(hb); streams.get(userId).delete(res); });
+});
+engine.events.on('tick', () => { for (const uid of streams.keys()) push(uid); });
 
-    const buildings = db.prepare('SELECT * FROM colony_buildings WHERE colony_id = ?').all(colony.id);
-    const workOrders = db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ?').all(colony.id);
+const act = (name) => (req, res) => {
+  const result = actions[name](req.session.userId, req.body);
+  if (result.ok) push(req.session.userId);
+  res.status(result.ok ? 200 : 400).json({ ...result, state: result.ok ? viewFor(req.session.userId) : undefined });
+};
+for (const [route, name] of [
+  ['build', 'build'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['cancel', 'cancelOrder'],
+  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'],
+]) app.post(`/api/${route}`, requireAuth, act(name));
 
-    const mapSlots = Array(6).fill(null);
-    buildings.forEach(b => {
-        if (b.ring_index === 1 && b.slot_index >= 0 && b.slot_index < 6) {
-            mapSlots[b.slot_index] = gameConfig.buildings[b.building_type];
-        }
-    });
+// ---- pages ----------------------------------------------------------------------
+app.get('/', (req, res) => (req.session.userId ? res.redirect('/game') : res.sendFile(path.join(PUBLIC, 'index.html'))));
+app.get('/game', (req, res) => (req.session.userId ? res.sendFile(path.join(PUBLIC, 'game.html')) : res.redirect('/')));
+app.use(express.static(PUBLIC, { index: false, maxAge: 0 }));
 
-    workOrders.forEach(w => {
-         if (w.action_type === 'build') {
-             const data = JSON.parse(w.target_data);
-             if (data.ring_index === 1 && data.slot_index >= 0 && data.slot_index < 6) {
-                 mapSlots[data.slot_index] = { name: "Under Construction (" + w.ticks_remaining + "t)", type: "construction" };
-             }
-         }
-    });
-
-    // In a full HTMX implementation, we would render a partial template and swap it.
-    // For this MVP step, we will re-render the whole body and let HTMX swap the main content.
-    res.render('game_content', { colony, inventory, mapSlots, workOrders, gameConfig });
+app.use('/api', (req, res) => res.status(404).json({ ok: false, error: 'Not found.' }));
+app.use((err, req, res, next) => {
+  console.error(err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ ok: false, error: 'Server error.' });
 });
 
-startEngine();
-
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+if (require.main === module) {
+  engine.start();
+  app.listen(PORT, () => console.log(`FAILTECH command running at http://localhost:${PORT}`));
+}
+module.exports = app;
