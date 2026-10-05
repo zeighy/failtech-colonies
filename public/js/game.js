@@ -32,9 +32,11 @@
   var confirmKey = null, confirmTimer = null;
   var restarting = false;  // suppresses the collapse modal while a restart is in flight
   var slotEls = {};        // "r:s" -> {g, cell, ...}
-  var ringLabels = {};     // ring -> svg text shown while the ring is locked
+  var ringLabels = {};     // ring -> svg text (plot size / locked notice)
+  var viewR = 0, targetR = 0; // radar zoom: current / target visible radius
+  var acking = false;      // away report acknowledgement in flight
   var hubEl = null;
-  var STEP = { scrap: 50, unpurified_water: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5 };
+  var STEP = { scrap: 50, unpurified_water: 25, raw_synthetics: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5, alloys: 5, circuits: 5, power_cells: 2 };
   var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['convoy', 'Convoy', 'truck'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
@@ -66,11 +68,13 @@
   }
 
   // ------------------------------------------------------------------ geometry
-  var HUB_R = 62, RING_GAP = 8, RING_W = 58, SLOT_GAP = 5;
-  function ringInner(r) { return HUB_R + 22 + (r - 1) * (RING_W + RING_GAP); }
+  var HUB_R = 56, RING_GAP = 6, SLOT_GAP = 5, RING_WIDTHS = [50, 58, 66, 74, 82];
+  function ringW(r) { return RING_WIDTHS[r - 1] || 82; }
+  function ringInner(r) { var x = HUB_R + 22; for (var i = 1; i < r; i++) x += ringW(i) + RING_GAP; return x; }
+  function ringOuter(r) { return ringInner(r) + ringW(r); }
   function polar(r, a) { return [r * Math.cos(a), r * Math.sin(a)]; }
   function sectorPath(ring, i, cap) {
-    var r0 = ringInner(ring), r1 = r0 + RING_W;
+    var r0 = ringInner(ring), r1 = ringOuter(ring);
     var a0 = -Math.PI / 2 + (i / cap) * 2 * Math.PI, a1 = -Math.PI / 2 + ((i + 1) / cap) * 2 * Math.PI;
     var o0 = a0 + SLOT_GAP / (2 * r1), o1 = a1 - SLOT_GAP / (2 * r1);
     var i0 = a0 + SLOT_GAP / (2 * r0), i1 = a1 - SLOT_GAP / (2 * r0);
@@ -80,8 +84,19 @@
       ' L' + p(polar(r0, i1)) + ' A' + r0 + ' ' + r0 + ' 0 ' + large + ' 0 ' + p(polar(r0, i0)) + ' Z';
   }
   function slotCenter(ring, i, cap) {
-    var rm = ringInner(ring) + RING_W / 2;
+    var rm = ringInner(ring) + ringW(ring) / 2;
     return polar(rm, -Math.PI / 2 + ((i + 0.5) / cap) * 2 * Math.PI);
+  }
+  function plotName(ring) { return CFG.plotSizes[CFG.ringPlotSize[ring]].name; }
+  function plotMultFor(def, ring) {
+    var deficit = Math.max(0, def.minPlotSize - CFG.ringPlotSize[ring]);
+    return Math.pow(CFG.plotPenalty, deficit);
+  }
+  function setView(R) { $('radar').setAttribute('viewBox', (-R).toFixed(1) + ' ' + (-R).toFixed(1) + ' ' + (2 * R).toFixed(1) + ' ' + (2 * R).toFixed(1)); }
+  // Zoom the radar to fit the unlocked rings plus a peek at the next one.
+  function zoomTarget() {
+    var unlocked = Object.keys(S.hub.rings).length, total = Object.keys(CFG.rings).length;
+    return ringOuter(Math.min(unlocked + 1, total)) + 30;
   }
 
   // ------------------------------------------------------------------ derived lookups
@@ -123,15 +138,14 @@
   // ------------------------------------------------------------------ radar construction
   function buildRadar() {
     var svg = $('radar');
-    svg.setAttribute('viewBox', '-290 -290 580 580');
     var defs = svgEl('defs', {}, svg);
     var grad = svgEl('radialGradient', { id: 'sweepfade', cx: '0', cy: '0', r: '1', gradientUnits: 'objectBoundingBox' }, defs);
     svgEl('stop', { offset: '0', 'stop-color': '#ff9f1c', 'stop-opacity': '0' }, grad);
     var maxR = 0;
-    Object.keys(CFG.rings).forEach(function (r) { maxR = Math.max(maxR, ringInner(+r) + RING_W); });
+    Object.keys(CFG.rings).forEach(function (r) { maxR = Math.max(maxR, ringOuter(+r)); });
     var bg = svgEl('g', {}, svg);
     // faint concentric guides + bearing ticks
-    [HUB_R + 10].concat(Object.keys(CFG.rings).map(function (r) { return ringInner(+r) + RING_W + 4; })).forEach(function (r) {
+    [HUB_R + 10].concat(Object.keys(CFG.rings).map(function (r) { return ringOuter(+r) + 3; })).forEach(function (r) {
       svgEl('circle', { cx: 0, cy: 0, r: r, 'class': 'ring-line' }, bg);
     });
     for (var d = 0; d < 360; d += 10) {
@@ -155,23 +169,22 @@
         var cell = svgEl('path', { d: sectorPath(ring, i, cap), 'class': 'cell' }, g);
         var c = slotCenter(ring, i, cap);
         var inner = svgEl('g', { transform: 'translate(' + c[0].toFixed(1) + ' ' + c[1].toFixed(1) + ')', 'pointer-events': 'none' }, g);
+        var isz = 22 + ring * 2;  // icons grow with the plot
         var plus = svgEl('path', { d: 'M-6 0H6M0 -6V6', 'class': 'plus' }, inner);
-        var ico = svgEl('svg', { x: -13, y: -15, width: 26, height: 26, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'class': 'ico' }, inner);
-        var tag = svgEl('text', { x: 0, y: 22, 'class': 'tag' }, inner);
-        var pbg = svgEl('rect', { x: -16, y: 17, width: 32, height: 3, rx: 1.5, 'class': 'pbar-bg' }, inner);
-        var pb = svgEl('rect', { x: -16, y: 17, width: 0, height: 3, rx: 1.5, 'class': 'pbar' }, inner);
+        var ico = svgEl('svg', { x: -isz / 2, y: -isz / 2, width: isz, height: isz, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'class': 'ico' }, inner);
+        var tag = svgEl('text', { x: 0, y: isz / 2 + 9, 'class': 'tag' }, inner);
+        var pbg = svgEl('rect', { x: -16, y: isz / 2 + 4, width: 32, height: 3, rx: 1.5, 'class': 'pbar-bg' }, inner);
+        var pb = svgEl('rect', { x: -16, y: isz / 2 + 4, width: 0, height: 3, rx: 1.5, 'class': 'pbar' }, inner);
         (function (ring, i) {
           g.addEventListener('click', function () { onSlot(ring, i); });
           g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSlot(ring, i); } });
         })(ring, i);
-        slotEls[ring + ':' + i] = { g: g, title: title, ico: ico, tag: tag, plus: plus, pbg: pbg, pb: pb, sig: '' };
+        slotEls[ring + ':' + i] = { g: g, title: title, ico: ico, tag: tag, plus: plus, pbg: pbg, pb: pb, isz: isz, sig: '' };
       }
     });
 
     Object.keys(CFG.rings).forEach(function (rs) {
-      if (+rs < 2) return;
-      var lab = svgEl('text', { x: 0, y: -(ringInner(+rs) + RING_W / 2) + 3, 'class': 'ring-label' }, svg);
-      lab.textContent = 'RING ' + rs + ' · LOCKED · HUB LV ' + rs;
+      var lab = svgEl('text', { x: 0, y: -(ringInner(+rs) + ringW(+rs) / 2) + 3, 'class': 'ring-label' }, svg);
       ringLabels[rs] = lab;
     });
 
@@ -180,7 +193,7 @@
     svgEl('title', {}, hub).textContent = 'Hub: open upgrade panel';
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R, 'class': 'hub-pulse' }, hub);
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R, 'class': 'disc' }, hub);
-    svgEl('circle', { cx: 0, cy: 0, r: HUB_R - 8, fill: 'none', stroke: 'rgba(255,159,28,.25)', 'stroke-dasharray': '2 5' }, hub);
+    svgEl('circle', { cx: 0, cy: 0, r: HUB_R - 7, fill: 'none', stroke: 'rgba(255,159,28,.25)', 'stroke-dasharray': '2 5' }, hub);
     var t1 = svgEl('text', { x: 0, y: -3, 'font-size': 15 }, hub); t1.textContent = 'HUB';
     var t2 = svgEl('text', { x: 0, y: 15, 'font-size': 10, 'letter-spacing': '.12em' }, hub);
     hub.addEventListener('click', function () { sel = { hub: true }; tab = 'hub'; renderAll(); });
@@ -205,15 +218,16 @@
       var el = slotEls[k], p = k.split(':'), r = +p[0], s = +p[1];
       var unlocked = slotUnlocked(r, s);
       var b = unlocked && buildingAt(r, s), o = unlocked && !b && orderAt(r, s);
-      var cls = 'slot', name = 'Ring ' + r + ' · Slot ' + (s + 1);
+      var cls = 'slot', name = 'Ring ' + r + ' · Slot ' + (s + 1) + ' · ' + plotName(r) + ' plot';
       var c = null, icoName = null, tag = '';
       if (!unlocked) { cls += ' locked'; name += ' (locked)'; }
       else if (b) {
         var def = CFG.buildings[b.type]; c = def.color; icoName = b.type;
         cls += ' built' + (b.paused ? ' paused' : '');
         if (!b.paused && b.status && b.status !== 'running') cls += (b.eff < 0.01 ? ' stalled' : ' low');
-        tag = b.paused ? 'OFF' : (b.eff < 0.995 ? pct(b.eff) : '');
-        name = def.name + ' (' + name + ')';
+        if (b.plot < 0.999) cls += ' cramped';
+        tag = b.paused ? 'OFF' : b.status === 'damaged' ? 'DOWN' : (b.eff < 0.995 ? pct(b.eff) : (b.plot < 0.999 ? '×' + b.plot.toFixed(2) : ''));
+        name = def.name + ' (' + name + ')' + (b.plot < 0.999 ? ' · cramped plot' : '');
       } else if (o) {
         cls += ' building'; c = CFG.buildings[o.data.type].color; icoName = o.data.type;
         name = 'Building ' + CFG.buildings[o.data.type].name;
@@ -232,9 +246,15 @@
       el.plus.style.display = (!b && !o && unlocked) ? '' : 'none';
       el.pbg.style.display = o ? '' : 'none';
       el.pb.style.display = o ? '' : 'none';
-      el.ico.setAttribute('y', o || tag ? -17 : -13);
+      el.ico.setAttribute('y', o || tag ? -el.isz / 2 - 4 : -el.isz / 2);
     });
-    Object.keys(ringLabels).forEach(function (r) { ringLabels[r].style.display = S.hub.rings[r] ? 'none' : ''; });
+    Object.keys(ringLabels).forEach(function (r) {
+      var open = !!S.hub.rings[r];
+      ringLabels[r].textContent = open ? plotName(r).toUpperCase() + ' PLOTS' : 'RING ' + r + ' · ' + plotName(r).toUpperCase() + ' PLOTS · LOCKED · HUB LV ' + r;
+      ringLabels[r].setAttribute('class', 'ring-label' + (open ? ' open' : ''));
+    });
+    targetR = zoomTarget();
+    if (!viewR) { viewR = targetR; setView(viewR); }
     hubEl.g.classList.toggle('sel', !!(sel && sel.hub));
     hubEl.sub.textContent = S.hub.upgrading ? 'UPGRADING' : 'LEVEL ' + S.colony.hubLevel;
   }
@@ -278,7 +298,7 @@
     var h = '';
     Object.keys(CFG.resources).forEach(function (k) {
       var r = CFG.resources[k];
-      h += '<div class="res" data-res="' + k + '"><div class="row"><span class="dot" style="background:' + r.color + '"></span>' +
+      h += '<div class="res" data-res="' + k + '" title="Tier ' + r.tier + '"><div class="row"><span class="dot" style="background:' + r.color + '"></span>' +
         '<span class="nm">' + esc(r.name) + '</span><span class="amt num" data-f="amt">0</span></div>' +
         '<div class="sub"><span data-f="net" class="num"></span><span data-f="note"></span></div>' +
         '<div class="bar"><i data-f="bar" style="background:' + r.color + '"></i></div></div>';
@@ -291,6 +311,8 @@
       var row = document.querySelector('.res[data-res="' + k + '"]');
       if (!row) return;
       var r = S.resources[k];
+      var def = CFG.resources[k];
+      row.classList.toggle('hidden', !!(def.showFromHub && def.showFromHub > S.colony.hubLevel && r.amount < 0.5 && r.produced <= 0 && r.consumed <= 0));
       var shownAmt = clamp(r.amount + r.net * f, 0, r.cap);
       row.querySelector('[data-f=amt]').textContent = fmt(shownAmt);
       var net = row.querySelector('[data-f=net]');
@@ -322,14 +344,16 @@
       });
     }
     if (S.energy.satisfaction < 0.999) h += '<div class="alert warn">' + icon('bolt', 14) + 'Brownout · production at ' + pct(S.energy.satisfaction) + '</div>';
+    if (S.hub.eff < 0.999) h += '<div class="alert warn">' + icon('hub', 14) + 'Hub under-maintained: short of ' + esc(CFG.resources[S.hub.limiting].name) + ' · hub power output cut</div>';
+    var hz = S.hazard;
+    if (hz && hz.state === 'forecast') {
+      var risky = hz.prep < 0.5 && hz.ticksUntil <= 12;
+      h += '<div class="alert ' + (risky ? '' : 'warn') + '" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + esc(hz.name) + ' in ' + hz.ticksUntil + 't (' + clock(hz.ticksUntil * S.tickMs) + ') · ' + Math.round(hz.prep * 100) + '% prepared</div>';
+    } else if (hz) {
+      h += '<div class="alert" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + esc(hz.name) + ' in effect · ' + esc(hz.effect) + ' · ' + hz.ticksLeft + 't left</div>';
+    }
     if ($('alerts').dataset.h !== h) { $('alerts').innerHTML = h; $('alerts').dataset.h = h; }
   }
-  function renderLegend() {
-    $('legend').innerHTML = Object.keys(CFG.buildings).map(function (k) {
-      return '<span style="--c:' + CFG.buildings[k].color + '">' + esc(CFG.buildings[k].name) + '</span>';
-    }).join('');
-  }
-
   // ------------------------------------------------------------------ right panel
   function renderTabs() {
     var next = CFG.hubLevels[S.colony.hubLevel + 1];
@@ -349,9 +373,9 @@
         '<div class="dim" style="margin-top:8px;font-size:12px">' + n + ' structure' + (n === 1 ? '' : 's') + ' online · ' + S.orders.length + ' under construction</div></div>' +
         '<div class="note">Place producers next to the buildings they pair with. Neighbours in the same ring and touching slots in adjacent rings count for adjacency bonuses.</div>';
     }
-    var r = sel.ring, s = sel.slot, head = 'Ring ' + r + ' &middot; Slot ' + (s + 1);
+    var r = sel.ring, s = sel.slot, head = 'Ring ' + r + ' &middot; Slot ' + (s + 1) + ' &middot; ' + plotName(r) + ' plot';
     if (!slotUnlocked(r, s)) {
-      return '<div class="p-title">' + icon('lock', 22) + '<h3>' + head + '</h3></div><div class="note">Ring ' + r + ' unlocks at hub level ' + r + '.</div>' +
+      return '<div class="p-title">' + icon('lock', 22) + '<h3>' + head + '</h3></div><div class="note">Ring ' + r + ' (' + plotName(r) + ' plots) unlocks at hub level ' + r + '.</div>' +
         '<div class="actions"><button class="btn primary" data-act="tab" data-tab="hub">View hub upgrade</button></div>';
     }
     var b = buildingAt(r, s), o = orderAt(r, s);
@@ -367,8 +391,9 @@
 
   var STATUS = {
     running: ['Running', 'good'], paused: ['Paused', 'dim'], no_power: ['No power', 'bad'], low_power: ['Low power', 'warn'],
-    starved: ['Missing inputs', 'bad'], low_input: ['Short on inputs', 'warn']
+    starved: ['Missing inputs', 'bad'], low_input: ['Short on inputs', 'warn'], damaged: ['Damaged: awaiting repairs', 'bad']
   };
+  function plotName2(size) { return CFG.plotSizes[size].name; }
   function builtPanel(b, head) {
     var d = CFG.buildings[b.type], st = STATUS[b.paused ? 'paused' : b.status] || STATUS.running;
     var why = (!b.paused && b.limiting) ? ' <span class="dim">(' + esc(CFG.resources[b.limiting].name) + ')</span>' : '';
@@ -376,8 +401,13 @@
       '<div class="label">' + head + '</div><p class="p-desc">' + esc(d.desc) + '</p>' +
       '<dl class="kv"><dt>Status</dt><dd class="' + st[1] + '">' + st[0] + why + '</dd>' +
       '<dt>Efficiency</dt><dd>' + pct(b.paused ? 0 : b.eff) + '</dd>' +
-      '<dt>Adjacency</dt><dd class="' + (b.mult > 1.001 ? 'good' : b.mult < 0.999 ? 'bad' : 'dim') + '">' + (Math.abs(b.mult - 1) < 0.001 ? 'none' : '×' + b.mult.toFixed(2)) + '</dd></dl>' +
-      '<div class="label sec">Per tick at current efficiency</div><div class="io">' + ioPills(d, b.paused ? 0 : b.eff, b.mult) + '</div>';
+      '<dt>Adjacency</dt><dd class="' + (b.adj > 1.001 ? 'good' : b.adj < 0.999 ? 'bad' : 'dim') + '">' + (Math.abs(b.adj - 1) < 0.001 ? 'none' : '×' + b.adj.toFixed(2)) + '</dd>' +
+      '<dt>Plot</dt><dd class="' + (b.plot < 0.999 ? 'bad' : 'good') + '">' + plotName(b.ring) + (b.plot < 0.999 ? ' · too small for ' + plotName2(d.minPlotSize) + ' · ×' + b.plot.toFixed(2) : (d.minPlotSize > 1 ? ' · fits' : '')) + '</dd>' +
+      (b.haz < 0.999 ? '<dt>Hazard</dt><dd class="bad">×' + b.haz.toFixed(2) + '</dd>' : '') + '</dl>' +
+      '<div class="label sec">Per tick at current efficiency</div><div class="io">' + ioPills(d, b.paused ? 0 : b.eff, b.mult * b.haz) + '</div>' +
+      (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult) + ' storage each') + '</div>' : '') +
+      (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult).toFixed(1) + '</span></div>' : '') +
+      (d.transmit ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:#fff"></i>Signal ' + (b.eff * b.mult).toFixed(2) + ' / tick</span></div>' : '');
     var nts = neighborTypes(b.ring, b.slot);
     h += '<div class="label sec">Neighbours</div>';
     h += nts.length ? '<div class="io">' + nts.map(function (t) {
@@ -396,23 +426,32 @@
     var h = '<div class="label">' + head + ' · empty</div><h3 style="margin:4px 0 12px;font-size:15px">Construct</h3><div class="stack">';
     Object.keys(CFG.buildings).forEach(function (k) {
       var d = CFG.buildings[k];
-      var locked = d.minHubLevel && S.colony.hubLevel < d.minHubLevel;
       var afford = canAfford(d.cost);
+      var owned = S.buildings.filter(function (b) { return b.type === k; }).length + S.orders.filter(function (o) { return o.kind === 'build' && o.data.type === k; }).length;
+      var capped = d.maxCount && owned >= d.maxCount;
       var pv = previewMult(k, r, s);
-      var bonus = '';
+      var plot = plotMultFor(d, r);
+      var notes = '';
       if (pv.parts.length) {
-        bonus = '<div class="bonus ' + (pv.mult > 1 ? 'good' : 'bad') + '">Adjacency ×' + pv.mult.toFixed(2) + ' · ' +
+        notes += '<div class="bonus ' + (pv.mult > 1 ? 'good' : 'bad') + '">Adjacency ×' + pv.mult.toFixed(2) + ' · ' +
           pv.parts.map(function (p) { return esc(CFG.buildings[p.type].name); }).join(', ') + '</div>';
       }
-      h += '<button class="opt" data-act="build" data-type="' + k + '"' + (locked || !afford ? ' disabled' : '') + ' style="--c:' + d.color + '">' +
+      if (d.minPlotSize > 1) {
+        notes += plot < 0.999
+          ? '<div class="bonus bad">Wants a ' + plotName2(d.minPlotSize) + ' plot · this one is ' + plotName(r) + ' · output ×' + plot.toFixed(2) + '</div>'
+          : '<div class="bonus good">Wants a ' + plotName2(d.minPlotSize) + ' plot · fits</div>';
+      }
+      h += '<button class="opt" data-act="build" data-type="' + k + '"' + (capped || !afford ? ' disabled' : '') + ' style="--c:' + d.color + '">' +
         '<div class="top">' + icon(k, 20) + '<b>' + esc(d.name) + '</b><small>' + d.constructionTicks + ' ticks</small></div>' +
-        (locked ? '<div class="warn" style="font-size:11px">Requires hub level ' + d.minHubLevel + '</div>' :
+        (capped ? '<div class="warn" style="font-size:11px">Already built: only ' + d.maxCount + ' allowed</div>' :
           '<div class="io">' + Object.keys(d.cost).map(function (c) { return pill(c, d.cost[c], S.resources[c].amount < d.cost[c] ? 'no' : ''); }).join('') + '</div>') +
-        '<div class="io" style="margin-top:6px;opacity:.85">' + ioPills(d, 1, pv.mult) + '</div>' + bonus + '</button>';
+        '<div class="io" style="margin-top:6px;opacity:.85">' + ioPills(d, 1, pv.mult * plot) +
+        (d.storageBonus ? pill('scrap', '+' + fmt(d.storageBonus * plot) + ' storage') : '') +
+        (d.defense ? '<span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * plot).toFixed(1) + '</span>' : '') +
+        (d.transmit ? '<span class="pill out"><i style="background:#fff"></i>Signal ' + plot.toFixed(2) + ' / tick</span>' : '') + '</div>' + notes + '</button>';
     });
     return h + '</div>';
   }
-
 
   // ---- Brief: doom clock + directives ----------------------------------------
   function span(n) { return n + ' tick' + (n === 1 ? '' : 's') + ' <span class="dim">(' + clock(n * S.tickMs) + ')</span>'; }
@@ -451,63 +490,106 @@
     else if (tm.blocked.length) h += '; waiting on ' + esc(names(tm.blocked));
     return h + '</div>';
   }
+  function threatCard() {
+    var z = S.hazard;
+    if (!z) return '';
+    var h;
+    if (z.state === 'active') {
+      return '<div class="threat bad"><div class="label">Hazard in effect</div><div class="big bad">' + esc(z.name) + '</div><div>' + esc(z.effect) + '</div>' +
+        '<div class="dim" style="margin-top:6px">Ends in ' + span(z.ticksLeft) + '.</div></div>';
+    }
+    var ready = z.prep >= 0.98, cls = ready ? 'good' : z.prep < 0.5 ? 'bad' : 'warn';
+    h = '<div class="threat ' + cls + '"><div class="label">Incoming hazard</div><div class="big">' + esc(z.name) + '</div>' +
+      '<div>Strikes in ' + span(z.ticksUntil) + '.</div><div class="dim" style="margin:4px 0 8px">' + esc(z.desc) + '</div>';
+    z.requirements.forEach(function (r) {
+      h += '<div class="req"><div class="row"><span>' + esc(r.label) + '</span><span class="num ' + (r.frac >= 0.999 ? 'good' : '') + '">' + fmt(r.have) + ' / ' + fmt(r.need) + '</span></div>' +
+        '<div class="meter"><i style="width:' + (r.frac * 100).toFixed(0) + '%;background:' + (r.frac >= 0.999 ? 'var(--good)' : 'var(--warn)') + '"></i></div></div>';
+    });
+    h += '<div style="margin-top:8px">' + (ready
+      ? 'The colony is ready and will handle this on its own, spending the reserves above.'
+      : '<b>' + Math.round(z.prep * 100) + '% prepared.</b> If it struck now: ' + esc(z.effect) + '.') + '</div>';
+    return h + '<div class="dim" style="margin-top:6px;font-size:11px">Reserves are spent automatically when it lands, whether or not you are here.</div></div>';
+  }
+
   function briefTab() {
     var ds = S.brief.directives, done = ds.filter(function (d) { return d.done; }).length;
-    var h = doomCard() + '<div class="p-title" style="margin-top:16px"><h3>Directives</h3><span class="dim num" style="margin-left:auto">' + done + ' / ' + ds.length + '</span></div>' +
+    var h = threatCard() + doomCard() + '<div class="p-title" style="margin-top:16px"><h3>Directives</h3><span class="dim num" style="margin-left:auto">' + done + ' / ' + ds.length + '</span></div>' +
       '<div class="meter" style="margin:4px 0 10px"><i style="width:' + (done / ds.length * 100).toFixed(0) + '%;background:var(--amber)"></i></div>';
     ds.forEach(function (d) {
       h += '<div class="dir' + (d.done ? ' done' : '') + (d.current ? ' current' : '') + '"><span class="tick">' + icon('check', 11) + '</span><div class="body"><b>' + esc(d.title) + '</b>';
       if (!d.done) {
         h += '<div class="hint">' + esc(d.hint) + '</div>' + timingLine(d.timing);
-        if (d.progress) h += '<div class="meter" style="margin-top:6px"><i style="width:' + (d.progress.value / d.progress.max * 100).toFixed(0) + '%;background:var(--good)"></i></div><div class="tm num">' + d.progress.value + ' / ' + d.progress.max + ' ticks held</div>';
+        if (d.progress) h += '<div class="meter" style="margin-top:6px"><i style="width:' + (d.progress.value / d.progress.max * 100).toFixed(0) + '%;background:var(--good)"></i></div><div class="tm num">' + d.progress.value + ' / ' + d.progress.max + '</div>';
       }
       h += '</div></div>';
     });
     return h + '<div class="note" style="margin-top:14px">Directives only point at what is missing. Working out how is the game.</div>';
   }
 
+  function upkeepPills(up) {
+    var h = '';
+    Object.keys(up || {}).forEach(function (r) { h += pill(r, up[r], 'in'); });
+    return h || '<span class="dim">None</span>';
+  }
   function hubTab() {
     var c = S.colony, lv = CFG.hubLevels[c.hubLevel], next = CFG.hubLevels[c.hubLevel + 1];
-    var max = Math.max.apply(null, Object.keys(CFG.hubLevels).map(Number));
+    var slots = function (l) { return Object.keys(l.ringCapacities).reduce(function (a, k) { return a + l.ringCapacities[k]; }, 0); };
     var h = '<div class="p-title">' + icon('hub', 22) + '<h3>Command Hub · Level ' + c.hubLevel + '</h3></div>' +
-      '<dl class="kv"><dt>Storage per resource</dt><dd>' + fmt(lv.maxStorage) + '</dd><dt>Max population</dt><dd>' + lv.maxPopulation +
-      '</dd><dt>Base power</dt><dd>' + lv.baseEnergy + '</dd><dt>Rings online</dt><dd>' + Object.keys(lv.ringCapacities).length + ' (' +
-      Object.keys(lv.ringCapacities).reduce(function (a, k) { return a + lv.ringCapacities[k]; }, 0) + ' slots)</dd></dl>';
+      '<dl class="kv"><dt>Storage per resource</dt><dd>' + fmt(S.hub.maxStorage) + (S.hub.maxStorage > S.hub.baseStorage ? ' <span class="dim">(' + fmt(S.hub.baseStorage) + ' + warehouses)</span>' : '') + '</dd>' +
+      '<dt>Max population</dt><dd>' + lv.maxPopulation + '</dd>' +
+      '<dt>Hub power</dt><dd class="' + (S.hub.eff < 0.999 ? 'bad' : '') + '">' + S.hub.power.toFixed(0) + (lv.upkeepPerTick && lv.upkeepPerTick.energy ? ' <span class="dim">(' + lv.baseEnergy + ' base − ' + lv.upkeepPerTick.energy + ' upkeep)</span>' : '') + '</dd>' +
+      '<dt>Rings online</dt><dd>' + Object.keys(lv.ringCapacities).length + ' (' + slots(lv) + ' slots)</dd>' +
+      '<dt>Defence</dt><dd>' + S.defense.toFixed(1) + '</dd></dl>';
+    if (lv.upkeepPerTick) {
+      h += '<div class="label sec">Hub upkeep per tick</div><div class="io">' + upkeepPills(lv.upkeepPerTick) + '</div>' +
+        (S.hub.eff < 0.999 ? '<div class="note bad">Upkeep unmet: the hub is running at ' + pct(S.hub.eff) + ' and its power output is cut. Short of ' + esc(CFG.resources[S.hub.limiting].name) + '.</div>'
+          : '<div class="dim" style="font-size:11px;margin-top:6px">A larger hub costs more to keep standing. Keep these supplied.</div>');
+    }
     h += '<div class="label sec">Hub upgrade</div>';
     if (!next) h += '<div class="note good">The hub is fully upgraded.</div>';
     else {
-      var up = S.orders.filter(function (o) { return o.kind === 'upgrade'; })[0];
-      h += '<div class="opt" style="cursor:default"><div class="top"><b>Level ' + (c.hubLevel + 1) + '</b><small>' + next.upgradeTicks + ' ticks</small></div>' +
+      var up = S.orders.filter(function (o) { return o.kind === 'upgrade'; })[0], nl = c.hubLevel + 1;
+      h += '<div class="opt" style="cursor:default"><div class="top"><b>Level ' + nl + '</b><small>' + next.upgradeTicks + ' ticks</small></div>' +
         '<div class="io">' + Object.keys(next.upgradeCost).map(function (r) { return pill(r, next.upgradeCost[r], S.resources[r].amount < next.upgradeCost[r] ? 'no' : ''); }).join('') + '</div>' +
-        '<div class="dim" style="font-size:11px;margin-top:8px">Unlocks ring ' + (c.hubLevel + 1) + ' · storage ' + fmt(next.maxStorage) + ' · population ' + next.maxPopulation + ' · base power ' + next.baseEnergy + '</div></div>';
+        '<div class="dim" style="font-size:11px;margin-top:8px">Unlocks ring ' + nl + ' (' + plotName(nl) + ' plots, ' + CFG.rings[nl] + ' slots) · storage ' + fmt(next.maxStorage) + ' · population ' + next.maxPopulation + ' · base power ' + next.baseEnergy + '</div>' +
+        (next.upkeepPerTick ? '<div class="label" style="margin-top:8px">Upkeep after upgrade</div><div class="io" style="margin-top:4px">' + upkeepPills(next.upkeepPerTick) + '</div>' : '') + '</div>';
       h += up ? '<div class="note">Upgrade in progress: ' + up.remaining + ' ticks remaining. <a href="#" data-act="cancel" data-id="' + up.id + '" style="color:var(--amber)">Cancel</a></div>'
         : '<div class="actions"><button class="btn primary" data-act="upgrade"' + (canAfford(next.upgradeCost) ? '' : ' disabled') + '>Begin upgrade</button></div>';
     }
-    h += '<div class="label sec">Mission: self-sustaining colony</div>';
-    var wn = S.resources.clean_water.net > 0, rn = S.resources.rations.net > 0, pw = S.energy.satisfaction >= 0.999;
-    var goals = [[c.hubLevel >= max, 'Hub at level ' + max], [pw, 'Power grid covers demand'], [wn, 'Clean water production exceeds use'], [rn, 'Ration production exceeds use']];
-    goals.forEach(function (g) { h += '<div class="goal ' + (g[0] ? 'done' : '') + '"><span class="tick">' + icon('check', 11) + '</span><span>' + g[1] + '</span></div>'; });
-    h += '<div class="goal ' + (c.won ? 'done' : '') + '"><span class="tick">' + icon('check', 11) + '</span><span>Hold it for ' + CFG.goalSustainTicks + ' ticks <span class="dim">(' + (c.won ? CFG.goalSustainTicks : c.goalTicks) + '/' + CFG.goalSustainTicks + ')</span></span></div>';
-    if (c.won) h += '<div class="note good">Mission accomplished. Keep building if you like.</div>';
+    var bc = S.buildings.filter(function (b) { return CFG.buildings[b.type].transmit; })[0];
+    var bo = S.orders.filter(function (o) { return o.kind === 'build' && CFG.buildings[o.data.type].transmit; })[0];
+    h += '<div class="label sec">Mission: the Beacon</div>';
+    var prog = Math.min(1, c.progress / CFG.transmitTicks);
+    h += '<div class="goal ' + (bc ? 'done' : '') + '"><span class="tick">' + icon('check', 11) + '</span><span>' + (bc ? 'Beacon Array built' : bo ? 'Beacon Array under construction' : 'Build the Beacon Array') + '</span></div>' +
+      '<div class="goal ' + (c.won ? 'done' : '') + '"><span class="tick">' + icon('check', 11) + '</span><span>Transmit <span class="dim num">(' + Math.floor(c.won ? CFG.transmitTicks : c.progress) + ' / ' + CFG.transmitTicks + ')</span></span></div>' +
+      '<div class="meter" style="margin:4px 0 8px"><i style="width:' + (prog * 100).toFixed(0) + '%;background:var(--good)"></i></div>';
+    if (c.won) h += '<div class="note good">The message got through. Mission accomplished. Keep building if you like.</div>';
     return h;
   }
 
+  function trendTxt(tr, goodUp) {
+    if (Math.abs(tr) < 0.02) return '';
+    var up = tr > 0, good = up === goodUp;
+    return ' <span class="' + (good ? 'good' : 'bad') + '">' + (up ? '▲' : '▼') + Math.abs(Math.round(tr * 100)) + '%</span>';
+  }
   function convoyTab() {
     var h = '<div class="convoy-head"><div class="label">Next convoy in</div><div class="big num" data-f="convoy">–</div><div class="dim" style="font-size:11px" data-f="convoyTicks"></div></div>' +
-      '<p class="p-desc">Standing orders repeat every convoy. Exports sell your surplus at the convoy price; imports are bought with credits. Max ' + CFG.convoyMax + ' per resource.</p>';
+      '<p class="p-desc">Standing orders repeat every convoy at that convoy\'s prices. The trade limit per resource grows with your hub level (currently ×' + (CFG.hubLevels[S.colony.hubLevel].convoyCapMult || 1) + '). Prices drift from convoy to convoy; the figures below are what the <b>next</b> convoy will pay and charge, and the arrows show the change from the last one.</p>';
     var net = 0;
     Object.keys(CFG.resources).forEach(function (k) {
       var r = CFG.resources[k], ex = S.contracts.export[k] || 0, im = S.contracts.import[k] || 0, st = STEP[k] || 10;
-      net += ex * r.sell - im * r.buy;
+      var mp = S.market.prices[k], max = S.market.limits[k];
+      if (r.showFromHub && r.showFromHub > S.colony.hubLevel + 1 && !ex && !im && S.resources[k].amount < 0.5) return;
+      net += ex * mp.sell - im * mp.buy;
       var stepper = function (side, v) {
         return '<div class="stepper"><span class="lab">' + (side === 'export' ? 'Sell' : 'Buy') + '</span><button data-act="contract" data-res="' + k + '" data-side="' + side + '" data-delta="-' + st + '"' + (v <= 0 ? ' disabled' : '') + ' aria-label="Decrease ' + side + '">−</button>' +
-          '<span class="val num">' + v + '</span><button data-act="contract" data-res="' + k + '" data-side="' + side + '" data-delta="' + st + '"' + (v >= CFG.convoyMax ? ' disabled' : '') + ' aria-label="Increase ' + side + '">+</button></div>';
+          '<span class="val num">' + v + '</span><button data-act="contract" data-res="' + k + '" data-side="' + side + '" data-delta="' + st + '"' + (v >= max ? ' disabled' : '') + ' aria-label="Increase ' + side + '">+</button></div>';
       };
       h += '<div class="trade" style="--c:' + r.color + '"><div class="nm"><i></i>' + esc(r.name) + '</div>' +
-        '<div class="stock">stock <span class="num" data-b="amt:' + k + '"></span></div>' + stepper('export', ex) + stepper('import', im) +
-        '<div class="sub"><span>sells for ' + r.sell + ' cr</span><span>buys for ' + r.buy + ' cr</span></div></div>';
+        '<div class="stock">stock <span class="num" data-b="amt:' + k + '"></span> · max ' + max + ' per convoy</div>' + stepper('export', ex) + stepper('import', im) +
+        '<div class="sub"><span>sells for ' + mp.sell + ' cr' + trendTxt(mp.trend, true) + '</span><span>buys for ' + mp.buy + ' cr' + trendTxt(mp.trend, false) + '</span></div></div>';
     });
-    h += '<div class="note ' + (net >= 0 ? 'good' : '') + '" style="margin-top:12px">Estimated convoy balance: <b>' + (net >= 0 ? '+' : '−') + fmt(Math.abs(net)) + ' cr</b></div>';
+    h += '<div class="note ' + (net >= 0 ? 'good' : '') + '" style="margin-top:12px">Estimated convoy balance at forecast prices: <b>' + (net >= 0 ? '+' : '−') + fmt(Math.abs(net)) + ' cr</b></div>';
     return h;
   }
 
@@ -589,6 +671,7 @@
       storeSet('won:' + S.user, '');
       act('reset', {}).then(function () { sel = null; renderAll(); });
     },
+    ack: function () { acking = true; act('ack', {}).then(function () { acking = false; }); },
     logout: function () { api('logout', {}).then(function () { location.href = '/'; }); },
     close: function () {}
   };
@@ -607,9 +690,14 @@
         (S.colony.failures ? ' Colonies lost so far: ' + S.colony.failures + '.' : '') + '</p>' +
         '<div class="actions" data-lock><button class="btn primary" data-m="restart" data-lock>Found a new colony</button></div>', 'fail');
     }
+    if (S.report.length && !acking && !restarting && !document.querySelector('.modal.report')) {
+      modal('<h2>While you were away</h2><p>The colony faced trouble and did what it could with what it had.</p><ul class="log">' +
+        S.report.map(function (e) { return '<li class="' + e.kind + '">' + esc(e.message) + '<small>tick #' + e.tick + '</small></li>'; }).join('') +
+        '</ul><div class="actions"><button class="btn primary" data-m="ack">Understood</button></div>', 'report');
+    }
     if (S.colony.won && !shown.won && !storeGet('won:' + S.user)) {
       shown.won = true; storeSet('won:' + S.user, '1');
-      modal('<h2>Colony self-sustaining</h2><p>Hub at maximum level with a stable power and supply loop. You have kept your people alive in the wastes, Commander.</p>' +
+      modal('<h2>The beacon reached the world</h2><p>Transmission complete. Somewhere out there, something heard you, Commander. You kept your people alive and built something that outlasts the wastes.</p>' +
         '<div class="actions"><button class="btn primary" data-m="close">Keep building</button></div>', 'win');
     }
   }
@@ -632,7 +720,7 @@
     else if (a === 'upgrade') act('upgrade', {}, 'Hub upgrade started.');
     else if (a === 'contract') {
       var side = el.dataset.side, res = el.dataset.res;
-      var cur = S.contracts[side][res] || 0, v = clamp(cur + (+el.dataset.delta), 0, CFG.convoyMax);
+      var cur = S.contracts[side][res] || 0, v = clamp(cur + (+el.dataset.delta), 0, S.market.limits[res]);
       S.contracts[side][res] = v; if (!v) delete S.contracts[side][res];
       renderPanel();
       act('contract', { resource: res, side: side, amount: v });
@@ -665,7 +753,7 @@
       });
     }
     lastEventId = Math.max(lastEventId || 0, top);
-    if (first) { buildRadar(); buildResources(); renderLegend(); }
+    if (first) { buildRadar(); buildResources(); }
     renderAll();
   }
 
@@ -676,6 +764,7 @@
     lastFrame = t;
     var f = frac();
     frameResources(f); frameQueue(f); frameRadar(f);
+    if (Math.abs(viewR - targetR) > 0.5) { viewR += (targetR - viewR) * 0.12; setView(viewR); } else if (viewR !== targetR) { viewR = targetR; setView(viewR); }
     var now = Date.now() + offset;
     $('c-convoy').innerHTML = clock(S.convoy.arrivesAt - now) + ' <small>' + S.convoy.ticksLeft + 't</small>';
     framePanel();

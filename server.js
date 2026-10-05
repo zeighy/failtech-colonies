@@ -58,8 +58,19 @@ function rateLimit(req, res, next) {
 }
 setInterval(() => { const now = Date.now(); for (const [k, v] of attempts) if (!v.some((t) => now - t < 60000)) attempts.delete(k); }, 60000).unref();
 
+// "Active" players are those who have recently talked to the server (any request, or an
+// open live stream that refreshes every tick). New hazards only start for active players.
+const lastTouch = new Map();
+function touch(userId) {
+  const now = Date.now();
+  if (now - (lastTouch.get(userId) || 0) < 5000) return;
+  lastTouch.set(userId, now);
+  db.prepare('UPDATE colonies SET last_seen_at = ? WHERE user_id = ?').run(now, userId);
+}
+
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Not signed in.' });
+  touch(req.session.userId);
   next();
 }
 
@@ -122,6 +133,7 @@ const streams = new Map(); // userId -> Set<res>
 function push(userId) {
   const set = streams.get(userId);
   if (!set || !set.size) return;
+  touch(userId);
   const payload = `data: ${JSON.stringify(viewFor(userId))}\n\n`;
   for (const r of set) r.write(payload);
 }
@@ -145,7 +157,7 @@ const act = (name) => (req, res) => {
 };
 for (const [route, name] of [
   ['build', 'build'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['cancel', 'cancelOrder'],
-  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'],
+  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'],
 ]) app.post(`/api/${route}`, requireAuth, act(name));
 
 // ---- pages ----------------------------------------------------------------------

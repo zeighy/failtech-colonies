@@ -9,6 +9,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
 process.env.SESSION_SECRET = 'test-secret';
 process.env.AUTH_RATE_LIMIT = '1000';
+process.env.HAZARDS = 'off'; // hazards have their own suite (test/hazards.test.js)
 
 const app = require('../server');
 const engine = require('../src/engine');
@@ -74,7 +75,7 @@ test('build: validates, charges, queues, completes after N ticks', async () => {
   assert.equal((await c.post('/api/build', { ring: 1, slot: 0, type: 'nope' })).status, 400);
   assert.equal((await c.post('/api/build', { ring: 2, slot: 0, type: 'solar_array' })).body.error, 'That slot is locked. Upgrade the hub.');
   assert.equal((await c.post('/api/build', { ring: 1, slot: 6, type: 'solar_array' })).status, 400);
-  assert.match((await c.post('/api/build', { ring: 1, slot: 0, type: 'fabrication_works' })).body.error, /requires hub level 2/);
+  assert.equal((await c.post('/api/build', { ring: 1, slot: 0, type: 'beacon_array' })).status, 400); // can't afford the beacon
   const r = await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' });
   assert.equal(r.status, 200);
   assert.equal(r.body.state.resources.scrap.amount, 1500 - 100);
@@ -133,8 +134,9 @@ test('hub upgrade needs resources, takes time, unlocks ring 2', async () => {
   tick(store.config.hubLevels['2'].upgradeTicks);
   const s = (await c.get('/api/state')).body;
   assert.equal(s.colony.hubLevel, 2);
-  assert.deepEqual(s.hub.rings, { 1: 6, 2: 12 });
-  assert.equal((await c.post('/api/build', { ring: 2, slot: 11, type: 'solar_array' })).status, 200);
+  assert.deepEqual(s.hub.rings, { 1: 6, 2: 8 });
+  assert.equal((await c.post('/api/build', { ring: 2, slot: 7, type: 'solar_array' })).status, 200);
+  assert.equal((await c.post('/api/build', { ring: 2, slot: 8, type: 'solar_array' })).status, 400); // ring 2 only has 8 slots
 });
 
 test('convoy: standing contracts execute when the convoy arrives', async () => {
@@ -151,6 +153,16 @@ test('convoy: standing contracts execute when the convoy arrives', async () => {
   assert.ok(after.events.some((e) => /Convoy bought 30 Rations/.test(e.message)), JSON.stringify(after.events.map((e) => e.message)));
   assert.equal(after.resources.machined_parts.amount, 10);
   assert.equal(after.convoy.ticksLeft, interval);
+  // contract amounts are clamped to this resource's limit at the current hub level
+  const big = await c.post('/api/contract', { resource: 'power_cells', side: 'import', amount: 9999 });
+  assert.equal(big.body.state.contracts.import.power_cells, store.config.resources.power_cells.convoyMax);
+  assert.equal(big.body.state.market.limits.power_cells, store.config.resources.power_cells.convoyMax);
+  assert.equal(big.body.state.market.limits.scrap, store.config.global.convoyMaxPerResource);
+  store.db.prepare('UPDATE colonies SET hub_level = 3 WHERE id = ?').run(colony.id);
+  const grown = (await c.get('/api/state')).body.market.limits;
+  assert.equal(grown.power_cells, Math.floor(store.config.resources.power_cells.convoyMax * store.config.hubLevels['3'].convoyCapMult));
+  const more = await c.post('/api/contract', { resource: 'power_cells', side: 'import', amount: 9999 });
+  assert.equal(more.body.state.contracts.import.power_cells, grown.power_cells);
   // clearing a contract removes it
   const cleared = await c.post('/api/contract', { resource: 'rations', side: 'export', amount: 0 });
   assert.deepEqual(cleared.body.state.contracts.export, {});
@@ -206,8 +218,8 @@ const directive = (s, id) => s.brief.directives.find((d) => d.id === id);
 test('brief: fresh colony has a full roadmap, a correct collapse clock, and hints that never name a building', async () => {
   const c = await newPlayer();
   const s = (await c.get('/api/state')).body;
-  assert.equal(s.brief.directives.length, 12);
-  assert.equal(s.brief.remaining, 12);
+  assert.equal(s.brief.directives.length, 21);
+  assert.equal(s.brief.remaining, 21);
   assert.equal(s.brief.directives.filter((d) => d.current).length, 1);
   assert.equal(s.brief.directives.find((d) => d.current).id, 'power');
   // 80 water at -2/tick = 40 ticks to shortage, then 10 ticks of morale: matches the sim's collapse at tick 50

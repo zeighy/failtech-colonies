@@ -19,10 +19,10 @@ function pay(colonyId, cost) {
   for (const [r, a] of Object.entries(cost)) up.run(a, colonyId, r);
 }
 
-function refund(colonyId, hubLevel, cost, fraction) {
-  const cap = config.hubLevels[hubLevel].maxStorage;
-  const up = db.prepare('UPDATE colony_inventory SET amount = MIN(?, amount + ?) WHERE colony_id = ? AND resource_id = ?');
-  for (const [r, a] of Object.entries(cost)) up.run(cap, Math.floor(a * fraction), colonyId, r);
+// Refunds add straight to stock; the next tick trims anything above the storage cap.
+function refund(colonyId, cost, fraction) {
+  const up = db.prepare('UPDATE colony_inventory SET amount = amount + ? WHERE colony_id = ? AND resource_id = ?');
+  for (const [r, a] of Object.entries(cost)) up.run(Math.floor(a * fraction), colonyId, r);
 }
 
 // Wraps an action: loads the colony, rejects failed colonies, runs inside a transaction.
@@ -47,6 +47,11 @@ const build = guarded((c, { ring, slot, type }) => {
   if (!sim.slotUnlocked(config, c.hub_level, ring, slot)) return fail('That slot is locked. Upgrade the hub.');
   if (def.minHubLevel && c.hub_level < def.minHubLevel) return fail(`${def.name} requires hub level ${def.minHubLevel}.`);
   if (slotBusy(c.id, ring, slot)) return fail('That slot is already in use.');
+  if (def.maxCount) {
+    const have = store.loadBuildings(c.id).filter((b) => b.type === type).length
+      + store.loadOrders(c.id).filter((o) => o.action_type === 'build' && o.data.type === type).length;
+    if (have >= def.maxCount) return fail(`Only ${def.maxCount} ${def.name} can be built.`);
+  }
   if (!canAfford(store.loadInventory(c.id), def.cost)) return fail(`Not enough resources for ${def.name}.`);
   pay(c.id, def.cost);
   db.prepare('INSERT INTO colony_work_orders (colony_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?)')
@@ -59,7 +64,7 @@ const demolish = guarded((c, { ring, slot }) => {
   const b = db.prepare('SELECT * FROM colony_buildings WHERE colony_id = ? AND ring_index = ? AND slot_index = ?').get(c.id, ring, slot);
   if (!b) return fail('Nothing to demolish there.');
   db.prepare('DELETE FROM colony_buildings WHERE id = ?').run(b.id);
-  refund(c.id, c.hub_level, config.buildings[b.building_type].cost, config.global.demolishRefund);
+  refund(c.id, config.buildings[b.building_type].cost, config.global.demolishRefund);
   return OK;
 });
 
@@ -74,7 +79,7 @@ const cancelOrder = guarded((c, { orderId }) => {
   const o = store.loadOrders(c.id).find((x) => x.id === Number(orderId));
   if (!o) return fail('That order no longer exists.');
   const cost = o.action_type === 'build' ? config.buildings[o.data.type].cost : config.hubLevels[o.data.level].upgradeCost;
-  refund(c.id, c.hub_level, cost, 1);
+  refund(c.id, cost, 1);
   db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
   return OK;
 });
@@ -95,11 +100,18 @@ const setContract = guarded((c, { resource, side, amount }) => {
   if (side !== 'export' && side !== 'import') return fail('Bad contract side.');
   amount = Math.floor(Number(amount));
   if (!Number.isFinite(amount) || amount < 0) return fail('Bad amount.');
-  amount = Math.min(amount, config.global.convoyMaxPerResource);
+  amount = Math.min(amount, sim.convoyLimit(config, c.hub_level, resource));
   if (amount === 0) db.prepare('DELETE FROM colony_contracts WHERE colony_id = ? AND resource_id = ? AND side = ?').run(c.id, resource, side);
   else db.prepare('INSERT INTO colony_contracts (colony_id, resource_id, side, amount) VALUES (?, ?, ?, ?) ON CONFLICT DO UPDATE SET amount = excluded.amount').run(c.id, resource, side, amount);
   return OK;
 });
+
+// Acknowledge the "while you were away" report.
+const ack = guarded((c) => {
+  const row = db.prepare('SELECT MAX(id) AS id FROM colony_events WHERE colony_id = ?').get(c.id);
+  db.prepare('UPDATE colonies SET report_cursor = ? WHERE id = ?').run(row.id || 0, c.id);
+  return OK;
+}, { allowFailed: true });
 
 // Full wipe back to the starting state (manual reset).
 const reset = guarded((c) => {
@@ -117,4 +129,4 @@ const restart = guarded((c) => {
   return OK;
 }, { allowFailed: true });
 
-module.exports = { build, demolish, toggle, cancelOrder, upgradeHub, setContract, reset, restart, colonyOf };
+module.exports = { build, demolish, toggle, cancelOrder, upgradeHub, setContract, reset, restart, ack, colonyOf };
