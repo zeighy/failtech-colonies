@@ -5,14 +5,15 @@
     "convoyMaxPerResource": 500,
     "moraleFailureThresholdTicks": 10,
     "moraleRecoveryPerTick": 2,
-    "startingMorale": 100,
+    "startingMorale": 80,
     "populationConsumptionPerTick": {
       "clean_water": 0.1,
       "rations": 0.1
     },
     "populationGrowth": {
-      "everyTicks": 10,
-      "minMorale": 70
+      "everyTicks": 3,
+      "minMorale": 60,
+      "fastMorale": 90
     },
     "goalSustainTicks": 10,
     "maxOfflineTicks": 1200,
@@ -32,14 +33,40 @@
         "raw_synthetics": 0,
         "alloys": 0,
         "circuits": 0,
-        "power_cells": 0
+        "power_cells": 0,
+        "meals": 0
       }
     },
     "beacon": {
       "transmitTicks": 25
     },
     "activeWindowSeconds": 120,
-    "plotPenaltyPerStep": 0.6
+    "plotPenaltyPerStep": 0.6,
+    "express": {
+      "baseFee": 100,
+      "feePerHubLevel": 50,
+      "travelTicks": 3,
+      "cooldownTicks": 10,
+      "buyMult": 1.5,
+      "sellMult": 0.6,
+      "limitFraction": 0.4
+    },
+    "moraleMax": 100,
+    "morale": {
+      "base": 80,
+      "mealBonus": 15,
+      "comfortMin": -15,
+      "comfortMax": 8,
+      "fallPerTick": 1,
+      "penaltyBelow": 70,
+      "penaltyPerPoint": 0.012,
+      "floor": 0.5,
+      "bonusFrom": 85,
+      "bonusMax": 0.08
+    },
+    "workforceShare": 0.8,
+    "mealsPerPopPerTick": 0.05,
+    "emigrationEveryTicks": 2
   },
   "resources": {
     "scrap": {
@@ -120,6 +147,15 @@
       "tier": 4,
       "showFromHub": 3,
       "convoyMax": 20
+    },
+    "meals": {
+      "name": "Prepared Meals",
+      "color": "#ff8fa3",
+      "buy": 10,
+      "sell": 4,
+      "tier": 2,
+      "showFromHub": 2,
+      "convoyMax": 300
     }
   },
   "tierOrder": [
@@ -132,18 +168,17 @@
   "hubLevels": {
     "1": {
       "maxStorage": 2000,
-      "maxPopulation": 30,
       "baseEnergy": 20,
       "ringCapacities": {
         "1": 6
       },
       "upgradeCost": null,
       "upgradeTicks": 0,
-      "convoyCapMult": 1
+      "convoyCapMult": 1,
+      "baseHousing": 30
     },
     "2": {
       "maxStorage": 4000,
-      "maxPopulation": 50,
       "baseEnergy": 30,
       "ringCapacities": {
         "1": 6,
@@ -154,11 +189,11 @@
         "machined_parts": 60
       },
       "upgradeTicks": 10,
-      "convoyCapMult": 1.5
+      "convoyCapMult": 1.5,
+      "baseHousing": 35
     },
     "3": {
       "maxStorage": 6000,
-      "maxPopulation": 80,
       "baseEnergy": 40,
       "ringCapacities": {
         "1": 6,
@@ -175,11 +210,11 @@
         "energy": 12,
         "machined_parts": 1
       },
-      "convoyCapMult": 2
+      "convoyCapMult": 2,
+      "baseHousing": 40
     },
     "4": {
       "maxStorage": 8000,
-      "maxPopulation": 110,
       "baseEnergy": 50,
       "ringCapacities": {
         "1": 6,
@@ -199,11 +234,11 @@
         "machined_parts": 1,
         "alloys": 1
       },
-      "convoyCapMult": 3
+      "convoyCapMult": 3,
+      "baseHousing": 45
     },
     "5": {
       "maxStorage": 12000,
-      "maxPopulation": 150,
       "baseEnergy": 60,
       "ringCapacities": {
         "1": 6,
@@ -225,7 +260,8 @@
         "alloys": 2,
         "circuits": 1
       },
-      "convoyCapMult": 4
+      "convoyCapMult": 4,
+      "baseHousing": 50
     }
   },
   "buildings": {
@@ -242,7 +278,8 @@
         "energy": 25
       },
       "color": "#ffd23f",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 0
     },
     "scrap_extractor": {
       "name": "Scrap Extractor",
@@ -259,7 +296,9 @@
         "scrap": 50
       },
       "color": "#d08a4e",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 2,
+      "comfort": -6
     },
     "water_pump": {
       "name": "Groundwater Pump",
@@ -276,7 +315,9 @@
         "unpurified_water": 20
       },
       "color": "#4fb3a6",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 2,
+      "comfort": -1
     },
     "water_purifier": {
       "name": "Filtration Plant",
@@ -295,7 +336,9 @@
         "clean_water": 15
       },
       "color": "#4cc9f0",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 2,
+      "comfort": -1
     },
     "parts_assembler": {
       "name": "Parts Assembler",
@@ -313,7 +356,9 @@
         "machined_parts": 6
       },
       "color": "#c3cad4",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 3,
+      "comfort": -4
     },
     "hydroponics_bay": {
       "name": "Hydroponics Bay",
@@ -332,7 +377,9 @@
         "rations": 10
       },
       "color": "#8be05a",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 3,
+      "comfort": 4
     },
     "fabrication_works": {
       "name": "Fabrication Works",
@@ -352,7 +399,9 @@
         "building_materials": 4
       },
       "color": "#ff9f1c",
-      "minPlotSize": 2
+      "minPlotSize": 2,
+      "workers": 4,
+      "comfort": -5
     },
     "scrap_generator": {
       "name": "Scrap Burner",
@@ -370,7 +419,9 @@
         "energy": 80
       },
       "minPlotSize": 3,
-      "color": "#ff7b3a"
+      "color": "#ff7b3a",
+      "workers": 2,
+      "comfort": -7
     },
     "synth_reclaimer": {
       "name": "Synthetics Reclaimer",
@@ -388,7 +439,9 @@
         "raw_synthetics": 12
       },
       "minPlotSize": 1,
-      "color": "#b08ad6"
+      "color": "#b08ad6",
+      "workers": 2,
+      "comfort": -3
     },
     "foundry": {
       "name": "Foundry",
@@ -409,7 +462,9 @@
         "alloys": 3
       },
       "minPlotSize": 3,
-      "color": "#e07a5f"
+      "color": "#e07a5f",
+      "workers": 5,
+      "comfort": -8
     },
     "circuit_fab": {
       "name": "Circuit Fabricator",
@@ -430,7 +485,9 @@
         "circuits": 2
       },
       "minPlotSize": 3,
-      "color": "#6ee7b7"
+      "color": "#6ee7b7",
+      "workers": 5,
+      "comfort": -3
     },
     "cell_forge": {
       "name": "Cell Forge",
@@ -453,7 +510,9 @@
         "power_cells": 1
       },
       "minPlotSize": 4,
-      "color": "#f9e07f"
+      "color": "#f9e07f",
+      "workers": 6,
+      "comfort": -5
     },
     "warehouse": {
       "name": "Warehouse",
@@ -468,7 +527,8 @@
       "outputsPerTick": {},
       "minPlotSize": 2,
       "color": "#9aa5b1",
-      "storageBonus": 1000
+      "storageBonus": 1000,
+      "workers": 1
     },
     "watch_post": {
       "name": "Watch Post",
@@ -485,7 +545,9 @@
       "outputsPerTick": {},
       "minPlotSize": 1,
       "color": "#ef6f6f",
-      "defense": 1
+      "defense": 1,
+      "workers": 2,
+      "comfort": 2
     },
     "beacon_array": {
       "name": "Beacon Array",
@@ -507,7 +569,64 @@
       "minPlotSize": 5,
       "color": "#ffffff",
       "maxCount": 1,
-      "transmit": true
+      "transmit": true,
+      "workers": 8,
+      "comfort": -2
+    },
+    "kitchen": {
+      "name": "Kitchen",
+      "type": "refinery",
+      "desc": "Turns plain rations into proper meals. Hungry people survive on rations; people who eat well are happier and work harder.",
+      "constructionTicks": 5,
+      "cost": {
+        "scrap": 350,
+        "machined_parts": 25
+      },
+      "inputsPerTick": {
+        "energy": 6,
+        "rations": 6,
+        "clean_water": 3
+      },
+      "outputsPerTick": {
+        "meals": 8
+      },
+      "minPlotSize": 2,
+      "color": "#ff8fa3",
+      "workers": 3,
+      "comfort": 2
+    },
+    "dormitory": {
+      "name": "Dormitory",
+      "type": "housing",
+      "desc": "Bunks for a few more colonists. Noise and fumes from neighbours make for poor sleep.",
+      "constructionTicks": 3,
+      "cost": {
+        "scrap": 250,
+        "machined_parts": 15
+      },
+      "inputsPerTick": {},
+      "outputsPerTick": {},
+      "minPlotSize": 1,
+      "color": "#a3b8cc",
+      "housing": 10,
+      "workers": 0
+    },
+    "habitat": {
+      "name": "Habitat Block",
+      "type": "housing",
+      "desc": "A proper residential block. Big, and worth placing carefully: homes next to heavy industry are miserable.",
+      "constructionTicks": 6,
+      "cost": {
+        "scrap": 700,
+        "machined_parts": 50,
+        "building_materials": 30
+      },
+      "inputsPerTick": {},
+      "outputsPerTick": {},
+      "minPlotSize": 3,
+      "color": "#8fa8c8",
+      "housing": 30,
+      "workers": 0
     }
   },
   "adjacencyModifiers": {
@@ -582,6 +701,11 @@
         "targetBuilding": "circuit_fab",
         "adjacentBuilding": "foundry",
         "outputMultiplier": 0.9
+      },
+      {
+        "targetBuilding": "kitchen",
+        "adjacentBuilding": "hydroponics_bay",
+        "outputMultiplier": 1.1
       }
     ]
   },
@@ -622,7 +746,9 @@
       32,
       52
     ],
-    "scalingPerHubLevel": 0.35,
+    "gapShrinkPerHubLevel": 0.07,
+    "gapFloor": 0.6,
+    "scalingPerHubLevel": 0.6,
     "types": {
       "dust_storm": {
         "name": "Dust Storm",
@@ -632,13 +758,13 @@
           20,
           30
         ],
-        "durationTicks": 10,
+        "durationTicks": 12,
         "desc": "A wall of grit is rolling in. Solar output will collapse while it lasts.",
         "requires": [
           {
             "kind": "stock",
             "resource": "machined_parts",
-            "amount": 20,
+            "amount": 30,
             "label": "Spare panel filters"
           }
         ],
@@ -648,6 +774,14 @@
             "solar_array"
           ],
           "mult": 0.3
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "machined_parts",
+          "perBuilding": {
+            "solar_array": 0.6
+          },
+          "label": "Panel cleaning"
         }
       },
       "equipment_fault": {
@@ -658,25 +792,33 @@
           18,
           28
         ],
-        "durationTicks": 12,
-        "desc": "Worn machinery is about to fail. One structure will go offline until repaired.",
+        "durationTicks": 14,
+        "desc": "Worn machinery is about to fail. Several structures will lose efficiency until repaired.",
         "requires": [
           {
             "kind": "stock",
             "resource": "machined_parts",
-            "amount": 10,
+            "amount": 25,
             "label": "Repair parts"
           },
           {
             "kind": "stock",
             "resource": "scrap",
-            "amount": 80,
+            "amount": 150,
             "label": "Repair scrap"
           }
         ],
         "effect": {
-          "kind": "disable_random",
-          "count": 1
+          "kind": "degrade_random",
+          "baseCount": 1,
+          "levelsPerExtra": 2,
+          "mult": 0.35
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "machined_parts",
+          "perRunning": 0.3,
+          "label": "Round-the-clock repairs"
         }
       },
       "blight": {
@@ -687,13 +829,13 @@
           24,
           32
         ],
-        "durationTicks": 14,
+        "durationTicks": 16,
         "desc": "Spores are spreading through the growing beds. Food output will crash.",
         "requires": [
           {
             "kind": "stock",
             "resource": "clean_water",
-            "amount": 100,
+            "amount": 150,
             "label": "Flushing water"
           }
         ],
@@ -703,6 +845,14 @@
             "hydroponics_bay"
           ],
           "mult": 0.3
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "clean_water",
+          "perBuilding": {
+            "hydroponics_bay": 4
+          },
+          "label": "Constant flushing"
         }
       },
       "raid": {
@@ -713,12 +863,12 @@
           26,
           36
         ],
-        "durationTicks": 0,
-        "desc": "Raiders have spotted the colony. Unguarded stockpiles will be looted.",
+        "durationTicks": 8,
+        "desc": "Raiders have spotted the colony. Unguarded stockpiles will be looted and outer buildings damaged.",
         "requires": [
           {
             "kind": "defense",
-            "amount": 2,
+            "amount": 3,
             "label": "Watch post strength"
           }
         ],
@@ -729,7 +879,137 @@
             "rations": 0.25,
             "machined_parts": 0.2,
             "credits": 0.25
+          },
+          "damage": {
+            "baseCount": 1,
+            "levelsPerExtra": 2,
+            "mult": 0.4
           }
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "scrap",
+          "perBuilding": {
+            "watch_post": 3
+          },
+          "label": "Ammunition and patrols"
+        }
+      },
+      "toxic_spill": {
+        "name": "Toxic Spill",
+        "minHubLevel": 3,
+        "weight": 2,
+        "warningTicks": [
+          24,
+          34
+        ],
+        "durationTicks": 14,
+        "desc": "The aquifer is fouling. Water extraction and filtration will crawl.",
+        "requires": [
+          {
+            "kind": "stock",
+            "resource": "building_materials",
+            "amount": 50,
+            "label": "Containment materials"
+          },
+          {
+            "kind": "stock",
+            "resource": "clean_water",
+            "amount": 120,
+            "label": "Clean water reserve"
+          }
+        ],
+        "effect": {
+          "kind": "output_mult",
+          "buildings": [
+            "water_pump",
+            "water_purifier"
+          ],
+          "mult": 0.3
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "machined_parts",
+          "perBuilding": {
+            "water_pump": 0.5,
+            "water_purifier": 0.5
+          },
+          "label": "Filter replacements"
+        }
+      },
+      "cold_snap": {
+        "name": "Cold Snap",
+        "minHubLevel": 4,
+        "weight": 2,
+        "warningTicks": [
+          24,
+          34
+        ],
+        "durationTicks": 16,
+        "desc": "A killing cold is coming. The colony will burn through water and rations far faster.",
+        "requires": [
+          {
+            "kind": "stock",
+            "resource": "alloys",
+            "amount": 40,
+            "label": "Insulation plating"
+          },
+          {
+            "kind": "stock",
+            "resource": "rations",
+            "amount": 150,
+            "label": "Emergency rations"
+          }
+        ],
+        "effect": {
+          "kind": "pop_consumption",
+          "mult": 1.7
+        },
+        "mitigated": {
+          "kind": "pop_consumption",
+          "mult": 1.12,
+          "label": "Heating and extra meals"
+        }
+      },
+      "signal_storm": {
+        "name": "Signal Storm",
+        "minHubLevel": 5,
+        "weight": 4,
+        "warningTicks": [
+          20,
+          28
+        ],
+        "durationTicks": 12,
+        "needsBuilding": "beacon_array",
+        "desc": "Interference is building across the bands. The beacon will struggle to transmit.",
+        "requires": [
+          {
+            "kind": "stock",
+            "resource": "circuits",
+            "amount": 40,
+            "label": "Shielding circuits"
+          },
+          {
+            "kind": "stock",
+            "resource": "power_cells",
+            "amount": 3,
+            "label": "Reserve power cells"
+          }
+        ],
+        "effect": {
+          "kind": "output_mult",
+          "buildings": [
+            "beacon_array"
+          ],
+          "mult": 0.25
+        },
+        "mitigated": {
+          "kind": "drain",
+          "resource": "circuits",
+          "perBuilding": {
+            "beacon_array": 1.5
+          },
+          "label": "Recalibration"
         }
       }
     }

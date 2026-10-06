@@ -10,7 +10,7 @@ A browser-based colony management game set in a gritty, post-2200 survival-indus
 4. Your people drink and eat every tick. If clean water or rations run out, morale falls; at 0 morale the colony is abandoned.
 5. **Goal:** build the Beacon Array and keep it running until the transmission completes (25 signal). Everything else in the game exists to make that possible.
 
-The **Brief** tab is your guide. It shows a **collapse clock** (ticks until collapse at current rates, also in the top bar), any **incoming hazard** with how prepared you are, and a roadmap of **directives** that hint at what is missing without telling you what to build. Directives stay ticked once earned. The survival ones tell you whether you are on track, tight, behind schedule or blocked, by comparing how long your stock lasts with the earliest you could finish the fix.
+The **Brief** tab is your guide. Hazards mark the structures they touch on the map (red **!** = being hurt, amber ring = paying a maintenance cost, dashed ring = in the forecast's path). It shows a **collapse clock** (ticks until collapse at current rates, also in the top bar), any **incoming hazard** with how prepared you are, and a roadmap of **directives** that hint at what is missing without telling you what to build. Directives stay ticked once earned. The survival ones tell you whether you are on track, tight, behind schedule or blocked, by comparing how long your stock lasts with the earliest you could finish the fix.
 
 ### Systems
 
@@ -20,21 +20,30 @@ The **Brief** tab is your guide. It shows a **collapse clock** (ticks until coll
 | **Minimum plot size** | Big buildings (Foundry, Cell Forge, Beacon, ...) want big plots. You may build them on smaller ones, but their output is multiplied by 0.6 for each missing size step. This ties advanced buildings to the outer rings, and so to Hub level, without locking them. |
 | **Adjacency** | A building's output is multiplied for each neighbour that pairs well (or badly). Neighbours = the two beside it in its ring plus touching slots in the rings above and below. |
 | **Power** | A grid, not a stockpile. Shortfalls throttle everything proportionally (a brownout). Scrap Burners are big generators that burn scrap. |
+| **Housing and crew** | The hub only houses a few colonists. **Dormitories and Habitat Blocks** raise the population cap, and most buildings need **workers**: with fewer hands than posts, every staffed building slows in proportion. Growth stops at the housing cap. |
+| **Morale and comfort** | Morale heads for a target set by **where homes are** (industry next door lowers comfort; greenery and guards raise it) and by **Prepared Meals** from a Kitchen (a second food tier). Low morale slows production; high morale gives a small bonus. |
 | **Production tiers** | Raw (scrap, water, synthetics) → clean water, rations, parts → building materials → alloys, circuits → power cells. Buildings run at fractional efficiency limited by power and by their scarcest input. |
 | **Hub upkeep** | From level 3 the Hub consumes power and supplies every tick (later alloys and circuits too). If it can't be maintained, its own power output drops. |
 | **Storage** | The Hub caps every resource; Warehouses raise the cap. Excess production is lost (the UI warns you). |
-| **Hazards** | Dust storms, equipment faults, crop blight and raids are forecast ahead of time and strike on a fixed tick. The colony spends reserves automatically to avert or soften them; unprepared means a prorated penalty. See below. |
-| **Convoy** | Every 40 ticks. Standing export/import orders execute at that convoy's prices, which drift from convoy to convoy and are shown in advance with their change. The per-resource trade limit grows with Hub level (×1 at level 1 up to ×4 at level 5). |
+| **Hazards** | Forecast ahead of time, strike on a fixed tick and then linger. The colony spends reserves automatically; unprepared means a prorated penalty, prepared still means a running cost. See below. |
+| **Convoy** | Every 40 ticks (plus on-demand express trips). Standing export/import orders execute at that convoy's prices, which drift from convoy to convoy and are shown in advance with their change. The per-resource trade limit grows with Hub level (×1 at level 1 up to ×4 at level 5). |
 | **Work orders** | Construction and upgrades take ticks. Costs are charged up front; cancelling refunds in full. |
 | **Failure** | Critical shortages drain morale; at zero the colony collapses. You keep half your credits for the next attempt. "Abandon colony" does a full reset. |
+| **Going offline** | If your connection drops, clicks to build, demolish, pause, upgrade or change convoy orders are **queued on screen** (a banner, a dashed marker on the map and a chip in the bottom bar) and sent in order when you reconnect. You can discard any of them first. Express trips and resets need a live connection. |
 | **Offline progress** | The server owns the clock. Production, consumption, convoys and already-forecast hazards continue while you are logged out (capped at 1,200 ticks of catch-up after downtime). |
 
 ### Hazards
 
 - A new hazard only starts while you are **active** (recently connected). Come back later and you won't find a surprise already waiting.
 - Once forecast, the strike tick is fixed. It lands whether or not you are logged in.
-- At the strike the colony **spends the reserves it has**, in proportion. Fully prepared: the hazard is averted automatically. Partly prepared: the effect lands at the unprepared fraction. Requirements grow with Hub level.
+- At the strike the colony **spends the reserves it has**, in proportion, and the hazard then **lasts several ticks whatever happens**. Unprepared: output cuts, degraded buildings, looting or higher consumption at a severity matching the shortfall. Prepared: no penalty, but a **running maintenance cost** for the duration (extra parts for repairs, panel cleaning, ammunition...). Weathering a hazard is never free.
+- Requirements and frequency scale with Hub level, and tougher hazards unlock later: dust storms and equipment faults early, then crop blight and raids, toxic spills, cold snaps, and a signal storm that targets the beacon.
 - If you were away, a **While you were away** report tells you what happened and what was spent.
+- If you see a hazard coming and you're short, the threat card has an **Order express resupply** button (below).
+
+### Express convoy
+
+When you can't wait for the scheduled convoy, dispatch an **express trip** from the Convoy tab: a fee, a 3-tick journey, worse rates (×1.5 to buy, ×0.6 to sell) and a smaller cap, with a 10-tick cooldown. Goods and credits are held on dispatch.
 
 The full numbers (costs, rates, plots, hazards, prices) are in [`prod_guide.md`](prod_guide.md). Everything numeric lives in `game_config.json`.
 

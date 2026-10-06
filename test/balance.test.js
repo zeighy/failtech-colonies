@@ -14,15 +14,15 @@ const nm = sim.buildNeighborMap(config);
 const PLAN = [
   'scrap_extractor', 'parts_assembler', 'water_pump', 'solar_array', 'water_purifier', 'hydroponics_bay',
   'wait:2', 'solar_array', 'scrap_extractor', 'scrap_extractor', 'parts_assembler', 'solar_array', 'fabrication_works', 'synth_reclaimer', 'warehouse',
-  'wait:3', 'scrap_extractor', 'scrap_generator', 'foundry', 'circuit_fab', 'parts_assembler', 'scrap_extractor', 'foundry', 'circuit_fab', 'water_pump', 'water_purifier', 'watch_post', 'watch_post',
+  'wait:3', 'kitchen', 'scrap_extractor', 'scrap_generator', 'foundry', 'circuit_fab', 'parts_assembler', 'scrap_extractor', 'foundry', 'circuit_fab', 'water_pump', 'water_purifier', 'watch_post', 'watch_post',
   'wait:4', 'cell_forge', 'scrap_generator', 'scrap_extractor', 'scrap_extractor', 'hydroponics_bay', 'warehouse', 'synth_reclaimer',
   'wait:5', 'cell_forge', 'scrap_generator', 'beacon_array',
 ];
 
 function play(maxTicks) {
-  let s = { hubLevel: 1, population: config.global.startingState.population, morale: 100, age: 0, progress: 0, won: false,
+  let s = { hubLevel: 1, population: config.global.startingState.population, morale: config.global.startingMorale, age: 0, progress: 0, won: false,
     inventory: { ...config.global.startingState.resources }, buildings: [] };
-  let id = 1; let next = 0; let pending = []; let upgrade = null;
+  let id = 1; let next = 0; let pending = []; let upgrade = null; let last = null;
   const log = [];
   const free = (r, sl) => !s.buildings.some((b) => b.ring === r && b.slot === sl) && !pending.some((p) => p.ring === r && p.slot === sl);
   const place = (type) => {
@@ -48,9 +48,21 @@ function play(maxTicks) {
       if (!can(d.cost)) break;
       pay(d.cost); pending.push({ at: t + d.constructionTicks, type: it, ...pos }); next++;
     }
+    // A sensible player keeps food and water ahead of the population and builds homes when growth hits the cap.
+    if (last) {
+      const has = (ty) => pending.some((p) => p.type === ty);
+      const buy = (type) => { const d = config.buildings[type]; const pos = place(type); if (pos && can(d.cost)) { pay(d.cost); pending.push({ at: t + d.constructionTicks, type, ...pos }); return true; } return false; };
+      const f = last.flows; const net = (r) => f[r].produced - f[r].consumed;
+      if (net('clean_water') < 1 && !has('water_purifier') && buy('water_purifier') && net('unpurified_water') < 8 && !has('water_pump')) buy('water_pump');
+      if (net('rations') < 1 && !has('hydroponics_bay')) buy('hydroponics_bay');
+      if (s.population >= last.housing.cap - 2 && !pending.some((p) => config.buildings[p.type].housing)) {
+        buy(s.hubLevel >= 3 && can(config.buildings.habitat.cost) ? 'habitat' : 'dormitory');
+      }
+    }
     for (const b of s.buildings) if (b.type === 'parts_assembler') b.status = s.inventory.machined_parts > 400 ? 'paused' : 'active';
     const r = sim.step(config, s, nm);
     s = { ...s, inventory: r.inventory, population: r.population, morale: r.morale, age: t, progress: r.progress, won: r.won };
+    last = r;
     for (const p of pending) if (p.at <= t) s.buildings.push({ id: id++, ring: p.ring, slot: p.slot, type: p.type, status: 'active' });
     pending = pending.filter((p) => p.at > t);
     if (upgrade && upgrade.at <= t) { s.hubLevel = upgrade.level; log.push(`L${s.hubLevel}@${t}`); upgrade = null; }

@@ -84,6 +84,27 @@ function tickColony(c, globalTick, tickTime) {
     ev('bad', 'The population has lost all hope. The colony is abandoned.');
   }
 
+  // Express convoy delivery
+  const trip = store.loadExpress(c.id);
+  if (trip && globalTick >= trip.arrives_tick) {
+    const x = config.global.express;
+    inventory = { ...inventory };
+    const got = [];
+    for (const [resId, b] of Object.entries(trip.buy)) {
+      const room = Math.max(0, Math.floor(res.cap - (inventory[resId] || 0)));
+      const qty = Math.min(b.qty, room);
+      inventory[resId] = (inventory[resId] || 0) + qty;
+      if (qty < b.qty) credits += Math.round(b.cost * (b.qty - qty) / b.qty); // storage full: refund the undelivered share
+      if (qty > 0) got.push(`${qty} ${config.resources[resId].name}`);
+    }
+    let pay = 0;
+    for (const s of Object.values(trip.sell)) pay += s.pay;
+    credits += pay;
+    db.prepare('DELETE FROM colony_express WHERE id = ?').run(trip.id);
+    db.prepare('UPDATE colonies SET express_ready_tick = ? WHERE id = ?').run(globalTick + x.cooldownTicks, c.id);
+    ev('good', `The express convoy arrived${got.length ? `, delivering ${got.join(', ')}` : ''}${pay ? `, and paid ${pay} cr for your goods` : ''}.`);
+  }
+
   // Hazards: forecasts, strikes and expiries. Players only start new ones while active,
   // but a forecast hazard always lands on its tick, logged in or not.
   if (status === 'active') {

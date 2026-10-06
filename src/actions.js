@@ -68,10 +68,13 @@ const demolish = guarded((c, { ring, slot }) => {
   return OK;
 });
 
-const toggle = guarded((c, { ring, slot }) => {
+const toggle = guarded((c, { ring, slot, paused }) => {
   const b = db.prepare('SELECT * FROM colony_buildings WHERE colony_id = ? AND ring_index = ? AND slot_index = ?').get(c.id, Number(ring), Number(slot));
   if (!b) return fail('Nothing there.');
-  db.prepare('UPDATE colony_buildings SET status = ? WHERE id = ?').run(b.status === 'active' ? 'paused' : 'active', b.id);
+  // Clients send the state they want (so a re-sent request after a dropped connection can't flip it back);
+  // with no explicit state the building simply flips.
+  const next = typeof paused === 'boolean' ? (paused ? 'paused' : 'active') : (b.status === 'active' ? 'paused' : 'active');
+  db.prepare('UPDATE colony_buildings SET status = ? WHERE id = ?').run(next, b.id);
   return OK;
 });
 
@@ -106,6 +109,46 @@ const setContract = guarded((c, { resource, side, amount }) => {
   return OK;
 });
 
+// Express convoy: a one-off, player-dispatched trip. Goods and credits are held on dispatch
+// (so nothing can be spent twice) and delivered a few ticks later at worse-than-scheduled rates.
+const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
+  const x = config.global.express;
+  const tick = Number(store.getMeta('global_tick', 0));
+  if (store.loadExpress(c.id)) return fail('An express convoy is already on its way.');
+  if (tick < c.express_ready_tick) return fail(`The express convoy needs ${c.express_ready_tick - tick} more ticks before it can run again.`);
+  const prices = sim.expressPrices(config, sim.marketPrices(config, sim.nextConvoyK(config, tick)));
+  const inv = store.loadInventory(c.id);
+  const sellOut = {}; const buyOut = {};
+  let income = 0; let spend = 0;
+  const clean = (o) => Object.entries(o || {}).map(([r, q]) => [r, Math.floor(Number(q))]).filter(([, q]) => q > 0);
+  for (const [res, qty] of clean(sell)) {
+    if (!config.resources[res]) return fail('Unknown resource.');
+    const lim = Math.max(1, Math.floor(sim.convoyLimit(config, c.hub_level, res) * x.limitFraction));
+    if (qty > lim) return fail(`Express convoys carry at most ${lim} ${config.resources[res].name}.`);
+    if ((inv[res] || 0) < qty) return fail(`Not enough ${config.resources[res].name} in stock to send.`);
+    const pay = Math.round(qty * prices[res].sell);
+    sellOut[res] = { qty, pay }; income += pay;
+  }
+  for (const [res, qty] of clean(buy)) {
+    if (!config.resources[res]) return fail('Unknown resource.');
+    const lim = Math.max(1, Math.floor(sim.convoyLimit(config, c.hub_level, res) * x.limitFraction));
+    if (qty > lim) return fail(`Express convoys carry at most ${lim} ${config.resources[res].name}.`);
+    const cost = Math.round(qty * prices[res].buy);
+    buyOut[res] = { qty, cost }; spend += cost;
+  }
+  if (!Object.keys(sellOut).length && !Object.keys(buyOut).length) return fail('Nothing to send or fetch.');
+  const fee = sim.expressFee(config, c.hub_level);
+  if (c.credits + 0 < spend + fee) return fail(`Not enough credits: the trip costs ${fee} cr plus ${spend} cr of goods.`);
+  // Hold the goods and the money now.
+  const up = db.prepare('UPDATE colony_inventory SET amount = amount - ? WHERE colony_id = ? AND resource_id = ?');
+  for (const [res, s] of Object.entries(sellOut)) up.run(s.qty, c.id, res);
+  db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(spend + fee, c.id);
+  db.prepare('INSERT INTO colony_express (colony_id, dispatched_tick, arrives_tick, sell, buy) VALUES (?, ?, ?, ?, ?)')
+    .run(c.id, tick, tick + x.travelTicks, JSON.stringify(sellOut), JSON.stringify(buyOut));
+  store.addEvent(c.id, tick, 'info', `Express convoy dispatched (fee ${fee} cr). Arrives in ${x.travelTicks} ticks.`);
+  return OK;
+});
+
 // Acknowledge the "while you were away" report.
 const ack = guarded((c) => {
   const row = db.prepare('SELECT MAX(id) AS id FROM colony_events WHERE colony_id = ?').get(c.id);
@@ -129,4 +172,4 @@ const restart = guarded((c) => {
   return OK;
 }, { allowFailed: true });
 
-module.exports = { build, demolish, toggle, cancelOrder, upgradeHub, setContract, reset, restart, ack, colonyOf };
+module.exports = { build, demolish, toggle, cancelOrder, upgradeHub, setContract, expressTrip, reset, restart, ack, colonyOf };

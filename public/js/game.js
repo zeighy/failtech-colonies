@@ -35,6 +35,11 @@
   var ringLabels = {};     // ring -> svg text (plot size / locked notice)
   var viewR = 0, targetR = 0; // radar zoom: current / target visible radius
   var acking = false;      // away report acknowledgement in flight
+  var pending = [];        // actions clicked while offline, waiting to be sent
+  var pendingSeq = 0, flushing = false, lastMsgAt = Date.now(), es = null;
+  var apiDown = false;     // sends are failing even if the live stream still looks alive
+  var convoyMode = 'scheduled'; // 'scheduled' | 'express'
+  var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
   var STEP = { scrap: 50, unpurified_water: 25, raw_synthetics: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5, alloys: 5, circuits: 5, power_cells: 2 };
   var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['convoy', 'Convoy', 'truck'], ['log', 'Log', 'list']];
@@ -50,14 +55,82 @@
       return r.json();
     });
   }
+  // ---- offline queue -------------------------------------------------------
+  // Clicks made while disconnected are kept here, shown on screen, and sent in order on
+  // reconnect. Express trips, resets and restarts need a live connection (they spend money
+  // at the moment of sending), so they are refused instead.
+  var QUEUEABLE = { build: 1, demolish: 1, toggle: 1, cancel: 1, upgrade: 1, contract: 1 };
+  function isNetErr(e) { return e instanceof TypeError; }
+  function labelFor(path, body) {
+    var where = function (r, s) { return 'R' + r + '·' + (s + 1); };
+    var nameAt = function (r, s) { var b = S && buildingAt(r, s); return b ? CFG.buildings[b.type].name : 'structure'; };
+    if (path === 'build') return 'Build ' + CFG.buildings[body.type].name + ' (' + where(body.ring, body.slot) + ')';
+    if (path === 'demolish') return 'Demolish ' + nameAt(body.ring, body.slot) + ' (' + where(body.ring, body.slot) + ')';
+    if (path === 'toggle') return (body.paused ? 'Pause ' : 'Resume ') + nameAt(body.ring, body.slot) + ' (' + where(body.ring, body.slot) + ')';
+    if (path === 'cancel') return 'Cancel a work order';
+    if (path === 'upgrade') return 'Upgrade the hub';
+    if (path === 'contract') return body.amount ? (body.side === 'export' ? 'Sell ' : 'Buy ') + body.amount + ' ' + CFG.resources[body.resource].name + ' each convoy' : 'Clear ' + body.side + ' order for ' + CFG.resources[body.resource].name;
+    return path;
+  }
+  function queueKey(path, body) {
+    if (path === 'contract') return 'contract:' + body.resource + ':' + body.side;
+    if (body.ring !== undefined) return path + ':' + body.ring + ':' + body.slot;
+    return path + ':' + (body.orderId || '');
+  }
+  function queuedBuild(r, s) { return pending.filter(function (p) { return p.path === 'build' && p.body.ring === r && p.body.slot === s; })[0]; }
+  function enqueue(path, body) {
+    if (!QUEUEABLE[path]) { toast('You are offline. That action needs a live connection.'); return Promise.resolve({ ok: false, offline: true }); }
+    var key = queueKey(path, body), label = labelFor(path, body);
+    pending = pending.filter(function (p) { return p.key !== key; }); // a newer click replaces the one it supersedes
+    pending.push({ id: ++pendingSeq, key: key, path: path, body: body, label: label, at: Date.now() });
+    toast('Offline: "' + label + '" is waiting to be sent. It goes out when you reconnect.');
+    if (S) { renderQueue(); renderRadar(); renderAlerts(); renderPanel(); }
+    return Promise.resolve({ ok: true, queued: true });
+  }
+  function goOffline() {
+    if (!connected) return;
+    connected = false;
+    if (S) { renderAlerts(); renderQueue(); }
+  }
   function act(path, body, okMsg) {
+    if (!connected || navigator.onLine === false) return enqueue(path, body);
     return api(path, body).then(function (d) {
       if (!d.ok) { toast(d.error || 'Action failed.'); return d; }
       if (d.state) setState(d.state);
       if (okMsg) toast(okMsg, true);
       return d;
-    }).catch(function () { toast('Cannot reach the server.'); });
+    }).catch(function (e) {
+      if (isNetErr(e)) { apiDown = true; goOffline(); return enqueue(path, body); }
+      toast('Something went wrong sending that.');
+      return { ok: false };
+    });
   }
+  function flush() {
+    if (flushing || !pending.length || !connected) return;
+    flushing = true;
+    var sent = 0, failed = 0;
+    renderQueue(); renderAlerts();
+    (function next() {
+      if (!pending.length) {
+        flushing = false;
+        if (sent || failed) toast('Reconnected: ' + sent + ' queued action' + (sent === 1 ? '' : 's') + ' sent' + (failed ? ', ' + failed + ' rejected' : '') + '.', !failed);
+        renderAll();
+        return;
+      }
+      var item = pending[0];
+      api(item.path, item.body).then(function (d) {
+        pending.shift();
+        if (d.ok) { sent++; if (d.state) setState(d.state); }
+        else { failed++; toast('Queued "' + item.label + '" was rejected: ' + (d.error || 'failed')); }
+        renderQueue();
+        next();
+      }).catch(function (e) {
+        if (isNetErr(e)) { flushing = false; apiDown = true; goOffline(); renderAll(); return; } // still offline: keep the rest
+        pending.shift(); failed++; next();
+      });
+    })();
+  }
+
   function toast(msg, ok) {
     var el = document.createElement('div');
     el.className = 'toast' + (ok ? ' ok' : '');
@@ -175,6 +248,10 @@
         var tag = svgEl('text', { x: 0, y: isz / 2 + 9, 'class': 'tag' }, inner);
         var pbg = svgEl('rect', { x: -16, y: isz / 2 + 4, width: 32, height: 3, rx: 1.5, 'class': 'pbar-bg' }, inner);
         var pb = svgEl('rect', { x: -16, y: isz / 2 + 4, width: 0, height: 3, rx: 1.5, 'class': 'pbar' }, inner);
+        // hazard marker: red '!' = being hurt, amber ring = paying upkeep, dashed ring = in the forecast's path
+        var badge = svgEl('g', { 'class': 'badge', transform: 'translate(' + (isz / 2 + 1) + ' ' + (-isz / 2 - 2) + ')' }, inner);
+        svgEl('circle', { r: 6 }, badge);
+        svgEl('text', { y: 3 }, badge).textContent = '!';
         (function (ring, i) {
           g.addEventListener('click', function () { onSlot(ring, i); });
           g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSlot(ring, i); } });
@@ -217,7 +294,7 @@
     Object.keys(slotEls).forEach(function (k) {
       var el = slotEls[k], p = k.split(':'), r = +p[0], s = +p[1];
       var unlocked = slotUnlocked(r, s);
-      var b = unlocked && buildingAt(r, s), o = unlocked && !b && orderAt(r, s);
+      var b = unlocked && buildingAt(r, s), o = unlocked && !b && orderAt(r, s), q = unlocked && !b && !o && queuedBuild(r, s);
       var cls = 'slot', name = 'Ring ' + r + ' · Slot ' + (s + 1) + ' · ' + plotName(r) + ' plot';
       var c = null, icoName = null, tag = '';
       if (!unlocked) { cls += ' locked'; name += ' (locked)'; }
@@ -228,6 +305,11 @@
         if (b.plot < 0.999) cls += ' cramped';
         tag = b.paused ? 'OFF' : b.status === 'damaged' ? 'DOWN' : (b.eff < 0.995 ? pct(b.eff) : (b.plot < 0.999 ? '×' + b.plot.toFixed(2) : ''));
         name = def.name + ' (' + name + ')' + (b.plot < 0.999 ? ' · cramped plot' : '');
+        if (b.mark) { cls += ' hz-' + b.mark; name += ' · ' + MARK_TXT[b.mark]; }
+        if (!tag && def.housing && b.comfort) { tag = (b.comfort > 0 ? '+' : '−') + Math.abs(b.comfort); cls += b.comfort > 0 ? ' cmf-good' : ' cmf-bad'; }
+      } else if (q) {
+        cls += ' queued'; c = CFG.buildings[q.body.type].color; icoName = q.body.type; tag = 'QUEUED';
+        name = 'Queued while offline: ' + CFG.buildings[q.body.type].name;
       } else if (o) {
         cls += ' building'; c = CFG.buildings[o.data.type].color; icoName = o.data.type;
         name = 'Building ' + CFG.buildings[o.data.type].name;
@@ -243,7 +325,7 @@
       el.g.style.setProperty('--c', c || '');
       el.ico.innerHTML = icoName ? (icoName === 'lock' ? '<g opacity=".35">' + ICONS.lock + '</g>' : ICONS[icoName]) : '';
       el.tag.textContent = tag;
-      el.plus.style.display = (!b && !o && unlocked) ? '' : 'none';
+      el.plus.style.display = (!b && !o && !q && unlocked) ? '' : 'none';
       el.pbg.style.display = o ? '' : 'none';
       el.pb.style.display = o ? '' : 'none';
       el.ico.setAttribute('y', o || tag ? -el.isz / 2 - 4 : -el.isz / 2);
@@ -273,8 +355,12 @@
     var c = S.colony;
     $('c-credits').innerHTML = fmt(c.credits) + ' <small>cr</small>';
     $('c-pop').innerHTML = c.population + ' <small>/ ' + c.maxPopulation + '</small>';
+    $('c-pop').title = 'Housing: hub quarters ' + c.housing.base + (c.housing.built ? ' + homes ' + Math.floor(c.housing.built) : '');
+    $('c-crew').innerHTML = '<span class="' + (c.staffing.ratio < 0.999 ? 'warn' : '') + '">' + pct(c.staffing.ratio) + '</span>';
+    $('c-crew').title = Math.floor(c.staffing.workforce) + ' hands for ' + c.staffing.posts + ' posts';
     var m = clamp(c.morale, 0, 100);
     $('c-morale').innerHTML = Math.round(m) + '<small>%</small>';
+    $('c-morale').title = 'Target ' + Math.round(c.moraleInfo.target) + ' (base ' + c.moraleInfo.base + ', homes ' + (c.moraleInfo.comfort >= 0 ? '+' : '') + c.moraleInfo.comfort.toFixed(1) + ', meals +' + c.moraleInfo.meals.toFixed(0) + ') · output ×' + c.moraleInfo.productivity.toFixed(2);
     var mb = $('c-morale-bar'); mb.style.width = m + '%'; mb.style.background = m > 60 ? 'var(--good)' : m > 30 ? 'var(--warn)' : 'var(--bad)';
     var e = S.energy;
     var ok = e.satisfaction >= 0.999;
@@ -333,7 +419,8 @@
   // ------------------------------------------------------------------ alerts + legend
   function renderAlerts() {
     var h = '', c = S.colony;
-    if (!connected) h += '<div class="alert warn">' + icon('warn', 14) + 'Connection lost. Retrying…</div>';
+    if (!connected) h += '<div class="alert warn">' + icon('warn', 14) + (pending.length ? 'Offline: ' + pending.length + ' action' + (pending.length === 1 ? '' : 's') + ' waiting to be sent' : 'Connection lost. Retrying…') + '</div>';
+    else if (flushing) h += '<div class="alert warn">' + icon('truck', 14) + 'Reconnected: sending ' + pending.length + ' queued action' + (pending.length === 1 ? '' : 's') + '…</div>';
     if (c.starving.length) {
       var left = Math.ceil(c.morale / (100 / CFG.failureThresholdTicks));
       h += '<div class="alert">' + icon('warn', 14) + 'Shortage of ' + c.starving.map(function (r) { return CFG.resources[r].name; }).join(' & ') + ' · collapse in ' + left + ' ticks</div>';
@@ -350,7 +437,8 @@
       var risky = hz.prep < 0.5 && hz.ticksUntil <= 12;
       h += '<div class="alert ' + (risky ? '' : 'warn') + '" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + esc(hz.name) + ' in ' + hz.ticksUntil + 't (' + clock(hz.ticksUntil * S.tickMs) + ') · ' + Math.round(hz.prep * 100) + '% prepared</div>';
     } else if (hz) {
-      h += '<div class="alert" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + esc(hz.name) + ' in effect · ' + esc(hz.effect) + ' · ' + hz.ticksLeft + 't left</div>';
+      var first = hz.penalty.concat(hz.cost)[0] || '';
+      h += '<div class="alert' + (hz.severity > 0.02 ? '' : ' warn') + '" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + esc(hz.name) + (hz.severity > 0.02 ? ' in effect' : ' being weathered') + (first ? ' · ' + esc(first) : '') + ' · ' + hz.ticksLeft + 't left</div>';
     }
     if ($('alerts').dataset.h !== h) { $('alerts').innerHTML = h; $('alerts').dataset.h = h; }
   }
@@ -378,7 +466,13 @@
       return '<div class="p-title">' + icon('lock', 22) + '<h3>' + head + '</h3></div><div class="note">Ring ' + r + ' (' + plotName(r) + ' plots) unlocks at hub level ' + r + '.</div>' +
         '<div class="actions"><button class="btn primary" data-act="tab" data-tab="hub">View hub upgrade</button></div>';
     }
-    var b = buildingAt(r, s), o = orderAt(r, s);
+    var b = buildingAt(r, s), o = orderAt(r, s), qd = !b && !o && queuedBuild(r, s);
+    if (qd) {
+      var qdef = CFG.buildings[qd.body.type];
+      return '<div class="p-title" style="--c:' + qdef.color + '">' + icon(qd.body.type, 22) + '<h3>' + esc(qdef.name) + '</h3></div><div class="label">' + head + ' · queued while offline</div>' +
+        '<div class="note warn">This order has not reached the server. It will be sent when you reconnect, and may be rejected if things have changed.</div>' +
+        '<div class="actions"><button class="btn danger" data-act="pcancel" data-id="' + qd.id + '">Discard queued order</button></div>';
+    }
     if (o) {
       var d = CFG.buildings[o.data.type];
       return '<div class="p-title" style="--c:' + d.color + '">' + icon(o.data.type, 22) + '<h3>' + esc(d.name) + '</h3></div><div class="label">' + head + ' · under construction</div>' +
@@ -389,9 +483,10 @@
     return buildMenu(r, s, head);
   }
 
+  var MARK_TXT = { hit: 'Hurt by the current hazard', upkeep: 'Paying the hazard\'s maintenance cost', risk: 'In the forecast hazard\'s path' };
   var STATUS = {
     running: ['Running', 'good'], paused: ['Paused', 'dim'], no_power: ['No power', 'bad'], low_power: ['Low power', 'warn'],
-    starved: ['Missing inputs', 'bad'], low_input: ['Short on inputs', 'warn'], damaged: ['Damaged: awaiting repairs', 'bad']
+    starved: ['Missing inputs', 'bad'], low_input: ['Short on inputs', 'warn'], damaged: ['Damaged: awaiting repairs', 'bad'], understaffed: ['Short-staffed', 'warn']
   };
   function plotName2(size) { return CFG.plotSizes[size].name; }
   function builtPanel(b, head) {
@@ -403,7 +498,9 @@
       '<dt>Efficiency</dt><dd>' + pct(b.paused ? 0 : b.eff) + '</dd>' +
       '<dt>Adjacency</dt><dd class="' + (b.adj > 1.001 ? 'good' : b.adj < 0.999 ? 'bad' : 'dim') + '">' + (Math.abs(b.adj - 1) < 0.001 ? 'none' : '×' + b.adj.toFixed(2)) + '</dd>' +
       '<dt>Plot</dt><dd class="' + (b.plot < 0.999 ? 'bad' : 'good') + '">' + plotName(b.ring) + (b.plot < 0.999 ? ' · too small for ' + plotName2(d.minPlotSize) + ' · ×' + b.plot.toFixed(2) : (d.minPlotSize > 1 ? ' · fits' : '')) + '</dd>' +
-      (b.haz < 0.999 ? '<dt>Hazard</dt><dd class="bad">×' + b.haz.toFixed(2) + '</dd>' : '') + '</dl>' +
+      (d.workers ? '<dt>Crew</dt><dd class="' + (S.colony.staffing.ratio < 0.999 ? 'warn' : '') + '">' + d.workers + ' needed' + (S.colony.staffing.ratio < 0.999 ? ' · colony at ' + pct(S.colony.staffing.ratio) + ' staffed' : '') + '</dd>' : '') +
+      (d.housing ? '<dt>Homes</dt><dd>+' + Math.floor(d.housing * b.plot) + ' people</dd><dt>Comfort</dt><dd class="' + (b.comfort > 0 ? 'good' : b.comfort < 0 ? 'bad' : 'dim') + '">' + (b.comfort > 0 ? '+' : '') + (b.comfort || 0) + '</dd>' : '') +
+      (b.mark ? '<dt>Hazard</dt><dd class="' + (b.mark === 'hit' ? 'bad' : 'warn') + '">' + MARK_TXT[b.mark] + (b.haz < 0.999 ? ' · ×' + b.haz.toFixed(2) : '') + '</dd>' : '') + '</dl>' +
       '<div class="label sec">Per tick at current efficiency</div><div class="io">' + ioPills(d, b.paused ? 0 : b.eff, b.mult * b.haz) + '</div>' +
       (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult) + ' storage each') + '</div>' : '') +
       (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult).toFixed(1) + '</span></div>' : '') +
@@ -412,8 +509,15 @@
     h += '<div class="label sec">Neighbours</div>';
     h += nts.length ? '<div class="io">' + nts.map(function (t) {
       var rule = CFG.adjacencyRules.filter(function (x) { return x.targetBuilding === b.type && x.adjacentBuilding === t; })[0];
-      return '<span class="pill ' + (rule ? (rule.outputMultiplier > 1 ? 'out' : 'no') : '') + '" style="--c:' + CFG.buildings[t].color + '">' + esc(CFG.buildings[t].name) + (rule ? ' ×' + rule.outputMultiplier : '') + '</span>';
+      var cm = d.housing ? (CFG.buildings[t].comfort || 0) : 0;
+      var cls = d.housing ? (cm > 0 ? 'out' : cm < 0 ? 'no' : '') : (rule ? (rule.outputMultiplier > 1 ? 'out' : 'no') : '');
+      var suffix = d.housing ? (cm ? ' ' + (cm > 0 ? '+' : '−') + Math.abs(cm) : '') : (rule ? ' ×' + rule.outputMultiplier : '');
+      return '<span class="pill ' + cls + '" style="--c:' + CFG.buildings[t].color + '">' + esc(CFG.buildings[t].name) + suffix + '</span>';
     }).join('') + '</div>' : '<div class="dim" style="font-size:12px">No adjacent structures.</div>';
+    if (!d.housing && d.comfort) {
+      var homes = neighborTypes(b.ring, b.slot).filter(function (t) { return CFG.buildings[t].housing; }).length;
+      h += '<div class="dim" style="font-size:11px;margin-top:8px">Adjacent homes feel this building: ' + (d.comfort > 0 ? '+' : '−') + Math.abs(d.comfort) + ' comfort each' + (homes ? ' (' + homes + ' next door)' : '') + '.</div>';
+    }
     var key = 'dem:' + b.id, refund = Math.round(CFG.demolishRefund * 100);
     h += '<div class="actions"><button class="btn" data-act="toggle" data-ring="' + b.ring + '" data-slot="' + b.slot + '">' + icon(b.paused ? 'play' : 'pause', 12) + ' ' + (b.paused ? 'Resume' : 'Pause') + '</button>' +
       '<button class="btn danger" data-act="demolish" data-ring="' + b.ring + '" data-slot="' + b.slot + '" data-key="' + key + '">' +
@@ -422,6 +526,17 @@
     return h;
   }
 
+  function nbComfort(r, s) {
+    var sum = 0, causes = [];
+    neighborsOf(r, s).forEach(function (n) {
+      var nb = buildingAt(n[0], n[1]);
+      if (nb && nb.status !== undefined && !nb.paused) { var cm = CFG.buildings[nb.type].comfort || 0; if (cm) { sum += cm; causes.push(CFG.buildings[nb.type].name); } }
+    });
+    return { sum: Math.max(CFG.morale.comfortMin, Math.min(CFG.morale.comfortMax, sum)), causes: causes };
+  }
+  function adjacentHomes(r, s) {
+    return neighborsOf(r, s).filter(function (n) { var nb = buildingAt(n[0], n[1]); return nb && CFG.buildings[nb.type].housing; }).length;
+  }
   function buildMenu(r, s, head) {
     var h = '<div class="label">' + head + ' · empty</div><h3 style="margin:4px 0 12px;font-size:15px">Construct</h3><div class="stack">';
     Object.keys(CFG.buildings).forEach(function (k) {
@@ -441,11 +556,20 @@
           ? '<div class="bonus bad">Wants a ' + plotName2(d.minPlotSize) + ' plot · this one is ' + plotName(r) + ' · output ×' + plot.toFixed(2) + '</div>'
           : '<div class="bonus good">Wants a ' + plotName2(d.minPlotSize) + ' plot · fits</div>';
       }
+      if (d.housing) {
+        var cc = nbComfort(r, s);
+        notes += '<div class="bonus ' + (cc.sum > 0 ? 'good' : cc.sum < 0 ? 'bad' : '') + '">Comfort here: ' + (cc.sum > 0 ? '+' : cc.sum < 0 ? '−' : '') + Math.abs(cc.sum) + (cc.causes.length ? ' · ' + cc.causes.map(esc).join(', ') : ' · quiet') + '</div>';
+      } else if (d.comfort) {
+        var hm = adjacentHomes(r, s);
+        if (hm) notes += '<div class="bonus ' + (d.comfort < 0 ? 'bad' : 'good') + '">' + hm + ' adjacent home' + (hm === 1 ? '' : 's') + ' would feel ' + (d.comfort > 0 ? '+' : '−') + Math.abs(d.comfort) + ' comfort</div>';
+      }
       h += '<button class="opt" data-act="build" data-type="' + k + '"' + (capped || !afford ? ' disabled' : '') + ' style="--c:' + d.color + '">' +
         '<div class="top">' + icon(k, 20) + '<b>' + esc(d.name) + '</b><small>' + d.constructionTicks + ' ticks</small></div>' +
         (capped ? '<div class="warn" style="font-size:11px">Already built: only ' + d.maxCount + ' allowed</div>' :
           '<div class="io">' + Object.keys(d.cost).map(function (c) { return pill(c, d.cost[c], S.resources[c].amount < d.cost[c] ? 'no' : ''); }).join('') + '</div>') +
         '<div class="io" style="margin-top:6px;opacity:.85">' + ioPills(d, 1, pv.mult * plot) +
+        (d.workers ? '<span class="pill"><i style="background:#a3b8cc"></i>Crew ' + d.workers + '</span>' : '') +
+        (d.housing ? '<span class="pill out"><i style="background:#a3b8cc"></i>' + Math.floor(d.housing * plot) + ' homes</span>' : '') +
         (d.storageBonus ? pill('scrap', '+' + fmt(d.storageBonus * plot) + ' storage') : '') +
         (d.defense ? '<span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * plot).toFixed(1) + '</span>' : '') +
         (d.transmit ? '<span class="pill out"><i style="background:#fff"></i>Signal ' + plot.toFixed(2) + ' / tick</span>' : '') + '</div>' + notes + '</button>';
@@ -490,25 +614,39 @@
     else if (tm.blocked.length) h += '; waiting on ' + esc(names(tm.blocked));
     return h + '</div>';
   }
+  function effectBlock(z) {
+    var h = '';
+    if (z.penalty.length) h += '<div class="bad" style="margin-top:6px">' + z.penalty.map(esc).join('<br>') + '</div>';
+    if (z.cost.length) h += '<div class="warn" style="margin-top:6px">' + z.cost.map(esc).join('<br>') + '</div>';
+    return h;
+  }
+  function shortfalls(z) {
+    return z.requirements.filter(function (r) { return r.kind === 'stock' && r.have < r.need; });
+  }
   function threatCard() {
     var z = S.hazard;
     if (!z) return '';
     var h;
     if (z.state === 'active') {
-      return '<div class="threat bad"><div class="label">Hazard in effect</div><div class="big bad">' + esc(z.name) + '</div><div>' + esc(z.effect) + '</div>' +
-        '<div class="dim" style="margin-top:6px">Ends in ' + span(z.ticksLeft) + '.</div></div>';
+      var rough = z.severity > 0.02;
+      var mk = S.buildings.filter(function (b) { return b.mark; }).length;
+      return '<div class="threat ' + (rough ? 'bad' : 'warn') + '"><div class="label">' + (rough ? 'Hazard in effect' : 'Hazard weathered, costs continue') + '</div><div class="big ' + (rough ? 'bad' : '') + '">' + esc(z.name) + '</div>' +
+        '<div class="dim">' + Math.round(z.prep * 100) + '% prepared · ends in ' + span(z.ticksLeft) + '</div>' + effectBlock(z) +
+        (mk ? '<div class="dim" style="margin-top:6px">' + mk + ' structure' + (mk === 1 ? ' is' : 's are') + ' affected and marked on the map.</div>' : '') + '</div>';
     }
+    var marked = S.buildings.filter(function (b) { return b.mark; }).length;
     var ready = z.prep >= 0.98, cls = ready ? 'good' : z.prep < 0.5 ? 'bad' : 'warn';
     h = '<div class="threat ' + cls + '"><div class="label">Incoming hazard</div><div class="big">' + esc(z.name) + '</div>' +
-      '<div>Strikes in ' + span(z.ticksUntil) + '.</div><div class="dim" style="margin:4px 0 8px">' + esc(z.desc) + '</div>';
+      '<div>Strikes in ' + span(z.ticksUntil) + ' and lasts ' + z.durationTicks + ' ticks.</div><div class="dim" style="margin:4px 0 8px">' + esc(z.desc) + '</div>';
     z.requirements.forEach(function (r) {
       h += '<div class="req"><div class="row"><span>' + esc(r.label) + '</span><span class="num ' + (r.frac >= 0.999 ? 'good' : '') + '">' + fmt(r.have) + ' / ' + fmt(r.need) + '</span></div>' +
         '<div class="meter"><i style="width:' + (r.frac * 100).toFixed(0) + '%;background:' + (r.frac >= 0.999 ? 'var(--good)' : 'var(--warn)') + '"></i></div></div>';
     });
-    h += '<div style="margin-top:8px">' + (ready
-      ? 'The colony is ready and will handle this on its own, spending the reserves above.'
-      : '<b>' + Math.round(z.prep * 100) + '% prepared.</b> If it struck now: ' + esc(z.effect) + '.') + '</div>';
-    return h + '<div class="dim" style="margin-top:6px;font-size:11px">Reserves are spent automatically when it lands, whether or not you are here.</div></div>';
+    h += '<div style="margin-top:8px"><b>' + Math.round(z.prep * 100) + '% prepared.</b> ' + (ready ? 'Fully covered, but weathering it still costs:' : 'If it struck now:') + '</div>' + effectBlock(z);
+    var sf = shortfalls(z);
+    if (sf.length) h += '<div class="actions" style="margin-top:10px"><button class="btn" data-act="xprefill">' + icon('truck', 12) + ' Order express resupply</button></div>';
+    if (marked) h += '<div class="dim" style="margin-top:6px">' + marked + ' structure' + (marked === 1 ? ' is' : 's are') + ' in its path (dashed marker on the map).</div>';
+    return h + '<div class="dim" style="margin-top:8px;font-size:11px">Reserves are spent automatically when it lands, whether or not you are here. Even a fully prepared colony pays a running cost for the duration.</div></div>';
   }
 
   function briefTab() {
@@ -536,10 +674,20 @@
     var slots = function (l) { return Object.keys(l.ringCapacities).reduce(function (a, k) { return a + l.ringCapacities[k]; }, 0); };
     var h = '<div class="p-title">' + icon('hub', 22) + '<h3>Command Hub · Level ' + c.hubLevel + '</h3></div>' +
       '<dl class="kv"><dt>Storage per resource</dt><dd>' + fmt(S.hub.maxStorage) + (S.hub.maxStorage > S.hub.baseStorage ? ' <span class="dim">(' + fmt(S.hub.baseStorage) + ' + warehouses)</span>' : '') + '</dd>' +
-      '<dt>Max population</dt><dd>' + lv.maxPopulation + '</dd>' +
+      '<dt>Hub quarters</dt><dd>' + lv.baseHousing + ' people</dd>' +
       '<dt>Hub power</dt><dd class="' + (S.hub.eff < 0.999 ? 'bad' : '') + '">' + S.hub.power.toFixed(0) + (lv.upkeepPerTick && lv.upkeepPerTick.energy ? ' <span class="dim">(' + lv.baseEnergy + ' base − ' + lv.upkeepPerTick.energy + ' upkeep)</span>' : '') + '</dd>' +
       '<dt>Rings online</dt><dd>' + Object.keys(lv.ringCapacities).length + ' (' + slots(lv) + ' slots)</dd>' +
       '<dt>Defence</dt><dd>' + S.defense.toFixed(1) + '</dd></dl>';
+    var st = c.staffing, ho = c.housing, mi = c.moraleInfo, sg = function (v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1); };
+    h += '<div class="label sec">Population &amp; morale</div><dl class="kv">' +
+      '<dt>People</dt><dd>' + c.population + ' / ' + ho.cap + ' <span class="dim">(quarters ' + ho.base + (ho.built ? ' + homes ' + Math.floor(ho.built) : '') + ')</span></dd>' +
+      '<dt>Crew</dt><dd class="' + (st.ratio < 0.999 ? 'warn' : '') + '">' + Math.floor(st.workforce) + ' hands for ' + st.posts + ' posts' + (st.ratio < 0.999 ? ' · ×' + st.ratio.toFixed(2) + ' output' : '') + '</dd>' +
+      '<dt>Morale</dt><dd>' + Math.round(c.morale) + ' <span class="dim">→ target ' + Math.round(mi.target) + '</span></dd>' +
+      '<dt>Target is</dt><dd class="dim">base ' + mi.base + ' · homes ' + sg(mi.comfort) + ' · meals ' + sg(mi.meals) + '</dd>' +
+      '<dt>Fed meals</dt><dd>' + pct(mi.mealCoverage) + ' of people</dd>' +
+      '<dt>Output effect</dt><dd class="' + (mi.productivity < 0.999 ? 'bad' : mi.productivity > 1.001 ? 'good' : 'dim') + '">×' + mi.productivity.toFixed(2) + '</dd></dl>' +
+      (st.ratio < 0.999 ? '<div class="note warn">There are fewer hands than posts. Every staffed building is slowed until the colony has more people.</div>' : '') +
+      (c.population >= ho.cap - 1 ? '<div class="note">The colony has filled its housing. It cannot grow further without more homes.</div>' : '');
     if (lv.upkeepPerTick) {
       h += '<div class="label sec">Hub upkeep per tick</div><div class="io">' + upkeepPills(lv.upkeepPerTick) + '</div>' +
         (S.hub.eff < 0.999 ? '<div class="note bad">Upkeep unmet: the hub is running at ' + pct(S.hub.eff) + ' and its power output is cut. Short of ' + esc(CFG.resources[S.hub.limiting].name) + '.</div>'
@@ -551,7 +699,7 @@
       var up = S.orders.filter(function (o) { return o.kind === 'upgrade'; })[0], nl = c.hubLevel + 1;
       h += '<div class="opt" style="cursor:default"><div class="top"><b>Level ' + nl + '</b><small>' + next.upgradeTicks + ' ticks</small></div>' +
         '<div class="io">' + Object.keys(next.upgradeCost).map(function (r) { return pill(r, next.upgradeCost[r], S.resources[r].amount < next.upgradeCost[r] ? 'no' : ''); }).join('') + '</div>' +
-        '<div class="dim" style="font-size:11px;margin-top:8px">Unlocks ring ' + nl + ' (' + plotName(nl) + ' plots, ' + CFG.rings[nl] + ' slots) · storage ' + fmt(next.maxStorage) + ' · population ' + next.maxPopulation + ' · base power ' + next.baseEnergy + '</div>' +
+        '<div class="dim" style="font-size:11px;margin-top:8px">Unlocks ring ' + nl + ' (' + plotName(nl) + ' plots, ' + CFG.rings[nl] + ' slots) · storage ' + fmt(next.maxStorage) + ' · hub quarters ' + next.baseHousing + ' · base power ' + next.baseEnergy + '</div>' +
         (next.upkeepPerTick ? '<div class="label" style="margin-top:8px">Upkeep after upgrade</div><div class="io" style="margin-top:4px">' + upkeepPills(next.upkeepPerTick) + '</div>' : '') + '</div>';
       h += up ? '<div class="note">Upgrade in progress: ' + up.remaining + ' ticks remaining. <a href="#" data-act="cancel" data-id="' + up.id + '" style="color:var(--amber)">Cancel</a></div>'
         : '<div class="actions"><button class="btn primary" data-act="upgrade"' + (canAfford(next.upgradeCost) ? '' : ' disabled') + '>Begin upgrade</button></div>';
@@ -572,7 +720,7 @@
     var up = tr > 0, good = up === goodUp;
     return ' <span class="' + (good ? 'good' : 'bad') + '">' + (up ? '▲' : '▼') + Math.abs(Math.round(tr * 100)) + '%</span>';
   }
-  function convoyTab() {
+  function scheduledTab() {
     var h = '<div class="convoy-head"><div class="label">Next convoy in</div><div class="big num" data-f="convoy">–</div><div class="dim" style="font-size:11px" data-f="convoyTicks"></div></div>' +
       '<p class="p-desc">Standing orders repeat every convoy at that convoy\'s prices. The trade limit per resource grows with your hub level (currently ×' + (CFG.hubLevels[S.colony.hubLevel].convoyCapMult || 1) + '). Prices drift from convoy to convoy; the figures below are what the <b>next</b> convoy will pay and charge, and the arrows show the change from the last one.</p>';
     var net = 0;
@@ -591,6 +739,48 @@
     });
     h += '<div class="note ' + (net >= 0 ? 'good' : '') + '" style="margin-top:12px">Estimated convoy balance at forecast prices: <b>' + (net >= 0 ? '+' : '−') + fmt(Math.abs(net)) + ' cr</b></div>';
     return h;
+  }
+
+  function expressTab() {
+    var x = S.express, c = S.colony;
+    var h = '<p class="p-desc">A special trip you dispatch yourself. It arrives in ' + x.travelTicks + ' ticks (' + clock(x.travelTicks * S.tickMs) + '), but costs a fee, pays ×' + x.sellMult + ' when buying your goods, charges ×' + x.buyMult + ' when selling to you, and carries less than the scheduled convoy. Goods and credits are held until it arrives.</p>';
+    if (x.active) {
+      var line = function (o, verb) {
+        return Object.keys(o).map(function (r) { return verb + ' ' + o[r].qty + ' ' + esc(CFG.resources[r].name); }).join(', ');
+      };
+      h += '<div class="convoy-head"><div class="label">Express convoy en route</div><div class="big num" data-f="xeta">–</div><div class="dim" style="font-size:11px">' + x.active.ticksLeft + ' tick' + (x.active.ticksLeft === 1 ? '' : 's') + '</div></div>' +
+        '<div class="note">' + [line(x.active.buy, 'Fetching'), line(x.active.sell, 'Selling')].filter(Boolean).join('<br>') + '</div>';
+      return h;
+    }
+    if (x.readyIn > 0) h += '<div class="note warn">The convoy is resting: ready again in ' + span(x.readyIn) + '.</div>';
+    var spend = 0, income = 0, any = false;
+    Object.keys(CFG.resources).forEach(function (k) {
+      var r = CFG.resources[k], sellQ = xdraft.sell[k] || 0, buyQ = xdraft.buy[k] || 0, st = STEP[k] || 10;
+      if (r.showFromHub && r.showFromHub > c.hubLevel + 1 && !sellQ && !buyQ && S.resources[k].amount < 0.5) return;
+      var pr = x.prices[k], lim = x.limits[k], stock = Math.floor(S.resources[k].amount);
+      spend += Math.round(buyQ * pr.buy); income += Math.round(sellQ * pr.sell); if (sellQ || buyQ) any = true;
+      var stepper = function (side, v, max) {
+        return '<div class="stepper"><span class="lab">' + (side === 'sell' ? 'Send' : 'Fetch') + '</span><button data-act="xstep" data-res="' + k + '" data-side="' + side + '" data-delta="-' + st + '"' + (v <= 0 ? ' disabled' : '') + ' aria-label="Decrease ' + side + '">−</button>' +
+          '<span class="val num">' + v + '</span><button data-act="xstep" data-res="' + k + '" data-side="' + side + '" data-delta="' + st + '"' + (v >= max ? ' disabled' : '') + ' aria-label="Increase ' + side + '">+</button></div>';
+      };
+      h += '<div class="trade" style="--c:' + r.color + '"><div class="nm"><i></i>' + esc(r.name) + '</div>' +
+        '<div class="stock">stock <span class="num" data-b="amt:' + k + '"></span> · max ' + lim + '</div>' +
+        stepper('sell', sellQ, Math.min(lim, stock)) + stepper('buy', buyQ, lim) +
+        '<div class="sub"><span>pays ' + pr.sell + ' cr each</span><span>costs ' + pr.buy + ' cr each</span></div></div>';
+    });
+    var total = spend + x.fee, can = c.credits >= total;
+    h += '<div class="note" style="margin-top:12px">Fee <b>' + x.fee + ' cr</b> + goods <b>' + fmt(spend) + ' cr</b> are held now' + (can ? '' : ' <span class="bad">(you have ' + fmt(c.credits) + ')</span>') +
+      '. Selling pays <b>' + fmt(income) + ' cr</b> on arrival.</div>' +
+      '<div class="actions"><button class="btn" data-act="xclear"' + (any ? '' : ' disabled') + '>Clear</button>' +
+      '<button class="btn primary" data-act="xdispatch"' + (!any || !can || x.readyIn > 0 ? ' disabled' : '') + '>Dispatch express</button></div>';
+    return h;
+  }
+
+  function convoyTab() {
+    var seg = '<div class="seg" role="tablist" style="margin-bottom:12px">' +
+      '<button role="tab" data-act="cmode" data-mode="scheduled" aria-selected="' + (convoyMode === 'scheduled') + '">Scheduled</button>' +
+      '<button role="tab" data-act="cmode" data-mode="express" aria-selected="' + (convoyMode === 'express') + '">Express' + (S.express.active ? ' · en route' : '') + '</button></div>';
+    return seg + (convoyMode === 'express' ? expressTab() : scheduledTab());
   }
 
   function logTab() {
@@ -616,6 +806,8 @@
       var k = el.dataset.b.split(':');
       if (k[0] === 'amt') { var r = S.resources[k[1]]; el.textContent = fmt(clamp(r.amount + r.net * frac(), 0, r.cap)); }
     });
+    var xe = document.querySelector('#panel [data-f=xeta]');
+    if (xe && S.express.active) xe.textContent = clock(S.express.active.arrivesAt - now);
     var cv = document.querySelector('#panel [data-f=convoy]');
     if (cv) {
       cv.textContent = clock(S.convoy.arrivesAt - now);
@@ -638,6 +830,12 @@
       h += '<div class="order" data-id="' + o.id + '"><button class="x" data-act="cancel" data-id="' + o.id + '" title="Cancel & refund" aria-label="Cancel order">×</button>' +
         '<div class="row"><span>' + esc(name) + '</span><small class="num">' + (where ? where + ' · ' : '') + o.remaining + 't</small></div><div class="bar"><i></i></div></div>';
     });
+    if (pending.length) {
+      var chips = pending.map(function (p) {
+        return '<div class="pend" data-id="' + p.id + '"><span>' + esc(p.label) + '</span><button class="x" data-act="pcancel" data-id="' + p.id + '" title="Discard (not sent yet)" aria-label="Discard queued action">×</button></div>';
+      }).join('');
+      h = '<span class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Queued' : 'Offline · waiting to send') + '</span>' + chips + '<span class="queue-sep"></span>' + h;
+    }
     if (h !== lastQueue) { $('queue').innerHTML = h; lastQueue = h; }
   }
   function frameQueue(f) {
@@ -711,13 +909,36 @@
     var a = el.dataset.act;
     if (a === 'tab') { e.preventDefault(); tab = el.dataset.tab; renderAll(); }
     else if (a === 'build' && sel && sel.ring) act('build', { ring: sel.ring, slot: sel.slot, type: el.dataset.type });
-    else if (a === 'toggle') act('toggle', { ring: +el.dataset.ring, slot: +el.dataset.slot });
+    else if (a === 'toggle') {
+      var tb = buildingAt(+el.dataset.ring, +el.dataset.slot);
+      act('toggle', { ring: +el.dataset.ring, slot: +el.dataset.slot, paused: tb ? !tb.paused : undefined }); // explicit state: safe to resend
+    }
+    else if (a === 'pcancel') { var pid = +el.dataset.id; pending = pending.filter(function (p) { return p.id !== pid; }); renderQueue(); renderRadar(); renderAlerts(); renderPanel(); }
     else if (a === 'demolish') {
       if (confirmKey === el.dataset.key) { confirmKey = null; act('demolish', { ring: +el.dataset.ring, slot: +el.dataset.slot }); }
       else { confirmKey = el.dataset.key; clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
     }
     else if (a === 'cancel') { e.preventDefault(); act('cancel', { orderId: +el.dataset.id }); }
     else if (a === 'upgrade') act('upgrade', {}, 'Hub upgrade started.');
+    else if (a === 'cmode') { convoyMode = el.dataset.mode; renderPanel(); }
+    else if (a === 'xstep') {
+      var xs = el.dataset.side, xr = el.dataset.res, bag = xdraft[xs];
+      var maxv = xs === 'sell' ? Math.min(S.express.limits[xr], Math.floor(S.resources[xr].amount)) : S.express.limits[xr];
+      var nv = clamp((bag[xr] || 0) + (+el.dataset.delta), 0, maxv);
+      if (nv) bag[xr] = nv; else delete bag[xr];
+      renderPanel();
+    }
+    else if (a === 'xclear') { xdraft = { sell: {}, buy: {} }; renderPanel(); }
+    else if (a === 'xprefill') {
+      xdraft = { sell: {}, buy: {} };
+      shortfalls(S.hazard).forEach(function (r) { xdraft.buy[r.resource] = Math.min(S.express.limits[r.resource], Math.ceil(r.need - r.have)); });
+      convoyMode = 'express'; tab = 'convoy'; renderAll();
+    }
+    else if (a === 'xdispatch') {
+      act('express', { sell: xdraft.sell, buy: xdraft.buy }, 'Express convoy dispatched.').then(function (d) {
+        if (d && d.ok) { xdraft = { sell: {}, buy: {} }; renderPanel(); }
+      });
+    }
     else if (a === 'contract') {
       var side = el.dataset.side, res = el.dataset.res;
       var cur = S.contracts[side][res] || 0, v = clamp(cur + (+el.dataset.delta), 0, S.market.limits[res]);
@@ -771,17 +992,43 @@
   }
 
   function connect() {
-    var es = new EventSource('/api/stream');
+    if (es) { try { es.close(); } catch (e) { /* already closed */ } }
+    es = new EventSource('/api/stream');
     es.onmessage = function (e) {
-      if (!connected) { connected = true; }
+      lastMsgAt = Date.now();
+      var was = connected;
+      if (!apiDown) connected = true; // a live stream isn't proof that sending works
       setState(JSON.parse(e.data));
+      if ((!was || pending.length) && connected) flush();
     };
     es.onerror = function () {
-      connected = false;
-      if (S) renderAlerts();
-      api('state').then(function (d) { if (d && d.user) { /* still signed in, EventSource retries */ } });
+      goOffline();
+      // The browser retries on its own unless the stream was closed outright (e.g. a restart).
+      if (es && es.readyState === 2) setTimeout(connect, 3000);
+      api('state').catch(function () { /* still offline */ });
     };
   }
+  // Watchdog: a connection can die silently (laptop sleep, flaky wifi). If the live stream goes
+  // quiet for several ticks, treat it as lost and reconnect, so queued clicks are not left hanging.
+  setInterval(function () {
+    if (!S) return;
+    if (connected && Date.now() - lastMsgAt > Math.max(45000, S.tickMs * 3)) { goOffline(); connect(); }
+  }, 5000);
+  // While offline (or while sends fail) keep checking whether the server is reachable again.
+  function probe() {
+    if (!S || !(apiDown || !connected)) return;
+    api('state').then(function (d) {
+      if (!d || !d.user) return;
+      apiDown = false; connected = true; lastMsgAt = Date.now();
+      setState(d);
+      if (!es || es.readyState !== 1) connect();
+      flush();
+    }).catch(function () { /* still offline */ });
+  }
+  setInterval(probe, 4000);
+  window.addEventListener('online', function () { if (!connected) connect(); probe(); });
+  window.addEventListener('offline', function () { goOffline(); });
+  window.addEventListener('beforeunload', function (e) { if (pending.length) { e.preventDefault(); e.returnValue = ''; } });
 
   api('config').then(function (cfg) {
     CFG = cfg;
