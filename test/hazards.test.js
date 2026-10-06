@@ -321,3 +321,34 @@ test('hazards come a little faster at higher hub levels', () => {
   };
   assert.ok(gaps(5) < gaps(2) - 3, `${gaps(5)} vs ${gaps(2)}`);
 });
+
+test('buildings touched by a hazard are marked: risk in the forecast, hit while hurting, upkeep while weathering', () => {
+  process.env.HAZARDS = 'on';
+  const mk = (parts) => {
+    const { uid, id } = newColony();
+    stockUp(id); setStock(id, 'machined_parts', parts);
+    db.prepare("INSERT INTO colony_buildings (colony_id, ring_index, slot_index, building_type) VALUES (?, 1, 0, 'solar_array')").run(id);
+    db.prepare("INSERT INTO colony_buildings (colony_id, ring_index, slot_index, building_type) VALUES (?, 1, 1, 'scrap_extractor')").run(id);
+    return { uid, id };
+  };
+  const marks = (uid) => Object.fromEntries(viewFor(uid).buildings.map((b) => [b.type, b.mark]));
+  const none = mk(0);
+  assert.deepEqual(marks(none.uid), { solar_array: null, scrap_extractor: null });
+  force(none.id, 'dust_storm', 2);
+  assert.deepEqual(marks(none.uid), { solar_array: 'risk', scrap_extractor: null }, 'forecast: only the solar panels are in its path');
+  tick(2);
+  assert.deepEqual(marks(none.uid), { solar_array: 'hit', scrap_extractor: null });
+  const ready = mk(500);
+  force(ready.id, 'dust_storm', 1); tick(1);
+  assert.deepEqual(marks(ready.uid), { solar_array: 'upkeep', scrap_extractor: null }, 'fully prepared: solar panels pay the cleaning cost');
+  // equipment fault: unknown targets while forecast, then exactly the degraded ones are 'hit'
+  const f = mk(0); setStock(f.id, 'scrap', 0);
+  force(f.id, 'equipment_fault', 1);
+  assert.deepEqual(Object.values(marks(f.uid)).sort(), ['risk', 'risk'], 'every running building pays the repair cost, so all are in the line of fire');
+  tick(1);
+  const hit = viewFor(f.uid).buildings.filter((b) => b.mark === 'hit');
+  assert.equal(hit.length, 1);
+  assert.ok(hit[0].haz < 1);
+  tick(config.hazards.types.equipment_fault.durationTicks);
+  assert.ok(viewFor(f.uid).buildings.every((b) => b.mark === null));
+});

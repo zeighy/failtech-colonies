@@ -20,12 +20,32 @@ function clientConfig() {
     plotSizes: config.plotSizes,
     plotPenalty: config.global.plotPenaltyPerStep,
     transmitTicks: config.global.beacon.transmitTicks,
+    morale: config.global.morale,
+    workforceShare: config.global.workforceShare,
+    mealsPerPop: config.global.mealsPerPopPerTick,
     rings: caps,
     neighbors,
     convoyIntervalTicks: config.global.convoyIntervalTicks,
     demolishRefund: config.global.demolishRefund,
     failureThresholdTicks: config.global.moraleFailureThresholdTicks,
   };
+}
+
+// Which buildings is the current hazard touching? 'hit' = being hurt now, 'upkeep' = paying the
+// maintenance cost, 'risk' = in the forecast's firing line.
+function hazardMark(hazard, b, s, buildings) {
+  if (!hazard) return null;
+  const def = config.hazards.types[hazard.type];
+  if (!def) return null;
+  const m = def.mitigated;
+  const paysUpkeep = m && m.kind === 'drain' && ((m.perBuilding || {})[b.type] || (m.perRunning && b.status === 'active'));
+  if (hazard.state === 'forecast') {
+    const e = def.effect;
+    return (e.kind === 'output_mult' && e.buildings.includes(b.type)) || paysUpkeep ? 'risk' : null;
+  }
+  if (s.haz !== undefined && s.haz < 0.999) return 'hit';
+  const prep = hazard.data && hazard.data.prep !== undefined ? hazard.data.prep : 1 - hazard.severity;
+  return paysUpkeep && prep > 0.02 ? 'upkeep' : null;
 }
 
 function viewFor(userId, now = Date.now()) {
@@ -68,7 +88,8 @@ function viewFor(userId, now = Date.now()) {
       status: c.status, won: !!c.won, progress: proj.progress, hazardsSurvived: c.hazards_survived,
       restartCredits: Math.max(config.global.startingState.credits, Math.floor(c.credits * config.global.failureCreditKeep)),
       hubLevel: c.hub_level, credits: c.credits, population: c.population,
-      maxPopulation: lvl.maxPopulation, morale: c.morale, failures: c.failures,
+      maxPopulation: proj.housing.cap, housing: proj.housing, staffing: proj.staffing, moraleInfo: proj.moraleInfo,
+      morale: c.morale, failures: c.failures,
       starving: proj.starving,
     },
     hub: {
@@ -82,7 +103,8 @@ function viewFor(userId, now = Date.now()) {
     buildings: buildings.map((b) => {
       const s = proj.buildings.get(b.id) || {};
       return { id: b.id, ring: b.ring, slot: b.slot, type: b.type, paused: b.status !== 'active',
-        status: s.status, eff: s.eff, mult: s.mult, adj: s.adj, plot: s.plot, haz: s.haz, limiting: s.limiting };
+        status: s.status, eff: s.eff, mult: s.mult, adj: s.adj, plot: s.plot, haz: s.haz, limiting: s.limiting,
+        comfort: s.comfort === undefined ? null : s.comfort, mark: hazardMark(hazard, b, s, buildings) };
     }),
     orders: orders.map((o) => ({ id: o.id, kind: o.action_type, data: o.data, remaining: o.ticks_remaining, total: o.ticks_total })),
     contracts: store.loadContracts(c.id),

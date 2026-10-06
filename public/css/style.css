@@ -279,3 +279,21 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .req { margin: 6px 0; } .req .row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
 .modal ul.log { max-height: 280px; overflow-y: auto; margin-top: 4px; }
 .modal.report h2 { color: var(--amber); }
+
+/* ---------- hazard markers, offline queue, comfort ---------- */
+.slot .badge { display: none; pointer-events: none; }
+.slot.hz-hit .badge, .slot.hz-upkeep .badge, .slot.hz-risk .badge { display: block; }
+.badge circle { fill: #c0392b; stroke: var(--bg); stroke-width: 1.5; }
+.badge text { fill: #fff; font-size: 9px; font-weight: 700; text-anchor: middle; }
+.slot.hz-upkeep .badge circle { fill: var(--bg2); stroke: var(--warn); stroke-width: 2; }
+.slot.hz-risk .badge circle { fill: none; stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 2 2; }
+.slot.hz-upkeep .badge text, .slot.hz-risk .badge text { display: none; }
+.slot.hz-hit:not(.sel) .cell { stroke: var(--bad); stroke-width: 2; animation: pulse-stroke 1.2s ease-in-out infinite; }
+.slot.hz-hit .ico { color: #ff9b8f; }
+.slot.cmf-bad .tag { fill: var(--bad); } .slot.cmf-good .tag { fill: var(--good); }
+.slot.queued .cell { fill: rgba(255,255,255,.03); stroke: var(--warn); stroke-dasharray: 3 4; }
+.slot.queued .ico { opacity: .6; } .slot.queued .tag { fill: var(--warn); }
+.pend { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px dashed var(--warn); border-radius: var(--radius); background: rgba(255,201,60,.07); font-size: 12px; }
+.pend .x { background: none; border: 0; color: var(--faint); font-size: 14px; line-height: 1; padding: 0 2px; }
+.pend .x:hover { color: var(--bad); }
+.queue-sep { width: 1px; background: var(--line2); margin: 0 4px; flex: none; }

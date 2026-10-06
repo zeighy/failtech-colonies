@@ -5,14 +5,15 @@
     "convoyMaxPerResource": 500,
     "moraleFailureThresholdTicks": 10,
     "moraleRecoveryPerTick": 2,
-    "startingMorale": 100,
+    "startingMorale": 80,
     "populationConsumptionPerTick": {
       "clean_water": 0.1,
       "rations": 0.1
     },
     "populationGrowth": {
-      "everyTicks": 10,
-      "minMorale": 70
+      "everyTicks": 3,
+      "minMorale": 60,
+      "fastMorale": 90
     },
     "goalSustainTicks": 10,
     "maxOfflineTicks": 1200,
@@ -32,7 +33,8 @@
         "raw_synthetics": 0,
         "alloys": 0,
         "circuits": 0,
-        "power_cells": 0
+        "power_cells": 0,
+        "meals": 0
       }
     },
     "beacon": {
@@ -48,7 +50,23 @@
       "buyMult": 1.5,
       "sellMult": 0.6,
       "limitFraction": 0.4
-    }
+    },
+    "moraleMax": 100,
+    "morale": {
+      "base": 80,
+      "mealBonus": 15,
+      "comfortMin": -15,
+      "comfortMax": 8,
+      "fallPerTick": 1,
+      "penaltyBelow": 70,
+      "penaltyPerPoint": 0.012,
+      "floor": 0.5,
+      "bonusFrom": 85,
+      "bonusMax": 0.08
+    },
+    "workforceShare": 0.8,
+    "mealsPerPopPerTick": 0.05,
+    "emigrationEveryTicks": 2
   },
   "resources": {
     "scrap": {
@@ -129,6 +147,15 @@
       "tier": 4,
       "showFromHub": 3,
       "convoyMax": 20
+    },
+    "meals": {
+      "name": "Prepared Meals",
+      "color": "#ff8fa3",
+      "buy": 10,
+      "sell": 4,
+      "tier": 2,
+      "showFromHub": 2,
+      "convoyMax": 300
     }
   },
   "tierOrder": [
@@ -141,18 +168,17 @@
   "hubLevels": {
     "1": {
       "maxStorage": 2000,
-      "maxPopulation": 30,
       "baseEnergy": 20,
       "ringCapacities": {
         "1": 6
       },
       "upgradeCost": null,
       "upgradeTicks": 0,
-      "convoyCapMult": 1
+      "convoyCapMult": 1,
+      "baseHousing": 30
     },
     "2": {
       "maxStorage": 4000,
-      "maxPopulation": 50,
       "baseEnergy": 30,
       "ringCapacities": {
         "1": 6,
@@ -163,11 +189,11 @@
         "machined_parts": 60
       },
       "upgradeTicks": 10,
-      "convoyCapMult": 1.5
+      "convoyCapMult": 1.5,
+      "baseHousing": 35
     },
     "3": {
       "maxStorage": 6000,
-      "maxPopulation": 80,
       "baseEnergy": 40,
       "ringCapacities": {
         "1": 6,
@@ -184,11 +210,11 @@
         "energy": 12,
         "machined_parts": 1
       },
-      "convoyCapMult": 2
+      "convoyCapMult": 2,
+      "baseHousing": 40
     },
     "4": {
       "maxStorage": 8000,
-      "maxPopulation": 110,
       "baseEnergy": 50,
       "ringCapacities": {
         "1": 6,
@@ -208,11 +234,11 @@
         "machined_parts": 1,
         "alloys": 1
       },
-      "convoyCapMult": 3
+      "convoyCapMult": 3,
+      "baseHousing": 45
     },
     "5": {
       "maxStorage": 12000,
-      "maxPopulation": 150,
       "baseEnergy": 60,
       "ringCapacities": {
         "1": 6,
@@ -234,7 +260,8 @@
         "alloys": 2,
         "circuits": 1
       },
-      "convoyCapMult": 4
+      "convoyCapMult": 4,
+      "baseHousing": 50
     }
   },
   "buildings": {
@@ -251,7 +278,8 @@
         "energy": 25
       },
       "color": "#ffd23f",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 0
     },
     "scrap_extractor": {
       "name": "Scrap Extractor",
@@ -268,7 +296,9 @@
         "scrap": 50
       },
       "color": "#d08a4e",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 2,
+      "comfort": -6
     },
     "water_pump": {
       "name": "Groundwater Pump",
@@ -285,7 +315,9 @@
         "unpurified_water": 20
       },
       "color": "#4fb3a6",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 2,
+      "comfort": -1
     },
     "water_purifier": {
       "name": "Filtration Plant",
@@ -304,7 +336,9 @@
         "clean_water": 15
       },
       "color": "#4cc9f0",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 2,
+      "comfort": -1
     },
     "parts_assembler": {
       "name": "Parts Assembler",
@@ -322,7 +356,9 @@
         "machined_parts": 6
       },
       "color": "#c3cad4",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 3,
+      "comfort": -4
     },
     "hydroponics_bay": {
       "name": "Hydroponics Bay",
@@ -341,7 +377,9 @@
         "rations": 10
       },
       "color": "#8be05a",
-      "minPlotSize": 1
+      "minPlotSize": 1,
+      "workers": 3,
+      "comfort": 4
     },
     "fabrication_works": {
       "name": "Fabrication Works",
@@ -361,7 +399,9 @@
         "building_materials": 4
       },
       "color": "#ff9f1c",
-      "minPlotSize": 2
+      "minPlotSize": 2,
+      "workers": 4,
+      "comfort": -5
     },
     "scrap_generator": {
       "name": "Scrap Burner",
@@ -379,7 +419,9 @@
         "energy": 80
       },
       "minPlotSize": 3,
-      "color": "#ff7b3a"
+      "color": "#ff7b3a",
+      "workers": 2,
+      "comfort": -7
     },
     "synth_reclaimer": {
       "name": "Synthetics Reclaimer",
@@ -397,7 +439,9 @@
         "raw_synthetics": 12
       },
       "minPlotSize": 1,
-      "color": "#b08ad6"
+      "color": "#b08ad6",
+      "workers": 2,
+      "comfort": -3
     },
     "foundry": {
       "name": "Foundry",
@@ -418,7 +462,9 @@
         "alloys": 3
       },
       "minPlotSize": 3,
-      "color": "#e07a5f"
+      "color": "#e07a5f",
+      "workers": 5,
+      "comfort": -8
     },
     "circuit_fab": {
       "name": "Circuit Fabricator",
@@ -439,7 +485,9 @@
         "circuits": 2
       },
       "minPlotSize": 3,
-      "color": "#6ee7b7"
+      "color": "#6ee7b7",
+      "workers": 5,
+      "comfort": -3
     },
     "cell_forge": {
       "name": "Cell Forge",
@@ -462,7 +510,9 @@
         "power_cells": 1
       },
       "minPlotSize": 4,
-      "color": "#f9e07f"
+      "color": "#f9e07f",
+      "workers": 6,
+      "comfort": -5
     },
     "warehouse": {
       "name": "Warehouse",
@@ -477,7 +527,8 @@
       "outputsPerTick": {},
       "minPlotSize": 2,
       "color": "#9aa5b1",
-      "storageBonus": 1000
+      "storageBonus": 1000,
+      "workers": 1
     },
     "watch_post": {
       "name": "Watch Post",
@@ -494,7 +545,9 @@
       "outputsPerTick": {},
       "minPlotSize": 1,
       "color": "#ef6f6f",
-      "defense": 1
+      "defense": 1,
+      "workers": 2,
+      "comfort": 2
     },
     "beacon_array": {
       "name": "Beacon Array",
@@ -516,7 +569,64 @@
       "minPlotSize": 5,
       "color": "#ffffff",
       "maxCount": 1,
-      "transmit": true
+      "transmit": true,
+      "workers": 8,
+      "comfort": -2
+    },
+    "kitchen": {
+      "name": "Kitchen",
+      "type": "refinery",
+      "desc": "Turns plain rations into proper meals. Hungry people survive on rations; people who eat well are happier and work harder.",
+      "constructionTicks": 5,
+      "cost": {
+        "scrap": 350,
+        "machined_parts": 25
+      },
+      "inputsPerTick": {
+        "energy": 6,
+        "rations": 6,
+        "clean_water": 3
+      },
+      "outputsPerTick": {
+        "meals": 8
+      },
+      "minPlotSize": 2,
+      "color": "#ff8fa3",
+      "workers": 3,
+      "comfort": 2
+    },
+    "dormitory": {
+      "name": "Dormitory",
+      "type": "housing",
+      "desc": "Bunks for a few more colonists. Noise and fumes from neighbours make for poor sleep.",
+      "constructionTicks": 3,
+      "cost": {
+        "scrap": 250,
+        "machined_parts": 15
+      },
+      "inputsPerTick": {},
+      "outputsPerTick": {},
+      "minPlotSize": 1,
+      "color": "#a3b8cc",
+      "housing": 10,
+      "workers": 0
+    },
+    "habitat": {
+      "name": "Habitat Block",
+      "type": "housing",
+      "desc": "A proper residential block. Big, and worth placing carefully: homes next to heavy industry are miserable.",
+      "constructionTicks": 6,
+      "cost": {
+        "scrap": 700,
+        "machined_parts": 50,
+        "building_materials": 30
+      },
+      "inputsPerTick": {},
+      "outputsPerTick": {},
+      "minPlotSize": 3,
+      "color": "#8fa8c8",
+      "housing": 30,
+      "workers": 0
     }
   },
   "adjacencyModifiers": {
@@ -591,6 +701,11 @@
         "targetBuilding": "circuit_fab",
         "adjacentBuilding": "foundry",
         "outputMultiplier": 0.9
+      },
+      {
+        "targetBuilding": "kitchen",
+        "adjacentBuilding": "hydroponics_bay",
+        "outputMultiplier": 1.1
       }
     ]
   },

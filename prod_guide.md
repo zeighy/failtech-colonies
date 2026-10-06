@@ -18,7 +18,7 @@ Energy is not stockpiled. Each tick, supply (hub power plus generators) is compa
 | --- | --- |
 | 0 (raw) | scrap, raw water, raw synthetics |
 | 1 | clean water, rations, machined parts |
-| 2 | building materials |
+| 2 | building materials, prepared meals |
 | 3 | alloys, circuits |
 | 4 | power cells |
 
@@ -26,25 +26,37 @@ Chain to the finale: scrap + parts → **alloys** (Foundry); raw synthetics + pa
 
 ## **4. Buildings**
 
-| Building | Type | Min plot | Cost | Inputs / tick | Outputs / tick | Build |
-| --- | --- | --- | --- | --- | --- | --- |
-| Solar Array | generator | Small | 100 scrap | – | 25 power | 2 |
-| Scrap Extractor | extractor | Small | 200 scrap | 5 power | 50 scrap | 3 |
-| Groundwater Pump | extractor | Small | 150 scrap | 5 power | 20 raw water | 3 |
-| Filtration Plant | refinery | Small | 300 scrap, 10 machined parts | 10 power, 15 raw water | 15 clean water | 5 |
-| Parts Assembler | refinery | Small | 400 scrap | 10 power, 30 scrap | 6 machined parts | 6 |
-| Hydroponics Bay | producer | Small | 500 scrap, 25 machined parts | 15 power, 5 clean water | 10 rations | 8 |
-| Fabrication Works | refinery | Medium | 450 scrap, 30 machined parts | 12 power, 20 scrap, 2 machined parts | 4 building materials | 7 |
-| Scrap Burner | generator | Large | 400 scrap, 30 machined parts | 15 scrap | 80 power | 6 |
-| Synthetics Reclaimer | extractor | Small | 250 scrap, 10 machined parts | 8 power | 12 raw synthetics | 4 |
-| Foundry | refinery | Large | 600 scrap, 40 machined parts, 20 building materials | 22 power, 40 scrap, 2 machined parts | 3 alloys | 8 |
-| Circuit Fabricator | refinery | Large | 500 scrap, 50 machined parts, 30 building materials | 18 power, 10 raw synthetics, 1 machined parts | 2 circuits | 8 |
-| Cell Forge | assembler | Heavy | 900 scrap, 80 machined parts, 80 building materials, 30 alloys, 20 circuits | 30 power, 3 alloys, 2 circuits | 1 power cells | 10 |
-| Warehouse | utility | Medium | 300 scrap, 15 machined parts | – | +1000 storage | 4 |
-| Watch Post | defense | Small | 250 scrap, 20 machined parts | 4 power | 1 defence | 4 |
-| Beacon Array | beacon | Colossal | 1000 scrap, 200 building materials, 160 alloys, 100 circuits, 30 power cells | 60 power, 1 power cells | 1 signal | 20 |
+| Building | Type | Min plot | Cost | Inputs / tick | Outputs / tick | Crew | Comfort | Build |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Solar Array | generator | Small | 100 scrap | – | 25 power | – | – | 2 |
+| Scrap Extractor | extractor | Small | 200 scrap | 5 power | 50 scrap | 2 | -6 | 3 |
+| Groundwater Pump | extractor | Small | 150 scrap | 5 power | 20 raw water | 2 | -1 | 3 |
+| Filtration Plant | refinery | Small | 300 scrap, 10 machined parts | 10 power, 15 raw water | 15 clean water | 2 | -1 | 5 |
+| Parts Assembler | refinery | Small | 400 scrap | 10 power, 30 scrap | 6 machined parts | 3 | -4 | 6 |
+| Hydroponics Bay | producer | Small | 500 scrap, 25 machined parts | 15 power, 5 clean water | 10 rations | 3 | +4 | 8 |
+| Fabrication Works | refinery | Medium | 450 scrap, 30 machined parts | 12 power, 20 scrap, 2 machined parts | 4 building materials | 4 | -5 | 7 |
+| Scrap Burner | generator | Large | 400 scrap, 30 machined parts | 15 scrap | 80 power | 2 | -7 | 6 |
+| Synthetics Reclaimer | extractor | Small | 250 scrap, 10 machined parts | 8 power | 12 raw synthetics | 2 | -3 | 4 |
+| Foundry | refinery | Large | 600 scrap, 40 machined parts, 20 building materials | 22 power, 40 scrap, 2 machined parts | 3 alloys | 5 | -8 | 8 |
+| Circuit Fabricator | refinery | Large | 500 scrap, 50 machined parts, 30 building materials | 18 power, 10 raw synthetics, 1 machined parts | 2 circuits | 5 | -3 | 8 |
+| Cell Forge | assembler | Heavy | 900 scrap, 80 machined parts, 80 building materials, 30 alloys, 20 circuits | 30 power, 3 alloys, 2 circuits | 1 power cells | 6 | -5 | 10 |
+| Warehouse | utility | Medium | 300 scrap, 15 machined parts | – | +1000 storage | 1 | – | 4 |
+| Watch Post | defense | Small | 250 scrap, 20 machined parts | 4 power | 1 defence | 2 | +2 | 4 |
+| Beacon Array | beacon | Colossal | 1000 scrap, 200 building materials, 160 alloys, 100 circuits, 30 power cells | 60 power, 1 power cells | 1 signal | 8 | -2 | 20 |
+| Kitchen | refinery | Medium | 350 scrap, 25 machined parts | 6 power, 6 rations, 3 clean water | 8 prepared meals | 3 | +2 | 5 |
+| Dormitory | housing | Small | 250 scrap, 15 machined parts | – | 10 homes | – | – | 3 |
+| Habitat Block | housing | Large | 700 scrap, 50 machined parts, 30 building materials | – | 30 homes | – | – | 6 |
 
 A building with partial inputs runs at partial efficiency (limited by its scarcest input). Chains resolve in order (generators, extractors, refineries, assemblers, producers, beacon), so output made this tick can be consumed this tick.
+
+## **4b. People, housing, crew and morale**
+
+* **Housing.** The population cap is the hub's own quarters (30, 35, 40, 45, 50 at levels 1-5) plus the homes you build (Dormitory 10, Habitat Block 30; both scale with plot size like any other output). Population grows by 3 ticks per person (two at morale 90+) while food and water are in surplus, morale is 60+ and there is room. If homes are lost, people leave.
+* **Crew.** Most buildings need workers. The workforce is 80% of the population. If there are fewer hands than posts, **every staffed building runs at the same reduced efficiency** (automated ones such as Solar Arrays and homes need nobody). The top bar shows crew as a percentage.
+* **Meals.** Prepared Meals (Kitchen: rations + clean water + power) are optional: nobody starves without them. People eat 0.05 per head per tick; the share of people actually fed adds up to **+15** to the morale target.
+* **Comfort.** Every building has a comfort effect on **adjacent homes** (see the table: industry is negative, greenery and guards are positive), summed per home and clamped to -15..+8. The colony's comfort is the capacity-weighted average over its homes, with the hub's own quarters counting as neutral.
+* **Morale target** = base 80 + comfort + meals. Morale moves toward the target (2 per tick up, 1 down); starvation still drops it 10 per tick, and at 0 the colony collapses.
+* **Output effect.** Morale scales production: ×1.0 between 70 and 85, a slowdown of 1.2% per point below 70 (floor ×0.5), and up to +8% at 100.
 
 ## **5. Plots**
 
@@ -81,13 +93,13 @@ Neighbours are the two slots beside a building in its ring plus every touching s
 
 ## **7. Hub levels**
 
-| Level | Upgrade cost | Time | Storage | Max pop | Base power | Rings | Upkeep / tick | Convoy limit |
+| Level | Upgrade cost | Time | Storage | Hub quarters | Base power | Rings | Upkeep / tick | Convoy limit |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | start | – | 2,000 | 30 | 20 | 1 | – | ×1 |
-| 2 | 1200 scrap, 60 machined parts | 10 | 4,000 | 50 | 30 | 2 | – | ×1.5 |
-| 3 | 2500 scrap, 120 machined parts, 60 building materials | 14 | 6,000 | 80 | 40 | 3 | 12 power, 1 machined parts | ×2 |
-| 4 | 3500 scrap, 180 machined parts, 140 building materials, 50 alloys | 14 | 8,000 | 110 | 50 | 4 | 25 power, 1 machined parts, 1 alloys | ×3 |
-| 5 | 5000 scrap, 220 building materials, 100 alloys, 50 circuits | 18 | 12,000 | 150 | 60 | 5 | 40 power, 2 machined parts, 2 alloys, 1 circuits | ×4 |
+| 2 | 1200 scrap, 60 machined parts | 10 | 4,000 | 35 | 30 | 2 | – | ×1.5 |
+| 3 | 2500 scrap, 120 machined parts, 60 building materials | 14 | 6,000 | 40 | 40 | 3 | 12 power, 1 machined parts | ×2 |
+| 4 | 3500 scrap, 180 machined parts, 140 building materials, 50 alloys | 14 | 8,000 | 45 | 50 | 4 | 25 power, 1 machined parts, 1 alloys | ×3 |
+| 5 | 5000 scrap, 220 building materials, 100 alloys, 50 circuits | 18 | 12,000 | 50 | 60 | 5 | 40 power, 2 machined parts, 2 alloys, 1 circuits | ×4 |
 
 From **level 3** the hub has upkeep: it draws power and supplies every tick. If the upkeep can't be met, the hub's own power output drops with it, which cascades into brownouts. Warehouses add storage on top of the hub's cap.
 
@@ -124,6 +136,7 @@ Every 40 ticks. Standing export and import orders execute on arrival at **that c
 | Raw Water | 1.5 | 0.4 |
 | Clean Water | 4 | 1.5 |
 | Rations | 6 | 2.5 |
+| Prepared Meals | 10 | 4 |
 | Machined Parts | 15 | 6 |
 | Building Materials | 30 | 12 |
 | Raw Synthetics | 3 | 1 |

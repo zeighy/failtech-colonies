@@ -111,6 +111,15 @@ function sortBuildings(config, infos) {
   return infos.slice().sort((a, b) => rank(a.def) - rank(b.def) || a.b.id - b.b.id);
 }
 
+// Output multiplier from morale: neutral across the comfortable middle, a slowdown when
+// people are unhappy, and a modest bonus when they are doing well.
+function moraleMultiplier(config, morale) {
+  const m = config.global.morale;
+  if (morale >= m.bonusFrom) return 1 + m.bonusMax * Math.min(1, (morale - m.bonusFrom) / (100 - m.bonusFrom));
+  if (morale >= m.penaltyBelow) return 1;
+  return Math.max(m.floor, 1 - (m.penaltyBelow - morale) * m.penaltyPerPoint);
+}
+
 // state: { hubLevel, population, morale, age, progress, won, inventory, buildings:[{id,ring,slot,type,status}] }
 // mods (from active hazards):
 //   outputMult: {buildingType: m}   output multiplier by type
@@ -130,17 +139,24 @@ function step(config, state, neighborMap, mods = {}) {
   for (const b of state.buildings) {
     const def = config.buildings[b.type];
     if (!def) continue;
-    const nTypes = (neighborMap.get(key(b.ring, b.slot)) || [])
+    const nbs = (neighborMap.get(key(b.ring, b.slot)) || [])
       .map(([r, s]) => grid.get(key(r, s)))
-      .filter(Boolean)
-      .map((n) => n.type);
-    const adj = adjacencyMultiplier(config, b.type, nTypes);
+      .filter(Boolean);
+    const adj = adjacencyMultiplier(config, b.type, nbs.map((n) => n.type));
     const plot = plotMultiplier(config, def, b.ring);
     const haz = (outMult[b.type] === undefined ? 1 : outMult[b.type]) * (degraded[b.id] === undefined ? 1 : degraded[b.id]);
-    infos.push({ b, def, adj, plot, haz, mult: adj * plot });
+    infos.push({ b, def, adj, plot, haz, nbs, mult: adj * plot });
   }
   const offline = (i) => i.b.status !== 'active' || disabled.has(i.b.id);
   const running = sortBuildings(config, infos.filter((i) => !offline(i)));
+
+  // Manpower: every post that needs workers draws on the same workforce. With fewer people
+  // than posts, all staffed buildings slow down in proportion.
+  const workforce = state.population * g.workforceShare;
+  const posts = running.reduce((s, i) => s + (i.def.workers || 0), 0);
+  const staff = posts <= workforce + EPS || posts === 0 ? 1 : workforce / posts;
+  const staffOf = (i) => ((i.def.workers || 0) > 0 ? staff : 1);
+  const morOut = moraleMultiplier(config, state.morale);
 
   const materialEff = (needs, inv) => {
     let eff = 1;
@@ -161,7 +177,7 @@ function step(config, state, neighborMap, mods = {}) {
     }
     for (const [res, amt] of Object.entries(info.def.outputsPerTick)) {
       if (res === 'energy') continue;
-      const made = amt * eff * info.mult * info.haz;
+      const made = amt * eff * info.mult * info.haz * morOut;
       inv[res] = (inv[res] || 0) + made;
       if (flows) flows[res].produced += made;
     }
@@ -181,7 +197,7 @@ function step(config, state, neighborMap, mods = {}) {
   let supply = hubPower;
   let demand = 0;
   for (const i of running) {
-    const { eff } = materialEff(i.def.inputsPerTick, probe);
+    const eff = Math.min(materialEff(i.def.inputsPerTick, probe).eff, staffOf(i));
     if (i.def.type === 'generator') supply += (i.def.outputsPerTick.energy || 0) * eff * i.mult * i.haz;
     else demand += (i.def.inputsPerTick.energy || 0) * eff;
     apply(i, eff, probe, null);
@@ -216,7 +232,8 @@ function step(config, state, neighborMap, mods = {}) {
     const hasPower = (i.def.inputsPerTick.energy || 0) > 0;
     const { eff: mEff, limiting } = materialEff(i.def.inputsPerTick, inv);
     const pEff = hasPower ? sat : 1;
-    const eff = Math.min(mEff, pEff);
+    const sEff = staffOf(i);
+    const eff = Math.min(mEff, pEff, sEff);
     apply(i, eff, inv, flows);
     if (i.def.transmit) progressGain += eff * i.mult * i.haz;
     if (i.def.defense) defense += i.def.defense * eff * i.mult;
@@ -224,11 +241,30 @@ function step(config, state, neighborMap, mods = {}) {
     let status = 'running';
     let why = null;
     if (eff < 0.999) {
-      if (pEff < mEff - EPS) { status = pEff < 0.01 ? 'no_power' : 'low_power'; }
+      if (sEff < Math.min(mEff, pEff) - EPS) { status = 'understaffed'; }
+      else if (pEff < mEff - EPS) { status = pEff < 0.01 ? 'no_power' : 'low_power'; }
       else { status = mEff < 0.01 ? 'starved' : 'low_input'; why = limiting; }
     }
     bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, status, limiting: why });
   }
+
+  // Housing and neighbourhood comfort. Homes next to noisy, smoky buildings are miserable.
+  let housingBuilt = 0;
+  let comfortWeighted = 0;
+  const comfortOf = new Map();
+  for (const i of running) {
+    if (!i.def.housing) continue;
+    const cap = i.def.housing * i.plot;
+    const raw = i.nbs.reduce((s, n) => s + (n.status === 'active' ? (config.buildings[n.type].comfort || 0) : 0), 0);
+    const comfort = Math.max(g.morale.comfortMin, Math.min(g.morale.comfortMax, raw));
+    housingBuilt += cap;
+    comfortWeighted += cap * comfort;
+    comfortOf.set(i.b.id, comfort);
+  }
+  const housingCap = Math.floor(lvl.baseHousing + housingBuilt);
+  // The hub's own quarters count at neutral comfort, so one bad dormitory doesn't sink the colony.
+  const comfortAvg = comfortWeighted / (lvl.baseHousing + housingBuilt);
+  for (const [id, comfort] of comfortOf) { const s = bstate.get(id); if (s) s.comfort = comfort; }
 
   // Hazard maintenance: extra consumption while a hazard is being weathered.
   for (const [res, amt] of Object.entries(mods.drain || {})) {
@@ -249,24 +285,39 @@ function step(config, state, neighborMap, mods = {}) {
     flows[res].consumed += take;
     if (need - take > 1e-6) starving.push(res);
   }
+  // Prepared meals are optional: nobody starves without them, but eating well lifts morale.
+  let mealCoverage = 0;
+  if (config.resources.meals) {
+    const need = g.mealsPerPopPerTick * state.population;
+    const take = Math.min(inv.meals || 0, need);
+    inv.meals = (inv.meals || 0) - take;
+    flows.meals.consumed += take;
+    mealCoverage = need > 0 ? take / need : 0;
+  }
   for (const res of Object.keys(inv)) {
     inv[res] = Math.min(cap, Math.max(0, inv[res]));
   }
 
-  // Morale, growth, beacon progress.
+  // Morale drifts toward a target set by food variety and where people live.
   const net = (res) => flows[res].produced - flows[res].consumed;
+  const mc = g.morale;
+  const target = Math.max(0, Math.min(g.moraleMax, mc.base + comfortAvg + mealCoverage * mc.mealBonus));
   let morale = state.morale;
   if (starving.length) morale -= 100 / g.moraleFailureThresholdTicks;
-  else morale += g.moraleRecoveryPerTick;
-  morale = Math.min(g.startingMorale, Math.max(0, morale));
+  else if (morale < target) morale = Math.min(target, morale + g.moraleRecoveryPerTick);
+  else morale = Math.max(target, morale - mc.fallPerTick);
+  morale = Math.min(g.moraleMax, Math.max(0, morale));
 
+  // Population grows while there is room, food and hope; it drains away if homes are lost.
   let population = state.population;
   let grew = false;
   const pg = g.populationGrowth;
-  if (!starving.length && morale >= pg.minMorale && population < lvl.maxPopulation
+  if (!starving.length && morale >= pg.minMorale && population < housingCap
       && (state.age + 1) % pg.everyTicks === 0 && net('clean_water') > 0 && net('rations') > 0) {
-    population += 1;
+    population = Math.min(housingCap, population + (morale >= pg.fastMorale ? 2 : 1));
     grew = true;
+  } else if (population > housingCap && (state.age + 1) % g.emigrationEveryTicks === 0) {
+    population -= 1;
   }
 
   const progress = (state.progress || 0) + progressGain;
@@ -274,6 +325,9 @@ function step(config, state, neighborMap, mods = {}) {
 
   return {
     inventory: inv, flows, population, morale, grew, starving, cap, defense,
+    staffing: { posts, workforce, ratio: staff },
+    housing: { base: lvl.baseHousing, built: housingBuilt, cap: housingCap },
+    moraleInfo: { target, base: mc.base, comfort: comfortAvg, meals: mealCoverage * mc.mealBonus, mealCoverage, productivity: morOut },
     energy: { supply, demand, satisfaction: sat },
     hub: { eff: hubEff, limiting: hubMat.limiting, power: hubPower },
     buildings: bstate, progress, progressGain, won, failed: morale <= 0,
@@ -329,6 +383,6 @@ function slotUnlocked(config, hubLevel, ring, slot) {
 }
 
 module.exports = {
-  key, maxLevel, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, maxLevel, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

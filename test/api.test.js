@@ -218,14 +218,15 @@ const directive = (s, id) => s.brief.directives.find((d) => d.id === id);
 test('brief: fresh colony has a full roadmap, a correct collapse clock, and hints that never name a building', async () => {
   const c = await newPlayer();
   const s = (await c.get('/api/state')).body;
-  assert.equal(s.brief.directives.length, 21);
-  assert.equal(s.brief.remaining, 21);
+  assert.equal(s.brief.directives.length, 24);
+  assert.equal(s.brief.remaining, 24);
   assert.equal(s.brief.directives.filter((d) => d.current).length, 1);
   assert.equal(s.brief.directives.find((d) => d.current).id, 'power');
-  // 80 water at -2/tick = 40 ticks to shortage, then 10 ticks of morale: matches the sim's collapse at tick 50
+  // 80 water at -2/tick = 40 ticks to shortage, then the morale runway: matches the sim's collapse
+  const runway = Math.ceil(store.config.global.startingMorale / (100 / store.config.global.moraleFailureThresholdTicks));
   assert.equal(s.doom.phase, 'depleting');
   assert.equal(s.doom.untilShortage, 40);
-  assert.equal(s.doom.ticks, 50);
+  assert.equal(s.doom.ticks, 40 + runway);
   // hints point at what is missing, never at the thing to build
   const banned = Object.values(store.config.buildings).map((b) => b.name.toLowerCase());
   for (const d of s.brief.directives) {
@@ -271,8 +272,40 @@ test('brief: collapse clock switches to starving and counts the morale runway do
   tick(1);
   let s = (await c.get('/api/state')).body;
   assert.equal(s.doom.phase, 'starving');
-  assert.equal(s.doom.ticks, 9); // morale 90 after one starving tick, 10 per tick
+  const per = 100 / store.config.global.moraleFailureThresholdTicks;
+  const start = store.config.global.startingMorale;
+  assert.equal(s.doom.ticks, Math.ceil((start - per) / per)); // one starving tick already taken
   tick(3);
   s = (await c.get('/api/state')).body;
-  assert.equal(s.doom.ticks, 6);
+  assert.equal(s.doom.ticks, Math.ceil((start - 4 * per) / per));
+});
+
+test('toggle with an explicit state is idempotent (safe to re-send after a dropped connection)', async () => {
+  const c = await newPlayer();
+  await c.post('/api/build', { ring: 1, slot: 1, type: 'scrap_extractor' });
+  tick(3);
+  const paused = (n) => c.post('/api/toggle', { ring: 1, slot: 1, paused: n });
+  assert.equal((await paused(true)).body.state.buildings[0].paused, true);
+  assert.equal((await paused(true)).body.state.buildings[0].paused, true, 'sending the same request again changes nothing');
+  assert.equal((await paused(false)).body.state.buildings[0].paused, false);
+  assert.equal((await paused(false)).body.state.buildings[0].paused, false);
+  // without an explicit state it still flips, for older clients
+  assert.equal((await c.post('/api/toggle', { ring: 1, slot: 1 })).body.state.buildings[0].paused, true);
+});
+
+test('view exposes housing, crew and the morale breakdown', async () => {
+  const c = await newPlayer();
+  const s = (await c.get('/api/state')).body;
+  assert.equal(s.colony.maxPopulation, store.config.hubLevels['1'].baseHousing);
+  assert.equal(s.colony.housing.cap, s.colony.maxPopulation);
+  assert.equal(s.colony.staffing.ratio, 1);
+  assert.equal(s.colony.moraleInfo.base, store.config.global.morale.base);
+  assert.equal(s.colony.morale, store.config.global.startingMorale);
+  store.db.prepare("UPDATE colony_inventory SET amount = 100 WHERE colony_id = (SELECT MAX(id) FROM colonies) AND resource_id = 'machined_parts'").run();
+  assert.equal((await c.post('/api/build', { ring: 1, slot: 0, type: 'dormitory' })).status, 200);
+  tick(store.config.buildings.dormitory.constructionTicks);
+  const after = (await c.get('/api/state')).body;
+  assert.equal(after.colony.maxPopulation, store.config.hubLevels['1'].baseHousing + store.config.buildings.dormitory.housing);
+  const dorm = after.buildings.find((b) => b.type === 'dormitory');
+  assert.equal(dorm.comfort, 0);
 });

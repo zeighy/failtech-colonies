@@ -68,10 +68,13 @@ const demolish = guarded((c, { ring, slot }) => {
   return OK;
 });
 
-const toggle = guarded((c, { ring, slot }) => {
+const toggle = guarded((c, { ring, slot, paused }) => {
   const b = db.prepare('SELECT * FROM colony_buildings WHERE colony_id = ? AND ring_index = ? AND slot_index = ?').get(c.id, Number(ring), Number(slot));
   if (!b) return fail('Nothing there.');
-  db.prepare('UPDATE colony_buildings SET status = ? WHERE id = ?').run(b.status === 'active' ? 'paused' : 'active', b.id);
+  // Clients send the state they want (so a re-sent request after a dropped connection can't flip it back);
+  // with no explicit state the building simply flips.
+  const next = typeof paused === 'boolean' ? (paused ? 'paused' : 'active') : (b.status === 'active' ? 'paused' : 'active');
+  db.prepare('UPDATE colony_buildings SET status = ? WHERE id = ?').run(next, b.id);
   return OK;
 });
 

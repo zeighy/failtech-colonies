@@ -97,7 +97,7 @@ test('a greedy but sensible opening (paying real costs) survives and stabilises'
     assert.ok(!r.failed, `colony failed at tick ${t}`);
   }
   assert.equal(next, plan.length, 'every building got built');
-  assert.ok(s.morale >= 90);
+  assert.ok(s.morale >= 75, `morale ${s.morale}`);
   assert.ok(r.flows.clean_water.produced - r.flows.clean_water.consumed > 0);
   assert.ok(r.flows.rations.produced - r.flows.rations.consumed > 0);
 });
@@ -232,6 +232,94 @@ test('damaged (hazard-disabled) buildings stop; hazard output multipliers apply'
   const st = hit.buildings.get(s.buildings[1].id);
   assert.equal(st.status, 'damaged');
   assert.equal(hit.flows.scrap.produced, 0);
+});
+
+test('staffing: with fewer workers than posts, staffed buildings slow in proportion; unstaffed-free ones do not', () => {
+  const s = fresh({ population: 4, buildings: [b(1, 0, 'solar_array'), b(1, 1, 'scrap_extractor'), b(1, 2, 'parts_assembler')] });
+  const full = sim.step(config, fresh({ population: 100, buildings: s.buildings }), nm);
+  const r = sim.step(config, s, nm);
+  const posts = config.buildings.scrap_extractor.workers + config.buildings.parts_assembler.workers;
+  const ratio = (4 * config.global.workforceShare) / posts;
+  assert.ok(ratio < 1);
+  assert.ok(Math.abs(r.staffing.ratio - ratio) < 1e-9);
+  assert.equal(full.staffing.ratio, 1);
+  assert.ok(Math.abs(r.buildings.get(s.buildings[1].id).eff - ratio) < 1e-9);
+  assert.equal(r.buildings.get(s.buildings[1].id).status, 'understaffed');
+  assert.equal(r.buildings.get(s.buildings[0].id).eff, 1, 'automated solar needs nobody');
+  assert.ok(r.flows.scrap.produced < full.flows.scrap.produced);
+});
+
+test('housing: homes raise the population cap; growth stops at the cap; losing homes drives people away', () => {
+  const base = config.hubLevels['1'].baseHousing;
+  const none = sim.step(config, fresh(), nm);
+  assert.equal(none.housing.cap, base);
+  const homes = fresh({ buildings: [b(1, 0, 'dormitory'), b(3, 0, 'habitat')] });
+  const r = sim.step(config, homes, nm);
+  assert.equal(r.housing.cap, base + config.buildings.dormitory.housing * 0.6 ** 0 + config.buildings.habitat.housing);
+  // a habitat on a Small plot is cramped: 2 steps short
+  const cramped = sim.step(config, fresh({ buildings: [b(1, 0, 'habitat')] }), nm);
+  assert.equal(cramped.housing.cap, Math.floor(base + config.buildings.habitat.housing * config.global.plotPenaltyPerStep ** 2));
+  // growth is capped; with food and water in surplus the colony fills its housing
+  let s = fresh({ population: base - 1, buildings: [b(1, 0, 'water_pump'), b(1, 1, 'water_purifier'), b(1, 2, 'hydroponics_bay'), b(1, 3, 'solar_array'), b(1, 4, 'solar_array')] });
+  Object.assign(s.inventory, { clean_water: 1000, rations: 1000, unpurified_water: 500, machined_parts: 100 });
+  for (let t = 0; t < 12; t++) { const rr = sim.step(config, s, nm); s = advance(s, rr); }
+  assert.equal(s.population, base);
+  // too many people for the homes: they leave
+  let over = fresh({ population: base + 10 });
+  const before = over.population;
+  for (let t = 0; t < 6; t++) over = advance(over, sim.step(config, over, nm));
+  assert.ok(over.population < before);
+});
+
+test('comfort: homes beside noisy buildings lower the morale target; good neighbours raise it', () => {
+  const homeAt = (nbType) => {
+    // ring 3 slot 0 neighbours ring 3 slot 1 (and slot 9)
+    const bl = [b(3, 0, 'habitat')]; if (nbType) bl.push(b(3, 1, nbType));
+    return fresh({ buildings: bl });
+  };
+  const quiet = sim.step(config, homeAt(null), nm);
+  const loud = sim.step(config, homeAt('foundry'), nm);
+  const green = sim.step(config, homeAt('hydroponics_bay'), nm);
+  assert.equal(quiet.moraleInfo.comfort, 0);
+  assert.ok(loud.moraleInfo.comfort < 0 && loud.moraleInfo.target < quiet.moraleInfo.target);
+  assert.ok(green.moraleInfo.comfort > 0 && green.moraleInfo.target > quiet.moraleInfo.target);
+  // comfort is weighted by capacity and diluted by the hub's own quarters
+  const loudHome = fresh({ buildings: [b(3, 0, 'dormitory'), b(3, 1, 'foundry')] });
+  const rr = sim.step(config, loudHome, nm);
+  const cap = config.buildings.dormitory.housing * sim.plotMultiplier(config, config.buildings.dormitory, 3);
+  const expect = (cap * config.buildings.foundry.comfort) / (config.hubLevels['1'].baseHousing + cap);
+  assert.ok(Math.abs(rr.moraleInfo.comfort - expect) < 1e-9);
+});
+
+test('meals lift the morale target in proportion to how many people they feed; no meals is no penalty', () => {
+  const s = fresh();
+  const none = sim.step(config, s, nm);
+  assert.equal(none.moraleInfo.mealCoverage, 0);
+  assert.equal(none.moraleInfo.target, config.global.morale.base);
+  s.inventory.meals = 1000;
+  const fed = sim.step(config, s, nm);
+  assert.equal(fed.moraleInfo.mealCoverage, 1);
+  assert.equal(fed.moraleInfo.target, config.global.morale.base + config.global.morale.mealBonus);
+  assert.ok(Math.abs(fed.flows.meals.consumed - config.global.mealsPerPopPerTick * s.population) < 1e-9);
+  s.inventory.meals = config.global.mealsPerPopPerTick * s.population / 2;
+  assert.ok(Math.abs(sim.step(config, s, nm).moraleInfo.mealCoverage - 0.5) < 1e-9);
+  assert.ok(!sim.step(config, { ...s, inventory: { ...s.inventory, meals: 0 } }, nm).starving.length, 'meals are optional');
+});
+
+test('morale drifts toward its target and affects output: slowdown when low, a small bonus when high', () => {
+  const m = config.global.morale;
+  assert.equal(sim.moraleMultiplier(config, 80), 1);
+  assert.equal(sim.moraleMultiplier(config, 70), 1);
+  assert.ok(sim.moraleMultiplier(config, 40) < 0.8 && sim.moraleMultiplier(config, 40) >= m.floor);
+  assert.equal(sim.moraleMultiplier(config, 0), m.floor);
+  assert.ok(Math.abs(sim.moraleMultiplier(config, 100) - (1 + m.bonusMax)) < 1e-9);
+  const mk = (morale) => fresh({ morale, buildings: [b(1, 0, 'solar_array'), b(1, 1, 'parts_assembler')] });
+  const lo = sim.step(config, mk(40), nm), hi = sim.step(config, mk(100), nm), mid = sim.step(config, mk(80), nm);
+  assert.ok(lo.flows.machined_parts.produced < mid.flows.machined_parts.produced);
+  assert.ok(hi.flows.machined_parts.produced > mid.flows.machined_parts.produced);
+  // drift: rises by the recovery rate toward the target, falls by fallPerTick
+  assert.equal(sim.step(config, fresh({ morale: 50 }), nm).morale, 50 + config.global.moraleRecoveryPerTick);
+  assert.equal(sim.step(config, fresh({ morale: 100 }), nm).morale, 100 - m.fallPerTick);
 });
 
 test('beacon: transmits only while running; a full-size plot is faster than a cramped one; completing it wins', () => {
