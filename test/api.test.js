@@ -309,3 +309,11 @@ test('view exposes housing, crew and the morale breakdown', async () => {
   const dorm = after.buildings.find((b) => b.type === 'dormitory');
   assert.equal(dorm.comfort, 0);
 });
+
+test('every building has a map icon', () => {
+  global.window = {};
+  require('../public/js/icons.js');
+  const missing = Object.keys(store.config.buildings).filter((k) => !global.window.ICONS[k]);
+  delete global.window;
+  assert.deepEqual(missing, []);
+});
