@@ -6,6 +6,9 @@ const hazards = require('./hazards');
 const { db, config } = store;
 
 const neighborMap = sim.buildNeighborMap(config);
+// One neighbour map per district type (the Core plus anything defined under config.districtTypes).
+const neighborMaps = { core: neighborMap };
+for (const type of Object.keys(config.districtTypes || {})) neighborMaps[type] = sim.buildNeighborMap(config, type);
 const events = new EventEmitter();
 const TICK_MS = Number(process.env.TICK_MS) || config.global.tickRateMs;
 
@@ -17,19 +20,27 @@ const timing = () => ({
   lastTickAt: Number(store.getMeta('last_tick_at', Date.now())),
 });
 
-function loadState(c) {
-  return {
-    hubLevel: c.hub_level, population: c.population, morale: c.morale, age: c.age,
-    progress: c.progress, won: !!c.won, credits: c.credits,
-    inventory: store.loadInventory(c.id), buildings: store.loadBuildings(c.id),
-  };
+// Every district of the colony with its stockpile and buildings. The Core's level lives on the colony row.
+function loadDistricts(c) {
+  return store.loadDistricts(c.id).map((d) => ({
+    id: d.id, type: d.type, name: d.name,
+    level: d.type === 'core' ? c.hub_level : d.level,
+    inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
+  }));
 }
 
 function tickColony(c, globalTick, tickTime) {
-  const state = loadState(c);
+  const districts = loadDistricts(c);
+  const core = districts.find((d) => d.type === 'core');
   const hazard = store.loadHazard(c.id);
-  const mods = hazards.modifiersFor(config, hazard, state.buildings);
-  const res = sim.step(config, state, neighborMap, mods);
+  const hazardMods = hazards.modifiersFor(config, hazard, core.buildings); // hazards act on the Core for now
+  const full = sim.stepColony(
+    config,
+    { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
+    districts,
+    { neighborMaps, mods: { [core.id]: hazardMods }, popConsumptionMult: hazardMods.popConsumptionMult },
+  );
+  const res = sim.coreView(full);
   const ev = (kind, msg) => store.addEvent(c.id, globalTick, kind, msg);
   const names = (list) => list.map((r) => config.resources[r].name).join(' and ');
 
@@ -57,13 +68,17 @@ function tickColony(c, globalTick, tickTime) {
       db.prepare('UPDATE colony_work_orders SET ticks_remaining = ticks_remaining - 1 WHERE id = ?').run(o.id);
       continue;
     }
+    const d = districts.find((x) => x.id === o.district_id) || core; // orders from before districts belong to the Core
+    const where = d.type === 'core' ? '' : ` in ${d.name}`;
     if (o.action_type === 'build') {
-      db.prepare("INSERT INTO colony_buildings (colony_id, ring_index, slot_index, building_type) VALUES (?, ?, ?, ?)")
-        .run(c.id, o.data.ring, o.data.slot, o.data.type);
-      ev('good', `${config.buildings[o.data.type].name} completed in ring ${o.data.ring}.`);
+      db.prepare('INSERT INTO colony_buildings (colony_id, district_id, ring_index, slot_index, building_type) VALUES (?, ?, ?, ?, ?)')
+        .run(c.id, d.id, o.data.ring, o.data.slot, o.data.type);
+      ev('good', `${config.buildings[o.data.type].name} completed in ring ${o.data.ring}${where}.`);
     } else if (o.action_type === 'upgrade') {
-      hubLevel = o.data.level;
-      ev('good', `Hub upgraded to level ${hubLevel}.${config.hubLevels[hubLevel].ringCapacities[hubLevel] ? ` Ring ${hubLevel} unlocked.` : ''}`);
+      const caps = sim.levelDef(config, d.type, o.data.level).ringCapacities;
+      if (d.type === 'core') hubLevel = o.data.level;
+      else db.prepare('UPDATE districts SET level = ? WHERE id = ?').run(o.data.level, d.id);
+      ev('good', `${d.type === 'core' ? 'Hub' : d.name} upgraded to level ${o.data.level}.${caps[o.data.level] ? ` Ring ${o.data.level} unlocked.` : ''}`);
     }
     db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
   }
@@ -109,12 +124,13 @@ function tickColony(c, globalTick, tickTime) {
   // but a forecast hazard always lands on its tick, logged in or not.
   if (status === 'active') {
     const active = c.last_seen_at >= tickTime - config.global.activeWindowSeconds * 1000;
-    const out = hazards.advance({ config, c, globalTick, active, inventory, credits, defense: res.defense, buildings: state.buildings });
+    const out = hazards.advance({ config, c, globalTick, active, inventory, credits, defense: res.defense, buildings: core.buildings });
     inventory = out.inventory;
     credits = out.credits;
   }
 
-  store.saveInventory(c.id, inventory);
+  store.saveInventory(c.id, inventory, core.id);
+  for (const r of full.districts) if (r.id !== core.id) store.saveInventory(c.id, r.inventory, r.id);
   db.prepare(`UPDATE colonies SET hub_level = ?, credits = ?, morale = ?, population = ?, age = age + 1, status = ?,
     won = ?, progress = ?, starving = ?, brownout = ? WHERE id = ?`)
     .run(hubLevel, Math.floor(credits), res.morale, population, status, res.won ? 1 : 0, res.progress, starving ? 1 : 0, brownout ? 1 : 0, c.id);
@@ -156,4 +172,4 @@ function start() {
 
 function stop() { clearInterval(timer); timer = null; }
 
-module.exports = { events, start, stop, processTick, runDueTicks, timing, neighborMap, TICK_MS };
+module.exports = { events, start, stop, processTick, runDueTicks, timing, neighborMap, neighborMaps, TICK_MS };

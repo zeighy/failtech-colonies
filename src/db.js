@@ -9,7 +9,7 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failt
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -55,24 +55,37 @@ function migrate() {
       hazards_survived INTEGER NOT NULL DEFAULT 0,
       report_cursor INTEGER NOT NULL DEFAULT 0
     );
+    -- A district is a base: its own rings, stockpile, buildings and power grid. Every colony has exactly
+    -- one 'core' district (the original colony, whose level is colonies.hub_level).
+    CREATE TABLE IF NOT EXISTS districts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      level INTEGER NOT NULL DEFAULT 1,
+      name TEXT NOT NULL,
+      created_tick INTEGER NOT NULL DEFAULT 0
+    );
     CREATE TABLE IF NOT EXISTS colony_inventory (
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      district_id INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
       resource_id TEXT NOT NULL,
       amount REAL NOT NULL DEFAULT 0,
-      PRIMARY KEY (colony_id, resource_id)
+      PRIMARY KEY (district_id, resource_id)
     );
     CREATE TABLE IF NOT EXISTS colony_buildings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      district_id INTEGER REFERENCES districts(id) ON DELETE CASCADE,
       ring_index INTEGER NOT NULL,
       slot_index INTEGER NOT NULL,
       building_type TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
-      UNIQUE (colony_id, ring_index, slot_index)
+      UNIQUE (district_id, ring_index, slot_index)
     );
     CREATE TABLE IF NOT EXISTS colony_work_orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      district_id INTEGER REFERENCES districts(id) ON DELETE CASCADE,
       action_type TEXT NOT NULL,
       target_data TEXT NOT NULL,
       ticks_remaining INTEGER NOT NULL,
@@ -116,7 +129,61 @@ function migrate() {
   if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'express_ready_tick'").get()) {
     db.exec('ALTER TABLE colonies ADD COLUMN express_ready_tick INTEGER NOT NULL DEFAULT 0');
   }
+  // v6: districts. Existing colonies keep everything; their stockpile, buildings and orders become the Core district's.
+  if (v < 6) migrateToDistricts();
+  // A building inserted without a district belongs to the colony's Core district.
+  db.exec(`CREATE TRIGGER IF NOT EXISTS buildings_default_district AFTER INSERT ON colony_buildings
+    WHEN NEW.district_id IS NULL BEGIN
+      UPDATE colony_buildings SET district_id = (SELECT id FROM districts WHERE colony_id = NEW.colony_id AND type = 'core') WHERE id = NEW.id;
+    END`);
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
+}
+
+function migrateToDistricts() {
+  const hasCol = (table, col) => !!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col);
+  db.transaction(() => {
+    for (const c of db.prepare("SELECT id, hub_level FROM colonies WHERE id NOT IN (SELECT colony_id FROM districts WHERE type = 'core')").all()) {
+      db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'core', ?, 'The Core', 0)").run(c.id, c.hub_level);
+    }
+    const core = "(SELECT id FROM districts d WHERE d.colony_id = o.colony_id AND d.type = 'core')";
+    if (!hasCol('colony_inventory', 'district_id')) {
+      db.exec(`
+        CREATE TABLE colony_inventory_v6 (
+          colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+          district_id INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+          resource_id TEXT NOT NULL,
+          amount REAL NOT NULL DEFAULT 0,
+          PRIMARY KEY (district_id, resource_id)
+        );
+        INSERT INTO colony_inventory_v6 (colony_id, district_id, resource_id, amount)
+          SELECT o.colony_id, ${core}, o.resource_id, o.amount FROM colony_inventory o;
+        DROP TABLE colony_inventory;
+        ALTER TABLE colony_inventory_v6 RENAME TO colony_inventory;
+      `);
+    }
+    if (!hasCol('colony_buildings', 'district_id')) {
+      db.exec(`
+        CREATE TABLE colony_buildings_v6 (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+          district_id INTEGER REFERENCES districts(id) ON DELETE CASCADE,
+          ring_index INTEGER NOT NULL,
+          slot_index INTEGER NOT NULL,
+          building_type TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active',
+          UNIQUE (district_id, ring_index, slot_index)
+        );
+        INSERT INTO colony_buildings_v6 (id, colony_id, district_id, ring_index, slot_index, building_type, status)
+          SELECT o.id, o.colony_id, ${core}, o.ring_index, o.slot_index, o.building_type, o.status FROM colony_buildings o;
+        DROP TABLE colony_buildings;
+        ALTER TABLE colony_buildings_v6 RENAME TO colony_buildings;
+      `);
+    }
+    if (!hasCol('colony_work_orders', 'district_id')) {
+      db.exec('ALTER TABLE colony_work_orders ADD COLUMN district_id INTEGER REFERENCES districts(id) ON DELETE CASCADE');
+      db.exec(`UPDATE colony_work_orders AS o SET district_id = ${core} WHERE district_id IS NULL`);
+    }
+  })();
 }
 migrate();
 
@@ -155,8 +222,9 @@ function foundColony(userId, { credits = config.global.startingState.credits, fa
   const id = db.prepare(
     'INSERT INTO colonies (user_id, credits, morale, population, failures, last_seen_at, next_hazard_age) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(userId, credits, config.global.startingMorale, s.population, failures, Date.now(), config.hazards.firstAtAge).lastInsertRowid;
-  const ins = db.prepare('INSERT INTO colony_inventory (colony_id, resource_id, amount) VALUES (?, ?, ?)');
-  for (const res of Object.keys(config.resources)) ins.run(id, res, s.resources[res] || 0);
+  const core = db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'core', 1, 'The Core', 0)").run(id).lastInsertRowid;
+  const ins = db.prepare('INSERT INTO colony_inventory (colony_id, district_id, resource_id, amount) VALUES (?, ?, ?, ?)');
+  for (const res of Object.keys(config.resources)) ins.run(id, core, res, s.resources[res] || 0);
   addEvent(id, 0, 'info', 'Colony founded. Keep your people fed, watered and powered.');
   return id;
 }
@@ -180,24 +248,37 @@ function addEvent(colonyId, tick, kind, message, tag = null) {
   return Number(id);
 }
 
-function loadInventory(colonyId) {
+// ---- districts -------------------------------------------------------------------
+// Most callers only know about the Core; every loader defaults to it, so single-base code keeps working.
+function coreId(colonyId) {
+  const r = db.prepare("SELECT id FROM districts WHERE colony_id = ? AND type = 'core'").get(colonyId);
+  return r ? r.id : null;
+}
+function loadDistricts(colonyId) {
+  return db.prepare('SELECT id, type, level, name, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId);
+}
+
+function loadInventory(colonyId, districtId = coreId(colonyId)) {
   const inv = {};
-  for (const r of db.prepare('SELECT resource_id, amount FROM colony_inventory WHERE colony_id = ?').all(colonyId)) inv[r.resource_id] = r.amount;
+  for (const r of db.prepare('SELECT resource_id, amount FROM colony_inventory WHERE district_id = ?').all(districtId)) inv[r.resource_id] = r.amount;
   return inv;
 }
 
-function saveInventory(colonyId, inv) {
-  const up = db.prepare('INSERT INTO colony_inventory (colony_id, resource_id, amount) VALUES (?, ?, ?) ON CONFLICT(colony_id, resource_id) DO UPDATE SET amount = excluded.amount');
-  for (const [res, amt] of Object.entries(inv)) if (config.resources[res]) up.run(colonyId, res, amt);
+function saveInventory(colonyId, inv, districtId = coreId(colonyId)) {
+  const up = db.prepare('INSERT INTO colony_inventory (colony_id, district_id, resource_id, amount) VALUES (?, ?, ?, ?) ON CONFLICT(district_id, resource_id) DO UPDATE SET amount = excluded.amount');
+  for (const [res, amt] of Object.entries(inv)) if (config.resources[res]) up.run(colonyId, districtId, res, amt);
 }
 
-function loadBuildings(colonyId) {
-  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status FROM colony_buildings WHERE colony_id = ? ORDER BY id').all(colonyId);
+function loadBuildings(colonyId, districtId = coreId(colonyId)) {
+  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId);
 }
 
-function loadOrders(colonyId) {
-  return db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? ORDER BY id').all(colonyId)
-    .map((o) => ({ ...o, data: JSON.parse(o.target_data) }));
+// With a districtId: that district's orders. Without: every order in the colony.
+function loadOrders(colonyId, districtId) {
+  const rows = districtId === undefined
+    ? db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? ORDER BY id').all(colonyId)
+    : db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? AND district_id = ? ORDER BY id').all(colonyId, districtId);
+  return rows.map((o) => ({ ...o, data: JSON.parse(o.target_data) }));
 }
 
 function loadHazard(colonyId) {
@@ -219,5 +300,5 @@ function loadContracts(colonyId) {
 module.exports = {
   db, config, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
-  loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts, loadHazard, loadExpress,
+  coreId, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts, loadHazard, loadExpress,
 };

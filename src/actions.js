@@ -14,15 +14,25 @@ function canAfford(inv, cost) {
   return Object.entries(cost).every(([r, a]) => (inv[r] || 0) >= a);
 }
 
-function pay(colonyId, cost) {
-  const up = db.prepare('UPDATE colony_inventory SET amount = amount - ? WHERE colony_id = ? AND resource_id = ?');
-  for (const [r, a] of Object.entries(cost)) up.run(a, colonyId, r);
+// Which district is an action about? The Core unless one is named; a named one must belong to this colony.
+// The Core's level lives on the colony (colonies.hub_level); other districts carry their own.
+function districtFor(c, id) {
+  const d = id === undefined || id === null
+    ? db.prepare("SELECT * FROM districts WHERE colony_id = ? AND type = 'core'").get(c.id)
+    : db.prepare('SELECT * FROM districts WHERE id = ? AND colony_id = ?').get(Number(id), c.id);
+  return d ? { ...d, level: d.type === 'core' ? c.hub_level : d.level } : null;
+}
+const NO_DISTRICT = 'Unknown district.';
+
+function pay(districtId, cost) {
+  const up = db.prepare('UPDATE colony_inventory SET amount = amount - ? WHERE district_id = ? AND resource_id = ?');
+  for (const [r, a] of Object.entries(cost)) up.run(a, districtId, r);
 }
 
 // Refunds add straight to stock; the next tick trims anything above the storage cap.
-function refund(colonyId, cost, fraction) {
-  const up = db.prepare('UPDATE colony_inventory SET amount = amount + ? WHERE colony_id = ? AND resource_id = ?');
-  for (const [r, a] of Object.entries(cost)) up.run(Math.floor(a * fraction), colonyId, r);
+function refund(districtId, cost, fraction) {
+  const up = db.prepare('UPDATE colony_inventory SET amount = amount + ? WHERE district_id = ? AND resource_id = ?');
+  for (const [r, a] of Object.entries(cost)) up.run(Math.floor(a * fraction), districtId, r);
 }
 
 // Wraps an action: loads the colony, rejects failed colonies, runs inside a transaction.
@@ -35,41 +45,50 @@ function guarded(fn, { allowFailed = false } = {}) {
   };
 }
 
-const slotBusy = (colonyId, ring, slot) => {
-  if (db.prepare('SELECT 1 FROM colony_buildings WHERE colony_id = ? AND ring_index = ? AND slot_index = ?').get(colonyId, ring, slot)) return true;
-  return store.loadOrders(colonyId).some((o) => o.action_type === 'build' && o.data.ring === ring && o.data.slot === slot);
+const slotBusy = (c, d, ring, slot) => {
+  if (db.prepare('SELECT 1 FROM colony_buildings WHERE district_id = ? AND ring_index = ? AND slot_index = ?').get(d.id, ring, slot)) return true;
+  return store.loadOrders(c.id, d.id).some((o) => o.action_type === 'build' && o.data.ring === ring && o.data.slot === slot);
 };
 
-const build = guarded((c, { ring, slot, type }) => {
+const build = guarded((c, { ring, slot, type, district }) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
   ring = Number(ring); slot = Number(slot);
   const def = config.buildings[type];
   if (!def) return fail('Unknown building type.');
-  if (!sim.slotUnlocked(config, c.hub_level, ring, slot)) return fail('That slot is locked. Upgrade the hub.');
+  if (!sim.slotUnlocked(config, d.level, ring, slot, d.type)) return fail(`That slot is locked. Upgrade the ${d.type === 'core' ? 'hub' : 'district'}.`);
   if (def.minHubLevel && c.hub_level < def.minHubLevel) return fail(`${def.name} requires hub level ${def.minHubLevel}.`);
-  if (slotBusy(c.id, ring, slot)) return fail('That slot is already in use.');
+  if (slotBusy(c, d, ring, slot)) return fail('That slot is already in use.');
   if (def.maxCount) {
-    const have = store.loadBuildings(c.id).filter((b) => b.type === type).length
+    // limits such as "only one Beacon" count the whole colony, not one district
+    const have = store.loadDistricts(c.id).reduce((n, x) => n + store.loadBuildings(c.id, x.id).filter((b) => b.type === type).length, 0)
       + store.loadOrders(c.id).filter((o) => o.action_type === 'build' && o.data.type === type).length;
     if (have >= def.maxCount) return fail(`Only ${def.maxCount} ${def.name} can be built.`);
   }
-  if (!canAfford(store.loadInventory(c.id), def.cost)) return fail(`Not enough resources for ${def.name}.`);
-  pay(c.id, def.cost);
-  db.prepare('INSERT INTO colony_work_orders (colony_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?)')
-    .run(c.id, 'build', JSON.stringify({ ring, slot, type }), def.constructionTicks, def.constructionTicks);
+  if (!canAfford(store.loadInventory(c.id, d.id), def.cost)) return fail(`Not enough resources for ${def.name}.`);
+  pay(d.id, def.cost);
+  db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(c.id, d.id, 'build', JSON.stringify({ ring, slot, type }), def.constructionTicks, def.constructionTicks);
   return OK;
 });
 
-const demolish = guarded((c, { ring, slot }) => {
-  ring = Number(ring); slot = Number(slot);
-  const b = db.prepare('SELECT * FROM colony_buildings WHERE colony_id = ? AND ring_index = ? AND slot_index = ?').get(c.id, ring, slot);
+const buildingAt = (d, ring, slot) =>
+  db.prepare('SELECT * FROM colony_buildings WHERE district_id = ? AND ring_index = ? AND slot_index = ?').get(d.id, Number(ring), Number(slot));
+
+const demolish = guarded((c, { ring, slot, district }) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing to demolish there.');
   db.prepare('DELETE FROM colony_buildings WHERE id = ?').run(b.id);
-  refund(c.id, config.buildings[b.building_type].cost, config.global.demolishRefund);
+  refund(d.id, config.buildings[b.building_type].cost, config.global.demolishRefund);
   return OK;
 });
 
-const toggle = guarded((c, { ring, slot, paused }) => {
-  const b = db.prepare('SELECT * FROM colony_buildings WHERE colony_id = ? AND ring_index = ? AND slot_index = ?').get(c.id, Number(ring), Number(slot));
+const toggle = guarded((c, { ring, slot, paused, district }) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing there.');
   // Clients send the state they want (so a re-sent request after a dropped connection can't flip it back);
   // with no explicit state the building simply flips.
@@ -81,20 +100,23 @@ const toggle = guarded((c, { ring, slot, paused }) => {
 const cancelOrder = guarded((c, { orderId }) => {
   const o = store.loadOrders(c.id).find((x) => x.id === Number(orderId));
   if (!o) return fail('That order no longer exists.');
-  const cost = o.action_type === 'build' ? config.buildings[o.data.type].cost : config.hubLevels[o.data.level].upgradeCost;
-  refund(c.id, cost, 1);
+  const d = districtFor(c, o.district_id);
+  const cost = o.action_type === 'build' ? config.buildings[o.data.type].cost : sim.levelDef(config, d.type, o.data.level).upgradeCost;
+  refund(d.id, cost, 1);
   db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
   return OK;
 });
 
-const upgradeHub = guarded((c) => {
-  const next = config.hubLevels[c.hub_level + 1];
-  if (!next) return fail('The hub is already at maximum level.');
-  if (store.loadOrders(c.id).some((o) => o.action_type === 'upgrade')) return fail('An upgrade is already underway.');
-  if (!canAfford(store.loadInventory(c.id), next.upgradeCost)) return fail('Not enough resources for the upgrade.');
-  pay(c.id, next.upgradeCost);
-  db.prepare('INSERT INTO colony_work_orders (colony_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?)')
-    .run(c.id, 'upgrade', JSON.stringify({ level: c.hub_level + 1 }), next.upgradeTicks, next.upgradeTicks);
+const upgradeHub = guarded((c, { district } = {}) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  const next = sim.levelDef(config, d.type, d.level + 1);
+  if (!next) return fail(`The ${d.type === 'core' ? 'hub' : 'district'} is already at maximum level.`);
+  if (store.loadOrders(c.id, d.id).some((o) => o.action_type === 'upgrade')) return fail('An upgrade is already underway.');
+  if (!canAfford(store.loadInventory(c.id, d.id), next.upgradeCost)) return fail('Not enough resources for the upgrade.');
+  pay(d.id, next.upgradeCost);
+  db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(c.id, d.id, 'upgrade', JSON.stringify({ level: d.level + 1 }), next.upgradeTicks, next.upgradeTicks);
   return OK;
 });
 
@@ -140,8 +162,9 @@ const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
   const fee = sim.expressFee(config, c.hub_level);
   if (c.credits + 0 < spend + fee) return fail(`Not enough credits: the trip costs ${fee} cr plus ${spend} cr of goods.`);
   // Hold the goods and the money now.
-  const up = db.prepare('UPDATE colony_inventory SET amount = amount - ? WHERE colony_id = ? AND resource_id = ?');
-  for (const [res, s] of Object.entries(sellOut)) up.run(s.qty, c.id, res);
+  const up = db.prepare('UPDATE colony_inventory SET amount = amount - ? WHERE district_id = ? AND resource_id = ?');
+  const coreDistrict = store.coreId(c.id);
+  for (const [res, s] of Object.entries(sellOut)) up.run(s.qty, coreDistrict, res);
   db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(spend + fee, c.id);
   db.prepare('INSERT INTO colony_express (colony_id, dispatched_tick, arrives_tick, sell, buy) VALUES (?, ?, ?, ?, ?)')
     .run(c.id, tick, tick + x.travelTicks, JSON.stringify(sellOut), JSON.stringify(buyOut));

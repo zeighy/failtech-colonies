@@ -56,16 +56,17 @@ The full numbers (costs, rates, plots, hazards, prices) are in [`prod_guide.md`]
 
 ```
 server.js          Express app: auth, JSON API, SSE stream, activity tracking, static pages
-src/sim.js         Pure simulation (no DB, no clock): step(), runConvoy(), adjacency, plots, market
+src/sim.js         Pure simulation (no DB, no clock): stepDistrict(), stepColony(), step(), runConvoy(), adjacency, plots, market
 src/hazards.js     Hazard forecast / strike / preparedness / away report
 src/engine.js      Tick loop + offline catch-up; applies sim and hazards to the database
-src/actions.js     Validated player actions (build, demolish, pause, upgrade, contracts, reset, ack)
+src/actions.js     Validated player actions (build, demolish, pause, upgrade, contracts, reset, ack); building actions take an optional `district` (default: the Core)
 src/state.js       Builds the view the client renders (dry-run tick for live rates, market forecast)
 src/objectives.js  Onboarding directives and the collapse clock
 src/db.js          Schema, migrations, session store, colony helpers
 game_config.json   All balance data
 public/            index.html (login), game.html, css/, js/
-test/              node:test suites: simulation, balance, hazards, HTTP API
+docs/              Design notes (docs/districts.md: the district system and its roadmap)
+test/              node:test suites: simulation (incl. multi-district), balance, hazards, express convoy, districts and migration, HTTP API
 ```
 
 The client is purely presentational. It sends intents (`POST /api/build`, ...) and the server validates ownership, slots, plot, limits and resources before accepting them.
@@ -95,6 +96,14 @@ npm test
 ```
 
 Covers adjacency geometry, the power grid, plot penalties, hub upkeep, fuel generators, storage/defence, the beacon, market prices, convoy trading, the whole hazard lifecycle (only-when-active, strike while away, auto-averted, prorated penalty, away report), the full HTTP API, and a **balance guard**: a scripted player has to finish the beacon in a sane number of ticks without collapsing. If you retune the economy, that test tells you whether the game is still finishable.
+
+## Where it is going
+
+The colony you build today is the **Core**: a stable base. The next stage adds **districts**: satellite bases, each a
+small copy of the Core with its own rings, stockpile and power grid, producing distinct resources that other districts
+and the Core need, linked by shipments and routes and traded on a larger order-book market. The design and roadmap are
+in [`docs/districts.md`](docs/districts.md). The groundwork is in: the Core is already "district 0" in the database and
+the simulation runs per district, with no change in how the game plays.
 
 ## Tuning the game
 

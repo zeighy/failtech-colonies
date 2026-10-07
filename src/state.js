@@ -54,17 +54,26 @@ function viewFor(userId, now = Date.now()) {
   const user = db.prepare('SELECT username FROM users WHERE id = ?').get(userId);
   const t = engine.timing();
   const lvl = config.hubLevels[c.hub_level];
-  const inventory = store.loadInventory(c.id);
-  const buildings = store.loadBuildings(c.id);
-  const orders = store.loadOrders(c.id);
+  const districts = store.loadDistricts(c.id).map((d) => ({
+    id: d.id, type: d.type, name: d.name,
+    level: d.type === 'core' ? c.hub_level : d.level,
+    inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
+  }));
+  const coreD = districts.find((d) => d.type === 'core');
+  // The top-level view is still the Core's; other districts will get their own views.
+  const inventory = coreD.inventory;
+  const buildings = coreD.buildings;
+  const orders = store.loadOrders(c.id, coreD.id);
 
   // Dry run of the next tick = the rates the player is living under right now.
   const hazard = store.loadHazard(c.id);
   const mods = hazards.modifiersFor(config, hazard, buildings);
-  const proj = sim.step(config, {
-    hubLevel: c.hub_level, population: c.population, morale: c.morale, age: c.age,
-    progress: c.progress, won: !!c.won, inventory, buildings,
-  }, engine.neighborMap, mods);
+  const proj = sim.coreView(sim.stepColony(
+    config,
+    { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
+    districts,
+    { neighborMaps: engine.neighborMaps, mods: { [coreD.id]: mods }, popConsumptionMult: mods.popConsumptionMult },
+  ));
 
   const resources = {};
   for (const res of Object.keys(config.resources)) {
@@ -83,6 +92,7 @@ function viewFor(userId, now = Date.now()) {
   const view = {
     user: user.username,
     tick: t.globalTick, tickMs: t.tickMs, nextTickAt, serverNow: now,
+    districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length })),
     convoy: { ticksLeft: ticksToConvoy, arrivesAt: nextTickAt + (ticksToConvoy - 1) * t.tickMs },
     colony: {
       status: c.status, won: !!c.won, progress: proj.progress, hazardsSurvived: c.hazards_survived,
