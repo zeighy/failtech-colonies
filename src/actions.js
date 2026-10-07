@@ -112,6 +112,11 @@ const upgradeHub = guarded((c, { district } = {}) => {
   if (!d) return fail(NO_DISTRICT);
   const next = sim.levelDef(config, d.type, d.level + 1);
   if (!next) return fail(`The ${d.type === 'core' ? 'hub' : 'district'} is already at maximum level.`);
+  if (d.type !== 'core') {
+    // Districts level up as the Core advances (see config.districtProgression).
+    const cap = sim.districtLevelCap(config, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) });
+    if (d.level + 1 > cap) return fail(`District level ${d.level + 1} unlocks when ${sim.districtLevelNeeds(config, d.level + 1)}.`);
+  }
   if (store.loadOrders(c.id, d.id).some((o) => o.action_type === 'upgrade')) return fail('An upgrade is already underway.');
   if (!canAfford(store.loadInventory(c.id, d.id), next.upgradeCost)) return fail('Not enough resources for the upgrade.');
   pay(d.id, next.upgradeCost);

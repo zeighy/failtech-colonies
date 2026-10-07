@@ -18,7 +18,7 @@ and a larger market to trade in.
 | Stockpiles | **One per district.** Resources move between districts by shipments and routes. |
 | Population | **One colony-wide pool.** Homes in any district add to the cap; crew and morale are colony-wide. Population eats from the Core stockpile. |
 | Power | **One grid per district.** A remote district powers itself. |
-| Unlock | District map appears at **Core hub level 4**. Initially a district can only reach **level 2**, just enough to route its signature resource back to the Core. |
+| Unlock | The district map appears at **Core hub level 4**, where a district can reach **level 2**: just enough to route its signature resource back to the Core. **Levels 3-4 unlock when the Core reaches level 5.** **Level 5 unlocks when the Beacon is built** (with the Core at level 5), as a reward for beating the game. Encoded in `config.districtProgression`; enforced when a district is upgraded. |
 | Core space | Some buildings currently in the Core become district buildings, freeing Core slots and making districts the source of those goods. (Chain restructure below, to be confirmed.) |
 | Win condition | **The Beacon stays the win condition.** Its requirements are re-tuned to the new chains. |
 | District types | **Three first** (Pits, Stacks, Greenbelt); Silicon Yards later. |
@@ -31,7 +31,6 @@ and a larger market to trade in.
 
 ## Open questions
 
-- **District level cap curve.** At Core level 4 a district may reach level 2. What lifts the cap to 3, 4 and 5 (Core level 5? something else)?
 - **Where population eats** once districts house people. Decided for now: the Core stockpile. Revisit if districts become large.
 - **Hazards per district.** For now the hazard system acts on the Core only; each district will need its own exposure and probably its own hazard types.
 
@@ -88,6 +87,12 @@ game requires the whole web.
 4. Remaining district types, cross-district costs, the chain restructure; extend the scripted player to several districts.
 5. The market (order book, matching, NPC liquidity, UI).
 6. Per-district hazards, telemetry, polish.
+
+## Constraint from the progression rule
+
+District level 5 only opens once the Beacon is built, so **nothing the Beacon needs may depend on a level-5 district**.
+When the chains are restructured (step 4) the Beacon's inputs must all be producible by districts at level 4 or below.
+Districts at level 5 are the endgame reward, not part of the path to it.
 
 ## Step 1 design notes
 

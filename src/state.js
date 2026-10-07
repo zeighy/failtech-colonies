@@ -92,6 +92,8 @@ function viewFor(userId, now = Date.now()) {
   const view = {
     user: user.username,
     tick: t.globalTick, tickMs: t.tickMs, nextTickAt, serverNow: now,
+    districtsUnlocked: sim.districtsUnlocked(config, { coreLevel: c.hub_level }),
+    districtLevelCap: sim.districtLevelCap(config, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) }),
     districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length })),
     convoy: { ticksLeft: ticksToConvoy, arrivesAt: nextTickAt + (ticksToConvoy - 1) * t.tickMs },
     colony: {

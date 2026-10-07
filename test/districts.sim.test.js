@@ -137,3 +137,21 @@ test('with only the core, stepColony equals the single-base step()', () => {
   assert.deepEqual(res.energy, old.energy);
   assert.deepEqual([...res.buildings], [...old.buildings]);
 });
+
+test('district progression: the level cap follows the Core and the Beacon', () => {
+  const cap = (coreLevel, beaconBuilt = false) => sim.districtLevelCap(config, { coreLevel, beaconBuilt });
+  assert.deepEqual([1, 2, 3].map((l) => cap(l)), [0, 0, 0], 'locked until Core level 4');
+  assert.equal(cap(4), 2);
+  assert.equal(cap(5), 4);
+  assert.equal(cap(5, true), 5, 'the Beacon unlocks the top level');
+  assert.equal(cap(4, true), 2, 'a Beacon alone is not enough');
+  assert.equal(sim.districtsUnlocked(config, { coreLevel: 3 }), false);
+  assert.equal(sim.districtsUnlocked(config, { coreLevel: 4 }), true);
+  // the cap never goes down as the Core advances
+  let prev = 0;
+  for (let l = 1; l <= 5; l++) { assert.ok(cap(l) >= prev); prev = cap(l); }
+  assert.equal(sim.districtLevelNeeds(config, 2), 'the Core reaches level 4');
+  assert.equal(sim.districtLevelNeeds(config, 3), 'the Core reaches level 5');
+  assert.equal(sim.districtLevelNeeds(config, 5), 'the Core reaches level 5 and the Beacon is built');
+  assert.equal(sim.districtLevelNeeds(config, 6), null);
+});

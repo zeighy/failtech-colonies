@@ -455,12 +455,39 @@ function convoyLimit(config, hubLevel, res) {
   return Math.floor(base * (config.hubLevels[hubLevel].convoyCapMult || 1));
 }
 
+// ---- district progression -----------------------------------------------------------------
+// Districts open up as the Core advances: nothing before Core level `unlockCoreLevel`, a first couple of levels
+// then, more when the Core is finished, and the top level as a reward for building the Beacon.
+// progress: { coreLevel, beaconBuilt }
+function districtsUnlocked(config, progress) {
+  return progress.coreLevel >= config.districtProgression.unlockCoreLevel;
+}
+function districtLevelCap(config, progress) {
+  if (!districtsUnlocked(config, progress)) return 0;
+  let cap = 1; // a freshly founded district is level 1
+  for (const u of config.districtProgression.levelUnlocks) {
+    const met = (u.coreLevel === undefined || progress.coreLevel >= u.coreLevel) && (!u.beaconBuilt || progress.beaconBuilt);
+    if (met) cap = Math.max(cap, u.districtLevel);
+  }
+  return cap;
+}
+// What it takes to reach a given district level, for messages.
+function districtLevelNeeds(config, level) {
+  const u = config.districtProgression.levelUnlocks.filter((x) => x.districtLevel >= level)
+    .sort((a, b) => a.districtLevel - b.districtLevel)[0];
+  if (!u) return null;
+  const parts = [];
+  if (u.coreLevel !== undefined) parts.push(`the Core reaches level ${u.coreLevel}`);
+  if (u.beaconBuilt) parts.push('the Beacon is built');
+  return parts.join(' and ');
+}
+
 function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
   const cap = levelDef(config, type, hubLevel).ringCapacities[ring];
   return Number.isInteger(slot) && !!cap && slot >= 0 && slot < cap;
 }
 
 module.exports = {
-  key, maxLevel, districtType, levelDef, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, maxLevel, districtType, levelDef, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

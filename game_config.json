@@ -1013,5 +1013,23 @@
         }
       }
     }
+  },
+  "districtProgression": {
+    "unlockCoreLevel": 4,
+    "levelUnlocks": [
+      {
+        "districtLevel": 2,
+        "coreLevel": 4
+      },
+      {
+        "districtLevel": 4,
+        "coreLevel": 5
+      },
+      {
+        "districtLevel": 5,
+        "coreLevel": 5,
+        "beaconBuilt": true
+      }
+    ]
   }
 }

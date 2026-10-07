@@ -127,13 +127,20 @@ config.districtTypes = {
   },
 };
 engine.neighborMaps.outpost = sim.buildNeighborMap(config, 'outpost');
+// A five-level type with free upgrades, for testing the progression gates.
+config.districtTypes.deep = {
+  ringPlotSize: { 1: 1, 2: 1, 3: 2, 4: 3, 5: 4 },
+  levels: Object.fromEntries([1, 2, 3, 4, 5].map((l) => [l, { maxStorage: 1000, baseHousing: 0, baseEnergy: 10, ringCapacities: { 1: 3 }, upgradeCost: l === 1 ? null : {}, upgradeTicks: 1 }])),
+};
+engine.neighborMaps.deep = sim.buildNeighborMap(config, 'deep');
 
 let n = 0;
-function colonyWithOutpost() {
+function colonyWithOutpost(type = 'outpost', coreLevel = 4) {
   const uid = Number(db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(`d${++n}`, 'x').lastInsertRowid);
   const id = store.ensureColony(uid);
   db.prepare('UPDATE colony_inventory SET amount = 1500 WHERE colony_id = ? AND resource_id IN (?, ?)').run(id, 'clean_water', 'rations');
-  const od = Number(db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'outpost', 1, 'Test Outpost', 0)").run(id).lastInsertRowid);
+  db.prepare('UPDATE colonies SET hub_level = ? WHERE id = ?').run(coreLevel, id); // districts open at Core level 4
+  const od = Number(db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, ?, 1, 'Test Outpost', 0)").run(id, type).lastInsertRowid);
   const ins = db.prepare('INSERT INTO colony_inventory (colony_id, district_id, resource_id, amount) VALUES (?, ?, ?, 0)');
   for (const r of Object.keys(config.resources)) ins.run(id, od, r);
   db.prepare("UPDATE colony_inventory SET amount = 500 WHERE district_id = ? AND resource_id = 'scrap'").run(od);
@@ -200,7 +207,7 @@ test('upgrading a district: paid from it, takes its own time, raises its own lev
   assert.match(actions.upgradeHub(uid, { district: od }).error, /already underway/);
   tick(2);
   assert.equal(db.prepare('SELECT level FROM districts WHERE id = ?').get(od).level, 2);
-  assert.equal(db.prepare('SELECT hub_level FROM colonies WHERE id = ?').get(id).hub_level, 1);
+  assert.equal(db.prepare('SELECT hub_level FROM colonies WHERE id = ?').get(id).hub_level, 4, 'the hub level is untouched');
   assert.match(actions.upgradeHub(uid, { district: od }).error, /maximum level/);
   // ring 2 of the outpost is now open
   assert.deepEqual(actions.build(uid, { ring: 2, slot: 4, type: 'solar_array', district: od }), { ok: true });
@@ -244,4 +251,50 @@ test('wiping a colony removes its districts, stockpiles and buildings', () => {
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM districts WHERE colony_id = ?').get(id).n, 0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM colony_inventory WHERE colony_id = ?').get(id).n, 0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM colony_buildings WHERE colony_id = ?').get(id).n, 0);
+});
+
+test('district levels unlock with the Core: level 2 at Core 4, 3-4 at Core 5, 5 once the Beacon is built', () => {
+  const up = (uid, od) => actions.upgradeHub(uid, { district: od });
+  const level = (od) => db.prepare('SELECT level FROM districts WHERE id = ?').get(od).level;
+
+  // Core level 3: districts are not open yet
+  const early = colonyWithOutpost('deep', 3);
+  assert.match(up(early.uid, early.od).error, /unlocks when the Core reaches level 4/);
+  assert.equal(viewFor(early.uid).districtsUnlocked, false);
+  assert.equal(viewFor(early.uid).districtLevelCap, 0);
+
+  // Core level 4: one upgrade, to level 2
+  const a = colonyWithOutpost('deep', 4);
+  assert.equal(viewFor(a.uid).districtsUnlocked, true);
+  assert.equal(viewFor(a.uid).districtLevelCap, 2);
+  assert.deepEqual(up(a.uid, a.od), { ok: true });
+  tick(1);
+  assert.equal(level(a.od), 2);
+  assert.match(up(a.uid, a.od).error, /District level 3 unlocks when the Core reaches level 5/);
+
+  // Core level 5: levels 3 and 4, but not 5
+  db.prepare('UPDATE colonies SET hub_level = 5 WHERE id = ?').run(a.id);
+  assert.equal(viewFor(a.uid).districtLevelCap, 4);
+  for (const want of [3, 4]) { assert.deepEqual(up(a.uid, a.od), { ok: true }); tick(1); assert.equal(level(a.od), want); }
+  assert.match(up(a.uid, a.od).error, /District level 5 unlocks when the Core reaches level 5 and the Beacon is built/);
+
+  // Building the Beacon (not finishing its transmission) unlocks level 5
+  db.prepare("INSERT INTO colony_buildings (colony_id, district_id, ring_index, slot_index, building_type) VALUES (?, ?, 5, 0, 'beacon_array')").run(a.id, a.core);
+  assert.equal(viewFor(a.uid).districtLevelCap, 5);
+  assert.deepEqual(up(a.uid, a.od), { ok: true });
+  tick(1);
+  assert.equal(level(a.od), 5);
+  assert.match(up(a.uid, a.od).error, /maximum level/);
+});
+
+test('a Beacon alone does not skip the Core: level 5 needs Core level 5 too', () => {
+  const b = colonyWithOutpost('deep', 4);
+  db.prepare("INSERT INTO colony_buildings (colony_id, district_id, ring_index, slot_index, building_type) VALUES (?, ?, 4, 0, 'beacon_array')").run(b.id, b.core);
+  assert.equal(viewFor(b.uid).districtLevelCap, 2);
+});
+
+test('the Core itself is not gated by district progression', () => {
+  const c = colonyWithOutpost('outpost', 1);
+  db.prepare("UPDATE colony_inventory SET amount = 100000 WHERE district_id = ?").run(c.core);
+  assert.deepEqual(actions.upgradeHub(c.uid, {}), { ok: true });
 });

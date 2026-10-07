@@ -281,6 +281,14 @@ function loadOrders(colonyId, districtId) {
   return rows.map((o) => ({ ...o, data: JSON.parse(o.target_data) }));
 }
 
+// Has the colony built a Beacon (in any district)? Used for progression unlocks.
+function hasBeacon(colonyId) {
+  const types = Object.keys(config.buildings).filter((k) => config.buildings[k].transmit);
+  if (!types.length) return false;
+  const marks = types.map(() => '?').join(',');
+  return !!db.prepare(`SELECT 1 FROM colony_buildings WHERE colony_id = ? AND building_type IN (${marks}) LIMIT 1`).get(colonyId, ...types);
+}
+
 function loadHazard(colonyId) {
   const h = db.prepare('SELECT * FROM colony_hazards WHERE colony_id = ? ORDER BY id DESC LIMIT 1').get(colonyId);
   return h ? { ...h, data: JSON.parse(h.data) } : null;
@@ -300,5 +308,5 @@ function loadContracts(colonyId) {
 module.exports = {
   db, config, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
-  coreId, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts, loadHazard, loadExpress,
+  coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts, loadHazard, loadExpress,
 };
