@@ -56,6 +56,7 @@ const build = guarded((c, { ring, slot, type, district }) => {
   ring = Number(ring); slot = Number(slot);
   const def = config.buildings[type];
   if (!def) return fail('Unknown building type.');
+  if (!sim.buildableIn(def, d.type)) return fail(`${def.name} can't be built ${d.type === 'core' ? 'in the Core' : `in ${d.name}`}.`);
   if (!sim.slotUnlocked(config, d.level, ring, slot, d.type)) return fail(`That slot is locked. Upgrade the ${d.type === 'core' ? 'hub' : 'district'}.`);
   if (def.minHubLevel && c.hub_level < def.minHubLevel) return fail(`${def.name} requires hub level ${def.minHubLevel}.`);
   if (slotBusy(c, d, ring, slot)) return fail('That slot is already in use.');
@@ -101,7 +102,9 @@ const cancelOrder = guarded((c, { orderId }) => {
   const o = store.loadOrders(c.id).find((x) => x.id === Number(orderId));
   if (!o) return fail('That order no longer exists.');
   const d = districtFor(c, o.district_id);
-  const cost = o.action_type === 'build' ? config.buildings[o.data.type].cost : sim.levelDef(config, d.type, o.data.level).upgradeCost;
+  const cost = o.action_type === 'build' ? config.buildings[o.data.type].cost
+    : o.action_type === 'found' ? config.districtTypes[o.data.type].foundCost
+      : sim.levelDef(config, d.type, o.data.level).upgradeCost;
   refund(d.id, cost, 1);
   db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
   return OK;
@@ -122,6 +125,43 @@ const upgradeHub = guarded((c, { district } = {}) => {
   pay(d.id, next.upgradeCost);
   db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
     .run(c.id, d.id, 'upgrade', JSON.stringify({ level: d.level + 1 }), next.upgradeTicks, next.upgradeTicks);
+  return OK;
+});
+
+// Found a satellite district: paid from the Core stockpile, built over a few ticks by a work order.
+const foundDistrict = guarded((c, { type }) => {
+  const t = config.districtTypes && config.districtTypes[type];
+  if (!t) return fail('Unknown district type.');
+  if (!sim.districtsUnlocked(config, { coreLevel: c.hub_level })) {
+    return fail(`Districts open at hub level ${config.districtProgression.unlockCoreLevel}.`);
+  }
+  if (store.loadDistricts(c.id).some((d) => d.type === type)
+    || store.loadOrders(c.id).some((o) => o.action_type === 'found' && o.data.type === type)) return fail(`${t.name} is already founded.`);
+  const core = store.coreId(c.id);
+  if (!canAfford(store.loadInventory(c.id, core), t.foundCost)) return fail(`Not enough resources to found ${t.name}.`);
+  pay(core, t.foundCost);
+  db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(c.id, core, 'found', JSON.stringify({ type }), t.foundTicks, t.foundTicks);
+  return OK;
+});
+
+// Manual shipment: stock leaves the source now and lands in the destination after the trip.
+const shipment = guarded((c, { from, to, resource, qty }) => {
+  const a = districtFor(c, from); const b = districtFor(c, to);
+  if (!a || !b) return fail(NO_DISTRICT);
+  if (a.id === b.id) return fail('Pick two different districts.');
+  if (!config.resources[resource]) return fail('Unknown resource.');
+  qty = Math.floor(Number(qty));
+  const L = config.logistics;
+  if (!Number.isFinite(qty) || qty < 1) return fail('Bad quantity.');
+  if (qty > L.shipmentMax) return fail(`A shipment carries at most ${L.shipmentMax}.`);
+  if (store.loadShipments(c.id).length >= L.maxInFlight) return fail(`Only ${L.maxInFlight} shipments can be on the road at once.`);
+  if ((store.loadInventory(c.id, a.id)[resource] || 0) < qty) return fail(`Not enough ${config.resources[resource].name} in ${a.name}.`);
+  const tick = Number(store.getMeta('global_tick', 0));
+  const trip = sim.shipDistance(config, a.type, b.type);
+  pay(a.id, { [resource]: qty });
+  db.prepare('INSERT INTO colony_shipments (colony_id, from_district, to_district, resource_id, qty, dispatched_tick, arrives_tick) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(c.id, a.id, b.id, resource, qty, tick, tick + trip);
   return OK;
 });
 
@@ -200,4 +240,4 @@ const restart = guarded((c) => {
   return OK;
 }, { allowFailed: true });
 
-module.exports = { build, demolish, toggle, cancelOrder, upgradeHub, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { build, demolish, toggle, cancelOrder, upgradeHub, foundDistrict, shipment, setContract, expressTrip, reset, restart, ack, colonyOf };

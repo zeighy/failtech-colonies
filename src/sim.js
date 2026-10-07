@@ -131,6 +131,13 @@ function districtType(config, type) {
   return d;
 }
 const levelDef = (config, type, level) => districtType(config, type).levels[level];
+// May this building be built in this kind of district? Buildings without a `districts` list go anywhere.
+const buildableIn = (def, type) => !def.districts || def.districts.includes(type);
+// Ticks a shipment takes between two districts (the Core is at distance 0; travel goes via the Core).
+const shipDistance = (config, a, b) => {
+  const d = (t) => (t === 'core' ? 0 : config.districtTypes[t].distance);
+  return Math.max(1, a === b ? 0 : d(a) + d(b));
+};
 
 // ---- one district ----------------------------------------------------------------
 // d: { type, level, inventory, buildings:[{id,ring,slot,type,status}] }
@@ -488,6 +495,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, maxLevel, districtType, levelDef, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

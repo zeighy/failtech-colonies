@@ -80,7 +80,32 @@ function tickColony(c, globalTick, tickTime) {
       else db.prepare('UPDATE districts SET level = ? WHERE id = ?').run(o.data.level, d.id);
       ev('good', `${d.type === 'core' ? 'Hub' : d.name} upgraded to level ${o.data.level}.${caps[o.data.level] ? ` Ring ${o.data.level} unlocked.` : ''}`);
     }
+    if (o.action_type === 'found') {
+      const t = config.districtTypes[o.data.type];
+      const nid = db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, ?, 1, ?, ?)")
+        .run(c.id, o.data.type, t.name, globalTick).lastInsertRowid;
+      const stock = {};
+      for (const r of Object.keys(config.resources)) stock[r] = (t.startingStock || {})[r] || 0;
+      store.saveInventory(c.id, stock, nid);
+      ev('good', `${t.name} founded. A new district is online.`);
+    }
     db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
+  }
+
+  // Shipments that have reached their destination (anything over the storage cap is lost)
+  for (const sh of store.loadShipments(c.id)) {
+    if (globalTick < sh.arrivesTick) continue;
+    const dest = full.districts.find((r) => r.id === sh.toDistrict);
+    const name = (districts.find((x) => x.id === sh.toDistrict) || {}).name || 'the district';
+    if (dest) {
+      const cap = dest.cap;
+      const into = dest.id === core.id ? inventory : dest.inventory;
+      const room = Math.max(0, Math.floor(cap - (into[sh.resource] || 0)));
+      const got = Math.min(sh.qty, Math.max(room, 0));
+      into[sh.resource] = (into[sh.resource] || 0) + got;
+      ev(got < sh.qty ? 'warn' : 'good', `Shipment arrived in ${name}: ${got} ${config.resources[sh.resource].name}${got < sh.qty ? ` (${sh.qty - got} lost, storage full)` : ''}.`);
+    }
+    db.prepare('DELETE FROM colony_shipments WHERE id = ?').run(sh.id);
   }
 
   // Convoy

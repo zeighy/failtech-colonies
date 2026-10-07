@@ -9,7 +9,7 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failt
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -131,6 +131,17 @@ function migrate() {
   }
   // v6: districts. Existing colonies keep everything; their stockpile, buildings and orders become the Core district's.
   if (v < 6) migrateToDistricts();
+  // v7 (additive): shipments between districts. Stock is taken at dispatch and lands on arrival.
+  db.exec(`CREATE TABLE IF NOT EXISTS colony_shipments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    from_district INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+    to_district INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+    resource_id TEXT NOT NULL,
+    qty INTEGER NOT NULL,
+    dispatched_tick INTEGER NOT NULL,
+    arrives_tick INTEGER NOT NULL
+  )`);
   // A building inserted without a district belongs to the colony's Core district.
   db.exec(`CREATE TRIGGER IF NOT EXISTS buildings_default_district AFTER INSERT ON colony_buildings
     WHEN NEW.district_id IS NULL BEGIN
@@ -289,6 +300,10 @@ function hasBeacon(colonyId) {
   return !!db.prepare(`SELECT 1 FROM colony_buildings WHERE colony_id = ? AND building_type IN (${marks}) LIMIT 1`).get(colonyId, ...types);
 }
 
+function loadShipments(colonyId) {
+  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, qty, dispatched_tick AS dispatchedTick, arrives_tick AS arrivesTick FROM colony_shipments WHERE colony_id = ? ORDER BY arrives_tick, id').all(colonyId);
+}
+
 function loadHazard(colonyId) {
   const h = db.prepare('SELECT * FROM colony_hazards WHERE colony_id = ? ORDER BY id DESC LIMIT 1').get(colonyId);
   return h ? { ...h, data: JSON.parse(h.data) } : null;
@@ -308,5 +323,5 @@ function loadContracts(colonyId) {
 module.exports = {
   db, config, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
-  coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts, loadHazard, loadExpress,
+  coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadShipments, loadContracts, loadHazard, loadExpress,
 };

@@ -53,7 +53,7 @@ const ticksToAfford = (v, cost) => affordInfo(v, cost).ticks;
 function leadTimeFor(config, v, res) {
   const lvl = v.colony.hubLevel;
   const candidates = Object.entries(config.buildings)
-    .filter(([, d]) => (d.outputsPerTick[res] || 0) > 0 && (!d.minHubLevel || d.minHubLevel <= lvl));
+    .filter(([, d]) => (d.outputsPerTick[res] || 0) > 0 && (!d.minHubLevel || d.minHubLevel <= lvl) && (!d.districts || d.districts.includes('core')));
   let best = { lead: null, blocked: [] };
   for (const [id, d] of candidates) {
     const queued = v.orders.find((o) => o.kind === 'build' && o.data.type === id);
