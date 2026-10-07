@@ -22,7 +22,11 @@
 
   // ------------------------------------------------------------------ state
   var CFG = null;          // static config
-  var S = null;            // latest server view
+  var S = null;            // the server view, with the buildings/stock/grid of the active district swapped in
+  var RAW = null;          // the server view as received
+  var activeId = null;     // district being looked at (the Core by default)
+  var radarFor = null;     // district the radar was built for
+  var ship = { from: null, to: null, res: 'scrap', qty: 100 }; // shipment being composed
   var sel = null;          // { ring, slot } | { hub: true } | null
   var tab = 'brief';
   var offset = 0;          // server clock - client clock
@@ -41,8 +45,8 @@
   var convoyMode = 'scheduled'; // 'scheduled' | 'express'
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
-  var STEP = { scrap: 50, unpurified_water: 25, raw_synthetics: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5, alloys: 5, circuits: 5, power_cells: 2 };
-  var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['convoy', 'Convoy', 'truck'], ['log', 'Log', 'list']];
+  var STEP = { scrap: 50, ore: 25, ingots: 10, reagents: 5, unpurified_water: 25, raw_synthetics: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5, alloys: 5, circuits: 5, power_cells: 2 };
+  var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'site'], ['convoy', 'Convoy', 'truck'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
   function api(path, body) {
@@ -59,7 +63,7 @@
   // Clicks made while disconnected are kept here, shown on screen, and sent in order on
   // reconnect. Express trips, resets and restarts need a live connection (they spend money
   // at the moment of sending), so they are refused instead.
-  var QUEUEABLE = { build: 1, demolish: 1, toggle: 1, cancel: 1, upgrade: 1, contract: 1 };
+  var QUEUEABLE = { build: 1, demolish: 1, toggle: 1, cancel: 1, upgrade: 1, contract: 1 }; // founding and shipments spend stock at once, so they need a live link
   function isNetErr(e) { return e instanceof TypeError; }
   function labelFor(path, body) {
     var where = function (r, s) { return 'R' + r + '·' + (s + 1); };
@@ -68,16 +72,16 @@
     if (path === 'demolish') return 'Demolish ' + nameAt(body.ring, body.slot) + ' (' + where(body.ring, body.slot) + ')';
     if (path === 'toggle') return (body.paused ? 'Pause ' : 'Resume ') + nameAt(body.ring, body.slot) + ' (' + where(body.ring, body.slot) + ')';
     if (path === 'cancel') return 'Cancel a work order';
-    if (path === 'upgrade') return 'Upgrade the hub';
+    if (path === 'upgrade') return 'Upgrade ' + (activeD().core ? 'the hub' : activeD().name);
     if (path === 'contract') return body.amount ? (body.side === 'export' ? 'Sell ' : 'Buy ') + body.amount + ' ' + CFG.resources[body.resource].name + ' each convoy' : 'Clear ' + body.side + ' order for ' + CFG.resources[body.resource].name;
     return path;
   }
   function queueKey(path, body) {
     if (path === 'contract') return 'contract:' + body.resource + ':' + body.side;
-    if (body.ring !== undefined) return path + ':' + body.ring + ':' + body.slot;
+    if (body.ring !== undefined) return path + ':' + body.district + ':' + body.ring + ':' + body.slot;
     return path + ':' + (body.orderId || '');
   }
-  function queuedBuild(r, s) { return pending.filter(function (p) { return p.path === 'build' && p.body.ring === r && p.body.slot === s; })[0]; }
+  function queuedBuild(r, s) { return pending.filter(function (p) { return p.path === 'build' && p.body.district === activeId && p.body.ring === r && p.body.slot === s; })[0]; }
   function enqueue(path, body) {
     if (!QUEUEABLE[path]) { toast('You are offline. That action needs a live connection.'); return Promise.resolve({ ok: false, offline: true }); }
     var key = queueKey(path, body), label = labelFor(path, body);
@@ -160,15 +164,23 @@
     var rm = ringInner(ring) + ringW(ring) / 2;
     return polar(rm, -Math.PI / 2 + ((i + 0.5) / cap) * 2 * Math.PI);
   }
-  function plotName(ring) { return CFG.plotSizes[CFG.ringPlotSize[ring]].name; }
+  function activeD() { return RAW.districts.filter(function (d) { return d.id === activeId; })[0] || RAW.districts[0]; }
+  // Rings, plots, neighbours and level table of the district being viewed.
+  function GEO() {
+    var d = activeD();
+    if (d.core) return { rings: CFG.rings, ringPlotSize: CFG.ringPlotSize, neighbors: CFG.neighbors, levels: CFG.hubLevels };
+    var t = CFG.districtTypes[d.type];
+    return { rings: t.rings, ringPlotSize: t.ringPlotSize, neighbors: t.neighbors, levels: t.levels };
+  }
+  function plotName(ring) { return CFG.plotSizes[GEO().ringPlotSize[ring]].name; }
   function plotMultFor(def, ring) {
-    var deficit = Math.max(0, def.minPlotSize - CFG.ringPlotSize[ring]);
+    var deficit = Math.max(0, def.minPlotSize - GEO().ringPlotSize[ring]);
     return Math.pow(CFG.plotPenalty, deficit);
   }
   function setView(R) { $('radar').setAttribute('viewBox', (-R).toFixed(1) + ' ' + (-R).toFixed(1) + ' ' + (2 * R).toFixed(1) + ' ' + (2 * R).toFixed(1)); }
   // Zoom the radar to fit the unlocked rings plus a peek at the next one.
   function zoomTarget() {
-    var unlocked = Object.keys(S.hub.rings).length, total = Object.keys(CFG.rings).length;
+    var unlocked = Object.keys(S.hub.rings).length, total = Object.keys(GEO().rings).length;
     return ringOuter(Math.min(unlocked + 1, total)) + 30;
   }
 
@@ -176,7 +188,7 @@
   function buildingAt(r, s) { return S.buildings.filter(function (b) { return b.ring === r && b.slot === s; })[0]; }
   function orderAt(r, s) { return S.orders.filter(function (o) { return o.kind === 'build' && o.data.ring === r && o.data.slot === s; })[0]; }
   function slotUnlocked(r, s) { var cap = S.hub.rings[r]; return !!cap && s < cap; }
-  function neighborsOf(r, s) { return CFG.neighbors[r + ':' + s] || []; }
+  function neighborsOf(r, s) { return GEO().neighbors[r + ':' + s] || []; }
   function neighborTypes(r, s) {
     return neighborsOf(r, s).map(function (n) { var b = buildingAt(n[0], n[1]); return b && b.type; }).filter(Boolean);
   }
@@ -195,6 +207,9 @@
   function canAfford(cost) {
     return Object.keys(cost).every(function (r) { return S.resources[r].amount >= cost[r]; });
   }
+  function canAffordCore(cost) {
+    return Object.keys(cost).every(function (r) { return S.coreRes[r].amount >= cost[r]; });
+  }
   function pill(res, amt, cls) {
     var r = CFG.resources[res] || { name: res, color: '#ffd23f' };
     if (res === 'energy') r = { name: 'Power', color: 'var(--energy)' };
@@ -211,14 +226,16 @@
   // ------------------------------------------------------------------ radar construction
   function buildRadar() {
     var svg = $('radar');
+    svg.innerHTML = ''; slotEls = {}; ringLabels = {};
+    var RINGS = GEO().rings;
     var defs = svgEl('defs', {}, svg);
     var grad = svgEl('radialGradient', { id: 'sweepfade', cx: '0', cy: '0', r: '1', gradientUnits: 'objectBoundingBox' }, defs);
     svgEl('stop', { offset: '0', 'stop-color': '#ff9f1c', 'stop-opacity': '0' }, grad);
     var maxR = 0;
-    Object.keys(CFG.rings).forEach(function (r) { maxR = Math.max(maxR, ringOuter(+r)); });
+    Object.keys(RINGS).forEach(function (r) { maxR = Math.max(maxR, ringOuter(+r)); });
     var bg = svgEl('g', {}, svg);
     // faint concentric guides + bearing ticks
-    [HUB_R + 10].concat(Object.keys(CFG.rings).map(function (r) { return ringOuter(+r) + 3; })).forEach(function (r) {
+    [HUB_R + 10].concat(Object.keys(RINGS).map(function (r) { return ringOuter(+r) + 3; })).forEach(function (r) {
       svgEl('circle', { cx: 0, cy: 0, r: r, 'class': 'ring-line' }, bg);
     });
     for (var d = 0; d < 360; d += 10) {
@@ -234,8 +251,8 @@
 
     // slots
     var slotsG = svgEl('g', {}, svg);
-    Object.keys(CFG.rings).forEach(function (rs) {
-      var ring = +rs, cap = CFG.rings[rs];
+    Object.keys(RINGS).forEach(function (rs) {
+      var ring = +rs, cap = RINGS[rs];
       for (var i = 0; i < cap; i++) {
         var g = svgEl('g', { 'class': 'slot empty', tabindex: 0, role: 'button' }, slotsG);
         var title = svgEl('title', {}, g);
@@ -260,23 +277,23 @@
       }
     });
 
-    Object.keys(CFG.rings).forEach(function (rs) {
+    Object.keys(RINGS).forEach(function (rs) {
       var lab = svgEl('text', { x: 0, y: -(ringInner(+rs) + ringW(+rs) / 2) + 3, 'class': 'ring-label' }, svg);
       ringLabels[rs] = lab;
     });
 
     // hub
     var hub = svgEl('g', { 'class': 'hub-core', tabindex: 0, role: 'button' }, svg);
-    svgEl('title', {}, hub).textContent = 'Hub: open upgrade panel';
+    svgEl('title', {}, hub).textContent = activeD().core ? 'Hub: open upgrade panel' : 'District core: open its panel';
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R, 'class': 'hub-pulse' }, hub);
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R, 'class': 'disc' }, hub);
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R - 7, fill: 'none', stroke: 'rgba(255,159,28,.25)', 'stroke-dasharray': '2 5' }, hub);
-    var t1 = svgEl('text', { x: 0, y: -3, 'font-size': 15 }, hub); t1.textContent = 'HUB';
+    var t1 = svgEl('text', { x: 0, y: -3, 'font-size': activeD().core ? 15 : 12 }, hub); t1.textContent = activeD().core ? 'HUB' : activeD().name.replace(/^The /, '').toUpperCase();
     var t2 = svgEl('text', { x: 0, y: 15, 'font-size': 10, 'letter-spacing': '.12em' }, hub);
     hub.addEventListener('click', function () { sel = { hub: true }; tab = 'hub'; renderAll(); });
     hub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hub.dispatchEvent(new Event('click')); } });
     hubEl = { g: hub, sub: t2 };
-    svg.addEventListener('click', function (e) { if (e.target === svg) { sel = null; renderAll(); } });
+    svg.onclick = function (e) { if (e.target === svg) { sel = null; renderAll(); } };
   }
 
   function onSlot(ring, slot) {
@@ -332,13 +349,13 @@
     });
     Object.keys(ringLabels).forEach(function (r) {
       var open = !!S.hub.rings[r];
-      ringLabels[r].textContent = open ? plotName(r).toUpperCase() + ' PLOTS' : 'RING ' + r + ' · ' + plotName(r).toUpperCase() + ' PLOTS · LOCKED · HUB LV ' + r;
+      ringLabels[r].textContent = open ? plotName(r).toUpperCase() + ' PLOTS' : 'RING ' + r + ' · ' + plotName(r).toUpperCase() + ' PLOTS · LOCKED · ' + (activeD().core ? 'HUB' : 'DISTRICT') + ' LV ' + r;
       ringLabels[r].setAttribute('class', 'ring-label' + (open ? ' open' : ''));
     });
     targetR = zoomTarget();
     if (!viewR) { viewR = targetR; setView(viewR); }
     hubEl.g.classList.toggle('sel', !!(sel && sel.hub));
-    hubEl.sub.textContent = S.hub.upgrading ? 'UPGRADING' : 'LEVEL ' + S.colony.hubLevel;
+    hubEl.sub.textContent = S.hub.upgrading ? 'UPGRADING' : 'LEVEL ' + activeD().level;
   }
 
   // construction progress bars on the map update every frame
@@ -444,11 +461,14 @@
   }
   // ------------------------------------------------------------------ right panel
   function renderTabs() {
-    var next = CFG.hubLevels[S.colony.hubLevel + 1];
-    var dot = next && !S.hub.upgrading && canAfford(next.upgradeCost);
+    var next = GEO().levels[activeD().level + 1];
+    var dot = next && !S.hub.upgrading && canAfford(next.upgradeCost) && (activeD().core || activeD().level + 1 <= S.districtLevelCap);
+    var ddot = S.districtsUnlocked && Object.keys(CFG.districtTypes).some(function (k) {
+      return !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
+    });
     var h = TABS.map(function (t) {
       return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] +
-        (t[0] === 'hub' && dot ? '<span class="badge" style="background:var(--good)"></span>' : '') +
+        ((t[0] === 'hub' && dot) || (t[0] === 'districts' && ddot) ? '<span class="badge" style="background:var(--good)"></span>' : '') +
         (t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') + '</button>';
     }).join('');
     if ($('tabs').dataset.h !== h) { $('tabs').innerHTML = h; $('tabs').dataset.h = h; }
@@ -463,8 +483,8 @@
     }
     var r = sel.ring, s = sel.slot, head = 'Ring ' + r + ' &middot; Slot ' + (s + 1) + ' &middot; ' + plotName(r) + ' plot';
     if (!slotUnlocked(r, s)) {
-      return '<div class="p-title">' + icon('lock', 22) + '<h3>' + head + '</h3></div><div class="note">Ring ' + r + ' (' + plotName(r) + ' plots) unlocks at hub level ' + r + '.</div>' +
-        '<div class="actions"><button class="btn primary" data-act="tab" data-tab="hub">View hub upgrade</button></div>';
+      return '<div class="p-title">' + icon('lock', 22) + '<h3>' + head + '</h3></div><div class="note">Ring ' + r + ' (' + plotName(r) + ' plots) unlocks at ' + (activeD().core ? 'hub' : 'district') + ' level ' + r + '.</div>' +
+        '<div class="actions"><button class="btn primary" data-act="tab" data-tab="hub">View ' + (activeD().core ? 'hub' : 'district') + ' upgrade</button></div>';
     }
     var b = buildingAt(r, s), o = orderAt(r, s), qd = !b && !o && queuedBuild(r, s);
     if (qd) {
@@ -539,8 +559,10 @@
   }
   function buildMenu(r, s, head) {
     var h = '<div class="label">' + head + ' · empty</div><h3 style="margin:4px 0 12px;font-size:15px">Construct</h3><div class="stack">';
+    var dtype = activeD().type;
     Object.keys(CFG.buildings).forEach(function (k) {
       var d = CFG.buildings[k];
+      if (d.districts && d.districts.indexOf(dtype) < 0) return;
       var afford = canAfford(d.cost);
       var owned = S.buildings.filter(function (b) { return b.type === k; }).length + S.orders.filter(function (o) { return o.kind === 'build' && o.data.type === k; }).length;
       var capped = d.maxCount && owned >= d.maxCount;
@@ -629,12 +651,12 @@
     var h;
     if (z.state === 'active') {
       var rough = z.severity > 0.02;
-      var mk = S.buildings.filter(function (b) { return b.mark; }).length;
+      var mk = S.coreBuildings.filter(function (b) { return b.mark; }).length;
       return '<div class="threat ' + (rough ? 'bad' : 'warn') + '"><div class="label">' + (rough ? 'Hazard in effect' : 'Hazard weathered, costs continue') + '</div><div class="big ' + (rough ? 'bad' : '') + '">' + esc(z.name) + '</div>' +
         '<div class="dim">' + Math.round(z.prep * 100) + '% prepared · ends in ' + span(z.ticksLeft) + '</div>' + effectBlock(z) +
         (mk ? '<div class="dim" style="margin-top:6px">' + mk + ' structure' + (mk === 1 ? ' is' : 's are') + ' affected and marked on the map.</div>' : '') + '</div>';
     }
-    var marked = S.buildings.filter(function (b) { return b.mark; }).length;
+    var marked = S.coreBuildings.filter(function (b) { return b.mark; }).length;
     var ready = z.prep >= 0.98, cls = ready ? 'good' : z.prep < 0.5 ? 'bad' : 'warn';
     h = '<div class="threat ' + cls + '"><div class="label">Incoming hazard</div><div class="big">' + esc(z.name) + '</div>' +
       '<div>Strikes in ' + span(z.ticksUntil) + ' and lasts ' + z.durationTicks + ' ticks.</div><div class="dim" style="margin:4px 0 8px">' + esc(z.desc) + '</div>';
@@ -715,19 +737,127 @@
     return h;
   }
 
+  // ---- districts -------------------------------------------------------------
+  function costPills(cost, have) {
+    return Object.keys(cost).map(function (r) { return pill(r, cost[r], have[r].amount < cost[r] ? 'no' : ''); }).join('');
+  }
+  function districtOf(type) { return S.districts.filter(function (d) { return d.type === type; })[0]; }
+  function shipTime(a, b) {
+    var d = function (x) { return x.core ? 0 : CFG.districtTypes[x.type].distance; };
+    return Math.max(1, d(a) + d(b));
+  }
+  function renderSwitch() {
+    var el = $('dswitch'), h = '';
+    if (S.districts.length > 1) {
+      h = S.districts.map(function (d) {
+        var t = d.core ? null : CFG.districtTypes[d.type];
+        return '<button class="dchip' + (d.id === activeId ? ' on' : '') + '" data-act="enter" data-id="' + d.id + '" style="--c:' + (t ? t.color : 'var(--amber)') + '"><i></i>' + esc(d.core ? 'Core' : d.name) + '<small>L' + d.level + '</small></button>';
+      }).join('');
+    }
+    if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
+  }
+  function districtMap() {
+    var h = '<svg class="dmap" viewBox="-110 -90 220 180" role="img" aria-label="District map">';
+    var nodes = [{ id: S.districts[0].id, core: true, x: 0, y: 0, color: '#ff9f1c', name: 'Core', level: S.colony.hubLevel, on: true }];
+    Object.keys(CFG.districtTypes).forEach(function (k) {
+      var t = CFG.districtTypes[k], d = districtOf(k), a = t.angle * Math.PI / 180, r = t.radius * 80;
+      var f = S.founding.filter(function (x) { return x.type === k; })[0];
+      nodes.push({ id: d ? d.id : null, type: k, x: r * Math.cos(a), y: r * Math.sin(a), color: t.color, name: t.name.replace(/^The /, ''), level: d ? d.level : 0, on: !!d, building: !!f });
+    });
+    nodes.slice(1).forEach(function (n) { h += '<line x1="0" y1="0" x2="' + n.x.toFixed(1) + '" y2="' + n.y.toFixed(1) + '" class="dlink' + (n.on ? ' on' : '') + '"/>'; });
+    nodes.forEach(function (n) {
+      var act = n.on ? ' data-act="enter" data-id="' + n.id + '" tabindex="0" role="button"' : '';
+      h += '<g class="dnode' + (n.on ? ' on' : n.building ? ' building' : '') + (n.id === activeId ? ' sel' : '') + '"' + act + ' style="--c:' + n.color + '" transform="translate(' + n.x.toFixed(1) + ' ' + n.y.toFixed(1) + ')">' +
+        '<circle r="' + (n.core ? 17 : 14) + '"/><text y="3" class="lv">' + (n.on ? 'L' + n.level : n.building ? '…' : '?') + '</text><text y="' + (n.core ? 30 : 27) + '" class="nm">' + esc(n.name) + '</text></g>';
+    });
+    return h + '</svg>';
+  }
+  function districtsTab() {
+    if (!S.districtsUnlocked) {
+      return '<div class="empty-state">' + icon('lock', 36) + '<div>Districts open at hub level ' + CFG.districtProgression.unlockCoreLevel + '.</div></div>' +
+        '<div class="note">Out past the rings there is ground worth holding: satellite bases with their own stockpile and power grid, producing what the Core cannot. Grow the hub first.</div>';
+    }
+    var h = districtMap() + '<div class="note">Each district keeps its <b>own stockpile and power grid</b>. People, crew and morale are shared across the colony. Founding is paid from the Core; upgrades are paid from the district itself, so goods have to be shipped in.</div>';
+    Object.keys(CFG.districtTypes).forEach(function (k) {
+      var t = CFG.districtTypes[k], d = districtOf(k), f = S.founding.filter(function (x) { return x.type === k; })[0];
+      h += '<div class="dcard" style="--c:' + t.color + '"><div class="top"><b>' + esc(t.name) + '</b>' + (d ? '<small>Level ' + d.level + ' · ' + d.buildings + ' structure' + (d.buildings === 1 ? '' : 's') + '</small>' : '') + '</div>' +
+        '<div class="dim" style="font-size:12px;margin-bottom:8px">' + esc(t.desc) + '</div>';
+      if (d) {
+        h += '<div class="actions"><button class="btn' + (d.id === activeId ? '' : ' primary') + '" data-act="enter" data-id="' + d.id + '"' + (d.id === activeId ? ' disabled' : '') + '>' + (d.id === activeId ? 'Viewing' : 'Enter district') + '</button></div>';
+      } else if (f) {
+        h += '<div class="note">Being founded: ' + f.remaining + ' tick' + (f.remaining === 1 ? '' : 's') + ' remaining. <a href="#" data-act="cancel" data-id="' + f.id + '" style="color:var(--amber)">Cancel</a></div>';
+      } else {
+        h += '<div class="label">Founding cost (from the Core) · ' + t.foundTicks + ' ticks</div><div class="io">' + costPills(t.foundCost, S.coreRes) + '</div>' +
+          '<div class="actions"><button class="btn primary" data-act="found" data-type="' + k + '"' + (canAffordCore(t.foundCost) ? '' : ' disabled') + '>Found ' + esc(t.name) + '</button></div>';
+      }
+      h += '</div>';
+    });
+    // shipments
+    if (S.districts.length > 1) {
+      var ds = S.districts;
+      if (!ds.some(function (d) { return d.id === ship.from; })) ship.from = ds[0].id;
+      if (!ds.some(function (d) { return d.id === ship.to; }) || ship.to === ship.from) ship.to = ds.filter(function (d) { return d.id !== ship.from; })[0].id;
+      var opt = function (cur) { return ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === cur ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join(''); };
+      var from = S.views[ship.from], fromD = ds.filter(function (d) { return d.id === ship.from; })[0], toD = ds.filter(function (d) { return d.id === ship.to; })[0];
+      var have = Math.floor(from.resources[ship.res].amount), L = CFG.logistics, st = STEP[ship.res] || 10;
+      ship.qty = clamp(ship.qty, 1, Math.max(1, Math.min(L.shipmentMax, have)));
+      h += '<div class="label sec">Send a shipment</div><div class="shipform">' +
+        '<label>From<select data-sel="from">' + opt(ship.from) + '</select></label><label>To<select data-sel="to">' + opt(ship.to) + '</select></label>' +
+        '<label class="wide">Goods<select data-sel="res">' + Object.keys(CFG.resources).map(function (r) {
+          var amt = Math.floor(from.resources[r].amount);
+          if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1 && amt < 1) return '';
+          return '<option value="' + r + '"' + (r === ship.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + ' (' + amt + ')</option>';
+        }).join('') + '</select></label></div>' +
+        '<div class="stepper" style="margin-top:8px"><span class="lab">Qty</span><button data-act="sstep" data-delta="-' + st + '" aria-label="Less">−</button><span class="val num">' + ship.qty + '</span><button data-act="sstep" data-delta="' + st + '" aria-label="More">+</button><button data-act="sstep" data-delta="max" style="width:auto;padding:0 8px;font-size:10px">MAX</button></div>' +
+        '<div class="dim" style="font-size:11px;margin:8px 0">Stock leaves now and arrives in ' + shipTime(fromD, toD) + ' ticks (' + clock(shipTime(fromD, toD) * S.tickMs) + '). Up to ' + L.shipmentMax + ' per shipment, ' + L.maxInFlight + ' on the road at once. Anything over the destination\'s storage is lost.</div>' +
+        '<div class="actions"><button class="btn primary" data-act="shipsend"' + (have < 1 || S.shipments.length >= L.maxInFlight ? ' disabled' : '') + '>' + icon('truck', 12) + ' Dispatch</button></div>';
+      if (S.shipments.length) {
+        h += '<div class="label sec">On the road</div>' + S.shipments.map(function (x) {
+          var a = ds.filter(function (d) { return d.id === x.fromDistrict; })[0], b = ds.filter(function (d) { return d.id === x.toDistrict; })[0];
+          return '<div class="shiprow"><span>' + x.qty + ' ' + esc(CFG.resources[x.resource].name) + '</span><span class="dim">' + esc(a ? a.name : '?') + ' → ' + esc(b ? b.name : '?') + '</span><span class="num">' + x.ticksLeft + 't</span></div>';
+        }).join('');
+      }
+    }
+    return h;
+  }
+  function districtHubTab() {
+    var d = activeD(), t = CFG.districtTypes[d.type], lv = GEO().levels[d.level], next = GEO().levels[d.level + 1];
+    var slots = function (l) { return Object.keys(l.ringCapacities).reduce(function (a, k) { return a + l.ringCapacities[k]; }, 0); };
+    var h = '<div class="p-title" style="--c:' + t.color + '">' + icon('hub', 22) + '<h3>' + esc(d.name) + ' · Level ' + d.level + '</h3></div><p class="p-desc">' + esc(t.desc) + '</p>' +
+      '<dl class="kv"><dt>Storage per resource</dt><dd>' + fmt(S.hub.maxStorage) + (S.hub.maxStorage > S.hub.baseStorage ? ' <span class="dim">(' + fmt(S.hub.baseStorage) + ' + warehouses)</span>' : '') + '</dd>' +
+      '<dt>District power</dt><dd>' + S.hub.power.toFixed(0) + ' base</dd>' +
+      '<dt>Rings online</dt><dd>' + Object.keys(lv.ringCapacities).length + ' (' + slots(lv) + ' slots)</dd>' +
+      '<dt>Defence</dt><dd>' + S.defense.toFixed(1) + '</dd></dl>' +
+      '<div class="note">This district has its own stockpile and power grid. Crew, homes and morale are shared with the whole colony.</div><div class="label sec">District upgrade</div>';
+    if (!next) return h + '<div class="note good">Fully upgraded.</div>';
+    var nl = d.level + 1, up = S.orders.filter(function (o) { return o.kind === 'upgrade'; })[0], gated = nl > S.districtLevelCap;
+    var short = Object.keys(next.upgradeCost).filter(function (r) { return S.resources[r].amount < next.upgradeCost[r]; });
+    h += '<div class="opt" style="cursor:default"><div class="top"><b>Level ' + nl + '</b><small>' + next.upgradeTicks + ' ticks</small></div><div class="io">' + costPills(next.upgradeCost, S.resources) + '</div>' +
+      '<div class="dim" style="font-size:11px;margin-top:8px">Unlocks ring ' + nl + ' (' + plotName(nl) + ' plots, ' + GEO().rings[nl] + ' slots) · storage ' + fmt(next.maxStorage) + ' · base power ' + next.baseEnergy + '</div></div>';
+    if (up) h += '<div class="note">Upgrade in progress: ' + up.remaining + ' ticks remaining. <a href="#" data-act="cancel" data-id="' + up.id + '" style="color:var(--amber)">Cancel</a></div>';
+    else if (gated) h += '<div class="note warn">Level ' + nl + ' unlocks when ' + esc(S.districtNeeds[nl]) + '.</div>';
+    else {
+      if (short.length) h += '<div class="note">Upgrades are paid from <b>this</b> district\'s stockpile. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': ship it here from another district, or from the Core.</div>';
+      h += '<div class="actions"><button class="btn primary" data-act="upgrade"' + (canAfford(next.upgradeCost) ? '' : ' disabled') + '>Begin upgrade</button>' +
+        (short.length ? '<button class="btn" data-act="tab" data-tab="districts">' + icon('truck', 12) + ' Ship goods</button>' : '') + '</div>';
+    }
+    return h;
+  }
+
   function trendTxt(tr, goodUp) {
     if (Math.abs(tr) < 0.02) return '';
     var up = tr > 0, good = up === goodUp;
     return ' <span class="' + (good ? 'good' : 'bad') + '">' + (up ? '▲' : '▼') + Math.abs(Math.round(tr * 100)) + '%</span>';
   }
   function scheduledTab() {
-    var h = '<div class="convoy-head"><div class="label">Next convoy in</div><div class="big num" data-f="convoy">–</div><div class="dim" style="font-size:11px" data-f="convoyTicks"></div></div>' +
+    var h = (activeD().core ? '' : '<div class="note">Convoys and express trips deal with the <b>Core</b> stockpile. Ship goods there from this district in the Districts tab.</div>') +
+      '<div class="convoy-head"><div class="label">Next convoy in</div><div class="big num" data-f="convoy">–</div><div class="dim" style="font-size:11px" data-f="convoyTicks"></div></div>' +
       '<p class="p-desc">Standing orders repeat every convoy at that convoy\'s prices. The trade limit per resource grows with your hub level (currently ×' + (CFG.hubLevels[S.colony.hubLevel].convoyCapMult || 1) + '). Prices drift from convoy to convoy; the figures below are what the <b>next</b> convoy will pay and charge, and the arrows show the change from the last one.</p>';
     var net = 0;
     Object.keys(CFG.resources).forEach(function (k) {
       var r = CFG.resources[k], ex = S.contracts.export[k] || 0, im = S.contracts.import[k] || 0, st = STEP[k] || 10;
       var mp = S.market.prices[k], max = S.market.limits[k];
-      if (r.showFromHub && r.showFromHub > S.colony.hubLevel + 1 && !ex && !im && S.resources[k].amount < 0.5) return;
+      if (r.showFromHub && r.showFromHub > S.colony.hubLevel + 1 && !ex && !im && S.coreRes[k].amount < 0.5) return;
       net += ex * mp.sell - im * mp.buy;
       var stepper = function (side, v) {
         return '<div class="stepper"><span class="lab">' + (side === 'export' ? 'Sell' : 'Buy') + '</span><button data-act="contract" data-res="' + k + '" data-side="' + side + '" data-delta="-' + st + '"' + (v <= 0 ? ' disabled' : '') + ' aria-label="Decrease ' + side + '">−</button>' +
@@ -756,8 +886,8 @@
     var spend = 0, income = 0, any = false;
     Object.keys(CFG.resources).forEach(function (k) {
       var r = CFG.resources[k], sellQ = xdraft.sell[k] || 0, buyQ = xdraft.buy[k] || 0, st = STEP[k] || 10;
-      if (r.showFromHub && r.showFromHub > c.hubLevel + 1 && !sellQ && !buyQ && S.resources[k].amount < 0.5) return;
-      var pr = x.prices[k], lim = x.limits[k], stock = Math.floor(S.resources[k].amount);
+      if (r.showFromHub && r.showFromHub > c.hubLevel + 1 && !sellQ && !buyQ && S.coreRes[k].amount < 0.5) return;
+      var pr = x.prices[k], lim = x.limits[k], stock = Math.floor(S.coreRes[k].amount);
       spend += Math.round(buyQ * pr.buy); income += Math.round(sellQ * pr.sell); if (sellQ || buyQ) any = true;
       var stepper = function (side, v, max) {
         return '<div class="stepper"><span class="lab">' + (side === 'sell' ? 'Send' : 'Fetch') + '</span><button data-act="xstep" data-res="' + k + '" data-side="' + side + '" data-delta="-' + st + '"' + (v <= 0 ? ' disabled' : '') + ' aria-label="Decrease ' + side + '">−</button>' +
@@ -792,7 +922,7 @@
 
   var lastPanel = '';
   function renderPanel() {
-    var h = tab === 'hub' ? hubTab() : tab === 'convoy' ? convoyTab() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
+    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'districts' ? districtsTab() : tab === 'convoy' ? convoyTab() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
     if (h === lastPanel) return;
     lastPanel = h;
     var p = $('panel'), top = p.scrollTop;
@@ -804,7 +934,7 @@
     var now = Date.now() + offset;
     document.querySelectorAll('#panel [data-b]').forEach(function (el) {
       var k = el.dataset.b.split(':');
-      if (k[0] === 'amt') { var r = S.resources[k[1]]; el.textContent = fmt(clamp(r.amount + r.net * frac(), 0, r.cap)); }
+      if (k[0] === 'amt') { var r = S.coreRes[k[1]]; el.textContent = fmt(clamp(r.amount + r.net * frac(), 0, r.cap)); }
     });
     var xe = document.querySelector('#panel [data-f=xeta]');
     if (xe && S.express.active) xe.textContent = clock(S.express.active.arrivesAt - now);
@@ -823,9 +953,10 @@
   var lastQueue = '';
   function renderQueue() {
     var h = '<span class="label">Work queue</span>';
-    if (!S.orders.length) h += '<span class="queue-empty">No active work orders.</span>';
-    S.orders.forEach(function (o) {
-      var name = o.kind === 'build' ? 'Build ' + CFG.buildings[o.data.type].name : 'Hub upgrade → L' + o.data.level;
+    if (!S.allOrders.length) h += '<span class="queue-empty">No active work orders.</span>';
+    S.allOrders.forEach(function (o) {
+      var tag = o.dname ? o.dname.replace(/^The /, '') + ': ' : '';
+      var name = o.kind === 'build' ? tag + 'Build ' + CFG.buildings[o.data.type].name : o.kind === 'found' ? 'Found ' + CFG.districtTypes[o.data.type].name : (o.dname || 'Hub') + ' upgrade → L' + o.data.level;
       var where = o.kind === 'build' ? 'R' + o.data.ring + '·' + (o.data.slot + 1) : '';
       h += '<div class="order" data-id="' + o.id + '"><button class="x" data-act="cancel" data-id="' + o.id + '" title="Cancel & refund" aria-label="Cancel order">×</button>' +
         '<div class="row"><span>' + esc(name) + '</span><small class="num">' + (where ? where + ' · ' : '') + o.remaining + 't</small></div><div class="bar"><i></i></div></div>';
@@ -841,7 +972,7 @@
   function frameQueue(f) {
     var bars = document.querySelectorAll('#queue .order');
     bars.forEach(function (el) {
-      var o = S.orders.filter(function (x) { return String(x.id) === el.dataset.id; })[0];
+      var o = S.allOrders.filter(function (x) { return String(x.id) === el.dataset.id; })[0];
       if (o) el.querySelector('.bar i').style.width = (clamp((o.total - o.remaining + f) / o.total, 0, 1) * 100).toFixed(1) + '%';
     });
   }
@@ -908,22 +1039,31 @@
     if (!el || el.disabled) return;
     var a = el.dataset.act;
     if (a === 'tab') { e.preventDefault(); tab = el.dataset.tab; renderAll(); }
-    else if (a === 'build' && sel && sel.ring) act('build', { ring: sel.ring, slot: sel.slot, type: el.dataset.type });
+    else if (a === 'build' && sel && sel.ring) act('build', { ring: sel.ring, slot: sel.slot, type: el.dataset.type, district: activeId });
     else if (a === 'toggle') {
       var tb = buildingAt(+el.dataset.ring, +el.dataset.slot);
-      act('toggle', { ring: +el.dataset.ring, slot: +el.dataset.slot, paused: tb ? !tb.paused : undefined }); // explicit state: safe to resend
+      act('toggle', { ring: +el.dataset.ring, slot: +el.dataset.slot, paused: tb ? !tb.paused : undefined, district: activeId }); // explicit state: safe to resend
     }
     else if (a === 'pcancel') { var pid = +el.dataset.id; pending = pending.filter(function (p) { return p.id !== pid; }); renderQueue(); renderRadar(); renderAlerts(); renderPanel(); }
     else if (a === 'demolish') {
-      if (confirmKey === el.dataset.key) { confirmKey = null; act('demolish', { ring: +el.dataset.ring, slot: +el.dataset.slot }); }
+      if (confirmKey === el.dataset.key) { confirmKey = null; act('demolish', { ring: +el.dataset.ring, slot: +el.dataset.slot, district: activeId }); }
       else { confirmKey = el.dataset.key; clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
     }
     else if (a === 'cancel') { e.preventDefault(); act('cancel', { orderId: +el.dataset.id }); }
-    else if (a === 'upgrade') act('upgrade', {}, 'Hub upgrade started.');
+    else if (a === 'upgrade') act('upgrade', { district: activeId }, activeD().core ? 'Hub upgrade started.' : activeD().name + ' upgrade started.');
+    else if (a === 'enter') { e.preventDefault(); enter(+el.dataset.id); }
+    else if (a === 'found') act('found', { type: el.dataset.type }, 'Founding started.');
+    else if (a === 'sstep') {
+      var have = Math.floor(S.views[ship.from].resources[ship.res].amount), cap = Math.max(1, Math.min(CFG.logistics.shipmentMax, have));
+      ship.qty = clamp(el.dataset.delta === 'max' ? cap : ship.qty + (+el.dataset.delta), 1, cap); renderPanel();
+    }
+    else if (a === 'shipsend') {
+      act('shipment', { from: ship.from, to: ship.to, resource: ship.res, qty: ship.qty }, 'Shipment dispatched.');
+    }
     else if (a === 'cmode') { convoyMode = el.dataset.mode; renderPanel(); }
     else if (a === 'xstep') {
       var xs = el.dataset.side, xr = el.dataset.res, bag = xdraft[xs];
-      var maxv = xs === 'sell' ? Math.min(S.express.limits[xr], Math.floor(S.resources[xr].amount)) : S.express.limits[xr];
+      var maxv = xs === 'sell' ? Math.min(S.express.limits[xr], Math.floor(S.coreRes[xr].amount)) : S.express.limits[xr];
       var nv = clamp((bag[xr] || 0) + (+el.dataset.delta), 0, maxv);
       if (nv) bag[xr] = nv; else delete bag[xr];
       renderPanel();
@@ -947,6 +1087,13 @@
       act('contract', { resource: res, side: side, amount: v });
     }
   });
+  document.addEventListener('change', function (e) {
+    var el = e.target.closest('[data-sel]');
+    if (!el) return;
+    var k = el.dataset.sel;
+    if (k === 'res') ship.res = el.value; else ship[k] = +el.value;
+    renderPanel();
+  });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       var m = document.querySelector('.modal-bg'); if (m && !m.querySelector('[data-lock]')) { m.remove(); return; }
@@ -959,12 +1106,31 @@
   // ------------------------------------------------------------------ state flow
   function renderAll() {
     if (!S) return;
+    if (radarFor !== activeId) { radarFor = activeId; viewR = 0; buildRadar(); }
+    renderSwitch();
     renderTop(); renderRadar(); renderTabs(); renderPanel(); renderQueue(); renderAlerts(); checkModals();
   }
 
+  function merge(ns) {
+    var v = ns.views[activeId];
+    return Object.assign({}, ns, {
+      buildings: v.buildings, orders: v.orders, resources: v.resources, hub: v.hub, energy: v.energy, defense: v.defense,
+      coreRes: ns.resources, coreBuildings: ns.buildings,
+      allOrders: Object.keys(ns.views).reduce(function (a, k) {
+        return a.concat(ns.views[k].orders.map(function (o) { return Object.assign({ dname: ns.views[k].core ? '' : ns.views[k].name }, o); }));
+      }, [])
+    });
+  }
+  function enter(id) {
+    if (!RAW || !RAW.views[id]) return;
+    activeId = id; sel = null; confirmKey = null;
+    S = merge(RAW); renderAll();
+  }
   function setState(ns) {
     var first = !S;
-    S = ns;
+    RAW = ns;
+    if (activeId === null || !ns.views[activeId]) activeId = ns.districts.filter(function (d) { return d.core; })[0].id;
+    S = merge(ns);
     offset = ns.serverNow - Date.now();
     // surface notable new events as toasts
     var top = ns.events.length ? ns.events[0].id : 0;
@@ -974,7 +1140,7 @@
       });
     }
     lastEventId = Math.max(lastEventId || 0, top);
-    if (first) { buildRadar(); buildResources(); }
+    if (first) buildResources();
     renderAll();
   }
 

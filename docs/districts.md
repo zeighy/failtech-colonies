@@ -1,6 +1,6 @@
 # Districts: design
 
-Status: **agreed direction, under construction.** Step 1 (the refactor) is being built first; everything after it is
+Status: **agreed direction, under construction.** Steps 1 (refactor) and 2 (map, founding, rings, upgrades, manual shipments, The Pits) are built; everything after them is
 a plan and the numbers are placeholders to be tuned by playtesting and by the scripted-player simulation.
 
 ## Vision
@@ -105,3 +105,13 @@ Districts at level 5 are the endgame reward, not part of the path to it.
   inserted without one the colony's Core district, so existing code keeps working. The migration is additive and
   keeps all existing colonies.
 - The API accepts an optional `district` on building actions and defaults to the Core.
+
+## Step 2 notes (built)
+
+- `config.districtTypes.<type>`: name, colour, map position, `distance` (ticks to the Core), `foundCost`/`foundTicks`, `startingStock`,
+  `ringPlotSize` and per-level `levels` (storage, base power, ring capacities 3-5-7-9-11, upgrade cost). The Pits is the first type.
+- Buildings carry an optional `districts` list; without one they can go anywhere. Pits-only: Ore Drill, Smelter, Alloy Works. The Beacon is Core-only.
+- Founding is a `found` work order at the Core (one district per type). Shipments (`colony_shipments`, schema v7): stock leaves
+  at dispatch, arrives after `distance` ticks (district to district goes via the Core); overflow beyond storage is lost; limits in `config.logistics`.
+- Reagents have no producer yet (the Stacks will make them), so the Pits level 3+ upgrades need them from the convoy for now.
+- The state view carries `views[districtId]` (stock with rates, grid, hub, buildings, orders); top-level fields are still the Core's.

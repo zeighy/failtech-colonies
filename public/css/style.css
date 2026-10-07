@@ -297,3 +297,24 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .pend .x { background: none; border: 0; color: var(--faint); font-size: 14px; line-height: 1; padding: 0 2px; }
 .pend .x:hover { color: var(--bad); }
 .queue-sep { width: 1px; background: var(--line2); margin: 0 4px; flex: none; }
+
+/* districts */
+.dswitch { position: absolute; left: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
+.dchip { display: flex; align-items: center; gap: 7px; background: rgba(16,22,27,.9); border: 1px solid var(--line2); color: var(--text); padding: 6px 10px; border-radius: 99px; font-size: 12px; }
+.dchip i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+.dchip small { color: var(--dim); }
+.dchip:hover { border-color: var(--c); }
+.dchip.on { border-color: var(--c); background: rgba(30,38,45,.95); box-shadow: 0 0 0 1px var(--c) inset; }
+.dmap { width: 100%; height: auto; max-height: 220px; background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 8px; }
+.dmap .dlink { stroke: var(--line2); stroke-dasharray: 3 4; } .dmap .dlink.on { stroke: var(--amber-d); stroke-dasharray: none; }
+.dmap .dnode circle { fill: #11171c; stroke: var(--line2); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.dmap .dnode.on circle { stroke: var(--c); stroke-dasharray: none; fill: #1a1f22; } .dmap .dnode.on { cursor: pointer; }
+.dmap .dnode.building circle { stroke: var(--warn); }
+.dmap .dnode.sel circle { stroke-width: 3; filter: drop-shadow(0 0 5px var(--c)); }
+.dmap text { text-anchor: middle; fill: var(--dim); font-size: 8px; } .dmap .lv { fill: var(--c); font-weight: 700; font-size: 9px; } .dmap .nm { letter-spacing: .08em; text-transform: uppercase; font-size: 7px; }
+.dcard { border: 1px solid var(--line); border-left: 3px solid var(--c); background: var(--panel2); border-radius: var(--radius); padding: 10px; margin: 8px 0; }
+.dcard .top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; } .dcard .top b { flex: 1; font-size: 13px; } .dcard .top small { color: var(--dim); }
+.shipform { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .shipform .wide { grid-column: 1 / -1; }
+.shipform label { display: flex; flex-direction: column; gap: 3px; font-size: 9px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+.shipform select { background: var(--bg2); color: var(--text); border: 1px solid var(--line2); border-radius: var(--radius); padding: 6px; font-size: 12px; }
+.shiprow { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12px; }

@@ -29,7 +29,8 @@ The **Brief** tab is your guide. Hazards mark the structures they touch on the m
 | **Convoy** | Every 40 ticks (plus on-demand express trips). Standing export/import orders execute at that convoy's prices, which drift from convoy to convoy and are shown in advance with their change. The per-resource trade limit grows with Hub level (×1 at level 1 up to ×4 at level 5). |
 | **Work orders** | Construction and upgrades take ticks. Costs are charged up front; cancelling refunds in full. |
 | **Failure** | Critical shortages drain morale; at zero the colony collapses. You keep half your credits for the next attempt. "Abandon colony" does a full reset. |
-| **Going offline** | If your connection drops, clicks to build, demolish, pause, upgrade or change convoy orders are **queued on screen** (a banner, a dashed marker on the map and a chip in the bottom bar) and sent in order when you reconnect. You can discard any of them first. Express trips and resets need a live connection. |
+| **Districts** | From hub level 4 the **Districts** tab lets you found satellite bases (first: **The Pits**: ore, ingots, bulk alloys). Each has its own stockpile, power grid and 3-5-7-9-11 rings; people, crew and morale stay colony-wide. Founding is paid from the Core, upgrades from the district itself, so goods are moved by **shipments** (take ticks by distance; stock leaves at dispatch). District level 2 opens at hub 4, levels 3-4 at hub 5, level 5 once the Beacon is built. Switch between districts with the chips on the map. |
+| **Going offline** | If your connection drops, clicks to build, demolish, pause, upgrade or change convoy orders are **queued on screen** (a banner, a dashed marker on the map and a chip in the bottom bar) and sent in order when you reconnect. You can discard any of them first. Express trips, founding, shipments and resets need a live connection. |
 | **Offline progress** | The server owns the clock. Production, consumption, convoys and already-forecast hazards continue while you are logged out (capped at 1,200 ticks of catch-up after downtime). |
 
 ### Hazards
@@ -102,8 +103,8 @@ Covers adjacency geometry, the power grid, plot penalties, hub upkeep, fuel gene
 The colony you build today is the **Core**: a stable base. The next stage adds **districts**: satellite bases, each a
 small copy of the Core with its own rings, stockpile and power grid, producing distinct resources that other districts
 and the Core need, linked by shipments and routes and traded on a larger order-book market. The design and roadmap are
-in [`docs/districts.md`](docs/districts.md). The groundwork is in: the Core is already "district 0" in the database and
-the simulation runs per district, with no change in how the game plays.
+in [`docs/districts.md`](docs/districts.md). Built so far: the Core is "district 0", districts can be founded and upgraded, and The Pits can ship goods back.
+Still to come: routes and link capacity, the Stacks and Greenbelt, the chain restructure, the market, per-district hazards.
 
 ## Tuning the game
 
