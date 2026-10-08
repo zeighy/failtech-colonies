@@ -176,7 +176,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
     const adj = adjacencyMultiplier(config, b.type, nbs.map((n) => n.type));
     const plot = plotMultiplier(config, def, b.ring, d.type);
     const haz = (outMult[b.type] === undefined ? 1 : outMult[b.type]) * (degraded[b.id] === undefined ? 1 : degraded[b.id]);
-    infos.push({ b, def, adj, plot, haz, nbs, mult: adj * plot });
+    infos.push({ b, def, adj, plot, haz, nbs, mult: adj * plot, opt: def.optional && b.boost ? def.optional : null, optMult: 1, optOn: false });
   }
   const offline = (i) => i.b.status !== 'active' || disabled.has(i.b.id);
   const running = sortBuildings(config, infos.filter((i) => !offline(i)));
@@ -201,7 +201,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
     }
     for (const [res, amt] of Object.entries(info.def.outputsPerTick)) {
       if (res === 'energy') continue;
-      const made = amt * eff * info.mult * info.haz * morOut;
+      const made = amt * eff * info.mult * info.haz * info.optMult * morOut;
       inv[res] = (inv[res] || 0) + made;
       if (flows) flows[res].produced += made;
     }
@@ -258,6 +258,13 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
     const pEff = hasPower ? sat : 1;
     const sEff = staffOf(i);
     const eff = Math.min(mEff, pEff, sEff);
+    // Optional input: switched on by the player, a fixed amount per tick while the building is working, and only
+    // if the whole amount is in stock (otherwise it sits idle and nothing is spent).
+    if (i.opt && eff > 0.01 && Object.entries(i.opt.inputsPerTick).every(([r, a]) => (inv[r] || 0) >= a)) {
+      for (const [r, a] of Object.entries(i.opt.inputsPerTick)) { inv[r] -= a; flows[r].consumed += a; }
+      i.optOn = true;
+      if (i.opt.outputMult) i.optMult = i.opt.outputMult;
+    }
     apply(i, eff, inv, flows);
     if (i.def.transmit) progressGain += eff * i.mult * i.haz;
     if (i.def.defense) defense += i.def.defense * eff * i.mult;
@@ -269,7 +276,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
       else if (pEff < mEff - EPS) { status = pEff < 0.01 ? 'no_power' : 'low_power'; }
       else { status = mEff < 0.01 ? 'starved' : 'low_input'; why = limiting; }
     }
-    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, status, limiting: why });
+    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, status, limiting: why, boost: i.opt ? (i.optOn ? 'on' : 'starved') : null });
   }
 
   // Housing and neighbourhood comfort. Homes next to noisy, smoky buildings are miserable.
@@ -279,7 +286,8 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
   for (const i of running) {
     if (!i.def.housing) continue;
     const cap = i.def.housing * i.plot;
-    const raw = i.nbs.reduce((s, n) => s + (n.status === 'active' ? (config.buildings[n.type].comfort || 0) : 0), 0);
+    const raw = i.nbs.reduce((s, n) => s + (n.status === 'active' ? (config.buildings[n.type].comfort || 0) : 0), 0)
+      + (i.optOn && i.opt.comfort ? i.opt.comfort : 0);
     const comfort = Math.max(g.morale.comfortMin, Math.min(g.morale.comfortMax, raw));
     housingBuilt += cap;
     comfortWeighted += cap * comfort;

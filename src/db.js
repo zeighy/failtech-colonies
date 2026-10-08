@@ -9,7 +9,7 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failt
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -159,6 +159,10 @@ function migrate() {
   if (!db.prepare("SELECT 1 FROM pragma_table_info('districts') WHERE name = 'link_level'").get()) {
     db.exec('ALTER TABLE districts ADD COLUMN link_level INTEGER NOT NULL DEFAULT 1');
   }
+  // v9 (additive): optional inputs a player can switch on per building
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('colony_buildings') WHERE name = 'boost'").get()) {
+    db.exec('ALTER TABLE colony_buildings ADD COLUMN boost INTEGER NOT NULL DEFAULT 0');
+  }
   // A building inserted without a district belongs to the colony's Core district.
   db.exec(`CREATE TRIGGER IF NOT EXISTS buildings_default_district AFTER INSERT ON colony_buildings
     WHEN NEW.district_id IS NULL BEGIN
@@ -298,7 +302,7 @@ function saveInventory(colonyId, inv, districtId = coreId(colonyId)) {
 }
 
 function loadBuildings(colonyId, districtId = coreId(colonyId)) {
-  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId);
+  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, boost, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId);
 }
 
 // With a districtId: that district's orders. Without: every order in the colony.

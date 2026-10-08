@@ -156,7 +156,7 @@ const act = (name) => (req, res) => {
   res.status(result.ok ? 200 : 400).json({ ...result, state: result.ok ? viewFor(req.session.userId) : undefined });
 };
 for (const [route, name] of [
-  ['build', 'build'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['cancel', 'cancelOrder'],
+  ['build', 'build'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['boost', 'setBoost'], ['cancel', 'cancelOrder'],
   ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['route', 'setRoute'], ['link', 'upgradeLink'],
 ]) app.post(`/api/${route}`, requireAuth, act(name));
 

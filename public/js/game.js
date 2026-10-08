@@ -65,7 +65,7 @@
   // Clicks made while disconnected are kept here, shown on screen, and sent in order on
   // reconnect. Express trips, resets and restarts need a live connection (they spend money
   // at the moment of sending), so they are refused instead.
-  var QUEUEABLE = { build: 1, demolish: 1, toggle: 1, cancel: 1, upgrade: 1, contract: 1 }; // founding and shipments spend stock at once, so they need a live link
+  var QUEUEABLE = { build: 1, demolish: 1, toggle: 1, boost: 1, cancel: 1, upgrade: 1, contract: 1 }; // founding and shipments spend stock at once, so they need a live link
   function isNetErr(e) { return e instanceof TypeError; }
   function labelFor(path, body) {
     var where = function (r, s) { return 'R' + r + '·' + (s + 1); };
@@ -73,6 +73,7 @@
     if (path === 'build') return 'Build ' + CFG.buildings[body.type].name + ' (' + where(body.ring, body.slot) + ')';
     if (path === 'demolish') return 'Demolish ' + nameAt(body.ring, body.slot) + ' (' + where(body.ring, body.slot) + ')';
     if (path === 'toggle') return (body.paused ? 'Pause ' : 'Resume ') + nameAt(body.ring, body.slot) + ' (' + where(body.ring, body.slot) + ')';
+    if (path === 'boost') { var bb = S && buildingAt(body.ring, body.slot), opt = bb && CFG.buildings[bb.type].optional; return (body.enabled ? 'Switch on ' : 'Switch off ') + (opt ? opt.label : 'optional input') + ' (' + where(body.ring, body.slot) + ')'; }
     if (path === 'cancel') return 'Cancel a work order';
     if (path === 'upgrade') return 'Upgrade ' + (activeD().core ? 'the hub' : activeD().name);
     if (path === 'contract') return body.amount ? (body.side === 'export' ? 'Sell ' : 'Buy ') + body.amount + ' ' + CFG.resources[body.resource].name + ' each convoy' : 'Clear ' + body.side + ' order for ' + CFG.resources[body.resource].name;
@@ -531,6 +532,7 @@
       (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult) + ' storage each') + '</div>' : '') +
       (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult).toFixed(1) + '</span></div>' : '') +
       (d.transmit ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:#fff"></i>Signal ' + (b.eff * b.mult).toFixed(2) + ' / tick</span></div>' : '');
+    if (d.optional) h += optionalCard(d, b);
     var nts = neighborTypes(b.ring, b.slot);
     h += '<div class="label sec">Neighbours</div>';
     h += nts.length ? '<div class="io">' + nts.map(function (t) {
@@ -552,6 +554,17 @@
     return h;
   }
 
+  // Optional input: off by default; while on and in stock it costs a fixed amount per tick for a bonus.
+  function optionalCard(d, b) {
+    var o = d.optional, on = !!b.boost, working = b.boost === 'on';
+    var effect = (o.outputMult ? 'Output ×' + o.outputMult : '') + (o.comfort ? 'Comfort +' + o.comfort + ' for these homes' : '');
+    var short = Object.keys(o.inputsPerTick).filter(function (r) { return S.resources[r] && S.resources[r].amount < o.inputsPerTick[r]; });
+    return '<div class="label sec">Optional input</div><div class="optcard' + (working ? ' on' : '') + '"><div class="top"><b>' + esc(o.label) + '</b><span class="' + (working ? 'good' : on ? 'warn' : 'dim') + '">' + (working ? 'Active' : on ? 'Waiting for stock' : 'Off') + '</span></div>' +
+      '<div class="dim" style="font-size:12px;margin-bottom:6px">' + esc(o.desc) + '</div>' +
+      '<div class="io">' + ioPills({ inputsPerTick: o.inputsPerTick, outputsPerTick: {} }, 1, 1) + '<span class="pill out"><i style="background:var(--good)"></i>' + esc(effect) + '</span></div>' +
+      (on && !working ? '<div class="note warn" style="margin:8px 0 0">' + (short.length ? 'Not enough ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ' in this district\'s stockpile. Route or ship some in.' : 'Waiting for the building to run.') + '</div>' : '') +
+      '<div class="actions"><button class="btn' + (on ? '' : ' primary') + '" data-act="boost" data-ring="' + b.ring + '" data-slot="' + b.slot + '">' + (on ? 'Switch off' : 'Switch on') + '</button></div></div>';
+  }
   function nbComfort(r, s) {
     var sum = 0, causes = [];
     neighborsOf(r, s).forEach(function (n) {
@@ -584,6 +597,7 @@
           ? '<div class="bonus bad">Wants a ' + plotName2(d.minPlotSize) + ' plot · this one is ' + plotName(r) + ' · output ×' + plot.toFixed(2) + '</div>'
           : '<div class="bonus good">Wants a ' + plotName2(d.minPlotSize) + ' plot · fits</div>';
       }
+      if (d.optional) notes += '<div class="bonus" style="color:var(--dim)">Optional: ' + esc(d.optional.label) + ' (' + Object.keys(d.optional.inputsPerTick).map(function (x) { return d.optional.inputsPerTick[x] + ' ' + CFG.resources[x].name + '/t'; }).join(', ') + ')</div>';
       if (d.housing) {
         var cc = nbComfort(r, s);
         notes += '<div class="bonus ' + (cc.sum > 0 ? 'good' : cc.sum < 0 ? 'bad' : '') + '">Comfort here: ' + (cc.sum > 0 ? '+' : cc.sum < 0 ? '−' : '') + Math.abs(cc.sum) + (cc.causes.length ? ' · ' + cc.causes.map(esc).join(', ') : ' · quiet') + '</div>';
@@ -1100,6 +1114,10 @@
     else if (a === 'toggle') {
       var tb = buildingAt(+el.dataset.ring, +el.dataset.slot);
       act('toggle', { ring: +el.dataset.ring, slot: +el.dataset.slot, paused: tb ? !tb.paused : undefined, district: activeId }); // explicit state: safe to resend
+    }
+    else if (a === 'boost') {
+      var bt = buildingAt(+el.dataset.ring, +el.dataset.slot);
+      act('boost', { ring: +el.dataset.ring, slot: +el.dataset.slot, enabled: bt ? !bt.boost : true, district: activeId });
     }
     else if (a === 'pcancel') { var pid = +el.dataset.id; pending = pending.filter(function (p) { return p.id !== pid; }); renderQueue(); renderRadar(); renderAlerts(); renderPanel(); }
     else if (a === 'demolish') {

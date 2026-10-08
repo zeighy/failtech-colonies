@@ -137,3 +137,17 @@ Districts at level 5 are the endgame reward, not part of the path to it.
 - `test/balance.test.js` now drives the real actions and engine with a scripted player that founds all three districts, sets standing routes, tops up
   districts by hand, and finishes the Beacon (around tick 870; bound 450-1000). `BOT_LOG=1` prints a timeline, `BOT_DEBUG=<tick>` dumps district stocks.
 - Placeholders still to tune by playtesting: every number in `districtTypes`, `logistics`, and the new building recipes; the use of fertiliser (nothing needs it yet).
+
+## Chain rebalance and optional inputs (built)
+
+- **Stacks** are shallower: the polymer plant also makes raw synthetics (the reclaimer is now optional), a circuit fab needs 4 synthetics and 3 polymers, and the
+  crude pump, polymer plant, circuit fab and cracking tower fit a Small plot with no penalty. One plant feeds two fabs. Core hub level 5 upkeep takes 0.5 circuits/tick.
+- **Pits**: the Alloy Works makes 9 alloys/tick (the Core Foundry makes 3), so once the Pits have Large plots it is the place for alloys. The Foundry stays buildable in the
+  Core because the Core's own level 4 upgrade needs alloys before any district exists; after that it can be demolished to free ring slots for housing and support.
+- **Greenbelt**: bio domes drink raw water (one pump, no purifier), the pharma lab fits a Medium plot, the agri lab a Small one.
+- **District power**: every district gets 30/45/60/75/90 base power at levels 1-5.
+- **Optional inputs** (`building.optional`): off by default, switched on per building from the Site pane (`POST /api/boost`, stored in `colony_buildings.boost`).
+  While on and fully in stock the building spends a fixed amount per tick from its own district stockpile and gets a bonus (`outputMult` on its output, or `comfort` on
+  homes, which feeds the morale target). If the stock is short nothing is spent and the pane says it is waiting. Hydroponics Bay: fertiliser (x1.35 rations).
+  Dormitory/Habitat: medicine (+6/+8 comfort). It is generic, so more can be added in config.
+- **Hazard sinks**: from hub level 4 Crop Blight also wants fertiliser, Toxic Spill and Raid want medicine (`requires[].fromHub`), so the Greenbelt matters all game.

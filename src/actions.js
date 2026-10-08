@@ -98,6 +98,17 @@ const toggle = guarded((c, { ring, slot, paused, district }) => {
   return OK;
 });
 
+// Switch a building's optional input on or off (off by default). Clients send the state they want.
+const setBoost = guarded((c, { ring, slot, enabled, district }) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  const b = buildingAt(d, ring, slot);
+  if (!b) return fail('Nothing there.');
+  if (!config.buildings[b.building_type].optional) return fail('This building has no optional input.');
+  db.prepare('UPDATE colony_buildings SET boost = ? WHERE id = ?').run(enabled ? 1 : 0, b.id);
+  return OK;
+});
+
 const cancelOrder = guarded((c, { orderId }) => {
   const o = store.loadOrders(c.id).find((x) => x.id === Number(orderId));
   if (!o) return fail('That order no longer exists.');
@@ -290,4 +301,4 @@ const restart = guarded((c) => {
   return OK;
 }, { allowFailed: true });
 
-module.exports = { build, demolish, toggle, cancelOrder, upgradeHub, foundDistrict, shipment, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, shipment, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

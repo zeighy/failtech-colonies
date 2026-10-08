@@ -128,7 +128,7 @@ function viewFor(userId, now = Date.now()) {
         const st = bs.get(b.id) || {};
         return { id: b.id, ring: b.ring, slot: b.slot, type: b.type, paused: b.status !== 'active',
           status: st.status, eff: st.eff, mult: st.mult, adj: st.adj, plot: st.plot, haz: st.haz, limiting: st.limiting,
-          comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
+          boost: b.boost ? (st.boost || 'starved') : null, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
       }),
       orders: dOrders.map((o) => ({ id: o.id, kind: o.action_type, data: o.data, remaining: o.ticks_remaining, total: o.ticks_total })),
     };

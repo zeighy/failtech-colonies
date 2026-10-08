@@ -29,10 +29,10 @@ const CORE_PLAN = [
   'wait:5', 'beacon_array',
 ];
 const PLANS = {
-  pits: ['solar_array', 'solar_array', 'scrap_extractor', 'ore_drill', 'ore_drill', 'smelter', 'scrap_extractor', 'wait:3', 'alloy_works', 'ore_drill', 'smelter'],
-  stacks: ['solar_array', 'solar_array', 'scrap_extractor', 'crude_pump', 'crude_pump', 'polymer_plant', 'synth_reclaimer', 'circuit_fab',
-    'wait:3', 'fuel_generator', 'cracking_tower', 'cell_forge', 'circuit_fab', 'crude_pump', 'polymer_plant', 'synth_reclaimer'],
-  greenbelt: ['solar_array', 'solar_array', 'water_pump', 'water_purifier', 'bio_dome', 'bio_dome', 'wait:3', 'pharma_lab', 'bio_dome', 'solar_array'],
+  pits: ['solar_array', 'scrap_extractor', 'ore_drill', 'smelter', 'scrap_extractor', 'ore_drill', 'wait:3', 'alloy_works', 'smelter', 'alloy_works'],
+  stacks: ['solar_array', 'scrap_extractor', 'crude_pump', 'polymer_plant', 'circuit_fab', 'circuit_fab', 'solar_array',
+    'wait:3', 'fuel_generator', 'cracking_tower', 'cell_forge', 'crude_pump', 'polymer_plant', 'circuit_fab'],
+  greenbelt: ['solar_array', 'water_pump', 'bio_dome', 'bio_dome', 'wait:3', 'pharma_lab', 'bio_dome', 'solar_array'],
 };
 // Standing routes the player sets up as soon as both ends exist: [from, to, resource, rate, reserve]
 const ROUTES = [
@@ -92,7 +92,7 @@ function play(maxTicks) {
       if (store.loadShipments(id).some((s) => s.toDistrict === d.id && s.resource === r)) continue;
       for (const from of districts()) {
         if (from.id === d.id) continue;
-        const keep = from.type === 'core' ? (r === 'building_materials' ? 40 : 150) : 40;
+        const keep = from.type === 'core' ? (r === 'building_materials' ? 40 : r === 'scrap' ? 700 : 150) : 40;
         const spare = Math.floor((inv(from)[r] || 0) - keep);
         const qty = Math.min(short, spare, config.logistics.shipmentMax);
         if (qty >= 1 && actions.shipment(uid, { from: from.id, to: d.id, resource: r, qty }).ok) break;

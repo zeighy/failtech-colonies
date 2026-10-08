@@ -36,7 +36,7 @@ const countFor = (spec, hubLevel) => spec.baseCount + Math.floor((hubLevel - 1) 
 function assess(config, type, hubLevel, inventory, defense) {
   const def = config.hazards.types[type];
   const scale = scaleFor(config, hubLevel);
-  const reqs = def.requires.map((r) => {
+  const reqs = def.requires.filter((r) => !r.fromHub || hubLevel >= r.fromHub).map((r) => {
     const need = Math.ceil(r.amount * scale);
     const have = r.kind === 'stock' ? (inventory[r.resource] || 0) : defense;
     return { kind: r.kind, resource: r.resource || null, label: r.label, need, have, frac: Math.min(1, have / need) };
