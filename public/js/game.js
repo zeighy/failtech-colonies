@@ -817,6 +817,7 @@
       var opt = function (cur) { return ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === cur ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join(''); };
       var from = S.views[ship.from], fromD = ds.filter(function (d) { return d.id === ship.from; })[0], toD = ds.filter(function (d) { return d.id === ship.to; })[0];
       var have = Math.floor(from.resources[ship.res].amount), L = CFG.logistics, st = STEP[ship.res] || 10;
+      var manualCount = S.shipments.filter(function (x) { return !x.routeId; }).length; // route shipments do not use these slots
       ship.qty = clamp(ship.qty, 1, Math.max(1, Math.min(L.shipmentMax, have)));
       h += '<div class="label sec">Send a one-off shipment</div><div class="shipform">' +
         '<label>From<select data-sel="from">' + opt(ship.from) + '</select></label><label>To<select data-sel="to">' + opt(ship.to) + '</select></label>' +
@@ -826,8 +827,8 @@
           return '<option value="' + r + '"' + (r === ship.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + ' (' + amt + ')</option>';
         }).join('') + '</select></label></div>' +
         '<div class="stepper" style="margin-top:8px"><span class="lab">Qty</span><button data-act="sstep" data-delta="-' + st + '" aria-label="Less">−</button><span class="val num">' + ship.qty + '</span><button data-act="sstep" data-delta="' + st + '" aria-label="More">+</button><button data-act="sstep" data-delta="max" style="width:auto;padding:0 8px;font-size:10px">MAX</button></div>' +
-        '<div class="dim" style="font-size:11px;margin:8px 0">Stock leaves now and arrives in ' + shipTime(fromD, toD) + ' ticks (' + clock(shipTime(fromD, toD) * S.tickMs) + '). Up to ' + L.shipmentMax + ' per shipment, ' + L.maxInFlight + ' on the road at once. Anything over the destination\'s storage is lost.</div>' +
-        '<div class="actions"><button class="btn primary" data-act="shipsend"' + (have < 1 || S.shipments.length >= L.maxInFlight ? ' disabled' : '') + '>' + icon('truck', 12) + ' Dispatch</button></div>';
+        '<div class="dim" style="font-size:11px;margin:8px 0">Stock leaves now and arrives in ' + shipTime(fromD, toD) + ' ticks (' + clock(shipTime(fromD, toD) * S.tickMs) + '). Up to ' + L.shipmentMax + ' per shipment. Slots free: <b>' + (L.maxInFlight - manualCount) + ' / ' + L.maxInFlight + '</b> (routes have their own). Anything over the destination\'s storage is lost.</div>' +
+        '<div class="actions"><button class="btn primary" data-act="shipsend"' + (have < 1 || manualCount >= L.maxInFlight ? ' disabled' : '') + '>' + icon('truck', 12) + ' Dispatch</button></div>';
       var manual = S.shipments.filter(function (x) { return !x.routeId; }), auto = S.shipments.length - manual.length;
       if (auto) h += '<div class="dim" style="font-size:11px;margin-top:10px">' + auto + ' route shipment' + (auto === 1 ? '' : 's') + ' in transit.</div>';
       if (manual.length) {
@@ -848,7 +849,7 @@
       return '<div class="route" style="--c:' + def.color + '"><div class="rhead"><b>' + esc(def.name) + '</b><span class="dim">' + esc(nm(r.fromDistrict)) + ' → ' + esc(nm(r.toDistrict)) + '</span>' +
         '<button class="x" data-act="rdel" data-id="' + r.id + '" title="Remove route" aria-label="Remove route">×</button></div>' +
         '<div class="stepper"><span class="lab">Rate</span><button data-act="rstep" data-id="' + r.id + '" data-delta="-' + Math.max(1, Math.round(st / 5)) + '" aria-label="Lower">−</button><span class="val num">' + r.rate + '/t</span><button data-act="rstep" data-id="' + r.id + '" data-delta="' + Math.max(1, Math.round(st / 5)) + '" aria-label="Raise">+</button></div>' +
-        '<div class="dim" style="font-size:11px;margin-top:4px">keeps ' + fmt(r.reserve) + ' in ' + esc(nm(r.fromDistrict)) + '</div></div>';
+        '<div class="dim" style="font-size:11px;margin-top:4px">keeps ' + fmt(r.reserve) + ' in ' + esc(nm(r.fromDistrict)) + ' · ' + (r.inTransit ? fmt(r.inTransit) + ' on the road, next lands in ' + r.nextIn + 't' : 'nothing on the road (source at its reserve)') + '</div></div>';
     }).join('');
   }
   function logisticsTab() {

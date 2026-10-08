@@ -117,3 +117,19 @@ test('the Stacks turn crude into reagents, fuel and polymers on their own grid',
   assert.ok(stock(c.id, s.id, 'fuel') > 0, 'and fuel');
   assert.equal(stock(c.id, c.core, 'reagents'), 0, 'in the Stacks, not the Core');
 });
+
+test('routes never use up manual dispatch slots, and slots come back after delivery', () => {
+  const c = colony();
+  const p = c.found('pits');
+  actions.setRoute(c.uid, { from: c.core, to: p.id, resource: 'scrap', rate: 10 });
+  const max = config.logistics.maxInFlight;
+  for (let i = 0; i < max; i++) assert.deepEqual(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'clean_water', qty: 1 }), { ok: true });
+  assert.match(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'clean_water', qty: 1 }).error, /on the road at once/);
+  tick(config.districtTypes.pits.distance);
+  assert.equal(store.loadShipments(c.id).filter((s) => !s.routeId).length, 0, 'manual shipments were delivered');
+  assert.deepEqual(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'clean_water', qty: 1 }), { ok: true });
+  const v = viewFor(c.uid);
+  const r = v.routes[0];
+  assert.ok(r.inTransit > 0 && r.nextIn >= 0, 'the route reports what is on the road');
+  assert.ok(v.shipments.some((s) => s.routeId) && v.shipments.some((s) => !s.routeId));
+});

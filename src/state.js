@@ -68,6 +68,7 @@ function viewFor(userId, now = Date.now()) {
     linkLevel: d.linkLevel, inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
   }));
   const routeRows = store.loadRoutes(c.id);
+  const shipmentRows = store.loadShipments(c.id);
   const coreD = districts.find((d) => d.type === 'core');
   // The top-level view is still the Core's; other districts will get their own views.
   const inventory = coreD.inventory;
@@ -158,8 +159,11 @@ function viewFor(userId, now = Date.now()) {
     buildings: coreV.buildings,
     orders: coreV.orders,
     views,
-    routes: routeRows,
-    shipments: store.loadShipments(c.id).map((sh) => ({ ...sh, ticksLeft: Math.max(0, sh.arrivesTick - t.globalTick) })),
+    routes: routeRows.map((r) => {
+      const own = shipmentRows.filter((x) => x.routeId === r.id);
+      return { ...r, inTransit: own.reduce((n, x) => n + x.qty, 0), nextIn: own.length ? Math.max(0, Math.min(...own.map((x) => x.arrivesTick)) - t.globalTick) : null };
+    }),
+    shipments: shipmentRows.map((sh) => ({ ...sh, ticksLeft: Math.max(0, sh.arrivesTick - t.globalTick) })),
     contracts: store.loadContracts(c.id),
     events: db.prepare('SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? ORDER BY id DESC LIMIT 40').all(c.id),
   };
