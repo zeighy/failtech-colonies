@@ -152,9 +152,12 @@
   function ringInner(r) { var x = HUB_R + 22; for (var i = 1; i < r; i++) x += ringW(i) + RING_GAP; return x; }
   function ringOuter(r) { return ringInner(r) + ringW(r); }
   function polar(r, a) { return [r * Math.cos(a), r * Math.sin(a)]; }
+  // Some rings are turned a few degrees so their slots straddle the seams of the rings beside them.
+  function ringTurn(ring) { var g = GEO().rotation || {}; return (g[ring] || 0) * Math.PI / 180; }
   function sectorPath(ring, i, cap) {
     var r0 = ringInner(ring), r1 = ringOuter(ring);
-    var a0 = -Math.PI / 2 + (i / cap) * 2 * Math.PI, a1 = -Math.PI / 2 + ((i + 1) / cap) * 2 * Math.PI;
+    var rot = ringTurn(ring);
+    var a0 = -Math.PI / 2 + rot + (i / cap) * 2 * Math.PI, a1 = -Math.PI / 2 + rot + ((i + 1) / cap) * 2 * Math.PI;
     var o0 = a0 + SLOT_GAP / (2 * r1), o1 = a1 - SLOT_GAP / (2 * r1);
     var i0 = a0 + SLOT_GAP / (2 * r0), i1 = a1 - SLOT_GAP / (2 * r0);
     var large = (o1 - o0) > Math.PI ? 1 : 0;
@@ -164,15 +167,15 @@
   }
   function slotCenter(ring, i, cap) {
     var rm = ringInner(ring) + ringW(ring) / 2;
-    return polar(rm, -Math.PI / 2 + ((i + 0.5) / cap) * 2 * Math.PI);
+    return polar(rm, -Math.PI / 2 + ringTurn(ring) + ((i + 0.5) / cap) * 2 * Math.PI);
   }
   function activeD() { return RAW.districts.filter(function (d) { return d.id === activeId; })[0] || RAW.districts[0]; }
   // Rings, plots, neighbours and level table of the district being viewed.
   function GEO() {
     var d = activeD();
-    if (d.core) return { rings: CFG.rings, ringPlotSize: CFG.ringPlotSize, neighbors: CFG.neighbors, levels: CFG.hubLevels };
+    if (d.core) return { rings: CFG.rings, ringPlotSize: CFG.ringPlotSize, neighbors: CFG.neighbors, levels: CFG.hubLevels, rotation: CFG.ringRotation };
     var t = CFG.districtTypes[d.type];
-    return { rings: t.rings, ringPlotSize: t.ringPlotSize, neighbors: t.neighbors, levels: t.levels };
+    return { rings: t.rings, ringPlotSize: t.ringPlotSize, neighbors: t.neighbors, levels: t.levels, rotation: t.ringRotation };
   }
   function plotName(ring) { return CFG.plotSizes[GEO().ringPlotSize[ring]].name; }
   function plotMultFor(def, ring) {
@@ -748,13 +751,20 @@
     var d = function (x) { return x.core ? 0 : CFG.districtTypes[x.type].distance; };
     return Math.max(1, d(a) + d(b));
   }
+  // The district switcher: always there once districts are open. Pulses while there is something to do
+  // (a district can be founded, or one has been founded and not visited yet).
+  var visited = {};
   function renderSwitch() {
     var el = $('dswitch'), h = '';
-    if (S.districts.length > 1) {
+    visited[activeId] = true;
+    if (S.districtsUnlocked) {
+      var canFound = Object.keys(CFG.districtTypes).some(function (k) {
+        return !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
+      });
       h = S.districts.map(function (d) {
-        var t = d.core ? null : CFG.districtTypes[d.type];
-        return '<button class="dchip' + (d.id === activeId ? ' on' : '') + '" data-act="enter" data-id="' + d.id + '" style="--c:' + (t ? t.color : 'var(--amber)') + '"><i></i>' + esc(d.core ? 'Core' : d.name) + '<small>L' + d.level + '</small></button>';
-      }).join('');
+        var t = d.core ? null : CFG.districtTypes[d.type], fresh = !d.core && !visited[d.id];
+        return '<button class="dchip' + (d.id === activeId ? ' on' : '') + (fresh ? ' new' : '') + '" data-act="enter" data-id="' + d.id + '" style="--c:' + (t ? t.color : 'var(--amber)') + '"><i></i><span>' + esc(d.core ? 'Core' : d.name) + '</span><small>L' + d.level + '</small>' + (fresh ? '<em>NEW</em>' : '') + '</button>';
+      }).join('') + '<button class="dchip add' + (canFound ? ' pulse' : '') + '" data-act="tab" data-tab="districts" style="--c:var(--good)"><i></i><span>' + (S.districts.length > 1 ? 'Districts' : 'Found a district') + '</span>' + (canFound ? '<em>READY</em>' : '') + '</button>';
     }
     if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
   }

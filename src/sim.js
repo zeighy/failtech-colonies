@@ -16,6 +16,13 @@ function ringCapacities(config, type = 'core') {
   return levelDef(config, type, maxLevel(config, type)).ringCapacities;
 }
 
+// Rings may be turned by a few degrees (config.ringRotation for the Core, districtTypes.<type>.ringRotation
+// for the others) so that slots in neighbouring rings straddle each other's seams. Returns a fraction of a turn.
+function ringRotation(config, type, ring) {
+  const rot = type === 'core' ? config.ringRotation : (config.districtTypes[type] || {}).ringRotation;
+  return (((rot || {})[ring] || 0) / 360) % 1;
+}
+
 function buildNeighborMap(config, type = 'core') {
   const caps = ringCapacities(config, type);
   const map = new Map();
@@ -27,13 +34,16 @@ function buildNeighborMap(config, type = 'core') {
         out.push([ring, (i - 1 + cap) % cap]);
         if (cap > 2) out.push([ring, (i + 1) % cap]);
       }
-      const lo = i / cap;
-      const hi = (i + 1) / cap;
+      const lo = i / cap + ringRotation(config, type, ring);
+      const hi = lo + 1 / cap;
       for (const other of [ring - 1, ring + 1]) {
         const oc = caps[other];
         if (!oc) continue;
+        const shift = ringRotation(config, type, other);
         for (let j = 0; j < oc; j++) {
-          const overlap = Math.min(hi, (j + 1) / oc) - Math.max(lo, j / oc);
+          const a = j / oc + shift;
+          let overlap = 0;
+          for (const k of [-1, 0, 1]) overlap += Math.max(0, Math.min(hi, a + k + 1 / oc) - Math.max(lo, a + k));
           if (overlap > EPS) out.push([other, j]);
         }
       }
@@ -495,6 +505,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

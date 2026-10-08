@@ -24,11 +24,12 @@ function clientConfig() {
     workforceShare: config.global.workforceShare,
     mealsPerPop: config.global.mealsPerPopPerTick,
     rings: caps,
+    ringRotation: config.ringRotation || {},
     neighbors,
     districtTypes: Object.fromEntries(Object.entries(config.districtTypes || {}).map(([type, t]) => [type, {
       name: t.name, desc: t.desc, color: t.color, distance: t.distance, angle: t.angle, radius: t.radius,
       foundCost: t.foundCost, foundTicks: t.foundTicks, levels: t.levels, ringPlotSize: t.ringPlotSize,
-      rings: sim.ringCapacities(config, type), neighbors: Object.fromEntries(engine.neighborMaps[type]),
+      rings: sim.ringCapacities(config, type), ringRotation: t.ringRotation || {}, neighbors: Object.fromEntries(engine.neighborMaps[type]),
     }])),
     logistics: config.logistics,
     districtProgression: config.districtProgression,

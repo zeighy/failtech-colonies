@@ -18,7 +18,7 @@ The **Brief** tab is your guide. Hazards mark the structures they touch on the m
 | --- | --- |
 | **Rings, slots and plots** | Rings 1-5 have 6/8/10/12/14 slots, unlocked by Hub level. **Plots get bigger outward** (Small, Medium, Large, Heavy, Colossal). |
 | **Minimum plot size** | Big buildings (Foundry, Cell Forge, Beacon, ...) want big plots. You may build them on smaller ones, but their output is multiplied by 0.6 for each missing size step. This ties advanced buildings to the outer rings, and so to Hub level, without locking them. |
-| **Adjacency** | A building's output is multiplied for each neighbour that pairs well (or badly). Neighbours = the two beside it in its ring plus touching slots in the rings above and below. |
+| **Adjacency** | A building's output is multiplied for each neighbour that pairs well (or badly). Neighbours = the two beside it in its ring plus touching slots in the rings above and below. Rings 2 and 4 of the Core are turned 15 degrees (`ringRotation` in the config) so slots straddle the seams of the rings beside them. |
 | **Power** | A grid, not a stockpile. Shortfalls throttle everything proportionally (a brownout). Scrap Burners are big generators that burn scrap. |
 | **Housing and crew** | The hub only houses a few colonists. **Dormitories and Habitat Blocks** raise the population cap, and most buildings need **workers**: with fewer hands than posts, every staffed building slows in proportion. Growth stops at the housing cap. |
 | **Morale and comfort** | Morale heads for a target set by **where homes are** (industry next door lowers comfort; greenery and guards raise it) and by **Prepared Meals** from a Kitchen (a second food tier). Low morale slows production; high morale gives a small bonus. |
