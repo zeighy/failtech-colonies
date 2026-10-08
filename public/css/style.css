@@ -327,3 +327,4 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .route { border: 1px solid var(--line); border-left: 3px solid var(--c); background: var(--panel2); border-radius: var(--radius); padding: 8px 10px; margin: 6px 0; }
 .route .rhead { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; } .route .rhead b { font-size: 13px; } .route .rhead span { flex: 1; font-size: 11px; }
 .route .x { background: none; border: 0; color: var(--faint); font-size: 16px; line-height: 1; } .route .x:hover { color: var(--bad); }
+.route .flow { font-size: 11px; margin-top: 4px; }

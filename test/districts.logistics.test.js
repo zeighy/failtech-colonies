@@ -51,7 +51,7 @@ test('routes: validated, capacity-limited, removable', () => {
   assert.equal(store.loadRoutes(c.id).length, 1);
 });
 
-test('a route moves goods every tick, keeps the reserve, and the goods arrive after the trip', () => {
+test('a route moves goods straight between stockpiles every tick: no trip, keeps the reserve, never overfills', () => {
   const c = colony();
   const p = c.found('pits');
   db.prepare("UPDATE colony_inventory SET amount = 100 WHERE district_id = ? AND resource_id = 'ingots'").run(p.id);
@@ -59,14 +59,45 @@ test('a route moves goods every tick, keeps the reserve, and the goods arrive af
   const before = stock(c.id, c.core, 'ingots');
   tick(1);
   assert.equal(stock(c.id, p.id, 'ingots'), 80, 'at most the rate leaves each tick');
-  assert.equal(stock(c.id, c.core, 'ingots'), before, 'and it is on the road');
-  assert.equal(store.loadShipments(c.id).filter((s) => s.routeId).length, 1);
+  assert.equal(stock(c.id, c.core, 'ingots'), before + 20, 'and arrives in the same tick');
   tick(1);
   assert.equal(stock(c.id, p.id, 'ingots'), 70, 'only what is above the reserve leaves');
-  tick(config.districtTypes.pits.distance);
   assert.equal(stock(c.id, c.core, 'ingots'), before + 30);
   tick(2);
   assert.equal(stock(c.id, p.id, 'ingots'), 70, 'nothing more moves while stock sits at the reserve');
+  assert.equal(store.loadShipments(c.id).length, 0, 'routes never create shipments');
+  // a full destination takes nothing
+  db.prepare("UPDATE colony_inventory SET amount = 1e9 WHERE district_id = ? AND resource_id = 'ingots'").run(p.id);
+  actions.setRoute(c.uid, { from: p.id, to: c.core, resource: 'ingots', rate: 20, reserve: 0 });
+  db.prepare("UPDATE colony_inventory SET amount = ? WHERE district_id = ? AND resource_id = 'ingots'").run(config.hubLevels[4].maxStorage, c.core);
+  const full = stock(c.id, c.core, 'ingots');
+  tick(1);
+  assert.ok(stock(c.id, c.core, 'ingots') <= full + 1);
+});
+
+test('the rates a district shows include its routes: source down, destination up', () => {
+  const c = colony();
+  const p = c.found('pits');
+  const put = (ring, slot, type) => db.prepare('INSERT INTO colony_buildings (colony_id, district_id, ring_index, slot_index, building_type) VALUES (?, ?, ?, ?, ?)').run(c.id, p.id, ring, slot, type);
+  put(1, 0, 'solar_array'); put(1, 1, 'ore_drill'); put(1, 2, 'solar_array');
+  tick(3);
+  const before = viewFor(c.uid).views[p.id].resources.ore;
+  assert.ok(before.net > 0 && before.routeOut === 0);
+  actions.setRoute(c.uid, { from: p.id, to: c.core, resource: 'ore', rate: 10, reserve: 0 });
+  const v = viewFor(c.uid);
+  const pitsOre = v.views[p.id].resources.ore; const coreOre = v.views[c.core].resources.ore;
+  assert.equal(pitsOre.routeOut, 10);
+  assert.ok(Math.abs(pitsOre.net - (before.net - 10)) < 1e-6, 'the Pits show their production minus the routed amount');
+  assert.equal(coreOre.routeIn, 10);
+  assert.equal(coreOre.net, 10, 'and the Core shows +10 a tick');
+  assert.equal(v.resources.ore.net, 10, 'the top-level (Core) view agrees');
+  const r = v.routes[0];
+  assert.equal(r.flow, 10);
+  assert.equal(r.limit, null);
+  // the next tick really does that
+  const coreBefore = stock(c.id, c.core, 'ore');
+  tick(1);
+  assert.equal(stock(c.id, c.core, 'ore') - coreBefore, 10);
 });
 
 test('widening a link: paid from the Core, raises the capacity, stops at the top', () => {
@@ -83,13 +114,17 @@ test('widening a link: paid from the Core, raises the capacity, stops at the top
   assert.match(actions.upgradeLink(c.uid, { district: p.id }).error, /maximum/);
 });
 
-test('manual shipments are limited separately from the shipments routes send', () => {
+test('one-off shipments still work alongside routes, with all their slots free', () => {
   const c = colony();
   const p = c.found('pits');
   actions.setRoute(c.uid, { from: c.core, to: p.id, resource: 'scrap', rate: 10 });
-  tick(3);
-  assert.ok(store.loadShipments(c.id).filter((s) => s.routeId).length >= 3);
-  assert.deepEqual(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'scrap', qty: 5 }), { ok: true });
+  tick(6);
+  assert.equal(store.loadShipments(c.id).length, 0);
+  const max = config.logistics.maxInFlight;
+  for (let i = 0; i < max; i++) assert.deepEqual(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'clean_water', qty: 1 }), { ok: true });
+  assert.match(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'clean_water', qty: 1 }).error, /on the road at once/);
+  tick(config.districtTypes.pits.distance);
+  assert.deepEqual(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'clean_water', qty: 1 }), { ok: true });
 });
 
 test('the restructured chain: synthetics, circuits and cells only in the Stacks; the Beacon needs medicine from the Greenbelt', () => {
@@ -116,20 +151,4 @@ test('the Stacks turn crude into reagents, fuel and polymers on their own grid',
   assert.ok(stock(c.id, s.id, 'reagents') > 0, 'reagents appear');
   assert.ok(stock(c.id, s.id, 'fuel') > 0, 'and fuel');
   assert.equal(stock(c.id, c.core, 'reagents'), 0, 'in the Stacks, not the Core');
-});
-
-test('routes never use up manual dispatch slots, and slots come back after delivery', () => {
-  const c = colony();
-  const p = c.found('pits');
-  actions.setRoute(c.uid, { from: c.core, to: p.id, resource: 'scrap', rate: 10 });
-  const max = config.logistics.maxInFlight;
-  for (let i = 0; i < max; i++) assert.deepEqual(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'clean_water', qty: 1 }), { ok: true });
-  assert.match(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'clean_water', qty: 1 }).error, /on the road at once/);
-  tick(config.districtTypes.pits.distance);
-  assert.equal(store.loadShipments(c.id).filter((s) => !s.routeId).length, 0, 'manual shipments were delivered');
-  assert.deepEqual(actions.shipment(c.uid, { from: c.core, to: p.id, resource: 'clean_water', qty: 1 }), { ok: true });
-  const v = viewFor(c.uid);
-  const r = v.routes[0];
-  assert.ok(r.inTransit > 0 && r.nextIn >= 0, 'the route reports what is on the road');
-  assert.ok(v.shipments.some((s) => s.routeId) && v.shipments.some((s) => !s.routeId));
 });

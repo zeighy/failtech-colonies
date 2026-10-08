@@ -108,18 +108,9 @@ function tickColony(c, globalTick, tickTime) {
     db.prepare('DELETE FROM colony_shipments WHERE id = ?').run(sh.id);
   }
 
-  // Standing routes: each tick send up to `rate` of the resource, never dipping below the reserve.
-  const bag = (id) => (id === core.id ? inventory : (full.districts.find((r) => r.id === id) || {}).inventory);
-  for (const rt of store.loadRoutes(c.id)) {
-    const src = bag(rt.fromDistrict);
-    const a = districts.find((x) => x.id === rt.fromDistrict); const b = districts.find((x) => x.id === rt.toDistrict);
-    if (!src || !a || !b) continue;
-    const qty = Math.min(rt.rate, Math.floor((src[rt.resource] || 0) - rt.reserve));
-    if (qty < 1) continue;
-    src[rt.resource] -= qty;
-    db.prepare('INSERT INTO colony_shipments (colony_id, from_district, to_district, resource_id, qty, dispatched_tick, arrives_tick, route_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(c.id, a.id, b.id, rt.resource, qty, globalTick, globalTick + sim.shipDistance(config, a.type, b.type), rt.id);
-  }
+  // Standing routes: direct per-tick flows between stockpiles (see sim.applyRoutes).
+  const bags = new Map(full.districts.map((r) => [r.id, { inv: r.id === core.id ? inventory : r.inventory, cap: r.cap }]));
+  sim.applyRoutes(config, store.loadRoutes(c.id), bags);
 
   // Convoy
   if (globalTick % config.global.convoyIntervalTicks === 0) {

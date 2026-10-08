@@ -118,11 +118,13 @@ Districts at level 5 are the endgame reward, not part of the path to it.
 
 ## Step 3 notes (built)
 
-- **Routes** (`colony_routes`): a standing flow of up to `rate` units per tick from one district to another, never taking the source below `reserve`.
-  Each tick a route sends a shipment (`colony_shipments.route_id`) that lands after the trip. At most `logistics.maxRoutes`.
+- **Routes** (`colony_routes`): a standing flow of up to `rate` units per tick from one district to another, never taking the source below `reserve`
+  and never overfilling the destination. Routes are **direct transfers between stockpiles in the same tick** (`sim.applyRoutes`): no trucks, no delay, no
+  shipments. The rates every district shows already include them (source down, destination up). At most `logistics.maxRoutes`. (An earlier version
+  simulated a truck per tick, which used up the one-off shipment slots and hid the flows; the old `route_id` column is only read for in-flight leftovers.)
 - **Links**: every satellite has one link to the Core (`districts.link_level`, levels in `config.logistics.link`). Its capacity (units per tick) is shared by every
   route touching that district; a route between two satellites counts against both. Widening a link is paid from the Core and is instant.
-- Manual shipments are limited (`maxInFlight`) separately from route shipments. The Districts tab has a Districts / Logistics switch.
+- One-off shipments are limited (`maxInFlight`) and take `distance` ticks. The Districts tab has a Districts / Logistics switch.
 
 ## Step 4 notes (built)
 

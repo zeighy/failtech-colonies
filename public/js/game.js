@@ -432,6 +432,7 @@
       if (r.ticksLeft !== null && r.ticksLeft < 40) { txt = r.amount < 0.5 ? 'EMPTY' : 'empty in ' + Math.ceil(r.ticksLeft) + 't'; cls = r.ticksLeft < 15 ? 'bad' : 'warn'; }
       else if (r.amount >= r.cap - 0.5 && r.net > 0) { txt = 'FULL · wasting'; cls = 'warn'; }
       else txt = 'cap ' + fmt(r.cap);
+      if (cls === '' && (r.routeIn || r.routeOut)) { txt = (r.routeIn ? '↘ +' + fmt(r.routeIn) + ' routed in' : '') + (r.routeIn && r.routeOut ? ' · ' : '') + (r.routeOut ? '↗ −' + fmt(r.routeOut) + ' routed out' : ''); cls = 'dim'; }
       note.textContent = txt; note.className = cls;
       row.classList.toggle('crit', crit);
       row.querySelector('[data-f=bar]').style.width = (shownAmt / r.cap * 100).toFixed(1) + '%';
@@ -817,7 +818,7 @@
       var opt = function (cur) { return ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === cur ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join(''); };
       var from = S.views[ship.from], fromD = ds.filter(function (d) { return d.id === ship.from; })[0], toD = ds.filter(function (d) { return d.id === ship.to; })[0];
       var have = Math.floor(from.resources[ship.res].amount), L = CFG.logistics, st = STEP[ship.res] || 10;
-      var manualCount = S.shipments.filter(function (x) { return !x.routeId; }).length; // route shipments do not use these slots
+      var manualCount = S.shipments.filter(function (x) { return !x.routeId; }).length; // (routes no longer use shipments; this only skips old in-flight ones)
       ship.qty = clamp(ship.qty, 1, Math.max(1, Math.min(L.shipmentMax, have)));
       h += '<div class="label sec">Send a one-off shipment</div><div class="shipform">' +
         '<label>From<select data-sel="from">' + opt(ship.from) + '</select></label><label>To<select data-sel="to">' + opt(ship.to) + '</select></label>' +
@@ -827,10 +828,9 @@
           return '<option value="' + r + '"' + (r === ship.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + ' (' + amt + ')</option>';
         }).join('') + '</select></label></div>' +
         '<div class="stepper" style="margin-top:8px"><span class="lab">Qty</span><button data-act="sstep" data-delta="-' + st + '" aria-label="Less">−</button><span class="val num">' + ship.qty + '</span><button data-act="sstep" data-delta="' + st + '" aria-label="More">+</button><button data-act="sstep" data-delta="max" style="width:auto;padding:0 8px;font-size:10px">MAX</button></div>' +
-        '<div class="dim" style="font-size:11px;margin:8px 0">Stock leaves now and arrives in ' + shipTime(fromD, toD) + ' ticks (' + clock(shipTime(fromD, toD) * S.tickMs) + '). Up to ' + L.shipmentMax + ' per shipment. Slots free: <b>' + (L.maxInFlight - manualCount) + ' / ' + L.maxInFlight + '</b> (routes have their own). Anything over the destination\'s storage is lost.</div>' +
+        '<div class="dim" style="font-size:11px;margin:8px 0">Stock leaves now and arrives in ' + shipTime(fromD, toD) + ' ticks (' + clock(shipTime(fromD, toD) * S.tickMs) + '). Up to ' + L.shipmentMax + ' per shipment. Slots free: <b>' + (L.maxInFlight - manualCount) + ' / ' + L.maxInFlight + '</b>. Anything over the destination\'s storage is lost.</div>' +
         '<div class="actions"><button class="btn primary" data-act="shipsend"' + (have < 1 || manualCount >= L.maxInFlight ? ' disabled' : '') + '>' + icon('truck', 12) + ' Dispatch</button></div>';
-      var manual = S.shipments.filter(function (x) { return !x.routeId; }), auto = S.shipments.length - manual.length;
-      if (auto) h += '<div class="dim" style="font-size:11px;margin-top:10px">' + auto + ' route shipment' + (auto === 1 ? '' : 's') + ' in transit.</div>';
+      var manual = S.shipments.filter(function (x) { return !x.routeId; });
       if (manual.length) {
         h += '<div class="label sec">On the road</div>' + manual.map(function (x) {
           var a = ds.filter(function (d) { return d.id === x.fromDistrict; })[0], b = ds.filter(function (d) { return d.id === x.toDistrict; })[0];
@@ -849,12 +849,12 @@
       return '<div class="route" style="--c:' + def.color + '"><div class="rhead"><b>' + esc(def.name) + '</b><span class="dim">' + esc(nm(r.fromDistrict)) + ' → ' + esc(nm(r.toDistrict)) + '</span>' +
         '<button class="x" data-act="rdel" data-id="' + r.id + '" title="Remove route" aria-label="Remove route">×</button></div>' +
         '<div class="stepper"><span class="lab">Rate</span><button data-act="rstep" data-id="' + r.id + '" data-delta="-' + Math.max(1, Math.round(st / 5)) + '" aria-label="Lower">−</button><span class="val num">' + r.rate + '/t</span><button data-act="rstep" data-id="' + r.id + '" data-delta="' + Math.max(1, Math.round(st / 5)) + '" aria-label="Raise">+</button></div>' +
-        '<div class="dim" style="font-size:11px;margin-top:4px">keeps ' + fmt(r.reserve) + ' in ' + esc(nm(r.fromDistrict)) + ' · ' + (r.inTransit ? fmt(r.inTransit) + ' on the road, next lands in ' + r.nextIn + 't' : 'nothing on the road (source at its reserve)') + '</div></div>';
+        '<div class="dim" style="font-size:11px;margin-top:4px">keeps ' + fmt(r.reserve) + ' in ' + esc(nm(r.fromDistrict)) + '</div><div class="flow ' + (r.flow >= r.rate ? 'good' : r.flow > 0 ? 'warn' : 'bad') + '">' + (r.flow > 0 ? 'Moving ' + r.flow + '/t' : 'Idle') + (r.limit === 'stock' ? ' · the source is down to its reserve' : r.limit === 'room' ? ' · the destination is full' : '') + '</div></div>';
     }).join('');
   }
   function logisticsTab() {
     var ds = S.districts, L = CFG.logistics;
-    var h = '<div class="note">Goods in transit are off the books until they land, so long roads mean thin stock. Every satellite has one <b>link</b> to the Core. Its capacity is shared by every route touching it.</div><div class="label sec">Links</div>';
+    var h = '<div class="note"><b>Routes</b> move goods straight between stockpiles every tick: the source\'s rate drops and the destination\'s rises by the same amount, with no delay. Every satellite has one <b>link</b> to the Core; its capacity is shared by every route touching it. <b>One-off shipments</b> are separate and take time on the road.</div><div class="label sec">Links</div>';
     ds.filter(function (d) { return !d.core; }).forEach(function (d) {
       var k = d.link, can = k.next && canAffordCore(k.next.upgradeCost);
       h += '<div class="dcard" style="--c:' + CFG.districtTypes[d.type].color + '"><div class="top"><b>' + esc(d.name) + '</b><small class="' + (k.load >= k.capacity ? 'warn' : '') + '">' + k.load + ' / ' + k.capacity + ' per tick · ' + CFG.districtTypes[d.type].distance + ' ticks away</small></div>' +

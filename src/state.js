@@ -86,6 +86,16 @@ function viewFor(userId, now = Date.now()) {
   );
   const proj = sim.coreView(full);
 
+  // Standing routes act on the next tick's stock, so the rates every district shows already include them.
+  const routeBags = new Map(full.districts.map((r, i) => [r.id, { inv: { ...(r.id === coreD.id ? proj.inventory : r.inventory) }, cap: r.id === coreD.id ? proj.cap : r.cap }]));
+  const routeFlows = sim.applyRoutes(config, routeRows, routeBags);
+  const flowIn = {}; const flowOut = {};
+  for (const f of routeFlows) {
+    if (f.qty <= 0) continue;
+    ((flowIn[f.route.toDistrict] = flowIn[f.route.toDistrict] || {})[f.route.resource] = ((flowIn[f.route.toDistrict] || {})[f.route.resource] || 0) + f.qty);
+    ((flowOut[f.route.fromDistrict] = flowOut[f.route.fromDistrict] || {})[f.route.resource] = ((flowOut[f.route.fromDistrict] || {})[f.route.resource] || 0) + f.qty);
+  }
+
   // A view of one district: stock with rates, grid, hub, buildings and orders.
   const allOrders = store.loadOrders(c.id);
   const districtView = (d, r) => {
@@ -95,9 +105,10 @@ function viewFor(userId, now = Date.now()) {
     const resources = {};
     for (const res of Object.keys(config.resources)) {
       const f = flows[res];
-      const net = f.produced - f.consumed;
+      const rin = ((flowIn[d.id] || {})[res]) || 0; const rout = ((flowOut[d.id] || {})[res]) || 0;
+      const net = f.produced - f.consumed + rin - rout;
       const amount = d.inventory[res] || 0;
-      resources[res] = { amount, cap, produced: f.produced, consumed: f.consumed, net, ticksLeft: net < -1e-6 ? amount / -net : null };
+      resources[res] = { amount, cap, produced: f.produced, consumed: f.consumed, routeIn: rin, routeOut: rout, net, ticksLeft: net < -1e-6 ? amount / -net : null };
     }
     const lvl = sim.levelDef(config, d.type, d.level);
     const dOrders = allOrders.filter((o) => o.district_id === d.id || (isCore && !o.district_id));
@@ -159,10 +170,7 @@ function viewFor(userId, now = Date.now()) {
     buildings: coreV.buildings,
     orders: coreV.orders,
     views,
-    routes: routeRows.map((r) => {
-      const own = shipmentRows.filter((x) => x.routeId === r.id);
-      return { ...r, inTransit: own.reduce((n, x) => n + x.qty, 0), nextIn: own.length ? Math.max(0, Math.min(...own.map((x) => x.arrivesTick)) - t.globalTick) : null };
-    }),
+    routes: routeFlows.map((f) => ({ ...f.route, flow: f.qty, limit: f.limit })),
     shipments: shipmentRows.map((sh) => ({ ...sh, ticksLeft: Math.max(0, sh.arrivesTick - t.globalTick) })),
     contracts: store.loadContracts(c.id),
     events: db.prepare('SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? ORDER BY id DESC LIMIT 40').all(c.id),

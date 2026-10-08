@@ -304,6 +304,28 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
   };
 }
 
+// ---- standing routes ---------------------------------------------------------------
+// A route moves up to `rate` of a resource every tick straight from one district's stockpile into another's:
+// no trucks, no delay. It never takes the source below `reserve` and never overfills the destination.
+// bags: Map districtId -> { inv, cap } (mutated). Returns [{ route, qty, limit }] where limit says what held it
+// back: null (full rate), 'stock' (source at its reserve) or 'room' (destination full).
+function applyRoutes(config, routes, bags) {
+  const out = [];
+  for (const route of routes) {
+    const a = bags.get(route.fromDistrict); const b = bags.get(route.toDistrict);
+    if (!a || !b) continue;
+    const avail = Math.max(0, Math.floor((a.inv[route.resource] || 0) - route.reserve));
+    const room = Math.max(0, Math.floor(b.cap - (b.inv[route.resource] || 0)));
+    const qty = Math.min(route.rate, avail, room);
+    if (qty > 0) {
+      a.inv[route.resource] -= qty;
+      b.inv[route.resource] = (b.inv[route.resource] || 0) + qty;
+    }
+    out.push({ route, qty, limit: qty >= route.rate ? null : avail <= room ? 'stock' : 'room' });
+  }
+  return out;
+}
+
 // ---- the whole colony ---------------------------------------------------------------
 // colony: { population, morale, age, progress, won }
 // districts: [{ id, type, level, inventory, buildings }]   (exactly one has type 'core')
@@ -505,6 +527,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };
