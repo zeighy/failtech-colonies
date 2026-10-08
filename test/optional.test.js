@@ -5,6 +5,10 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+// The database must be a throwaway one before anything that touches it is loaded.
+process.env.DB_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-opt-')), 'o.db');
+process.env.SESSION_SECRET = 'x';
+process.env.HAZARDS = 'off';
 const sim = require('../src/sim');
 
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'game_config.json'), 'utf8'));
@@ -90,9 +94,6 @@ test('districts have enough base power to start, the Alloy Works outproduces the
 });
 
 test('the boost action switches a building, explicitly and idempotently, and only where it exists', () => {
-  process.env.DB_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-opt-')), 'o.db');
-  process.env.SESSION_SECRET = 'x';
-  process.env.HAZARDS = 'off';
   const store = require('../src/db');
   const actions = require('../src/actions');
   const { viewFor } = require('../src/state');
