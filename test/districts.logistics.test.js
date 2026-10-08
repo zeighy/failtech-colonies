@@ -152,3 +152,13 @@ test('the Stacks turn crude into reagents, fuel and polymers on their own grid',
   assert.ok(stock(c.id, s.id, 'fuel') > 0, 'and fuel');
   assert.equal(stock(c.id, c.core, 'reagents'), 0, 'in the Stacks, not the Core');
 });
+
+test('a widened link really allows bigger routes (the check reads the district\'s current link level)', () => {
+  const c = colony();
+  const p = c.found('pits');
+  const cap1 = config.logistics.link.levels[1].capacity; const cap2 = config.logistics.link.levels[2].capacity;
+  assert.match(actions.setRoute(c.uid, { from: p.id, to: c.core, resource: 'ore', rate: cap1 + 1 }).error, /carries 20 per tick/);
+  assert.deepEqual(actions.upgradeLink(c.uid, { district: p.id }), { ok: true });
+  assert.deepEqual(actions.setRoute(c.uid, { from: p.id, to: c.core, resource: 'ore', rate: cap2 }), { ok: true });
+  assert.match(actions.setRoute(c.uid, { from: p.id, to: c.core, resource: 'ingots', rate: 1 }).error, new RegExp(`carries ${cap2} per tick`));
+});

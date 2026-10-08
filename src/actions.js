@@ -180,7 +180,7 @@ const shipment = guarded((c, { from, to, resource, qty }) => {
 // A route moves up to `rate` units per tick from one district to another, never taking the source below
 // `reserve`. Every satellite has a link to the Core with a capacity; a route counts against the link of each
 // satellite it touches (a route to or from the Core touches one).
-const linkCapacity = (config_, d) => config_.logistics.link.levels[d.linkLevel || 1].capacity;
+const linkCapacity = (config_, d) => config_.logistics.link.levels[d.link_level || d.linkLevel || 1].capacity; // d is a districts row
 function linkLoad(c, districtId, ignoreRouteId) {
   return store.loadRoutes(c.id)
     .filter((r) => r.id !== ignoreRouteId && (r.fromDistrict === districtId || r.toDistrict === districtId))
