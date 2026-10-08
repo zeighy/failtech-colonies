@@ -9,7 +9,7 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failt
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -142,6 +142,23 @@ function migrate() {
     dispatched_tick INTEGER NOT NULL,
     arrives_tick INTEGER NOT NULL
   )`);
+  // v8 (additive): standing routes, the shipments they send, and the capacity of each district's link to the Core.
+  db.exec(`CREATE TABLE IF NOT EXISTS colony_routes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    from_district INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+    to_district INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+    resource_id TEXT NOT NULL,
+    rate INTEGER NOT NULL,
+    reserve INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (from_district, to_district, resource_id)
+  )`);
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('colony_shipments') WHERE name = 'route_id'").get()) {
+    db.exec('ALTER TABLE colony_shipments ADD COLUMN route_id INTEGER');
+  }
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('districts') WHERE name = 'link_level'").get()) {
+    db.exec('ALTER TABLE districts ADD COLUMN link_level INTEGER NOT NULL DEFAULT 1');
+  }
   // A building inserted without a district belongs to the colony's Core district.
   db.exec(`CREATE TRIGGER IF NOT EXISTS buildings_default_district AFTER INSERT ON colony_buildings
     WHEN NEW.district_id IS NULL BEGIN
@@ -266,7 +283,7 @@ function coreId(colonyId) {
   return r ? r.id : null;
 }
 function loadDistricts(colonyId) {
-  return db.prepare('SELECT id, type, level, name, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId);
+  return db.prepare('SELECT id, type, level, name, link_level AS linkLevel, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId);
 }
 
 function loadInventory(colonyId, districtId = coreId(colonyId)) {
@@ -301,7 +318,11 @@ function hasBeacon(colonyId) {
 }
 
 function loadShipments(colonyId) {
-  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, qty, dispatched_tick AS dispatchedTick, arrives_tick AS arrivesTick FROM colony_shipments WHERE colony_id = ? ORDER BY arrives_tick, id').all(colonyId);
+  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, qty, dispatched_tick AS dispatchedTick, arrives_tick AS arrivesTick, route_id AS routeId FROM colony_shipments WHERE colony_id = ? ORDER BY arrives_tick, id').all(colonyId);
+}
+
+function loadRoutes(colonyId) {
+  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, rate, reserve FROM colony_routes WHERE colony_id = ? ORDER BY id').all(colonyId);
 }
 
 function loadHazard(colonyId) {
@@ -323,5 +344,5 @@ function loadContracts(colonyId) {
 module.exports = {
   db, config, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
-  coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadShipments, loadContracts, loadHazard, loadExpress,
+  coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadShipments, loadRoutes, loadContracts, loadHazard, loadExpress,
 };

@@ -113,7 +113,8 @@ test('shipments: stock leaves now, arrives after the trip, over-cap is lost, lim
 
 test('level 3 upgrades of the Pits need reagents the district cannot make', () => {
   assert.ok(T.levels[3].upgradeCost.reagents > 0);
-  assert.ok(!Object.values(config.buildings).some((b) => (b.outputsPerTick.reagents || 0) > 0), 'no building makes reagents yet: they come from the convoy');
+  const makers = Object.entries(config.buildings).filter(([, b]) => (b.outputsPerTick.reagents || 0) > 0);
+  assert.ok(makers.length && makers.every(([, b]) => b.districts && !b.districts.includes('pits')), 'reagents come from another district');
 });
 
 test('the view carries every district with its own stock, buildings and rings', () => {

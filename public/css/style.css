@@ -318,3 +318,6 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .shipform label { display: flex; flex-direction: column; gap: 3px; font-size: 9px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
 .shipform select { background: var(--bg2); color: var(--text); border: 1px solid var(--line2); border-radius: var(--radius); padding: 6px; font-size: 12px; }
 .shiprow { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.route { border: 1px solid var(--line); border-left: 3px solid var(--c); background: var(--panel2); border-radius: var(--radius); padding: 8px 10px; margin: 6px 0; }
+.route .rhead { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; } .route .rhead b { font-size: 13px; } .route .rhead span { flex: 1; font-size: 11px; }
+.route .x { background: none; border: 0; color: var(--faint); font-size: 16px; line-height: 1; } .route .x:hover { color: var(--bad); }

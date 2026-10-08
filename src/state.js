@@ -64,8 +64,9 @@ function viewFor(userId, now = Date.now()) {
   const districts = store.loadDistricts(c.id).map((d) => ({
     id: d.id, type: d.type, name: d.name,
     level: d.type === 'core' ? c.hub_level : d.level,
-    inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
+    linkLevel: d.linkLevel, inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
   }));
+  const routeRows = store.loadRoutes(c.id);
   const coreD = districts.find((d) => d.type === 'core');
   // The top-level view is still the Core's; other districts will get their own views.
   const inventory = coreD.inventory;
@@ -133,7 +134,12 @@ function viewFor(userId, now = Date.now()) {
     districtsUnlocked: sim.districtsUnlocked(config, { coreLevel: c.hub_level }),
     districtLevelCap: sim.districtLevelCap(config, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) }),
     districtNeeds: Object.fromEntries([2, 3, 4, 5].map((l) => [l, sim.districtLevelNeeds(config, l)])),
-    districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length })),
+    districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length,
+      link: d.type === 'core' ? null : {
+        level: d.linkLevel, capacity: config.logistics.link.levels[d.linkLevel].capacity,
+        load: routeRows.filter((r) => r.fromDistrict === d.id || r.toDistrict === d.id).reduce((n, r) => n + r.rate, 0),
+        next: config.logistics.link.levels[d.linkLevel + 1] || null,
+      } })),
     founding: allOrders.filter((o) => o.action_type === 'found').map((o) => ({ id: o.id, type: o.data.type, remaining: o.ticks_remaining, total: o.ticks_total })),
     convoy: { ticksLeft: ticksToConvoy, arrivesAt: nextTickAt + (ticksToConvoy - 1) * t.tickMs },
     colony: {
@@ -151,6 +157,7 @@ function viewFor(userId, now = Date.now()) {
     buildings: coreV.buildings,
     orders: coreV.orders,
     views,
+    routes: routeRows,
     shipments: store.loadShipments(c.id).map((sh) => ({ ...sh, ticksLeft: Math.max(0, sh.arrivesTick - t.globalTick) })),
     contracts: store.loadContracts(c.id),
     events: db.prepare('SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? ORDER BY id DESC LIMIT 40').all(c.id),

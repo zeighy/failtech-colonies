@@ -26,6 +26,8 @@
   var RAW = null;          // the server view as received
   var activeId = null;     // district being looked at (the Core by default)
   var radarFor = null;     // district the radar was built for
+  var dmode = 'overview';  // Districts tab: 'overview' | 'logistics'
+  var route = { from: null, to: null, res: 'scrap', rate: 10, reserve: 0 }; // route being composed
   var ship = { from: null, to: null, res: 'scrap', qty: 100 }; // shipment being composed
   var sel = null;          // { ring, slot } | { hub: true } | null
   var tab = 'brief';
@@ -45,7 +47,7 @@
   var convoyMode = 'scheduled'; // 'scheduled' | 'express'
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
-  var STEP = { scrap: 50, ore: 25, ingots: 10, reagents: 5, unpurified_water: 25, raw_synthetics: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5, alloys: 5, circuits: 5, power_cells: 2 };
+  var STEP = { scrap: 50, ore: 25, ingots: 10, reagents: 5, crude: 25, fuel: 10, polymers: 5, biomass: 25, fertiliser: 10, medicine: 2, unpurified_water: 25, raw_synthetics: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5, alloys: 5, circuits: 5, power_cells: 2 };
   var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'site'], ['convoy', 'Convoy', 'truck'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
@@ -777,13 +779,15 @@
       return '<div class="empty-state">' + icon('lock', 36) + '<div>Districts open at hub level ' + CFG.districtProgression.unlockCoreLevel + '.</div></div>' +
         '<div class="note">Out past the rings there is ground worth holding: satellite bases with their own stockpile and power grid, producing what the Core cannot. Grow the hub first.</div>';
     }
-    var h = districtMap() + '<div class="note">Each district keeps its <b>own stockpile and power grid</b>. People, crew and morale are shared across the colony. Founding is paid from the Core; upgrades are paid from the district itself, so goods have to be shipped in.</div>';
+    var seg = '<div class="seg" role="tablist" style="margin-bottom:12px"><button role="tab" data-act="dmode" data-mode="overview" aria-selected="' + (dmode === 'overview') + '">Districts</button><button role="tab" data-act="dmode" data-mode="logistics" aria-selected="' + (dmode === 'logistics') + '">Logistics' + (S.routes.length ? ' · ' + S.routes.length + ' route' + (S.routes.length === 1 ? '' : 's') : '') + '</button></div>';
+    if (dmode === 'logistics' && S.districts.length > 1) return seg + logisticsTab();
+    var h = seg + districtMap() + '<div class="note">Each district keeps its <b>own stockpile and power grid</b>. People, crew and morale are shared across the colony. Founding is paid from the Core; upgrades are paid from the district itself, so goods have to be shipped in.</div>';
     Object.keys(CFG.districtTypes).forEach(function (k) {
       var t = CFG.districtTypes[k], d = districtOf(k), f = S.founding.filter(function (x) { return x.type === k; })[0];
       h += '<div class="dcard" style="--c:' + t.color + '"><div class="top"><b>' + esc(t.name) + '</b>' + (d ? '<small>Level ' + d.level + ' · ' + d.buildings + ' structure' + (d.buildings === 1 ? '' : 's') + '</small>' : '') + '</div>' +
         '<div class="dim" style="font-size:12px;margin-bottom:8px">' + esc(t.desc) + '</div>';
       if (d) {
-        h += '<div class="actions"><button class="btn' + (d.id === activeId ? '' : ' primary') + '" data-act="enter" data-id="' + d.id + '"' + (d.id === activeId ? ' disabled' : '') + '>' + (d.id === activeId ? 'Viewing' : 'Enter district') + '</button></div>';
+        h += '<div class="dim" style="font-size:11px;margin-bottom:6px">Link ' + d.link.load + ' / ' + d.link.capacity + ' per tick · ' + t.distance + ' ticks from the Core</div><div class="actions"><button class="btn' + (d.id === activeId ? '' : ' primary') + '" data-act="enter" data-id="' + d.id + '"' + (d.id === activeId ? ' disabled' : '') + '>' + (d.id === activeId ? 'Viewing' : 'Enter district') + '</button></div>';
       } else if (f) {
         h += '<div class="note">Being founded: ' + f.remaining + ' tick' + (f.remaining === 1 ? '' : 's') + ' remaining. <a href="#" data-act="cancel" data-id="' + f.id + '" style="color:var(--amber)">Cancel</a></div>';
       } else {
@@ -792,7 +796,10 @@
       }
       h += '</div>';
     });
-    // shipments
+    return h;
+  }
+  function shipmentsBlock() {
+    var h = '';
     if (S.districts.length > 1) {
       var ds = S.districts;
       if (!ds.some(function (d) { return d.id === ship.from; })) ship.from = ds[0].id;
@@ -801,7 +808,7 @@
       var from = S.views[ship.from], fromD = ds.filter(function (d) { return d.id === ship.from; })[0], toD = ds.filter(function (d) { return d.id === ship.to; })[0];
       var have = Math.floor(from.resources[ship.res].amount), L = CFG.logistics, st = STEP[ship.res] || 10;
       ship.qty = clamp(ship.qty, 1, Math.max(1, Math.min(L.shipmentMax, have)));
-      h += '<div class="label sec">Send a shipment</div><div class="shipform">' +
+      h += '<div class="label sec">Send a one-off shipment</div><div class="shipform">' +
         '<label>From<select data-sel="from">' + opt(ship.from) + '</select></label><label>To<select data-sel="to">' + opt(ship.to) + '</select></label>' +
         '<label class="wide">Goods<select data-sel="res">' + Object.keys(CFG.resources).map(function (r) {
           var amt = Math.floor(from.resources[r].amount);
@@ -811,14 +818,53 @@
         '<div class="stepper" style="margin-top:8px"><span class="lab">Qty</span><button data-act="sstep" data-delta="-' + st + '" aria-label="Less">−</button><span class="val num">' + ship.qty + '</span><button data-act="sstep" data-delta="' + st + '" aria-label="More">+</button><button data-act="sstep" data-delta="max" style="width:auto;padding:0 8px;font-size:10px">MAX</button></div>' +
         '<div class="dim" style="font-size:11px;margin:8px 0">Stock leaves now and arrives in ' + shipTime(fromD, toD) + ' ticks (' + clock(shipTime(fromD, toD) * S.tickMs) + '). Up to ' + L.shipmentMax + ' per shipment, ' + L.maxInFlight + ' on the road at once. Anything over the destination\'s storage is lost.</div>' +
         '<div class="actions"><button class="btn primary" data-act="shipsend"' + (have < 1 || S.shipments.length >= L.maxInFlight ? ' disabled' : '') + '>' + icon('truck', 12) + ' Dispatch</button></div>';
-      if (S.shipments.length) {
-        h += '<div class="label sec">On the road</div>' + S.shipments.map(function (x) {
+      var manual = S.shipments.filter(function (x) { return !x.routeId; }), auto = S.shipments.length - manual.length;
+      if (auto) h += '<div class="dim" style="font-size:11px;margin-top:10px">' + auto + ' route shipment' + (auto === 1 ? '' : 's') + ' in transit.</div>';
+      if (manual.length) {
+        h += '<div class="label sec">On the road</div>' + manual.map(function (x) {
           var a = ds.filter(function (d) { return d.id === x.fromDistrict; })[0], b = ds.filter(function (d) { return d.id === x.toDistrict; })[0];
           return '<div class="shiprow"><span>' + x.qty + ' ' + esc(CFG.resources[x.resource].name) + '</span><span class="dim">' + esc(a ? a.name : '?') + ' → ' + esc(b ? b.name : '?') + '</span><span class="num">' + x.ticksLeft + 't</span></div>';
         }).join('');
       }
     }
     return h;
+  }
+
+  function routeRows() {
+    var ds = S.districts, nm = function (id) { var d = ds.filter(function (x) { return x.id === id; })[0]; return d ? d.name : '?'; };
+    if (!S.routes.length) return '<div class="dim" style="font-size:12px">No standing routes yet.</div>';
+    return S.routes.map(function (r) {
+      var def = CFG.resources[r.resource], st = STEP[r.resource] || 10;
+      return '<div class="route" style="--c:' + def.color + '"><div class="rhead"><b>' + esc(def.name) + '</b><span class="dim">' + esc(nm(r.fromDistrict)) + ' → ' + esc(nm(r.toDistrict)) + '</span>' +
+        '<button class="x" data-act="rdel" data-id="' + r.id + '" title="Remove route" aria-label="Remove route">×</button></div>' +
+        '<div class="stepper"><span class="lab">Rate</span><button data-act="rstep" data-id="' + r.id + '" data-delta="-' + Math.max(1, Math.round(st / 5)) + '" aria-label="Lower">−</button><span class="val num">' + r.rate + '/t</span><button data-act="rstep" data-id="' + r.id + '" data-delta="' + Math.max(1, Math.round(st / 5)) + '" aria-label="Raise">+</button></div>' +
+        '<div class="dim" style="font-size:11px;margin-top:4px">keeps ' + fmt(r.reserve) + ' in ' + esc(nm(r.fromDistrict)) + '</div></div>';
+    }).join('');
+  }
+  function logisticsTab() {
+    var ds = S.districts, L = CFG.logistics;
+    var h = '<div class="note">Goods in transit are off the books until they land, so long roads mean thin stock. Every satellite has one <b>link</b> to the Core. Its capacity is shared by every route touching it.</div><div class="label sec">Links</div>';
+    ds.filter(function (d) { return !d.core; }).forEach(function (d) {
+      var k = d.link, can = k.next && canAffordCore(k.next.upgradeCost);
+      h += '<div class="dcard" style="--c:' + CFG.districtTypes[d.type].color + '"><div class="top"><b>' + esc(d.name) + '</b><small class="' + (k.load >= k.capacity ? 'warn' : '') + '">' + k.load + ' / ' + k.capacity + ' per tick · ' + CFG.districtTypes[d.type].distance + ' ticks away</small></div>' +
+        '<div class="meter"><i style="width:' + Math.min(100, k.load / k.capacity * 100).toFixed(0) + '%;background:' + (k.load >= k.capacity ? 'var(--warn)' : 'var(--good)') + '"></i></div>' +
+        (k.next ? '<div class="label" style="margin-top:8px">Widen the link (from the Core)</div><div class="io">' + costPills(k.next.upgradeCost, S.coreRes) + '<span class="pill out"><i style="background:var(--good)"></i>to ' + k.next.capacity + '/t</span></div><div class="actions"><button class="btn" data-act="linkup" data-id="' + d.id + '"' + (can ? '' : ' disabled') + '>Upgrade link</button></div>' : '<div class="dim" style="font-size:11px;margin-top:6px">Fully upgraded.</div>') + '</div>';
+    });
+    h += '<div class="label sec">Standing routes · ' + S.routes.length + ' / ' + L.maxRoutes + '</div>' + routeRows();
+    if (!ds.some(function (d) { return d.id === route.from; })) route.from = ds[0].id;
+    if (!ds.some(function (d) { return d.id === route.to; }) || route.to === route.from) route.to = ds.filter(function (d) { return d.id !== route.from; })[0].id;
+    var opt = function (cur) { return ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === cur ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join(''); };
+    var rst = Math.max(1, Math.round((STEP[route.res] || 10) / 5));
+    h += '<div class="label sec">New route</div><div class="shipform"><label>From<select data-sel="r:from">' + opt(route.from) + '</select></label><label>To<select data-sel="r:to">' + opt(route.to) + '</select></label>' +
+      '<label class="wide">Goods<select data-sel="r:res">' + Object.keys(CFG.resources).map(function (r) {
+        if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1) return '';
+        return '<option value="' + r + '"' + (r === route.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + '</option>';
+      }).join('') + '</select></label></div>' +
+      '<div class="stepper" style="margin-top:8px"><span class="lab">Rate</span><button data-act="rdraft" data-f="rate" data-delta="-' + rst + '">−</button><span class="val num">' + route.rate + '/t</span><button data-act="rdraft" data-f="rate" data-delta="' + rst + '">+</button></div>' +
+      '<div class="stepper" style="margin-top:6px"><span class="lab">Keep</span><button data-act="rdraft" data-f="reserve" data-delta="-' + (STEP[route.res] || 10) + '">−</button><span class="val num">' + route.reserve + '</span><button data-act="rdraft" data-f="reserve" data-delta="' + (STEP[route.res] || 10) + '">+</button></div>' +
+      '<div class="dim" style="font-size:11px;margin:8px 0">Sends up to the rate every tick, but never takes the source below the amount it keeps.</div>' +
+      '<div class="actions"><button class="btn primary" data-act="rsave">Set route</button></div>';
+    return h + shipmentsBlock();
   }
   function districtHubTab() {
     var d = activeD(), t = CFG.districtTypes[d.type], lv = GEO().levels[d.level], next = GEO().levels[d.level + 1];
@@ -1051,6 +1097,15 @@
     }
     else if (a === 'cancel') { e.preventDefault(); act('cancel', { orderId: +el.dataset.id }); }
     else if (a === 'upgrade') act('upgrade', { district: activeId }, activeD().core ? 'Hub upgrade started.' : activeD().name + ' upgrade started.');
+    else if (a === 'dmode') { dmode = el.dataset.mode; renderPanel(); }
+    else if (a === 'linkup') act('link', { district: +el.dataset.id }, 'Link upgraded.');
+    else if (a === 'rdel') { var rr = S.routes.filter(function (x) { return x.id === +el.dataset.id; })[0]; if (rr) act('route', { from: rr.fromDistrict, to: rr.toDistrict, resource: rr.resource, rate: 0 }); }
+    else if (a === 'rstep') {
+      var rt = S.routes.filter(function (x) { return x.id === +el.dataset.id; })[0];
+      if (rt) act('route', { from: rt.fromDistrict, to: rt.toDistrict, resource: rt.resource, rate: Math.max(0, rt.rate + (+el.dataset.delta)), reserve: rt.reserve });
+    }
+    else if (a === 'rdraft') { route[el.dataset.f] = Math.max(el.dataset.f === 'rate' ? 1 : 0, route[el.dataset.f] + (+el.dataset.delta)); renderPanel(); }
+    else if (a === 'rsave') act('route', { from: route.from, to: route.to, resource: route.res, rate: route.rate, reserve: route.reserve }, 'Route set.');
     else if (a === 'enter') { e.preventDefault(); enter(+el.dataset.id); }
     else if (a === 'found') act('found', { type: el.dataset.type }, 'Founding started.');
     else if (a === 'sstep') {
@@ -1091,7 +1146,8 @@
     var el = e.target.closest('[data-sel]');
     if (!el) return;
     var k = el.dataset.sel;
-    if (k === 'res') ship.res = el.value; else ship[k] = +el.value;
+    if (k.indexOf('r:') === 0) { var rk = k.slice(2); if (rk === 'res') route.res = el.value; else route[rk] = +el.value; }
+    else if (k === 'res') ship.res = el.value; else ship[k] = +el.value;
     renderPanel();
   });
   document.addEventListener('keydown', function (e) {

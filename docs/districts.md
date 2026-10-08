@@ -1,6 +1,6 @@
 # Districts: design
 
-Status: **agreed direction, under construction.** Steps 1 (refactor) and 2 (map, founding, rings, upgrades, manual shipments, The Pits) are built; everything after them is
+Status: **agreed direction, under construction.** Steps 1 (refactor), 2 (map, founding, rings, upgrades, manual shipments, The Pits), 3 (routes, link capacity, logistics tab) and 4 (the Stacks, the Greenbelt, the chain restructure, a multi-district scripted player) are built; everything after them is
 a plan and the numbers are placeholders to be tuned by playtesting and by the scripted-player simulation.
 
 ## Vision
@@ -115,3 +115,23 @@ Districts at level 5 are the endgame reward, not part of the path to it.
   at dispatch, arrives after `distance` ticks (district to district goes via the Core); overflow beyond storage is lost; limits in `config.logistics`.
 - Reagents have no producer yet (the Stacks will make them), so the Pits level 3+ upgrades need them from the convoy for now.
 - The state view carries `views[districtId]` (stock with rates, grid, hub, buildings, orders); top-level fields are still the Core's.
+
+## Step 3 notes (built)
+
+- **Routes** (`colony_routes`): a standing flow of up to `rate` units per tick from one district to another, never taking the source below `reserve`.
+  Each tick a route sends a shipment (`colony_shipments.route_id`) that lands after the trip. At most `logistics.maxRoutes`.
+- **Links**: every satellite has one link to the Core (`districts.link_level`, levels in `config.logistics.link`). Its capacity (units per tick) is shared by every
+  route touching that district; a route between two satellites counts against both. Widening a link is paid from the Core and is instant.
+- Manual shipments are limited (`maxInFlight`) separately from route shipments. The Districts tab has a Districts / Logistics switch.
+
+## Step 4 notes (built)
+
+- **The Stacks**: crude pump, cracking tower (fuel + reagents), polymer plant (needs ingots from the Pits), fuel generator; and the buildings that moved here:
+  synthetics reclaimer, circuit fabricator (now also needs polymers), cell forge. Needs from elsewhere: ingots, machined parts, alloys.
+- **The Greenbelt**: bio dome, agri lab (fertiliser), pharma lab (medicine; needs reagents and polymers from the Stacks).
+- **The Core** keeps everything up to hub level 4 (including the Foundry for the level 4 alloys). Hub level 5 needs circuits (Stacks) and the Beacon needs
+  power cells (Stacks) and medicine (Greenbelt), so the whole web is on the path to the end. Nothing the Beacon needs depends on a level-5 district.
+- District level 3+ upgrades need goods from other districts: Pits (reagents), Stacks (ingots), Greenbelt (reagents, polymers; level 5 also medicine).
+- `test/balance.test.js` now drives the real actions and engine with a scripted player that founds all three districts, sets standing routes, tops up
+  districts by hand, and finishes the Beacon (around tick 870; bound 450-1000). `BOT_LOG=1` prints a timeline, `BOT_DEBUG=<tick>` dumps district stocks.
+- Placeholders still to tune by playtesting: every number in `districtTypes`, `logistics`, and the new building recipes; the use of fertiliser (nothing needs it yet).

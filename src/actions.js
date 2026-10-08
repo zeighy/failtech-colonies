@@ -155,13 +155,63 @@ const shipment = guarded((c, { from, to, resource, qty }) => {
   const L = config.logistics;
   if (!Number.isFinite(qty) || qty < 1) return fail('Bad quantity.');
   if (qty > L.shipmentMax) return fail(`A shipment carries at most ${L.shipmentMax}.`);
-  if (store.loadShipments(c.id).length >= L.maxInFlight) return fail(`Only ${L.maxInFlight} shipments can be on the road at once.`);
+  if (store.loadShipments(c.id).filter((x) => !x.routeId).length >= L.maxInFlight) return fail(`Only ${L.maxInFlight} shipments can be on the road at once.`);
   if ((store.loadInventory(c.id, a.id)[resource] || 0) < qty) return fail(`Not enough ${config.resources[resource].name} in ${a.name}.`);
   const tick = Number(store.getMeta('global_tick', 0));
   const trip = sim.shipDistance(config, a.type, b.type);
   pay(a.id, { [resource]: qty });
   db.prepare('INSERT INTO colony_shipments (colony_id, from_district, to_district, resource_id, qty, dispatched_tick, arrives_tick) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(c.id, a.id, b.id, resource, qty, tick, tick + trip);
+  return OK;
+});
+
+// ---- standing routes ------------------------------------------------------------
+// A route moves up to `rate` units per tick from one district to another, never taking the source below
+// `reserve`. Every satellite has a link to the Core with a capacity; a route counts against the link of each
+// satellite it touches (a route to or from the Core touches one).
+const linkCapacity = (config_, d) => config_.logistics.link.levels[d.linkLevel || 1].capacity;
+function linkLoad(c, districtId, ignoreRouteId) {
+  return store.loadRoutes(c.id)
+    .filter((r) => r.id !== ignoreRouteId && (r.fromDistrict === districtId || r.toDistrict === districtId))
+    .reduce((n, r) => n + r.rate, 0);
+}
+const setRoute = guarded((c, { from, to, resource, rate, reserve }) => {
+  const a = districtFor(c, from); const b = districtFor(c, to);
+  if (!a || !b) return fail(NO_DISTRICT);
+  if (a.id === b.id) return fail('Pick two different districts.');
+  if (!config.resources[resource]) return fail('Unknown resource.');
+  rate = Math.floor(Number(rate)); reserve = Math.max(0, Math.floor(Number(reserve) || 0));
+  if (!Number.isFinite(rate) || rate < 0) return fail('Bad rate.');
+  const existing = store.loadRoutes(c.id).find((r) => r.fromDistrict === a.id && r.toDistrict === b.id && r.resource === resource);
+  if (rate === 0) {
+    if (existing) db.prepare('DELETE FROM colony_routes WHERE id = ?').run(existing.id);
+    return OK;
+  }
+  if (!sim.districtsUnlocked(config, { coreLevel: c.hub_level })) return fail('Districts are not open yet.');
+  if (!existing && store.loadRoutes(c.id).length >= config.logistics.maxRoutes) return fail(`At most ${config.logistics.maxRoutes} routes.`);
+  for (const d of [a, b]) {
+    if (d.type === 'core') continue;
+    const cap = linkCapacity(config, d);
+    const load = linkLoad(c, d.id, existing && existing.id);
+    if (load + rate > cap) return fail(`The link to ${d.name} carries ${cap} per tick and ${load} is already committed. Upgrade the link or lower the rate.`);
+  }
+  db.prepare(`INSERT INTO colony_routes (colony_id, from_district, to_district, resource_id, rate, reserve) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(from_district, to_district, resource_id) DO UPDATE SET rate = excluded.rate, reserve = excluded.reserve`)
+    .run(c.id, a.id, b.id, resource, rate, reserve);
+  return OK;
+});
+
+// Raise a district's link capacity. Paid from the Core stockpile, effective at once.
+const upgradeLink = guarded((c, { district }) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  if (d.type === 'core') return fail('The Core has no link to upgrade.');
+  const next = config.logistics.link.levels[(d.link_level || 1) + 1];
+  if (!next) return fail('The link is already at maximum capacity.');
+  const core = store.coreId(c.id);
+  if (!canAfford(store.loadInventory(c.id, core), next.upgradeCost)) return fail('Not enough resources in the Core for the link upgrade.');
+  pay(core, next.upgradeCost);
+  db.prepare('UPDATE districts SET link_level = link_level + 1 WHERE id = ?').run(d.id);
   return OK;
 });
 
@@ -240,4 +290,4 @@ const restart = guarded((c) => {
   return OK;
 }, { allowFailed: true });
 
-module.exports = { build, demolish, toggle, cancelOrder, upgradeHub, foundDistrict, shipment, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { build, demolish, toggle, cancelOrder, upgradeHub, foundDistrict, shipment, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

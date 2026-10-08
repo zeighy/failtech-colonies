@@ -103,9 +103,22 @@ function tickColony(c, globalTick, tickTime) {
       const room = Math.max(0, Math.floor(cap - (into[sh.resource] || 0)));
       const got = Math.min(sh.qty, Math.max(room, 0));
       into[sh.resource] = (into[sh.resource] || 0) + got;
-      ev(got < sh.qty ? 'warn' : 'good', `Shipment arrived in ${name}: ${got} ${config.resources[sh.resource].name}${got < sh.qty ? ` (${sh.qty - got} lost, storage full)` : ''}.`);
+      if (!sh.routeId || got < sh.qty) ev(got < sh.qty ? 'warn' : 'good', `${sh.routeId ? 'Route shipment' : 'Shipment'} arrived in ${name}: ${got} ${config.resources[sh.resource].name}${got < sh.qty ? ` (${sh.qty - got} lost, storage full)` : ''}.`);
     }
     db.prepare('DELETE FROM colony_shipments WHERE id = ?').run(sh.id);
+  }
+
+  // Standing routes: each tick send up to `rate` of the resource, never dipping below the reserve.
+  const bag = (id) => (id === core.id ? inventory : (full.districts.find((r) => r.id === id) || {}).inventory);
+  for (const rt of store.loadRoutes(c.id)) {
+    const src = bag(rt.fromDistrict);
+    const a = districts.find((x) => x.id === rt.fromDistrict); const b = districts.find((x) => x.id === rt.toDistrict);
+    if (!src || !a || !b) continue;
+    const qty = Math.min(rt.rate, Math.floor((src[rt.resource] || 0) - rt.reserve));
+    if (qty < 1) continue;
+    src[rt.resource] -= qty;
+    db.prepare('INSERT INTO colony_shipments (colony_id, from_district, to_district, resource_id, qty, dispatched_tick, arrives_tick, route_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(c.id, a.id, b.id, rt.resource, qty, globalTick, globalTick + sim.shipDistance(config, a.type, b.type), rt.id);
   }
 
   // Convoy

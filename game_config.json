@@ -183,6 +183,60 @@
       "tier": 2,
       "showFromHub": 4,
       "convoyMax": 60
+    },
+    "crude": {
+      "name": "Crude",
+      "color": "#6d597a",
+      "buy": 16,
+      "sell": 6,
+      "tier": 1,
+      "showFromHub": 4,
+      "convoyMax": 200
+    },
+    "fuel": {
+      "name": "Fuel",
+      "color": "#ff7b3a",
+      "buy": 30,
+      "sell": 12,
+      "tier": 2,
+      "showFromHub": 4,
+      "convoyMax": 120
+    },
+    "polymers": {
+      "name": "Polymers",
+      "color": "#b5a1e3",
+      "buy": 48,
+      "sell": 18,
+      "tier": 2,
+      "showFromHub": 4,
+      "convoyMax": 100
+    },
+    "biomass": {
+      "name": "Biomass",
+      "color": "#8be05a",
+      "buy": 12,
+      "sell": 4,
+      "tier": 1,
+      "showFromHub": 4,
+      "convoyMax": 200
+    },
+    "fertiliser": {
+      "name": "Fertiliser",
+      "color": "#c7f464",
+      "buy": 34,
+      "sell": 13,
+      "tier": 2,
+      "showFromHub": 4,
+      "convoyMax": 100
+    },
+    "medicine": {
+      "name": "Medicine",
+      "color": "#ff6b9d",
+      "buy": 70,
+      "sell": 26,
+      "tier": 3,
+      "showFromHub": 4,
+      "convoyMax": 40
     }
   },
   "tierOrder": [
@@ -468,7 +522,10 @@
       "minPlotSize": 1,
       "color": "#b08ad6",
       "workers": 2,
-      "comfort": -3
+      "comfort": -3,
+      "districts": [
+        "stacks"
+      ]
     },
     "foundry": {
       "name": "Foundry",
@@ -496,7 +553,7 @@
     "circuit_fab": {
       "name": "Circuit Fabricator",
       "type": "refinery",
-      "desc": "Prints circuitry from synthetics. Precision work needs room.",
+      "desc": "Prints circuitry from synthetics and polymers. Needs the Stacks.",
       "constructionTicks": 8,
       "cost": {
         "scrap": 500,
@@ -505,16 +562,20 @@
       },
       "inputsPerTick": {
         "energy": 18,
-        "raw_synthetics": 10,
+        "raw_synthetics": 6,
+        "polymers": 3,
         "machined_parts": 1
       },
       "outputsPerTick": {
         "circuits": 2
       },
-      "minPlotSize": 3,
+      "minPlotSize": 2,
       "color": "#6ee7b7",
       "workers": 5,
-      "comfort": -3
+      "comfort": -3,
+      "districts": [
+        "stacks"
+      ]
     },
     "cell_forge": {
       "name": "Cell Forge",
@@ -536,10 +597,13 @@
       "outputsPerTick": {
         "power_cells": 1
       },
-      "minPlotSize": 4,
+      "minPlotSize": 3,
       "color": "#f9e07f",
       "workers": 6,
-      "comfort": -5
+      "comfort": -5,
+      "districts": [
+        "stacks"
+      ]
     },
     "warehouse": {
       "name": "Warehouse",
@@ -586,7 +650,8 @@
         "building_materials": 200,
         "alloys": 160,
         "circuits": 100,
-        "power_cells": 30
+        "power_cells": 30,
+        "medicine": 20
       },
       "inputsPerTick": {
         "energy": 60,
@@ -731,6 +796,181 @@
       "districts": [
         "pits"
       ]
+    },
+    "crude_pump": {
+      "name": "Crude Pump",
+      "type": "extractor",
+      "desc": "Taps the old pipelines and tar seeps for crude.",
+      "constructionTicks": 4,
+      "cost": {
+        "scrap": 250,
+        "machined_parts": 10
+      },
+      "inputsPerTick": {
+        "energy": 10
+      },
+      "outputsPerTick": {
+        "crude": 20
+      },
+      "minPlotSize": 1,
+      "color": "#6d597a",
+      "workers": 3,
+      "comfort": -6,
+      "districts": [
+        "stacks"
+      ]
+    },
+    "cracking_tower": {
+      "name": "Cracking Tower",
+      "type": "refinery",
+      "desc": "Splits crude into fuel and the reagents everything else is hungry for.",
+      "constructionTicks": 6,
+      "cost": {
+        "scrap": 400,
+        "machined_parts": 30,
+        "building_materials": 10
+      },
+      "inputsPerTick": {
+        "energy": 16,
+        "crude": 15
+      },
+      "outputsPerTick": {
+        "fuel": 8,
+        "reagents": 5
+      },
+      "minPlotSize": 2,
+      "color": "#ff7b3a",
+      "workers": 4,
+      "comfort": -8,
+      "districts": [
+        "stacks"
+      ]
+    },
+    "polymer_plant": {
+      "name": "Polymer Plant",
+      "type": "refinery",
+      "desc": "Cooks crude into polymers. The pipework needs ingots, and the Stacks make none.",
+      "constructionTicks": 8,
+      "cost": {
+        "scrap": 500,
+        "machined_parts": 40,
+        "building_materials": 20
+      },
+      "inputsPerTick": {
+        "energy": 16,
+        "crude": 12,
+        "ingots": 2
+      },
+      "outputsPerTick": {
+        "polymers": 6
+      },
+      "minPlotSize": 2,
+      "color": "#b5a1e3",
+      "workers": 4,
+      "comfort": -6,
+      "districts": [
+        "stacks"
+      ]
+    },
+    "fuel_generator": {
+      "name": "Fuel Generator",
+      "type": "generator",
+      "desc": "Burns refined fuel for serious power.",
+      "constructionTicks": 6,
+      "cost": {
+        "scrap": 400,
+        "machined_parts": 30
+      },
+      "inputsPerTick": {
+        "fuel": 5
+      },
+      "outputsPerTick": {
+        "energy": 70
+      },
+      "minPlotSize": 2,
+      "color": "#ff9f1c",
+      "workers": 2,
+      "comfort": -7,
+      "districts": [
+        "stacks"
+      ]
+    },
+    "bio_dome": {
+      "name": "Bio Dome",
+      "type": "producer",
+      "desc": "Sealed greenery under glass. Grows biomass and makes the neighbours feel better.",
+      "constructionTicks": 6,
+      "cost": {
+        "scrap": 400,
+        "machined_parts": 20
+      },
+      "inputsPerTick": {
+        "energy": 8,
+        "clean_water": 4
+      },
+      "outputsPerTick": {
+        "biomass": 18
+      },
+      "minPlotSize": 1,
+      "color": "#8be05a",
+      "workers": 3,
+      "comfort": 4,
+      "districts": [
+        "greenbelt"
+      ]
+    },
+    "agri_lab": {
+      "name": "Agri Lab",
+      "type": "refinery",
+      "desc": "Cultures soil enhancers out of biomass and reagents.",
+      "constructionTicks": 6,
+      "cost": {
+        "scrap": 450,
+        "machined_parts": 30,
+        "building_materials": 10
+      },
+      "inputsPerTick": {
+        "energy": 12,
+        "biomass": 12,
+        "reagents": 2
+      },
+      "outputsPerTick": {
+        "fertiliser": 5
+      },
+      "minPlotSize": 2,
+      "color": "#c7f464",
+      "workers": 3,
+      "comfort": -2,
+      "districts": [
+        "greenbelt"
+      ]
+    },
+    "pharma_lab": {
+      "name": "Pharma Lab",
+      "type": "refinery",
+      "desc": "Medicine from biomass, reagents and a little polymer packaging. Slow, and worth a lot.",
+      "constructionTicks": 8,
+      "cost": {
+        "scrap": 600,
+        "machined_parts": 40,
+        "building_materials": 30
+      },
+      "inputsPerTick": {
+        "energy": 14,
+        "biomass": 8,
+        "reagents": 3,
+        "polymers": 1
+      },
+      "outputsPerTick": {
+        "medicine": 3
+      },
+      "minPlotSize": 3,
+      "color": "#ff6b9d",
+      "workers": 4,
+      "comfort": -2,
+      "districts": [
+        "greenbelt"
+      ]
     }
   },
   "adjacencyModifiers": {
@@ -830,6 +1070,46 @@
         "targetBuilding": "ore_drill",
         "adjacentBuilding": "scrap_extractor",
         "outputMultiplier": 0.9
+      },
+      {
+        "targetBuilding": "cracking_tower",
+        "adjacentBuilding": "crude_pump",
+        "outputMultiplier": 1.15
+      },
+      {
+        "targetBuilding": "polymer_plant",
+        "adjacentBuilding": "cracking_tower",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "fuel_generator",
+        "adjacentBuilding": "cracking_tower",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "crude_pump",
+        "adjacentBuilding": "crude_pump",
+        "outputMultiplier": 0.95
+      },
+      {
+        "targetBuilding": "circuit_fab",
+        "adjacentBuilding": "polymer_plant",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "agri_lab",
+        "adjacentBuilding": "bio_dome",
+        "outputMultiplier": 1.15
+      },
+      {
+        "targetBuilding": "pharma_lab",
+        "adjacentBuilding": "bio_dome",
+        "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "bio_dome",
+        "adjacentBuilding": "bio_dome",
+        "outputMultiplier": 0.95
       }
     ]
   },
@@ -1262,11 +1542,256 @@
           "baseHousing": 0
         }
       }
+    },
+    "stacks": {
+      "name": "The Stacks",
+      "desc": "Flare towers and pipe-forests over the old refineries. Crude, fuel, reagents and polymers, plus the synthetics and circuits built from them.",
+      "color": "#6d597a",
+      "distance": 5,
+      "angle": 40,
+      "radius": 0.78,
+      "foundCost": {
+        "scrap": 2000,
+        "building_materials": 140,
+        "machined_parts": 100
+      },
+      "foundTicks": 12,
+      "startingStock": {
+        "scrap": 400,
+        "machined_parts": 30
+      },
+      "ringPlotSize": {
+        "1": 1,
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        "5": 4
+      },
+      "levels": {
+        "1": {
+          "maxStorage": 1500,
+          "baseEnergy": 15,
+          "ringCapacities": {
+            "1": 3
+          },
+          "upgradeCost": null,
+          "upgradeTicks": 0,
+          "baseHousing": 0
+        },
+        "2": {
+          "maxStorage": 2500,
+          "baseEnergy": 20,
+          "ringCapacities": {
+            "1": 3,
+            "2": 5
+          },
+          "upgradeCost": {
+            "scrap": 900,
+            "building_materials": 80,
+            "machined_parts": 50
+          },
+          "upgradeTicks": 8,
+          "baseHousing": 0
+        },
+        "3": {
+          "maxStorage": 4000,
+          "baseEnergy": 25,
+          "ringCapacities": {
+            "1": 3,
+            "2": 5,
+            "3": 7
+          },
+          "upgradeCost": {
+            "scrap": 1400,
+            "building_materials": 120,
+            "machined_parts": 70,
+            "ingots": 50
+          },
+          "upgradeTicks": 12,
+          "baseHousing": 0
+        },
+        "4": {
+          "maxStorage": 6000,
+          "baseEnergy": 30,
+          "ringCapacities": {
+            "1": 3,
+            "2": 5,
+            "3": 7,
+            "4": 9
+          },
+          "upgradeCost": {
+            "scrap": 2000,
+            "building_materials": 160,
+            "alloys": 60,
+            "ingots": 90
+          },
+          "upgradeTicks": 16,
+          "baseHousing": 0
+        },
+        "5": {
+          "maxStorage": 8000,
+          "baseEnergy": 35,
+          "ringCapacities": {
+            "1": 3,
+            "2": 5,
+            "3": 7,
+            "4": 9,
+            "5": 11
+          },
+          "upgradeCost": {
+            "scrap": 2800,
+            "building_materials": 220,
+            "circuits": 60,
+            "ingots": 140
+          },
+          "upgradeTicks": 20,
+          "baseHousing": 0
+        }
+      }
+    },
+    "greenbelt": {
+      "name": "The Greenbelt",
+      "desc": "Sealed bio-domes in the one clean valley left. Biomass, fertiliser and medicine, if you can bring it what it lacks.",
+      "color": "#8be05a",
+      "distance": 4,
+      "angle": 165,
+      "radius": 0.7,
+      "foundCost": {
+        "scrap": 1800,
+        "building_materials": 120,
+        "machined_parts": 80
+      },
+      "foundTicks": 12,
+      "startingStock": {
+        "scrap": 400,
+        "machined_parts": 20,
+        "clean_water": 60
+      },
+      "ringPlotSize": {
+        "1": 1,
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        "5": 4
+      },
+      "levels": {
+        "1": {
+          "maxStorage": 1500,
+          "baseEnergy": 15,
+          "ringCapacities": {
+            "1": 3
+          },
+          "upgradeCost": null,
+          "upgradeTicks": 0,
+          "baseHousing": 0
+        },
+        "2": {
+          "maxStorage": 2500,
+          "baseEnergy": 20,
+          "ringCapacities": {
+            "1": 3,
+            "2": 5
+          },
+          "upgradeCost": {
+            "scrap": 800,
+            "building_materials": 60,
+            "machined_parts": 40
+          },
+          "upgradeTicks": 8,
+          "baseHousing": 0
+        },
+        "3": {
+          "maxStorage": 4000,
+          "baseEnergy": 25,
+          "ringCapacities": {
+            "1": 3,
+            "2": 5,
+            "3": 7
+          },
+          "upgradeCost": {
+            "scrap": 1200,
+            "building_materials": 100,
+            "machined_parts": 60,
+            "reagents": 50,
+            "polymers": 30
+          },
+          "upgradeTicks": 12,
+          "baseHousing": 0
+        },
+        "4": {
+          "maxStorage": 6000,
+          "baseEnergy": 30,
+          "ringCapacities": {
+            "1": 3,
+            "2": 5,
+            "3": 7,
+            "4": 9
+          },
+          "upgradeCost": {
+            "scrap": 1800,
+            "building_materials": 150,
+            "reagents": 90,
+            "polymers": 60
+          },
+          "upgradeTicks": 16,
+          "baseHousing": 0
+        },
+        "5": {
+          "maxStorage": 8000,
+          "baseEnergy": 35,
+          "ringCapacities": {
+            "1": 3,
+            "2": 5,
+            "3": 7,
+            "4": 9,
+            "5": 11
+          },
+          "upgradeCost": {
+            "scrap": 2500,
+            "building_materials": 200,
+            "reagents": 130,
+            "polymers": 90,
+            "medicine": 30
+          },
+          "upgradeTicks": 20,
+          "baseHousing": 0
+        }
+      }
     }
   },
   "logistics": {
     "shipmentMax": 300,
     "maxInFlight": 6,
-    "coreDistance": 0
+    "maxRoutes": 12,
+    "link": {
+      "levels": {
+        "1": {
+          "capacity": 20
+        },
+        "2": {
+          "capacity": 40,
+          "upgradeCost": {
+            "building_materials": 60,
+            "machined_parts": 40
+          }
+        },
+        "3": {
+          "capacity": 80,
+          "upgradeCost": {
+            "building_materials": 120,
+            "machined_parts": 80,
+            "alloys": 30
+          }
+        },
+        "4": {
+          "capacity": 140,
+          "upgradeCost": {
+            "building_materials": 200,
+            "machined_parts": 120,
+            "alloys": 60
+          }
+        }
+      }
+    }
   }
 }
