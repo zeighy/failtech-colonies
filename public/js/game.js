@@ -27,6 +27,7 @@
   var activeId = null;     // district being looked at (the Core by default)
   var radarFor = null;     // district the radar was built for
   var mk = { res: 'alloys', side: 'buy', qty: 50, price: null, district: null, ttl: 100 }; // exchange order being composed
+  var msrc = null;         // district missions are filled from
   var dmode = 'overview';  // Districts tab: 'overview' | 'logistics'
   var route = { from: null, to: null, res: 'scrap', rate: 10, reserve: 0 }; // route being composed
   var ship = { from: null, to: null, res: 'scrap', qty: 100 }; // shipment being composed
@@ -49,7 +50,7 @@
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
   var STEP = { scrap: 50, ore: 25, ingots: 10, reagents: 5, crude: 25, fuel: 10, polymers: 5, biomass: 25, fertiliser: 10, medicine: 2, unpurified_water: 25, raw_synthetics: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5, alloys: 5, circuits: 5, power_cells: 2 };
-  var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'site'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'list'], ['log', 'Log', 'list']];
+  var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'site'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'list'], ['missions', 'Missions', 'check'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
   function api(path, body) {
@@ -327,7 +328,7 @@
         cls += ' built' + (b.paused ? ' paused' : '');
         if (!b.paused && b.status && b.status !== 'running') cls += (b.eff < 0.01 ? ' stalled' : ' low');
         if (b.plot < 0.999) cls += ' cramped';
-        tag = b.paused ? 'OFF' : b.status === 'damaged' ? 'DOWN' : (b.eff < 0.995 ? pct(b.eff) : (b.plot < 0.999 ? '×' + b.plot.toFixed(2) : ''));
+        tag = b.paused ? 'OFF' : b.status === 'no_recipe' ? 'SET?' : b.status === 'resetting' ? 'RESET' : b.status === 'damaged' ? 'DOWN' : (b.eff < 0.995 ? pct(b.eff) : (b.plot < 0.999 ? '×' + b.plot.toFixed(2) : ''));
         name = def.name + ' (' + name + ')' + (b.plot < 0.999 ? ' · cramped plot' : '');
         if (b.mark) { cls += ' hz-' + b.mark; name += ' · ' + MARK_TXT[b.mark]; }
         if (!tag && def.housing && b.comfort) { tag = (b.comfort > 0 ? '+' : '−') + Math.abs(b.comfort); cls += b.comfort > 0 ? ' cmf-good' : ' cmf-bad'; }
@@ -472,7 +473,7 @@
     var next = GEO().levels[activeD().level + 1];
     var dot = next && !S.hub.upgrading && canAfford(next.upgradeCost) && (activeD().core || activeD().level + 1 <= S.districtLevelCap);
     var ddot = S.districtsUnlocked && Object.keys(CFG.districtTypes).some(function (k) {
-      return !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
+      return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
     });
     var h = TABS.map(function (t) {
       return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] +
@@ -514,7 +515,8 @@
   var MARK_TXT = { hit: 'Hurt by the current hazard', upkeep: 'Paying the hazard\'s maintenance cost', risk: 'In the forecast hazard\'s path' };
   var STATUS = {
     running: ['Running', 'good'], paused: ['Paused', 'dim'], no_power: ['No power', 'bad'], low_power: ['Low power', 'warn'],
-    starved: ['Missing inputs', 'bad'], low_input: ['Short on inputs', 'warn'], damaged: ['Damaged: awaiting repairs', 'bad'], understaffed: ['Short-staffed', 'warn']
+    starved: ['Missing inputs', 'bad'], low_input: ['Short on inputs', 'warn'], damaged: ['Damaged: awaiting repairs', 'bad'], understaffed: ['Short-staffed', 'warn'],
+    no_recipe: ['No recipe chosen', 'warn'], resetting: ['Resetting', 'warn']
   };
   function plotName2(size) { return CFG.plotSizes[size].name; }
   function builtPanel(b, head) {
@@ -533,6 +535,7 @@
       (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult) + ' storage each') + '</div>' : '') +
       (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult).toFixed(1) + '</span></div>' : '') +
       (d.transmit ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:#fff"></i>Signal ' + (b.eff * b.mult).toFixed(2) + ' / tick</span></div>' : '');
+    if (d.recipeBuilding) h += recipeCard(b);
     if (d.optional) h += optionalCard(d, b);
     var nts = neighborTypes(b.ring, b.slot);
     h += '<div class="label sec">Neighbours</div>';
@@ -555,6 +558,36 @@
     return h;
   }
 
+
+  // ---- Trade Workshop: the recipe is chosen once, and costs credits to change --------------
+  var recipePick = null; // recipe being looked at in the picker, if any
+  function recipeLines(rec, b) {
+    var batch = CFG.tradeWorks.batchByPlot[GEO().ringPlotSize[b.ring]] || 1;
+    var io = function (o) { return Object.keys(o).map(function (r) { return pill(r, o[r] * batch, 'in'); }).join(''); };
+    var out = Object.keys(rec.outputsPerTick).map(function (r) { return pill(r, rec.outputsPerTick[r] * batch, 'out'); }).join('');
+    return { batch: batch, html: '<div class="io">' + io(rec.inputsPerTick) + '</div><div class="io" style="margin-top:4px">' + out + '</div>' };
+  }
+  function recipeCard(b) {
+    var rec = b.recipe ? CFG.recipes[b.recipe] : null, batch = CFG.tradeWorks.batchByPlot[GEO().ringPlotSize[b.ring]] || 1;
+    var h = '<div class="label sec">Recipe</div>';
+    if (rec) {
+      var adjn = Object.keys(rec.adjacent || {}).map(function (r) { return CFG.recipes[r] ? esc(CFG.recipes[r].name) + ' ×' + rec.adjacent[r] : ''; }).filter(Boolean);
+      h += '<div class="optcard on"><div class="top"><b>' + esc(rec.name) + '</b><span class="dim">Tier ' + rec.tier + '</span></div>' + recipeLines(rec, b).html +
+        '<div class="dim" style="font-size:11px;margin-top:6px">Batch ×' + batch + ' on a ' + plotName(b.ring) + ' plot: more goes in and more comes out, at the same ratio. Crew and power scale with it.</div>' +
+        (adjn.length ? '<div class="dim" style="font-size:11px;margin-top:4px">Runs better beside: ' + adjn.join(', ') + '</div>' : '') + '</div>';
+      if (b.resetting) h += '<div class="note warn">Resetting: idle for ' + b.resetting + ' more ticks.</div>';
+    } else h += '<div class="note warn">No recipe chosen. The first choice is free, but it locks in: changing it later costs credits and idles the workshop.</div>';
+    var changing = !!rec;
+    if (!b.resetting) {
+      h += '<div class="dim" style="font-size:11px;margin:8px 0 4px">' + (changing ? 'Change recipe · costs <b>' + fmt(b.resetFee) + ' cr</b> and ' + CFG.tradeWorks.reset.delayTicks + ' idle ticks' : 'Choose a recipe') + '</div>' +
+        Object.keys(CFG.recipes).filter(function (k) { return k !== b.recipe; }).map(function (k) {
+          var r = CFG.recipes[k], on = recipePick === k;
+          return '<div class="recipe' + (on ? ' sel' : '') + '"><button class="rname" data-act="recpick" data-rec="' + k + '"><b>' + esc(r.name) + '</b><small>T' + r.tier + ' · ' + Object.keys(r.outputsPerTick).map(function (o) { return mp(r.outputsPerTick[o] * batch) + ' ' + esc(CFG.resources[o].name); }).join(', ') + '/t</small></button>' +
+            (on ? recipeLines(r, b).html + '<div class="actions"><button class="btn primary" data-act="recset" data-ring="' + b.ring + '" data-slot="' + b.slot + '" data-rec="' + k + '"' + (changing && S.colony.credits < b.resetFee ? ' disabled' : '') + '>' + (changing ? 'Change for ' + fmt(b.resetFee) + ' cr' : 'Lock in this recipe') + '</button></div>' : '') + '</div>';
+        }).join('');
+    }
+    return h;
+  }
   // Optional input: off by default; while on and in stock it costs a fixed amount per tick for a bonus.
   function optionalCard(d, b) {
     var o = d.optional, on = !!b.boost, working = b.boost === 'on';
@@ -686,6 +719,11 @@
         '<div class="meter"><i style="width:' + (r.frac * 100).toFixed(0) + '%;background:' + (r.frac >= 0.999 ? 'var(--good)' : 'var(--warn)') + '"></i></div></div>';
     });
     h += '<div style="margin-top:8px"><b>' + Math.round(z.prep * 100) + '% prepared.</b> ' + (ready ? 'Fully covered, but weathering it still costs:' : 'If it struck now:') + '</div>' + effectBlock(z);
+    if (z.shield) {
+      var sh = z.shield, short = sh.have < sh.need;
+      h += '<div class="shield' + (sh.enabled ? ' on' : '') + '"><div><b>Deploy ' + sh.need + ' ' + esc(CFG.resources[sh.resource].name) + '</b><div class="dim" style="font-size:11px">Prevents every consequence of this hazard. Spent when it lands. In the Core: ' + sh.have + (short ? ' <span class="warn">(not enough yet)</span>' : '') + '</div></div>' +
+        '<button class="btn' + (sh.enabled ? '' : ' primary') + '" data-act="shield">' + (sh.enabled ? 'Stand down' : 'Deploy') + '</button></div>';
+    }
     var sf = shortfalls(z);
     if (sf.length) h += '<div class="actions" style="margin-top:10px"><button class="btn" data-act="xprefill">' + icon('truck', 12) + ' Order express resupply</button></div>';
     if (marked) h += '<div class="dim" style="margin-top:6px">' + marked + ' structure' + (marked === 1 ? ' is' : 's are') + ' in its path (dashed marker on the map).</div>';
@@ -775,7 +813,7 @@
     visited[activeId] = true;
     if (S.districtsUnlocked) {
       var canFound = Object.keys(CFG.districtTypes).some(function (k) {
-        return !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
+        return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
       });
       h = S.districts.map(function (d) {
         var t = d.core ? null : CFG.districtTypes[d.type], fresh = !d.core && !visited[d.id];
@@ -788,6 +826,7 @@
     var h = '<svg class="dmap" viewBox="-110 -90 220 180" role="img" aria-label="District map">';
     var nodes = [{ id: S.districts[0].id, core: true, x: 0, y: 0, color: '#ff9f1c', name: 'Core', level: S.colony.hubLevel, on: true }];
     Object.keys(CFG.districtTypes).forEach(function (k) {
+      if (!districtOf(k) && !S.foundable[k]) return; // districts that cannot be founded yet stay off the map
       var t = CFG.districtTypes[k], d = districtOf(k), a = t.angle * Math.PI / 180, r = t.radius * 80;
       var f = S.founding.filter(function (x) { return x.type === k; })[0];
       nodes.push({ id: d ? d.id : null, type: k, x: r * Math.cos(a), y: r * Math.sin(a), color: t.color, name: t.name.replace(/^The /, ''), level: d ? d.level : 0, on: !!d, building: !!f });
@@ -817,6 +856,7 @@
       } else if (f) {
         h += '<div class="note">Being founded: ' + f.remaining + ' tick' + (f.remaining === 1 ? '' : 's') + ' remaining. <a href="#" data-act="cancel" data-id="' + f.id + '" style="color:var(--amber)">Cancel</a></div>';
       } else {
+        if (!S.foundable[k]) { h += '<div class="note">' + (t.requires && t.requires.beaconBuilt ? 'Opens once the Beacon is built.' : 'Not available yet.') + '</div></div>'; return; }
         h += '<div class="label">Founding cost (from the Core) · ' + t.foundTicks + ' ticks</div><div class="io">' + costPills(t.foundCost, S.coreRes) + '</div>' +
           '<div class="actions"><button class="btn primary" data-act="found" data-type="' + k + '"' + (canAffordCore(t.foundCost) ? '' : ' disabled') + '>Found ' + esc(t.name) + '</button></div>';
       }
@@ -944,7 +984,7 @@
     mk.qty = clamp(mk.qty, 1, Math.max(1, maxQ));
     var ev = x.event ? '<span class="chip-ev ' + x.event.kind + '">' + (x.event.kind === 'shortage' ? 'SHORTAGE' : 'GLUT') + ' · ' + x.event.ticksLeft + 't</span>' : '';
     var h = '<label class="selrow">Market<select data-sel="m:res">' + Object.keys(CFG.resources).filter(function (k) {
-      var d = CFG.resources[k]; return !(d.showFromHub && d.showFromHub > S.colony.hubLevel + 1 && k !== mk.res);
+      var d = CFG.resources[k]; if (d.trade) return !!S.freeport; return !(d.showFromHub && d.showFromHub > S.colony.hubLevel + 1 && k !== mk.res);
     }).map(function (k) { return '<option value="' + k + '"' + (k === mk.res ? ' selected' : '') + '>' + esc(CFG.resources[k].name) + ' · ' + mp(E.resources[k].ref) + ' cr</option>'; }).join('') + '</select></label>';
     h += '<div class="mk-head" style="--c:' + r.color + '"><div><div class="big num">' + mp(x.ref) + ' <small>cr</small></div><div class="dim" style="font-size:11px">market price' + (Math.abs(x.trend) >= 0.01 ? ' · ' + (x.trend > 0 ? '▲' : '▼') + Math.abs(Math.round(x.trend * 100)) + '%' : '') + '</div></div>' + spark(x.hist, r.color) + ev + '</div>';
     // the book: asks (what you pay) above, bids (what you get) below
@@ -981,6 +1021,29 @@
     return h;
   }
 
+  // ---- missions -----------------------------------------------------------------
+  function missionsTab() {
+    if (!S.freeport) return '<div class="empty-state">' + icon('lock', 36) + '<div>Missions come from the Free Port.</div></div><div class="note">Once the Beacon is built and the Free Port founded, factions start posting requests for trade goods. Filling them pays above market and builds your standing.</div>';
+    var M = S.missions, F = CFG.missions.factions;
+    if (msrc === null || !S.views[msrc]) msrc = S.districts.filter(function (d) { return d.type === 'freeport'; })[0].id;
+    var h = '<div class="standing"><div class="label">Standing</div><div class="big num">' + fmt(M.total) + '</div><div class="dim" style="font-size:11px">' + M.filled + ' mission' + (M.filled === 1 ? '' : 's') + ' filled</div><div class="facs">' +
+      Object.keys(F).map(function (k) { return '<span class="fac"><b>' + fmt(M.standing[k]) + '</b><small>' + esc(F[k].name) + '</small></span>'; }).join('') + '</div></div>' +
+      '<label class="selrow" style="margin:10px 0">Supply from<select data-sel="s:src">' + S.districts.map(function (d) { return '<option value="' + d.id + '"' + (d.id === msrc ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select></label>' +
+      '<div class="note">Each mission is offered in the name of every faction, each asking for something different. Fill one and the others lapse. Standing does nothing yet except keep score.</div>';
+    if (!M.open.length) h += '<div class="dim">No missions open right now. New ones arrive soon.</div>';
+    M.open.forEach(function (q) {
+      h += '<div class="mission"><div class="rhead"><b>' + esc(q.title) + '</b><span class="dim num">' + q.ticksLeft + 't left</span></div>' +
+        q.offers.map(function (o) {
+          var have = Math.floor(S.views[msrc].resources[o.good].amount), enough = have >= o.qty, g = CFG.resources[o.good];
+          return '<div class="offer" style="--c:' + g.color + '"><div class="who"><b>' + esc(F[o.faction].name) + '</b><span class="dim">wants</span></div>' +
+            '<div class="want"><b class="num">' + o.qty + '</b> ' + esc(g.name) + ' <span class="' + (enough ? 'good' : 'dim') + '" style="font-size:11px">(' + fmt(have) + ' here)</span></div>' +
+            '<div class="pay"><span class="pill out"><i style="background:var(--good)"></i>' + fmt(o.reward) + ' cr</span><span class="pill"><i style="background:var(--amber)"></i>+' + o.standing + ' standing</span>' +
+            '<button class="btn' + (enough ? ' primary' : '') + '" data-act="mfill" data-id="' + q.id + '" data-faction="' + o.faction + '"' + (enough ? '' : ' disabled') + '>Fill</button></div></div>';
+        }).join('') + '</div>';
+    });
+    return h;
+  }
+
   function trendTxt(tr, goodUp) {
     if (Math.abs(tr) < 0.02) return '';
     var up = tr > 0, good = up === goodUp;
@@ -993,6 +1056,7 @@
     var net = 0;
     Object.keys(CFG.resources).forEach(function (k) {
       var r = CFG.resources[k], ex = S.contracts.export[k] || 0, im = S.contracts.import[k] || 0, st = STEP[k] || 10;
+      if (r.trade) return; // trade goods go through the exchange
       var mp = S.market.prices[k], max = S.market.limits[k];
       if (r.showFromHub && r.showFromHub > S.colony.hubLevel + 1 && !ex && !im && S.coreRes[k].amount < 0.5) return;
       net += ex * mp.sell - im * mp.buy;
@@ -1023,6 +1087,7 @@
     var spend = 0, income = 0, any = false;
     Object.keys(CFG.resources).forEach(function (k) {
       var r = CFG.resources[k], sellQ = xdraft.sell[k] || 0, buyQ = xdraft.buy[k] || 0, st = STEP[k] || 10;
+      if (r.trade) return;
       if (r.showFromHub && r.showFromHub > c.hubLevel + 1 && !sellQ && !buyQ && S.coreRes[k].amount < 0.5) return;
       var pr = x.prices[k], lim = x.limits[k], stock = Math.floor(S.coreRes[k].amount);
       spend += Math.round(buyQ * pr.buy); income += Math.round(sellQ * pr.sell); if (sellQ || buyQ) any = true;
@@ -1059,7 +1124,7 @@
 
   var lastPanel = '';
   function renderPanel() {
-    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'districts' ? districtsTab() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
+    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'districts' ? districtsTab() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'missions' ? missionsTab() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
     if (h === lastPanel) return;
     lastPanel = h;
     var p = $('panel'), top = p.scrollTop;
@@ -1210,6 +1275,10 @@
     else if (a === 'shipsend') {
       act('shipment', { from: ship.from, to: ship.to, resource: ship.res, qty: ship.qty }, 'Shipment dispatched.');
     }
+    else if (a === 'recpick') { recipePick = recipePick === el.dataset.rec ? null : el.dataset.rec; renderPanel(); }
+    else if (a === 'recset') { var rcp = el.dataset.rec; recipePick = null; act('recipe', { ring: +el.dataset.ring, slot: +el.dataset.slot, recipe: rcp, district: activeId }, 'Recipe set.'); }
+    else if (a === 'shield') act('shield', { enabled: !(S.hazard && S.hazard.shield && S.hazard.shield.enabled) });
+    else if (a === 'mfill') act('mission', { id: +el.dataset.id, faction: el.dataset.faction, district: msrc || activeId }, 'Mission filled.');
     else if (a === 'mkside') { mk.side = el.dataset.side; mk.price = null; renderPanel(); }
     else if (a === 'mkqty') {
       var dst = Math.floor(S.views[mk.district].resources[mk.res].amount), mq = mk.side === 'sell' ? Math.min(CFG.exchange.maxQty, dst) : CFG.exchange.maxQty;
@@ -1259,6 +1328,7 @@
     var el = e.target.closest('[data-sel]');
     if (!el) return;
     var k = el.dataset.sel;
+    if (k.indexOf('s:') === 0) { msrc = +el.value; renderPanel(); return; }
     if (k.indexOf('m:') === 0) { var mkk = k.slice(2); if (mkk === 'res') { mk.res = el.value; mk.price = null; mk.qty = 50; } else mk[mkk] = mkk === 'ttl' || mkk === 'district' ? +el.value : el.value; if (mkk === 'district') mk.qty = Math.max(1, mk.qty); renderPanel(); return; }
     if (k.indexOf('r:') === 0) { var rk = k.slice(2); if (rk === 'res') route.res = el.value; else route[rk] = +el.value; }
     else if (k === 'res') ship.res = el.value; else ship[k] = +el.value;

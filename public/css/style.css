@@ -351,3 +351,19 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .myord.sell { border-left-color: var(--bad); }
 .myord .rhead { display: flex; gap: 8px; align-items: baseline; } .myord .rhead b { font-size: 13px; } .myord .rhead span { flex: 1; font-size: 11px; }
 .myord .x { background: none; border: 0; color: var(--faint); font-size: 16px; line-height: 1; } .myord .x:hover { color: var(--bad); }
+/* free port */
+.recipe { border: 1px solid var(--line); background: var(--panel2); border-radius: var(--radius); margin: 5px 0; }
+.recipe.sel { border-color: var(--amber); }
+.recipe .rname { display: flex; width: 100%; justify-content: space-between; align-items: baseline; gap: 8px; background: none; border: 0; color: var(--text); padding: 8px 10px; text-align: left; font-size: 13px; }
+.recipe .rname small { color: var(--dim); font-size: 11px; }
+.recipe .io, .recipe .actions { padding: 0 10px 8px; }
+.shield { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-top: 10px; padding: 9px 10px; border: 1px dashed var(--line2); border-radius: var(--radius); font-size: 12px; }
+.shield.on { border-color: var(--good); background: rgba(139,224,90,.07); }
+.standing { border: 1px solid var(--line); border-left: 3px solid var(--amber); background: var(--panel2); border-radius: var(--radius); padding: 10px; }
+.standing .big { font-size: 28px; font-weight: 700; color: var(--amber); }
+.standing .facs { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; } .fac { display: flex; flex-direction: column; } .fac b { font-size: 15px; } .fac small { color: var(--dim); font-size: 10px; }
+.mission { border: 1px solid var(--line); background: var(--panel2); border-radius: var(--radius); padding: 8px 10px; margin: 8px 0; }
+.mission .rhead { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; } .mission .rhead b { flex: 1; font-size: 13px; }
+.offer { border-top: 1px solid var(--line); border-left: 3px solid var(--c); padding: 7px 8px; margin-top: 6px; display: grid; gap: 4px; }
+.offer .who { display: flex; gap: 6px; align-items: baseline; font-size: 12px; }
+.offer .pay { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .offer .pay .btn { margin-left: auto; padding: 5px 14px; }

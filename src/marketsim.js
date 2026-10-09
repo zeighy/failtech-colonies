@@ -51,9 +51,26 @@ function event(config, res, tick) {
   return { kind, startedAt: start, ticksLeft: start + e.duration - tick };
 }
 
+// Trade goods have no walk of their own: their price follows their ingredients' (a fixed premium on what they cost
+// to make), so crafting from goods bought on the exchange can never be a money machine. They still have events.
+const makers = new WeakMap();
+function makerOf(config, res) {
+  if (!makers.has(config)) {
+    const m = {};
+    for (const rec of Object.values(config.recipes || {})) for (const out of Object.keys(rec.outputsPerTick)) m[out] = rec;
+    makers.set(config, m);
+  }
+  return makers.get(config)[res];
+}
 function refPrice(config, res, tick) {
   const ev = event(config, res, tick);
   const mult = ev ? config.exchange.events[ev.kind].price : 1;
+  const rec = config.resources[res].trade && makerOf(config, res);
+  if (rec) {
+    let cost = 0;
+    for (const [r, q] of Object.entries(rec.inputsPerTick)) if (r !== 'energy') cost += q * refPrice(config, r, tick);
+    return config.tradeWorks.priceRatio * cost / rec.outputsPerTick[res] * mult;
+  }
   return midPrice(config, res) * walk(config, res, tick) * mult;
 }
 

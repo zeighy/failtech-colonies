@@ -28,8 +28,10 @@ function requote(tick) {
   const up = db.prepare("UPDATE market_orders SET price = ?, qty = MIN(?, qty + ?), qty_total = ? WHERE owner = 'npc' AND resource_id = ? AND side = ? AND level = ?");
   for (const res of resources()) {
     const l = ms.ladder(config, res, tick);
-    for (const a of l.asks) up.run(a.price, a.target, Math.max(1, Math.ceil(a.target * X.regenPerTick)), a.target, res, 'sell', a.level);
-    for (const b of l.bids) up.run(b.price, b.target, Math.max(1, Math.ceil(b.target * X.regenPerTick)), b.target, res, 'buy', b.level);
+    // trade goods are a thin, slow market: the book refills far more slowly, so one workshop can saturate it
+    const regen = config.resources[res].trade ? X.tradeRegenPerTick : X.regenPerTick;
+    for (const a of l.asks) up.run(a.price, a.target, Math.max(1, Math.ceil(a.target * regen)), a.target, res, 'sell', a.level);
+    for (const b of l.bids) up.run(b.price, b.target, Math.max(1, Math.ceil(b.target * regen)), b.target, res, 'buy', b.level);
   }
 }
 

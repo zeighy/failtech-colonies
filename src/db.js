@@ -9,7 +9,7 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failt
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -192,6 +192,30 @@ function migrate() {
       sell_colony INTEGER
     );
   `);
+  // v11 (additive): Trade Workshop recipes, missions and faction standing
+  for (const [col, ddl] of [['recipe', 'TEXT'], ['recipe_ready_tick', 'INTEGER NOT NULL DEFAULT 0']]) {
+    if (!db.prepare("SELECT 1 FROM pragma_table_info('colony_buildings') WHERE name = ?").get(col)) db.exec(`ALTER TABLE colony_buildings ADD COLUMN ${col} ${ddl}`);
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS missions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      slot INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      offers TEXT NOT NULL,                      -- [{faction, good, qty, reward, standing}]
+      created_tick INTEGER NOT NULL,
+      expires_tick INTEGER NOT NULL,
+      closed_tick INTEGER,
+      status TEXT NOT NULL DEFAULT 'open',       -- open | done | expired
+      filled_faction TEXT
+    );
+    CREATE TABLE IF NOT EXISTS standing (
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      faction TEXT NOT NULL,
+      points INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (colony_id, faction)
+    );
+  `);
   // A building inserted without a district belongs to the colony's Core district.
   db.exec(`CREATE TRIGGER IF NOT EXISTS buildings_default_district AFTER INSERT ON colony_buildings
     WHEN NEW.district_id IS NULL BEGIN
@@ -331,7 +355,9 @@ function saveInventory(colonyId, inv, districtId = coreId(colonyId)) {
 }
 
 function loadBuildings(colonyId, districtId = coreId(colonyId)) {
-  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, boost, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId);
+  const tick = Number(getMeta('global_tick', 0));
+  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, boost, recipe, recipe_ready_tick AS readyTick, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId)
+    .map((b) => ({ ...b, resetting: b.readyTick > tick }));
 }
 
 // With a districtId: that district's orders. Without: every order in the colony.

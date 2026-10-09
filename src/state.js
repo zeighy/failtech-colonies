@@ -5,6 +5,7 @@ const engine = require('./engine');
 const objectives = require('./objectives');
 const hazards = require('./hazards');
 const ms = require('./marketsim');
+const missions = require('./missions');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -28,11 +29,15 @@ function clientConfig() {
     ringRotation: config.ringRotation || {},
     neighbors,
     districtTypes: Object.fromEntries(Object.entries(config.districtTypes || {}).map(([type, t]) => [type, {
-      name: t.name, desc: t.desc, color: t.color, distance: t.distance, angle: t.angle, radius: t.radius,
+      requires: t.requires || null, name: t.name, desc: t.desc, color: t.color, distance: t.distance, angle: t.angle, radius: t.radius,
       foundCost: t.foundCost, foundTicks: t.foundTicks, levels: t.levels, ringPlotSize: t.ringPlotSize,
       rings: sim.ringCapacities(config, type), ringRotation: t.ringRotation || {}, neighbors: Object.fromEntries(engine.neighborMaps[type]),
     }])),
     logistics: config.logistics,
+    recipes: config.recipes,
+    tradeWorks: config.tradeWorks,
+    missions: { slots: config.missions.slots, factions: config.missions.factions },
+    hazardShield: config.hazards.shield || {},
     exchange: { unlockCoreLevel: config.exchange.unlockCoreLevel, feeRate: config.exchange.feeRate, ttlOptions: config.exchange.ttlOptions, maxOpenOrders: config.exchange.maxOpenOrders, maxQty: config.exchange.maxQty, levels: config.exchange.levels },
     districtProgression: config.districtProgression,
     convoyIntervalTicks: config.global.convoyIntervalTicks,
@@ -159,7 +164,9 @@ function viewFor(userId, now = Date.now()) {
         const st = bs.get(b.id) || {};
         return { id: b.id, ring: b.ring, slot: b.slot, type: b.type, paused: b.status !== 'active',
           status: st.status, eff: st.eff, mult: st.mult, adj: st.adj, plot: st.plot, haz: st.haz, limiting: st.limiting,
-          boost: b.boost ? (st.boost || 'starved') : null, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
+          boost: b.boost ? (st.boost || 'starved') : null,
+          recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
+          resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
       }),
       orders: dOrders.map((o) => ({ id: o.id, kind: o.action_type, data: o.data, remaining: o.ticks_remaining, total: o.ticks_total })),
     };
@@ -184,6 +191,8 @@ function viewFor(userId, now = Date.now()) {
         load: routeRows.filter((r) => r.fromDistrict === d.id || r.toDistrict === d.id).reduce((n, r) => n + r.rate, 0),
         next: config.logistics.link.levels[d.linkLevel + 1] || null,
       } })),
+    foundable: Object.fromEntries(Object.keys(config.districtTypes || {}).map((k) => [k, sim.districtFoundable(config, k, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) })])),
+    freeport: districts.some((d) => d.type === 'freeport'),
     founding: allOrders.filter((o) => o.action_type === 'found').map((o) => ({ id: o.id, type: o.data.type, remaining: o.ticks_remaining, total: o.ticks_total })),
     convoy: { ticksLeft: ticksToConvoy, arrivesAt: nextTickAt + (ticksToConvoy - 1) * t.tickMs },
     colony: {
@@ -238,6 +247,8 @@ function viewFor(userId, now = Date.now()) {
       durationTicks: def.durationTicks,
       requirements: reqs, prep: shownPrep, severity: sev,
       penalty: lines.penalty, cost: lines.cost,
+      shield: !view.freeport || hazard.state !== 'forecast' || !hazards.shieldNeed(config, hazard.type, c.hub_level) ? null
+        : { ...hazards.shieldNeed(config, hazard.type, c.hub_level), have: Math.floor(inventory[hazards.shieldNeed(config, hazard.type, c.hub_level).resource] || 0), enabled: !!(hazard.data && hazard.data.shield) },
     };
   } else view.hazard = null;
 
@@ -260,6 +271,7 @@ function viewFor(userId, now = Date.now()) {
     } : null,
   };
   view.exchange = exchangeView(c, t.globalTick);
+  view.missions = missions.view(c, t.globalTick);
   view.report = db.prepare("SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? AND tag = 'hazard' AND id > ? ORDER BY id").all(c.id, c.report_cursor);
 
   // Directives are sticky: newly earned milestones are saved as the view is

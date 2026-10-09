@@ -167,3 +167,23 @@ Districts at level 5 are the endgame reward, not part of the path to it.
 - **Unlock**: hub level 4 (`config.exchange.unlockCoreLevel`), with the districts. A directive ("Name your price") ticks on the first order.
 - **View**: `view.exchange` has the reference price, history, event, book (top five rungs, with the player's own share marked), the player's orders and recent trades.
 - The convoy and express trips are unchanged: guaranteed, small, and priced worse.
+
+## The Free Port, trade goods, shields and missions (built)
+
+An endgame district, founded after the Beacon is built (`districtTypes.freeport.requires.beaconBuilt`), where colony goods are turned into **trade goods** that exist to be sold,
+spent on hazards, or handed to factions.
+
+- **District rules**: it builds anything except the other districts' base-resource extractors (`rawExtractor`: ore drill, crude pump) and Core-only structures
+  (`sim.buildableIn`), so a player can power it themselves, ship in fuel, or run intermediate chains there. The **Trade Workshop** can only be built here.
+- **Trade Workshop** (`building.recipeBuilding`): runs one recipe from `config.recipes`. The first choice is free and locks in; changing it costs credits
+  (`tradeWorks.reset.feeTicks` ticks of the old recipe's output at market value, scaled by batch) and idles the workshop for `delayTicks`.
+  **Plot size sets the batch** (`tradeWorks.batchByPlot`): inputs, outputs, power and crew all scale together, so a big plot is more throughput per slot, never a better ratio.
+  A recipe gets an output bonus beside a workshop making its ingredient (`recipe.adjacent`).
+- **Trade goods** (`resource.trade`) are never carried by the convoy; the exchange is their market. Their reference price is a fixed premium (`priceRatio`) over the live price of
+  their ingredients, so crafting from goods bought on the exchange can never be a money machine (a test checks it), and their books refill slowly (`exchange.tradeRegenPerTick`),
+  so one workshop can saturate a market. Ten recipes in three tiers; higher tiers need lower-tier trade goods.
+- **Shields** (`hazards.shield`): from the hazard card, deploy a trade good (Precision Tools, Field Kits, Growth Stimulants, Luxury Goods, by hazard) from the Core stock.
+  If it is there when the hazard lands it is spent and the hazard has no effect at all: no penalty, no maintenance cost, no reserves spent. Without enough stock it falls back to the usual consequences.
+- **Missions** (`src/missions.js`, `missions` and `standing` tables): three open at once. Each is offered in the name of every faction, each asking for a different good;
+  fill one offer and the others lapse. Pays `rewardMult` x market value plus standing. Standing has no effect yet; it is a score, per faction and in total, and the hook for later.
+  Deterministic per colony and tick. Factions are in `config.missions.factions`.

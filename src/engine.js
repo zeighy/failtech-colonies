@@ -4,6 +4,7 @@ const sim = require('./sim');
 const store = require('./db');
 const hazards = require('./hazards');
 const market = require('./market');
+const missions = require('./missions');
 const { db, config } = store;
 
 const neighborMap = sim.buildNeighborMap(config);
@@ -31,6 +32,7 @@ function loadDistricts(c) {
 }
 
 function tickColony(c, globalTick, tickTime) {
+  missions.advance(c, globalTick);
   const districts = loadDistricts(c);
   const core = districts.find((d) => d.type === 'core');
   const hazard = store.loadHazard(c.id);

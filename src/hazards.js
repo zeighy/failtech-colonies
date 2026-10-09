@@ -151,6 +151,18 @@ function maybeSchedule(config, c, globalTick, active, buildings) {
   return type;
 }
 
+// The trade good that makes a hazard harmless, if the player asked for it to be deployed and the Core has enough.
+function shieldFor(config, hazard, hubLevel, inventory) {
+  const def = (config.hazards.shield || {})[hazard.type];
+  if (!def || !hazard.data || !hazard.data.shield) return null;
+  const need = Math.ceil(def.amount * scaleFor(config, hubLevel));
+  return (inventory[def.resource] || 0) >= need ? { resource: def.resource, need } : null;
+}
+const shieldNeed = (config, type, hubLevel) => {
+  const def = (config.hazards.shield || {})[type];
+  return def ? { resource: def.resource, need: Math.ceil(def.amount * scaleFor(config, hubLevel)) } : null;
+};
+
 // Which buildings does this strike hit? Raids hit the outermost; faults are random.
 function pickTargets(effect, c, buildings, hubLevel) {
   const spec = effect.kind === 'raid' ? effect.damage : effect;
@@ -192,6 +204,16 @@ function advance(ctx) {
   } else if (h && h.state === 'forecast' && globalTick >= h.strikes_tick) {
     const def = config.hazards.types[h.type];
     const eff = def.effect;
+    const shield = shieldFor(config, h, c.hub_level, inventory);
+    if (shield) {
+      // A deployed shield prevents every consequence: no penalty, no maintenance cost, no reserves spent.
+      inventory = { ...inventory };
+      inventory[shield.resource] -= shield.need;
+      setNext();
+      db.prepare('DELETE FROM colony_hazards WHERE id = ?').run(h.id);
+      survived();
+      log('good', `${def.name} struck, but the colony deployed ${shield.need} ${config.resources[shield.resource].name} and took no harm.`);
+    } else {
     const { reqs, prep } = assess(config, h.type, c.hub_level, inventory, ctx.defense);
     // The colony spends its reserves in proportion to how much it has.
     const spent = [];
@@ -239,6 +261,7 @@ function advance(ctx) {
       log(severity === 0 ? 'good' : severity < 0.5 ? 'warn' : 'bad',
         `${head}${spentTxt}${lootTxt}${ongoing.length ? ` For ${def.durationTicks} ticks: ${ongoing.join('; ')}.` : ''}`);
     }
+    }
   } else if (!h) {
     maybeSchedule(config, c, globalTick, active, buildings);
   }
@@ -248,4 +271,4 @@ function advance(ctx) {
   return { inventory, credits };
 }
 
-module.exports = { assess, modifiersFor, effectLines, advance, scaleFor, enabled, rng, countFor };
+module.exports = { shieldFor, shieldNeed, assess, modifiersFor, effectLines, advance, scaleFor, enabled, rng, countFor };

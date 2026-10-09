@@ -187,6 +187,12 @@ const DIRECTIVES = (config, v) => {
       hint: 'It has to keep running, powered and supplied, until the message gets through. Anything that interrupts it costs you time.',
       progress: { value: Math.floor(v.colony.won ? need : v.colony.progress), max: need },
       done: v.colony.won },
+    { id: 'harbour', title: 'Someone heard',
+      hint: 'The signal reached something. There is a place now that will take anything you can make, and it is not short of ways to waste your time. It will want paying for, in full.',
+      done: (v.districts || []).some((d) => d.type === 'freeport') },
+    { id: 'mission', title: 'A name in the harbour',
+      hint: 'People there post what they need and name what they will pay. Doing someone a favour is a kind of currency, though nobody has said what it buys.',
+      done: !!(v.missions && v.missions.filled > 0) },
   ];
 };
 

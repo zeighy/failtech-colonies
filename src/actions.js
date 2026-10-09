@@ -1,6 +1,7 @@
 'use strict';
 const sim = require('./sim');
 const market = require('./market');
+const missions = require('./missions');
 const store = require('./db');
 const { db, config } = store;
 
@@ -147,6 +148,7 @@ const foundDistrict = guarded((c, { type }) => {
   if (!sim.districtsUnlocked(config, { coreLevel: c.hub_level })) {
     return fail(`Districts open at hub level ${config.districtProgression.unlockCoreLevel}.`);
   }
+  if (!sim.districtFoundable(config, type, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) })) return fail(`${t.name} opens once the Beacon is built.`);
   if (store.loadDistricts(c.id).some((d) => d.type === type)
     || store.loadOrders(c.id).some((o) => o.action_type === 'found' && o.data.type === type)) return fail(`${t.name} is already founded.`);
   const core = store.coreId(c.id);
@@ -175,6 +177,47 @@ const shipment = guarded((c, { from, to, resource, qty }) => {
   db.prepare('INSERT INTO colony_shipments (colony_id, from_district, to_district, resource_id, qty, dispatched_tick, arrives_tick) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(c.id, a.id, b.id, resource, qty, tick, tick + trip);
   return OK;
+});
+
+// ---- the Free Port: recipes, shields and missions ------------------------------------------
+// The first recipe is free. Changing it costs credits (so many ticks of the old output at market value) and idles the
+// workshop for a while.
+const setRecipe = guarded((c, { ring, slot, recipe, district }) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  const b = buildingAt(d, ring, slot);
+  if (!b) return fail('Nothing there.');
+  if (!config.buildings[b.building_type].recipeBuilding) return fail('This building does not take recipes.');
+  if (!config.recipes[recipe]) return fail('Unknown recipe.');
+  if (b.recipe === recipe) return OK;
+  const tick = Number(store.getMeta('global_tick', 0));
+  if (!b.recipe) {
+    db.prepare('UPDATE colony_buildings SET recipe = ?, recipe_ready_tick = ? WHERE id = ?').run(recipe, tick, b.id);
+    return OK;
+  }
+  if (b.recipe_ready_tick > tick) return fail('The workshop is still resetting.');
+  const fee = sim.recipeResetFee(config, b.recipe, b.ring_index, d.type);
+  if (c.credits < fee) return fail(`Changing the recipe costs ${fee} cr.`);
+  db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(fee, c.id);
+  db.prepare('UPDATE colony_buildings SET recipe = ?, recipe_ready_tick = ? WHERE id = ?').run(recipe, tick + config.tradeWorks.reset.delayTicks, b.id);
+  return OK;
+});
+
+// Deploy (or stand down) the trade-good shield against the forecast hazard.
+const shieldHazard = guarded((c, { enabled }) => {
+  if (!missions.hasFreePort(c.id)) return fail('You have no trade goods to deploy yet.');
+  const h = store.loadHazard(c.id);
+  if (!h || h.state !== 'forecast') return fail('No hazard is on its way.');
+  if (!(config.hazards.shield || {})[h.type]) return fail('Nothing can shield against this.');
+  const data = { ...h.data, shield: !!enabled };
+  db.prepare('UPDATE colony_hazards SET data = ? WHERE id = ?').run(JSON.stringify(data), h.id);
+  return OK;
+});
+
+const missionFill = guarded((c, { id, faction, district }) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  return missions.fill(c, { id, faction, district: d }, Number(store.getMeta('global_tick', 0)));
 });
 
 // ---- the exchange -------------------------------------------------------------------------
@@ -238,6 +281,7 @@ const upgradeLink = guarded((c, { district }) => {
 
 const setContract = guarded((c, { resource, side, amount }) => {
   if (!config.resources[resource]) return fail('Unknown resource.');
+  if (config.resources[resource].trade) return fail('The convoy does not carry trade goods. Use the exchange.');
   if (side !== 'export' && side !== 'import') return fail('Bad contract side.');
   amount = Math.floor(Number(amount));
   if (!Number.isFinite(amount) || amount < 0) return fail('Bad amount.');
@@ -261,6 +305,7 @@ const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
   const clean = (o) => Object.entries(o || {}).map(([r, q]) => [r, Math.floor(Number(q))]).filter(([, q]) => q > 0);
   for (const [res, qty] of clean(sell)) {
     if (!config.resources[res]) return fail('Unknown resource.');
+    if (config.resources[res].trade) return fail('The convoy does not carry trade goods. Use the exchange.');
     const lim = Math.max(1, Math.floor(sim.convoyLimit(config, c.hub_level, res) * x.limitFraction));
     if (qty > lim) return fail(`Express convoys carry at most ${lim} ${config.resources[res].name}.`);
     if ((inv[res] || 0) < qty) return fail(`Not enough ${config.resources[res].name} in stock to send.`);
@@ -269,6 +314,7 @@ const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
   }
   for (const [res, qty] of clean(buy)) {
     if (!config.resources[res]) return fail('Unknown resource.');
+    if (config.resources[res].trade) return fail('The convoy does not carry trade goods. Use the exchange.');
     const lim = Math.max(1, Math.floor(sim.convoyLimit(config, c.hub_level, res) * x.limitFraction));
     if (qty > lim) return fail(`Express convoys carry at most ${lim} ${config.resources[res].name}.`);
     const cost = Math.round(qty * prices[res].buy);
@@ -311,4 +357,4 @@ const restart = guarded((c) => {
   return OK;
 }, { allowFailed: true });
 
-module.exports = { build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

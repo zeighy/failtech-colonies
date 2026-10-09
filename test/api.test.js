@@ -218,8 +218,8 @@ const directive = (s, id) => s.brief.directives.find((d) => d.id === id);
 test('brief: fresh colony has a full roadmap, a correct collapse clock, and hints that never name a building', async () => {
   const c = await newPlayer();
   const s = (await c.get('/api/state')).body;
-  assert.equal(s.brief.directives.length, 29);
-  assert.equal(s.brief.remaining, 29);
+  assert.equal(s.brief.directives.length, 31);
+  assert.equal(s.brief.remaining, 31);
   assert.equal(s.brief.directives.filter((d) => d.current).length, 1);
   assert.equal(s.brief.directives.find((d) => d.current).id, 'power');
   // 80 water at -2/tick = 40 ticks to shortage, then the morale runway: matches the sim's collapse
