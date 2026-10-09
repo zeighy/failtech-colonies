@@ -1,5 +1,6 @@
 'use strict';
 const sim = require('./sim');
+const market = require('./market');
 const store = require('./db');
 const { db, config } = store;
 
@@ -176,6 +177,15 @@ const shipment = guarded((c, { from, to, resource, qty }) => {
   return OK;
 });
 
+// ---- the exchange -------------------------------------------------------------------------
+const marketPost = guarded((c, args) => {
+  const d = districtFor(c, args.district);
+  if (!d) return fail(NO_DISTRICT);
+  const r = market.post(c, d, args, Number(store.getMeta('global_tick', 0)));
+  return r.ok ? { ok: true, id: r.id, filled: r.filled } : r;
+});
+const marketCancel = guarded((c, { orderId }) => market.cancel(c, orderId, Number(store.getMeta('global_tick', 0))));
+
 // ---- standing routes ------------------------------------------------------------
 // A route moves up to `rate` units per tick from one district to another, never taking the source below
 // `reserve`. Every satellite has a link to the Core with a capacity; a route counts against the link of each
@@ -301,4 +311,4 @@ const restart = guarded((c) => {
   return OK;
 }, { allowFailed: true });
 
-module.exports = { build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, shipment, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

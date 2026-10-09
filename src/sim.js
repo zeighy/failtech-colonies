@@ -312,6 +312,16 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
   };
 }
 
+// How much of each resource a district can hold: its level plus warehouse bonuses (plot-adjusted).
+function storageCap(config, d) {
+  let cap = levelDef(config, d.type, d.level).maxStorage;
+  for (const b of d.buildings) {
+    const def = config.buildings[b.type];
+    if (def && def.storageBonus && b.status === 'active') cap += def.storageBonus * plotMultiplier(config, def, b.ring, d.type);
+  }
+  return cap;
+}
+
 // ---- standing routes ---------------------------------------------------------------
 // A route moves up to `rate` of a resource every tick straight from one district's stockpile into another's:
 // no trucks, no delay. It never takes the source below `reserve` and never overfills the destination.
@@ -535,6 +545,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

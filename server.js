@@ -157,7 +157,7 @@ const act = (name) => (req, res) => {
 };
 for (const [route, name] of [
   ['build', 'build'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['boost', 'setBoost'], ['cancel', 'cancelOrder'],
-  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['route', 'setRoute'], ['link', 'upgradeLink'],
+  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['market', 'marketPost'], ['market-cancel', 'marketCancel'], ['route', 'setRoute'], ['link', 'upgradeLink'],
 ]) app.post(`/api/${route}`, requireAuth, act(name));
 
 // ---- pages ----------------------------------------------------------------------

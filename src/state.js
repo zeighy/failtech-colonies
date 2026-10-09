@@ -4,6 +4,7 @@ const store = require('./db');
 const engine = require('./engine');
 const objectives = require('./objectives');
 const hazards = require('./hazards');
+const ms = require('./marketsim');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -32,6 +33,7 @@ function clientConfig() {
       rings: sim.ringCapacities(config, type), ringRotation: t.ringRotation || {}, neighbors: Object.fromEntries(engine.neighborMaps[type]),
     }])),
     logistics: config.logistics,
+    exchange: { unlockCoreLevel: config.exchange.unlockCoreLevel, feeRate: config.exchange.feeRate, ttlOptions: config.exchange.ttlOptions, maxOpenOrders: config.exchange.maxOpenOrders, maxQty: config.exchange.maxQty, levels: config.exchange.levels },
     districtProgression: config.districtProgression,
     convoyIntervalTicks: config.global.convoyIntervalTicks,
     demolishRefund: config.global.demolishRefund,
@@ -54,6 +56,35 @@ function hazardMark(hazard, b, s, buildings) {
   if (s.haz !== undefined && s.haz < 0.999) return 'hit';
   const prep = hazard.data && hazard.data.prep !== undefined ? hazard.data.prep : 1 - hazard.severity;
   return paysUpkeep && prep > 0.02 ? 'upkeep' : null;
+}
+
+// The exchange as the player sees it: reference prices and history, the book per resource, their own orders and trades.
+function exchangeView(c, tick) {
+  const X = config.exchange;
+  const open = db.prepare("SELECT id, owner, colony_id AS colony, side, resource_id AS res, price, qty FROM market_orders WHERE status = 'open' AND qty > 0").all();
+  const out = { unlocked: c.hub_level >= X.unlockCoreLevel, resources: {}, orders: [], trades: [], activity: false };
+  const by = {};
+  for (const o of open) (by[o.res] = by[o.res] || []).push(o);
+  const agg = (list, desc) => {
+    const m = new Map();
+    for (const o of list) { const e = m.get(o.price) || { price: o.price, qty: 0, mine: 0 }; e.qty += o.qty; if (o.colony === c.id) e.mine += o.qty; m.set(o.price, e); }
+    return [...m.values()].sort((a, b) => (desc ? b.price - a.price : a.price - b.price)).slice(0, X.levels);
+  };
+  for (const res of Object.keys(config.resources)) {
+    const list = by[res] || [];
+    const bids = agg(list.filter((o) => o.side === 'buy'), true);
+    const asks = agg(list.filter((o) => o.side === 'sell'), false);
+    const hist = ms.history(config, res, tick);
+    out.resources[res] = {
+      ref: Math.round(ms.refPrice(config, res, tick) * 100) / 100, hist, trend: hist[hist.length - 1] / hist[Math.max(0, hist.length - 9)] - 1,
+      event: ms.event(config, res, tick), bids, asks, bid: bids.length ? bids[0].price : null, ask: asks.length ? asks[0].price : null,
+    };
+  }
+  out.orders = db.prepare("SELECT id, side, resource_id AS resource, price, qty, qty_total AS total, escrow, district_id AS district, created_tick AS created, expires_tick AS expires FROM market_orders WHERE colony_id = ? AND owner = 'player' AND status = 'open' ORDER BY id DESC").all(c.id);
+  out.trades = db.prepare('SELECT id, tick, resource_id AS resource, price, qty, buy_colony AS buyer, sell_colony AS seller FROM market_trades WHERE buy_colony = ? OR sell_colony = ? ORDER BY id DESC LIMIT 20').all(c.id, c.id)
+    .map((t) => ({ id: t.id, tick: t.tick, resource: t.resource, price: t.price, qty: t.qty, side: t.buyer === c.id ? 'buy' : 'sell' }));
+  out.activity = out.orders.length > 0 || out.trades.length > 0 || !!db.prepare("SELECT 1 FROM market_orders WHERE colony_id = ? AND owner = 'player' LIMIT 1").get(c.id);
+  return out;
 }
 
 function viewFor(userId, now = Date.now()) {
@@ -228,6 +259,7 @@ function viewFor(userId, now = Date.now()) {
       sell: trip.sell, buy: trip.buy,
     } : null,
   };
+  view.exchange = exchangeView(c, t.globalTick);
   view.report = db.prepare("SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? AND tag = 'hazard' AND id > ? ORDER BY id").all(c.id, c.report_cursor);
 
   // Directives are sticky: newly earned milestones are saved as the view is

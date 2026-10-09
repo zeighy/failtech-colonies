@@ -27,6 +27,7 @@ The **Brief** tab is your guide. Hazards mark the structures they touch on the m
 | **Storage** | The Hub caps every resource; Warehouses raise the cap. Excess production is lost (the UI warns you). |
 | **Hazards** | Forecast ahead of time, strike on a fixed tick and then linger. The colony spends reserves automatically; unprepared means a prorated penalty, prepared still means a running cost. See below. |
 | **Convoy** | Every 40 ticks (plus on-demand express trips). Standing export/import orders execute at that convoy's prices, which drift from convoy to convoy and are shown in advance with their change. The per-resource trade limit grows with Hub level (×1 at level 1 up to ×4 at level 5). |
+| **Exchange** | From hub level 4 an order book separate from the convoy: post buy and sell orders at your own price against a book of NPC traders (and later other players). Sells are held, buys escrow credits, a 4% fee on proceeds. Prices drift on a seeded walk with shortage and glut events, and the book gets thin when you eat it. Goods are delivered to, and sold from, any district. |
 | **Work orders** | Construction and upgrades take ticks. Costs are charged up front; cancelling refunds in full. |
 | **Failure** | Critical shortages drain morale; at zero the colony collapses. You keep half your credits for the next attempt. "Abandon colony" does a full reset. |
 | **Districts** | From hub level 4 the **Districts** tab lets you found satellite bases (**The Pits**: ore, ingots, alloys; **The Stacks**: crude, fuel, reagents, polymers, circuits, power cells; **The Greenbelt**: biomass, fertiliser, medicine). Each has its own stockpile, power grid and 3-5-7-9-11 rings; people, crew and morale stay colony-wide. Founding is paid from the Core, upgrades from the district itself, so goods are moved by **shipments** (take ticks by distance; stock leaves at dispatch) and by standing **routes** (units per tick moved straight between stockpiles, with a reserve the source keeps) over each district's **link**, whose capacity you can widen. Route flows show in every district's per-tick rates. District level 2 opens at hub 4, levels 3-4 at hub 5, level 5 once the Beacon is built. Switch between districts with the chips on the map. |
@@ -105,7 +106,7 @@ The colony you build today is the **Core**: a stable base. The next stage adds *
 small copy of the Core with its own rings, stockpile and power grid, producing distinct resources that other districts
 and the Core need, linked by shipments and routes and traded on a larger order-book market. The design and roadmap are
 in [`docs/districts.md`](docs/districts.md). Built so far: the Core is "district 0", three districts can be founded and upgraded, goods move by shipments and standing routes, and the Beacon needs the whole web.
-Still to come: the order-book market and per-district hazards.
+The order-book exchange is in. Still to come: per-district hazards.
 
 ## Tuning the game
 

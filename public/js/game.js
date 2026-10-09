@@ -26,6 +26,7 @@
   var RAW = null;          // the server view as received
   var activeId = null;     // district being looked at (the Core by default)
   var radarFor = null;     // district the radar was built for
+  var mk = { res: 'alloys', side: 'buy', qty: 50, price: null, district: null, ttl: 100 }; // exchange order being composed
   var dmode = 'overview';  // Districts tab: 'overview' | 'logistics'
   var route = { from: null, to: null, res: 'scrap', rate: 10, reserve: 0 }; // route being composed
   var ship = { from: null, to: null, res: 'scrap', qty: 100 }; // shipment being composed
@@ -48,7 +49,7 @@
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
   var STEP = { scrap: 50, ore: 25, ingots: 10, reagents: 5, crude: 25, fuel: 10, polymers: 5, biomass: 25, fertiliser: 10, medicine: 2, unpurified_water: 25, raw_synthetics: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5, alloys: 5, circuits: 5, power_cells: 2 };
-  var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'site'], ['convoy', 'Convoy', 'truck'], ['log', 'Log', 'list']];
+  var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'site'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'list'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
   function api(path, body) {
@@ -915,6 +916,71 @@
     return h;
   }
 
+  // ---- exchange ----------------------------------------------------------------
+  function mp(n) { return n === null || n === undefined ? '–' : (Math.abs(n - Math.round(n)) < 0.005 ? String(Math.round(n)) : n.toFixed(2)); }
+  function spark(hist, color) {
+    var lo = Math.min.apply(null, hist), hi = Math.max.apply(null, hist), span = Math.max(1e-6, hi - lo), w = 220, h = 44;
+    var pts = hist.map(function (v, i) { return (i / (hist.length - 1) * w).toFixed(1) + ',' + (h - 4 - (v - lo) / span * (h - 8)).toFixed(1); }).join(' ');
+    return '<svg class="spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  }
+  // What an order at this price would fill right now against the visible book.
+  function fillEstimate(x, side, price, qty) {
+    var levels = side === 'buy' ? x.asks : x.bids, left = qty, cost = 0, got = 0;
+    levels.forEach(function (l) {
+      if (left <= 0) return;
+      if (side === 'buy' ? l.price <= price + 1e-9 : l.price >= price - 1e-9) { var q = Math.min(left, l.qty - l.mine); if (q > 0) { got += q; cost += q * l.price; left -= q; } }
+    });
+    return { qty: got, avg: got ? cost / got : 0, total: cost };
+  }
+  function exchangeTab() {
+    var E = S.exchange, X = CFG.exchange;
+    if (!E.unlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>The exchange opens at hub level ' + X.unlockCoreLevel + '.</div></div><div class="note">A place to name your own price: post buy and sell orders against traders, and against anyone else who turns up. Grow the hub first.</div>';
+    var x = E.resources[mk.res], r = CFG.resources[mk.res], ds = S.districts;
+    if (!ds.some(function (d) { return d.id === mk.district; })) mk.district = ds[0].id;
+    if (mk.price === null) mk.price = mk.side === 'buy' ? (x.ask || x.ref) : (x.bid || x.ref);
+    var pstep = Math.max(0.01, Math.round(x.ref * 0.01 * 100) / 100), qstep = STEP[mk.res] || 10;
+    var dstock = Math.floor(S.views[mk.district].resources[mk.res].amount);
+    var maxQ = mk.side === 'sell' ? Math.min(X.maxQty, dstock) : X.maxQty;
+    mk.qty = clamp(mk.qty, 1, Math.max(1, maxQ));
+    var ev = x.event ? '<span class="chip-ev ' + x.event.kind + '">' + (x.event.kind === 'shortage' ? 'SHORTAGE' : 'GLUT') + ' · ' + x.event.ticksLeft + 't</span>' : '';
+    var h = '<label class="selrow">Market<select data-sel="m:res">' + Object.keys(CFG.resources).filter(function (k) {
+      var d = CFG.resources[k]; return !(d.showFromHub && d.showFromHub > S.colony.hubLevel + 1 && k !== mk.res);
+    }).map(function (k) { return '<option value="' + k + '"' + (k === mk.res ? ' selected' : '') + '>' + esc(CFG.resources[k].name) + ' · ' + mp(E.resources[k].ref) + ' cr</option>'; }).join('') + '</select></label>';
+    h += '<div class="mk-head" style="--c:' + r.color + '"><div><div class="big num">' + mp(x.ref) + ' <small>cr</small></div><div class="dim" style="font-size:11px">market price' + (Math.abs(x.trend) >= 0.01 ? ' · ' + (x.trend > 0 ? '▲' : '▼') + Math.abs(Math.round(x.trend * 100)) + '%' : '') + '</div></div>' + spark(x.hist, r.color) + ev + '</div>';
+    // the book: asks (what you pay) above, bids (what you get) below
+    var maxq = Math.max.apply(null, x.asks.concat(x.bids).map(function (l) { return l.qty; }).concat([1]));
+    var row = function (l, cls) { return '<div class="bk ' + cls + '" data-act="mkprice" data-price="' + l.price + '"><i style="width:' + (l.qty / maxq * 100).toFixed(0) + '%"></i><span class="num">' + mp(l.price) + '</span><span class="num">' + fmt(l.qty) + (l.mine ? ' <b title="includes your orders">·</b>' : '') + '</span></div>'; };
+    h += '<div class="label sec">Order book <span class="dim" style="text-transform:none;letter-spacing:0">· click a price to use it</span></div><div class="book">' +
+      x.asks.slice().reverse().map(function (l) { return row(l, 'ask'); }).join('') +
+      '<div class="bk spread"><span>spread</span><span class="num">' + (x.ask !== null && x.bid !== null ? mp(x.ask - x.bid) : '–') + '</span></div>' +
+      x.bids.map(function (l) { return row(l, 'bid'); }).join('') + '</div>';
+    // the order form
+    var side = mk.side, est = fillEstimate(x, side, mk.price, mk.qty), total = Math.ceil(mk.price * mk.qty - 1e-9);
+    h += '<div class="label sec">New order</div><div class="seg" role="tablist" style="margin-bottom:10px"><button role="tab" data-act="mkside" data-side="buy" aria-selected="' + (side === 'buy') + '">Buy</button><button role="tab" data-act="mkside" data-side="sell" aria-selected="' + (side === 'sell') + '">Sell</button></div>' +
+      '<div class="shipform"><label class="wide">' + (side === 'buy' ? 'Deliver to' : 'Sell from') + '<select data-sel="m:district">' + ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === mk.district ? ' selected' : '') + '>' + esc(d.name) + ' (' + fmt(S.views[d.id].resources[mk.res].amount) + ')</option>'; }).join('') + '</select></label></div>' +
+      '<div class="stepper" style="margin-top:8px"><span class="lab">Qty</span><button data-act="mkqty" data-delta="-' + qstep + '">−</button><span class="val num">' + mk.qty + '</span><button data-act="mkqty" data-delta="' + qstep + '">+</button>' + (side === 'sell' ? '<button data-act="mkqty" data-delta="max" style="width:auto;padding:0 8px;font-size:10px">MAX</button>' : '') + '</div>' +
+      '<div class="stepper" style="margin-top:6px"><span class="lab">Price</span><button data-act="mkprice" data-delta="-' + pstep + '">−</button><span class="val num">' + mp(mk.price) + '</span><button data-act="mkprice" data-delta="' + pstep + '">+</button></div>' +
+      '<div class="actions" style="margin-top:6px"><button class="btn" data-act="mkprice" data-price="' + (side === 'buy' ? x.bid : x.ask) + '"' + ((side === 'buy' ? x.bid : x.ask) === null ? ' disabled' : '') + '>Join the queue</button><button class="btn" data-act="mkprice" data-price="' + (side === 'buy' ? x.ask : x.bid) + '"' + ((side === 'buy' ? x.ask : x.bid) === null ? ' disabled' : '') + '>Take the best</button></div>' +
+      '<label class="selrow" style="margin-top:8px">Lasts<select data-sel="m:ttl">' + X.ttlOptions.map(function (t) { return '<option value="' + t + '"' + (t === mk.ttl ? ' selected' : '') + '>' + t + ' ticks (' + clock(t * S.tickMs) + ')</option>'; }).join('') + '</select></label>';
+    var enough = side === 'buy' ? S.colony.credits >= total : dstock >= mk.qty;
+    h += '<div class="note" style="margin-top:10px">' + (side === 'buy'
+      ? 'Holds <b>' + fmt(total) + ' cr</b> until it fills.'
+      : 'Holds <b>' + mk.qty + ' ' + esc(r.name) + '</b> until it sells; you receive the price minus a <b>' + Math.round(X.feeRate * 100) + '% fee</b>.') +
+      (est.qty ? '<br>Would fill <b>' + est.qty + '</b> now at about <b>' + mp(est.avg) + '</b> each' + (est.qty < mk.qty ? ', and rest the other ' + (mk.qty - est.qty) : '') + '.' : '<br>Nothing fills yet: it rests in the book until someone meets the price.') + '</div>' +
+      '<div class="actions"><button class="btn primary" data-act="mksubmit"' + (enough ? '' : ' disabled') + '>' + (side === 'buy' ? 'Place buy order' : 'Place sell order') + '</button></div>';
+    // my orders and trades
+    h += '<div class="label sec">Your open orders · ' + E.orders.length + ' / ' + X.maxOpenOrders + '</div>';
+    h += E.orders.length ? E.orders.map(function (o) {
+      var d = ds.filter(function (z) { return z.id === o.district; })[0];
+      return '<div class="myord ' + o.side + '"><div class="rhead"><b>' + (o.side === 'buy' ? 'Buy ' : 'Sell ') + fmt(o.qty) + (o.qty < o.total ? ' / ' + fmt(o.total) : '') + ' ' + esc(CFG.resources[o.resource].name) + '</b><span class="dim">@ ' + mp(o.price) + ' · ' + esc(d ? d.name : '?') + '</span><button class="x" data-act="mkcancel" data-id="' + o.id + '" title="Cancel and take it back" aria-label="Cancel order">×</button></div>' +
+        '<div class="dim" style="font-size:11px">' + (o.side === 'buy' ? fmt(o.escrow) + ' cr held' : fmt(o.qty) + ' held') + ' · expires in ' + Math.max(0, o.expires - S.tick) + ' ticks</div></div>';
+    }).join('') : '<div class="dim" style="font-size:12px">No open orders.</div>';
+    if (E.trades.length) h += '<div class="label sec">Recent trades</div>' + E.trades.map(function (t) {
+      return '<div class="shiprow"><span>' + (t.side === 'buy' ? 'Bought ' : 'Sold ') + t.qty + ' ' + esc(CFG.resources[t.resource].name) + '</span><span class="dim">@ ' + mp(t.price) + '</span><span class="num dim">#' + t.tick + '</span></div>';
+    }).join('');
+    return h;
+  }
+
   function trendTxt(tr, goodUp) {
     if (Math.abs(tr) < 0.02) return '';
     var up = tr > 0, good = up === goodUp;
@@ -993,7 +1059,7 @@
 
   var lastPanel = '';
   function renderPanel() {
-    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'districts' ? districtsTab() : tab === 'convoy' ? convoyTab() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
+    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'districts' ? districtsTab() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
     if (h === lastPanel) return;
     lastPanel = h;
     var p = $('panel'), top = p.scrollTop;
@@ -1144,6 +1210,24 @@
     else if (a === 'shipsend') {
       act('shipment', { from: ship.from, to: ship.to, resource: ship.res, qty: ship.qty }, 'Shipment dispatched.');
     }
+    else if (a === 'mkside') { mk.side = el.dataset.side; mk.price = null; renderPanel(); }
+    else if (a === 'mkqty') {
+      var dst = Math.floor(S.views[mk.district].resources[mk.res].amount), mq = mk.side === 'sell' ? Math.min(CFG.exchange.maxQty, dst) : CFG.exchange.maxQty;
+      mk.qty = clamp(el.dataset.delta === 'max' ? mq : mk.qty + (+el.dataset.delta), 1, Math.max(1, mq)); renderPanel();
+    }
+    else if (a === 'mkprice') {
+      var xr = S.exchange.resources[mk.res];
+      if (el.dataset.price !== undefined) mk.price = +el.dataset.price;
+      else mk.price = Math.max(0.01, Math.round((mk.price + (+el.dataset.delta)) * 100) / 100);
+      mk.price = clamp(mk.price, Math.round(xr.ref * 0.2 * 100) / 100, Math.round(xr.ref * 5 * 100) / 100); renderPanel();
+    }
+    else if (a === 'mksubmit') {
+      var o = { side: mk.side, resource: mk.res, price: mk.price, qty: mk.qty, district: mk.district, ttl: mk.ttl };
+      act('market', o).then(function (d) {
+        if (d && d.ok && d.filled < o.qty) toast(d.filled ? 'Part filled (' + d.filled + ' of ' + o.qty + '); the rest is waiting in the book.' : 'Order placed. It rests in the book until someone meets your price.', true);
+      });
+    }
+    else if (a === 'mkcancel') act('market-cancel', { orderId: +el.dataset.id }, 'Order cancelled.');
     else if (a === 'cmode') { convoyMode = el.dataset.mode; renderPanel(); }
     else if (a === 'xstep') {
       var xs = el.dataset.side, xr = el.dataset.res, bag = xdraft[xs];
@@ -1175,6 +1259,7 @@
     var el = e.target.closest('[data-sel]');
     if (!el) return;
     var k = el.dataset.sel;
+    if (k.indexOf('m:') === 0) { var mkk = k.slice(2); if (mkk === 'res') { mk.res = el.value; mk.price = null; mk.qty = 50; } else mk[mkk] = mkk === 'ttl' || mkk === 'district' ? +el.value : el.value; if (mkk === 'district') mk.qty = Math.max(1, mk.qty); renderPanel(); return; }
     if (k.indexOf('r:') === 0) { var rk = k.slice(2); if (rk === 'res') route.res = el.value; else route[rk] = +el.value; }
     else if (k === 'res') ship.res = el.value; else ship[k] = +el.value;
     renderPanel();

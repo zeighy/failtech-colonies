@@ -1843,5 +1843,54 @@
   "ringRotation": {
     "2": 15,
     "4": 15
+  },
+  "exchange": {
+    "unlockCoreLevel": 4,
+    "feeRate": 0.04,
+    "maxOpenOrders": 10,
+    "maxQty": 1000,
+    "ttlOptions": [
+      30,
+      100,
+      300
+    ],
+    "levels": 5,
+    "spread": 0.06,
+    "step": 0.04,
+    "regenPerTick": 0.08,
+    "walk": {
+      "amplitude": 0.2,
+      "periods": [
+        37,
+        89,
+        211
+      ]
+    },
+    "events": {
+      "period": 120,
+      "chance": 0.3,
+      "duration": 30,
+      "shortage": {
+        "price": 1.45,
+        "askDepth": 0.35
+      },
+      "glut": {
+        "price": 0.7,
+        "bidDepth": 0.35
+      }
+    },
+    "depthByTier": {
+      "0": 800,
+      "1": 500,
+      "2": 260,
+      "3": 110,
+      "4": 60
+    },
+    "historyTicks": 48,
+    "tradesKept": 300,
+    "convoyBand": {
+      "bidMaxOfConvoyBuy": 0.9,
+      "askMinOfConvoySell": 1.1
+    }
   }
 }

@@ -3,6 +3,7 @@ const EventEmitter = require('events');
 const sim = require('./sim');
 const store = require('./db');
 const hazards = require('./hazards');
+const market = require('./market');
 const { db, config } = store;
 
 const neighborMap = sim.buildNeighborMap(config);
@@ -167,6 +168,7 @@ function tickColony(c, globalTick, tickTime) {
 
 const processTick = db.transaction((tickTime = Date.now()) => {
   const globalTick = Number(store.getMeta('global_tick', 0)) + 1;
+  market.advance(globalTick); // quotes, matching and expiry happen before any colony ticks, so settlements are in its stock
   for (const c of db.prepare("SELECT * FROM colonies WHERE status = 'active'").all()) tickColony(c, globalTick, tickTime);
   store.setMeta('global_tick', globalTick);
   return globalTick;

@@ -9,7 +9,7 @@ const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failt
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -163,6 +163,35 @@ function migrate() {
   if (!db.prepare("SELECT 1 FROM pragma_table_info('colony_buildings') WHERE name = 'boost'").get()) {
     db.exec('ALTER TABLE colony_buildings ADD COLUMN boost INTEGER NOT NULL DEFAULT 0');
   }
+  // v10 (additive): the exchange. NPC market makers and players share one order book.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS market_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner TEXT NOT NULL,                       -- 'npc' | 'player'
+      colony_id INTEGER REFERENCES colonies(id) ON DELETE CASCADE,
+      district_id INTEGER REFERENCES districts(id) ON DELETE SET NULL,   -- sells: where the goods came from; buys: where they are delivered
+      side TEXT NOT NULL,                        -- 'buy' | 'sell'
+      resource_id TEXT NOT NULL,
+      price REAL NOT NULL,                       -- credits per unit
+      qty INTEGER NOT NULL,                      -- remaining
+      qty_total INTEGER NOT NULL,
+      escrow INTEGER NOT NULL DEFAULT 0,         -- buys: credits held for the remaining quantity
+      level INTEGER,                             -- npc ladder rung
+      created_tick INTEGER NOT NULL,
+      expires_tick INTEGER,
+      status TEXT NOT NULL DEFAULT 'open'        -- open | filled | cancelled | expired
+    );
+    CREATE INDEX IF NOT EXISTS market_orders_book ON market_orders (resource_id, side, status, price);
+    CREATE TABLE IF NOT EXISTS market_trades (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tick INTEGER NOT NULL,
+      resource_id TEXT NOT NULL,
+      price REAL NOT NULL,
+      qty INTEGER NOT NULL,
+      buy_colony INTEGER,
+      sell_colony INTEGER
+    );
+  `);
   // A building inserted without a district belongs to the colony's Core district.
   db.exec(`CREATE TRIGGER IF NOT EXISTS buildings_default_district AFTER INSERT ON colony_buildings
     WHEN NEW.district_id IS NULL BEGIN

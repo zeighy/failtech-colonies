@@ -151,3 +151,19 @@ Districts at level 5 are the endgame reward, not part of the path to it.
   homes, which feeds the morale target). If the stock is short nothing is spent and the pane says it is waiting. Hydroponics Bay: fertiliser (x1.35 rations).
   Dormitory/Habitat: medicine (+6/+8 comfort). It is generic, so more can be added in config.
 - **Hazard sinks**: from hub level 4 Crop Blight also wants fertiliser, Toxic Spill and Raid want medicine (`requires[].fromHub`), so the Greenbelt matters all game.
+
+## Step 5 notes: the exchange (built)
+
+- **One book per resource** (`market_orders`), shared by NPC market makers and players, so player-to-player trading needs no new code. Orders match by price, then
+  time; a trade happens at the price of the older (resting) order; a player never trades with themselves, and NPCs never trade with each other.
+- **NPC market makers** (`src/marketsim.js`, pure and deterministic): a reference price per resource from the geometric mean of the convoy's buy and sell price,
+  times a smooth seeded walk (three sine waves) and occasional shortage/glut windows (x1.45 / x0.7, with the affected side's depth cut to 35%). Five rungs per side,
+  re-quoted every tick and regenerating 8% of their depth per tick, so eating the book leaves it thin for a while. Bids stay under 90% of the convoy's buy price
+  and asks over 110% of its sell price, so the convoy is never a better deal than the book.
+- **Orders** (`src/market.js`, `POST /api/market`, `/api/market-cancel`): sells are held from the chosen district's stockpile; buys escrow credits at the limit price and
+  are refunded the difference when they fill at a better one; goods are delivered straight to the chosen district, and a buyer with no room waits rather than losing
+  goods. Up to 10 open orders, 1000 per order, lifetimes of 30/100/300 ticks; expired and cancelled orders give everything back. A 4% fee on the seller's proceeds is
+  the credit sink. Prices are credits per unit with two decimals.
+- **Unlock**: hub level 4 (`config.exchange.unlockCoreLevel`), with the districts. A directive ("Name your price") ticks on the first order.
+- **View**: `view.exchange` has the reference price, history, event, book (top five rungs, with the player's own share marked), the player's orders and recent trades.
+- The convoy and express trips are unchanged: guaranteed, small, and priced worse.
