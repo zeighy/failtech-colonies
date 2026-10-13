@@ -5,11 +5,15 @@ const path = require('path');
 const session = require('express-session');
 
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'game_config.json'), 'utf8'));
-const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failtech.db'));
+const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'failtech.db');
+const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of failing at once
+// The database holds password hashes and every colony: keep it readable by the owner only.
+for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -216,6 +220,12 @@ function migrate() {
       PRIMARY KEY (colony_id, faction)
     );
   `);
+  // v12 (additive): NPC rungs regenerate lazily, from the tick they were last brought up to date
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('market_orders') WHERE name = 'synced_tick'").get()) {
+    db.exec('ALTER TABLE market_orders ADD COLUMN synced_tick INTEGER NOT NULL DEFAULT 0');
+  }
+  // Callsigns are unique regardless of case, enforced by the database (the app also checks, but only the index is race-proof).
+  try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_username_nocase ON users (username COLLATE NOCASE)'); } catch (e) { console.warn('Could not enforce case-insensitive callsigns (existing duplicates?):', e.message); }
   // A building inserted without a district belongs to the colony's Core district.
   db.exec(`CREATE TRIGGER IF NOT EXISTS buildings_default_district AFTER INSERT ON colony_buildings
     WHEN NEW.district_id IS NULL BEGIN
@@ -299,6 +309,10 @@ class SqliteStore extends session.Store {
   destroy(sid, cb) {
     try { db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid); cb && cb(null); } catch (e) { cb && cb(e); }
   }
+}
+
+function purgeSessions() {
+  db.prepare('DELETE FROM sessions WHERE expires <= ?').run(Date.now());
 }
 
 // ---- colonies ---------------------------------------------------------------
@@ -401,7 +415,7 @@ function loadContracts(colonyId) {
 }
 
 module.exports = {
-  db, config, SqliteStore, getMeta, setMeta,
+  db, config, dbPath, purgeSessions, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
   coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadShipments, loadRoutes, loadContracts, loadHazard, loadExpress,
 };

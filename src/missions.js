@@ -60,9 +60,9 @@ function advance(c, tick) {
 // Fill one offer of an open mission from a district's stockpile.
 function fill(c, { id, faction, district }, tick) {
   const fail = (error) => ({ ok: false, error });
-  const q = db.prepare("SELECT * FROM missions WHERE id = ? AND colony_id = ? AND status = 'open'").get(Number(id), c.id);
+  const q = db.prepare("SELECT * FROM missions WHERE id = ? AND colony_id = ? AND status = 'open'").get(id, c.id);
   if (!q) return fail('That mission is no longer open.');
-  const offer = JSON.parse(q.offers).find((o) => o.faction === faction);
+  const offer = JSON.parse(q.offers).find((o) => typeof faction === 'string' && o.faction === faction);
   if (!offer) return fail('That faction made no such offer.');
   const have = store.loadInventory(c.id, district.id)[offer.good] || 0;
   const name = config.resources[offer.good].name;

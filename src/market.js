@@ -6,33 +6,49 @@
 const sim = require('./sim');
 const ms = require('./marketsim');
 const store = require('./db');
+const { own, toInt, toNum } = require('./validate');
 const { db, config } = store;
 
 const X = config.exchange;
 const resources = () => Object.keys(config.resources);
 
 // ---- NPC market makers --------------------------------------------------------------------
-// One persisted order per (resource, side, rung). Each tick it is re-quoted around the reference price and its
-// quantity regenerates toward the target, so a player who eats the book finds it thinner for a while.
+// One persisted order per (resource, side, rung), re-quoted around the reference price, with its quantity
+// regenerating toward the target. This is done lazily: a resource's rungs are only brought up to date when something
+// needs them (a player posts, a player's order is resting on that resource, or the book is viewed), and they catch
+// up for every tick they missed. A world where nobody has an open order therefore costs nothing per tick.
 function ensureNpc(tick) {
-  if (db.prepare("SELECT 1 FROM market_orders WHERE owner = 'npc' LIMIT 1").get()) return;
-  const ins = db.prepare("INSERT INTO market_orders (owner, side, resource_id, price, qty, qty_total, level, created_tick) VALUES ('npc', ?, ?, ?, ?, ?, ?, ?)");
+  if (store.getMeta('npc_seeded')) return;
+  const ins = db.prepare("INSERT INTO market_orders (owner, side, resource_id, price, qty, qty_total, level, created_tick, synced_tick) VALUES ('npc', ?, ?, ?, ?, ?, ?, ?, ?)");
   for (const res of resources()) {
     const l = ms.ladder(config, res, tick);
-    for (const a of l.asks) ins.run('sell', res, a.price, a.target, a.target, a.level, tick);
-    for (const b of l.bids) ins.run('buy', res, b.price, b.target, b.target, b.level, tick);
+    for (const a of l.asks) ins.run('sell', res, a.price, a.target, a.target, a.level, tick, tick);
+    for (const b of l.bids) ins.run('buy', res, b.price, b.target, b.target, b.level, tick, tick);
   }
+  store.setMeta('npc_seeded', '1');
 }
 
-function requote(tick) {
-  const up = db.prepare("UPDATE market_orders SET price = ?, qty = MIN(?, qty + ?), qty_total = ? WHERE owner = 'npc' AND resource_id = ? AND side = ? AND level = ?");
-  for (const res of resources()) {
-    const l = ms.ladder(config, res, tick);
-    // trade goods are a thin, slow market: the book refills far more slowly, so one workshop can saturate it
-    const regen = config.resources[res].trade ? X.tradeRegenPerTick : X.regenPerTick;
-    for (const a of l.asks) up.run(a.price, a.target, Math.max(1, Math.ceil(a.target * regen)), a.target, res, 'sell', a.level);
-    for (const b of l.bids) up.run(b.price, b.target, Math.max(1, Math.ceil(b.target * regen)), b.target, res, 'buy', b.level);
+const regenRate = (res) => (config.resources[res].trade ? X.tradeRegenPerTick : X.regenPerTick);
+const regenStep = (res, target) => Math.max(1, Math.ceil(target * regenRate(res)));
+
+function requote(res, tick) {
+  const up = db.prepare("UPDATE market_orders SET price = ?, qty = MIN(?, qty + ? * MAX(0, ? - synced_tick)), qty_total = ?, synced_tick = ? WHERE owner = 'npc' AND resource_id = ? AND side = ? AND level = ?");
+  const l = ms.ladder(config, res, tick);
+  for (const a of l.asks) up.run(a.price, a.target, regenStep(res, a.target), tick, a.target, tick, res, 'sell', a.level);
+  for (const b of l.bids) up.run(b.price, b.target, regenStep(res, b.target), tick, b.target, tick, res, 'buy', b.level);
+}
+
+// The book as it would be right now, without writing anything (used to show it to players).
+function projectedNpc(tick) {
+  const rows = db.prepare("SELECT resource_id AS res, side, level, qty, synced_tick AS synced FROM market_orders WHERE owner = 'npc'").all();
+  const ladders = {};
+  const out = [];
+  for (const r of rows) {
+    const l = ladders[r.res] || (ladders[r.res] = ms.ladder(config, r.res, tick));
+    const q = (r.side === 'sell' ? l.asks : l.bids)[r.level];
+    out.push({ owner: 'npc', colony: null, side: r.side, res: r.res, price: q.price, qty: Math.min(q.target, r.qty + regenStep(r.res, q.target) * Math.max(0, tick - r.synced)) });
   }
+  return out;
 }
 
 // ---- settlement helpers ------------------------------------------------------------------
@@ -93,7 +109,9 @@ function match(res, tick) {
   }
 }
 
-function matchAll(tick) { for (const res of resources()) match(res, tick); }
+// Resources somebody has an open player order on: the only ones whose books need work every tick.
+const activeResources = () => db.prepare("SELECT DISTINCT resource_id AS res FROM market_orders WHERE owner = 'player' AND status = 'open'").all().map((r) => r.res);
+function matchAll(tick) { for (const res of activeResources()) { requote(res, tick); match(res, tick); } }
 
 function prune() {
   db.prepare('DELETE FROM market_trades WHERE id NOT IN (SELECT id FROM market_trades ORDER BY id DESC LIMIT ?)').run(X.tradesKept * 20);
@@ -117,7 +135,6 @@ function expire(tick) {
 // ---- the tick ---------------------------------------------------------------------------------
 function advance(tick) {
   ensureNpc(tick);
-  requote(tick);
   matchAll(tick);
   expire(tick);
   if (tick % 50 === 0) prune();
@@ -132,12 +149,13 @@ function post(c, d, { side, resource, price, qty, ttl }, tick) {
   const fail = (error) => ({ ok: false, error });
   if (c.hub_level < X.unlockCoreLevel) return fail(`The exchange opens at hub level ${X.unlockCoreLevel}.`);
   if (side !== 'buy' && side !== 'sell') return fail('Bad order side.');
-  if (!config.resources[resource]) return fail('Unknown resource.');
-  qty = Math.floor(Number(qty)); price = Math.round(Number(price) * 100) / 100; ttl = Number(ttl);
+  if (!own(config.resources, resource)) return fail('Unknown resource.');
+  qty = Math.floor(toNum(qty)); price = Math.round(toNum(price) * 100) / 100; ttl = toInt(ttl);
   if (!Number.isFinite(qty) || qty < 1) return fail('Bad quantity.');
   if (qty > X.maxQty) return fail(`At most ${X.maxQty} per order.`);
   if (!Number.isFinite(price) || price <= 0) return fail('Bad price.');
   if (!X.ttlOptions.includes(ttl)) return fail('Bad order lifetime.');
+  ensureNpc(tick);
   const ref = ms.refPrice(config, resource, tick);
   if (price < ref * 0.2 || price > ref * 5) return fail(`Price must be between ${fmtP(ref * 0.2)} and ${fmtP(ref * 5)} cr (the market is around ${fmtP(ref)}).`);
   if (openCount(c.id) >= X.maxOpenOrders) return fail(`At most ${X.maxOpenOrders} open orders.`);
@@ -155,16 +173,17 @@ function post(c, d, { side, resource, price, qty, ttl }, tick) {
   }
   const id = Number(db.prepare(`INSERT INTO market_orders (owner, colony_id, district_id, side, resource_id, price, qty, qty_total, escrow, created_tick, expires_tick)
     VALUES ('player', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(c.id, d.id, side, resource, price, qty, qty, escrow, tick, tick + ttl).lastInsertRowid);
+  requote(resource, tick);
   match(resource, tick);
   const o = db.prepare('SELECT * FROM market_orders WHERE id = ?').get(id);
   return { ok: true, id, filled: qty - o.qty };
 }
 
 function cancel(c, orderId, tick) {
-  const o = db.prepare("SELECT * FROM market_orders WHERE id = ? AND colony_id = ? AND owner = 'player' AND status = 'open'").get(Number(orderId), c.id);
+  const o = db.prepare("SELECT * FROM market_orders WHERE id = ? AND colony_id = ? AND owner = 'player' AND status = 'open'").get(toInt(orderId), c.id);
   if (!o) return { ok: false, error: 'That order is no longer open.' };
   close(o, 'cancelled', tick, 'was cancelled');
   return { ok: true };
 }
 
-module.exports = { advance, ensureNpc, requote, match, matchAll, post, cancel, expire, roomIn, openCount };
+module.exports = { projectedNpc, advance, ensureNpc, requote, match, matchAll, post, cancel, expire, roomIn, openCount };

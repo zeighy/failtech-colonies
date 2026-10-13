@@ -9,6 +9,8 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
 process.env.SESSION_SECRET = 'test-secret';
 process.env.AUTH_RATE_LIMIT = '1000';
+process.env.BCRYPT_ROUNDS = '4';
+process.env.API_RATE_LIMIT = '100000';
 process.env.HAZARDS = 'off'; // hazards have their own suite (test/hazards.test.js)
 
 const app = require('../server');

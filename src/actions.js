@@ -2,6 +2,7 @@
 const sim = require('./sim');
 const market = require('./market');
 const missions = require('./missions');
+const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
 const { db, config } = store;
 
@@ -11,6 +12,7 @@ const OK = { ok: true };
 function colonyOf(userId) {
   return db.prepare('SELECT * FROM colonies WHERE user_id = ?').get(userId);
 }
+const NaNish = (...v) => v.some((x) => Number.isNaN(x));
 
 function canAfford(inv, cost) {
   return Object.entries(cost).every(([r, a]) => (inv[r] || 0) >= a);
@@ -19,9 +21,10 @@ function canAfford(inv, cost) {
 // Which district is an action about? The Core unless one is named; a named one must belong to this colony.
 // The Core's level lives on the colony (colonies.hub_level); other districts carry their own.
 function districtFor(c, id) {
-  const d = id === undefined || id === null
+  const n = id === undefined || id === null ? null : toInt(id);
+  const d = n === null
     ? db.prepare("SELECT * FROM districts WHERE colony_id = ? AND type = 'core'").get(c.id)
-    : db.prepare('SELECT * FROM districts WHERE id = ? AND colony_id = ?').get(Number(id), c.id);
+    : Number.isNaN(n) ? null : db.prepare('SELECT * FROM districts WHERE id = ? AND colony_id = ?').get(n, c.id);
   return d ? { ...d, level: d.type === 'core' ? c.hub_level : d.level } : null;
 }
 const NO_DISTRICT = 'Unknown district.';
@@ -39,12 +42,15 @@ function refund(districtId, cost, fraction) {
 
 // Wraps an action: loads the colony, rejects failed colonies, runs inside a transaction.
 function guarded(fn, { allowFailed = false } = {}) {
-  return (userId, args = {}) => {
+  // The colony is read inside the transaction, and the transaction takes the write lock up front (BEGIN IMMEDIATE),
+  // so two requests (or two processes) can never both act on the same stale balance.
+  const run = db.transaction((userId, args) => {
     const c = colonyOf(userId);
     if (!c) return fail('No colony found.');
     if (c.status !== 'active' && !allowFailed) return fail('This colony has been abandoned.');
-    return db.transaction(() => fn(c, args))();
-  };
+    return fn(c, args);
+  });
+  return (userId, args) => run.immediate(userId, body(args));
 }
 
 const slotBusy = (c, d, ring, slot) => {
@@ -55,9 +61,10 @@ const slotBusy = (c, d, ring, slot) => {
 const build = guarded((c, { ring, slot, type, district }) => {
   const d = districtFor(c, district);
   if (!d) return fail(NO_DISTRICT);
-  ring = Number(ring); slot = Number(slot);
-  const def = config.buildings[type];
+  ring = toInt(ring); slot = toInt(slot);
+  const def = own(config.buildings, type);
   if (!def) return fail('Unknown building type.');
+  if (NaNish(ring, slot)) return fail('Bad slot.');
   if (!sim.buildableIn(def, d.type)) return fail(`${def.name} can't be built ${d.type === 'core' ? 'in the Core' : `in ${d.name}`}.`);
   if (!sim.slotUnlocked(config, d.level, ring, slot, d.type)) return fail(`That slot is locked. Upgrade the ${d.type === 'core' ? 'hub' : 'district'}.`);
   if (def.minHubLevel && c.hub_level < def.minHubLevel) return fail(`${def.name} requires hub level ${def.minHubLevel}.`);
@@ -75,14 +82,23 @@ const build = guarded((c, { ring, slot, type, district }) => {
   return OK;
 });
 
-const buildingAt = (d, ring, slot) =>
-  db.prepare('SELECT * FROM colony_buildings WHERE district_id = ? AND ring_index = ? AND slot_index = ?').get(d.id, Number(ring), Number(slot));
+const buildingAt = (d, ring, slot) => {
+  const r = toInt(ring); const sl = toInt(slot);
+  if (Number.isNaN(r) || Number.isNaN(sl)) return undefined;
+  return db.prepare('SELECT * FROM colony_buildings WHERE district_id = ? AND ring_index = ? AND slot_index = ?').get(d.id, r, sl);
+};
 
 const demolish = guarded((c, { ring, slot, district }) => {
   const d = districtFor(c, district);
   if (!d) return fail(NO_DISTRICT);
   const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing to demolish there.');
+  // Scrapping a configured workshop costs what changing its recipe would, or demolishing and rebuilding would be a free reset.
+  if (config.buildings[b.building_type].recipeBuilding && b.recipe) {
+    const fee = sim.recipeResetFee(config, b.recipe, b.ring_index, d.type);
+    if (c.credits < fee) return fail(`Scrapping a configured workshop costs ${fee} cr.`);
+    db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(fee, c.id);
+  }
   db.prepare('DELETE FROM colony_buildings WHERE id = ?').run(b.id);
   refund(d.id, config.buildings[b.building_type].cost, config.global.demolishRefund);
   return OK;
@@ -112,7 +128,8 @@ const setBoost = guarded((c, { ring, slot, enabled, district }) => {
 });
 
 const cancelOrder = guarded((c, { orderId }) => {
-  const o = store.loadOrders(c.id).find((x) => x.id === Number(orderId));
+  const oid = toInt(orderId);
+  const o = Number.isNaN(oid) ? undefined : store.loadOrders(c.id).find((x) => x.id === oid);
   if (!o) return fail('That order no longer exists.');
   const d = districtFor(c, o.district_id);
   const cost = o.action_type === 'build' ? config.buildings[o.data.type].cost
@@ -143,7 +160,7 @@ const upgradeHub = guarded((c, { district } = {}) => {
 
 // Found a satellite district: paid from the Core stockpile, built over a few ticks by a work order.
 const foundDistrict = guarded((c, { type }) => {
-  const t = config.districtTypes && config.districtTypes[type];
+  const t = own(config.districtTypes, type);
   if (!t) return fail('Unknown district type.');
   if (!sim.districtsUnlocked(config, { coreLevel: c.hub_level })) {
     return fail(`Districts open at hub level ${config.districtProgression.unlockCoreLevel}.`);
@@ -164,8 +181,8 @@ const shipment = guarded((c, { from, to, resource, qty }) => {
   const a = districtFor(c, from); const b = districtFor(c, to);
   if (!a || !b) return fail(NO_DISTRICT);
   if (a.id === b.id) return fail('Pick two different districts.');
-  if (!config.resources[resource]) return fail('Unknown resource.');
-  qty = Math.floor(Number(qty));
+  if (!own(config.resources, resource)) return fail('Unknown resource.');
+  qty = Math.floor(toNum(qty));
   const L = config.logistics;
   if (!Number.isFinite(qty) || qty < 1) return fail('Bad quantity.');
   if (qty > L.shipmentMax) return fail(`A shipment carries at most ${L.shipmentMax}.`);
@@ -188,7 +205,7 @@ const setRecipe = guarded((c, { ring, slot, recipe, district }) => {
   const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing there.');
   if (!config.buildings[b.building_type].recipeBuilding) return fail('This building does not take recipes.');
-  if (!config.recipes[recipe]) return fail('Unknown recipe.');
+  if (!own(config.recipes, recipe)) return fail('Unknown recipe.');
   if (b.recipe === recipe) return OK;
   const tick = Number(store.getMeta('global_tick', 0));
   if (!b.recipe) {
@@ -217,7 +234,7 @@ const shieldHazard = guarded((c, { enabled }) => {
 const missionFill = guarded((c, { id, faction, district }) => {
   const d = districtFor(c, district);
   if (!d) return fail(NO_DISTRICT);
-  return missions.fill(c, { id, faction, district: d }, Number(store.getMeta('global_tick', 0)));
+  return missions.fill(c, { id: toInt(id), faction, district: d }, Number(store.getMeta('global_tick', 0)));
 });
 
 // ---- the exchange -------------------------------------------------------------------------
@@ -227,7 +244,7 @@ const marketPost = guarded((c, args) => {
   const r = market.post(c, d, args, Number(store.getMeta('global_tick', 0)));
   return r.ok ? { ok: true, id: r.id, filled: r.filled } : r;
 });
-const marketCancel = guarded((c, { orderId }) => market.cancel(c, orderId, Number(store.getMeta('global_tick', 0))));
+const marketCancel = guarded((c, { orderId }) => market.cancel(c, toInt(orderId), Number(store.getMeta('global_tick', 0))));
 
 // ---- standing routes ------------------------------------------------------------
 // A route moves up to `rate` units per tick from one district to another, never taking the source below
@@ -243,9 +260,10 @@ const setRoute = guarded((c, { from, to, resource, rate, reserve }) => {
   const a = districtFor(c, from); const b = districtFor(c, to);
   if (!a || !b) return fail(NO_DISTRICT);
   if (a.id === b.id) return fail('Pick two different districts.');
-  if (!config.resources[resource]) return fail('Unknown resource.');
-  rate = Math.floor(Number(rate)); reserve = Math.max(0, Math.floor(Number(reserve) || 0));
-  if (!Number.isFinite(rate) || rate < 0) return fail('Bad rate.');
+  if (!own(config.resources, resource)) return fail('Unknown resource.');
+  rate = Math.floor(toNum(rate)); reserve = reserve === undefined ? 0 : Math.floor(toNum(reserve));
+  if (!Number.isFinite(rate) || rate < 0 || rate > 1e6) return fail('Bad rate.');
+  if (!Number.isFinite(reserve) || reserve < 0 || reserve > 1e9) return fail('Bad reserve.');
   const existing = store.loadRoutes(c.id).find((r) => r.fromDistrict === a.id && r.toDistrict === b.id && r.resource === resource);
   if (rate === 0) {
     if (existing) db.prepare('DELETE FROM colony_routes WHERE id = ?').run(existing.id);
@@ -280,10 +298,10 @@ const upgradeLink = guarded((c, { district }) => {
 });
 
 const setContract = guarded((c, { resource, side, amount }) => {
-  if (!config.resources[resource]) return fail('Unknown resource.');
+  if (!own(config.resources, resource)) return fail('Unknown resource.');
   if (config.resources[resource].trade) return fail('The convoy does not carry trade goods. Use the exchange.');
   if (side !== 'export' && side !== 'import') return fail('Bad contract side.');
-  amount = Math.floor(Number(amount));
+  amount = Math.floor(toNum(amount));
   if (!Number.isFinite(amount) || amount < 0) return fail('Bad amount.');
   amount = Math.min(amount, sim.convoyLimit(config, c.hub_level, resource));
   if (amount === 0) db.prepare('DELETE FROM colony_contracts WHERE colony_id = ? AND resource_id = ? AND side = ?').run(c.id, resource, side);
@@ -294,6 +312,8 @@ const setContract = guarded((c, { resource, side, amount }) => {
 // Express convoy: a one-off, player-dispatched trip. Goods and credits are held on dispatch
 // (so nothing can be spent twice) and delivered a few ticks later at worse-than-scheduled rates.
 const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
+  if (!isPlain(sell) || !isPlain(buy)) return fail('Bad express order.');
+  if (Object.keys(sell).length > 40 || Object.keys(buy).length > 40) return fail('Bad express order.');
   const x = config.global.express;
   const tick = Number(store.getMeta('global_tick', 0));
   if (store.loadExpress(c.id)) return fail('An express convoy is already on its way.');
@@ -302,9 +322,9 @@ const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
   const inv = store.loadInventory(c.id);
   const sellOut = {}; const buyOut = {};
   let income = 0; let spend = 0;
-  const clean = (o) => Object.entries(o || {}).map(([r, q]) => [r, Math.floor(Number(q))]).filter(([, q]) => q > 0);
+  const clean = (o) => Object.entries(o).map(([r, q]) => [r, Math.floor(toNum(q))]).filter(([, q]) => q > 0);
   for (const [res, qty] of clean(sell)) {
-    if (!config.resources[res]) return fail('Unknown resource.');
+    if (!own(config.resources, res)) return fail('Unknown resource.');
     if (config.resources[res].trade) return fail('The convoy does not carry trade goods. Use the exchange.');
     const lim = Math.max(1, Math.floor(sim.convoyLimit(config, c.hub_level, res) * x.limitFraction));
     if (qty > lim) return fail(`Express convoys carry at most ${lim} ${config.resources[res].name}.`);
@@ -313,7 +333,7 @@ const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
     sellOut[res] = { qty, pay }; income += pay;
   }
   for (const [res, qty] of clean(buy)) {
-    if (!config.resources[res]) return fail('Unknown resource.');
+    if (!own(config.resources, res)) return fail('Unknown resource.');
     if (config.resources[res].trade) return fail('The convoy does not carry trade goods. Use the exchange.');
     const lim = Math.max(1, Math.floor(sim.convoyLimit(config, c.hub_level, res) * x.limitFraction));
     if (qty > lim) return fail(`Express convoys carry at most ${lim} ${config.resources[res].name}.`);

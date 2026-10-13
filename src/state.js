@@ -6,6 +6,7 @@ const objectives = require('./objectives');
 const hazards = require('./hazards');
 const ms = require('./marketsim');
 const missions = require('./missions');
+const market = require('./market');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -66,7 +67,8 @@ function hazardMark(hazard, b, s, buildings) {
 // The exchange as the player sees it: reference prices and history, the book per resource, their own orders and trades.
 function exchangeView(c, tick) {
   const X = config.exchange;
-  const open = db.prepare("SELECT id, owner, colony_id AS colony, side, resource_id AS res, price, qty FROM market_orders WHERE status = 'open' AND qty > 0").all();
+  const open = db.prepare("SELECT owner, colony_id AS colony, side, resource_id AS res, price, qty FROM market_orders WHERE owner = 'player' AND status = 'open' AND qty > 0").all()
+    .concat(market.projectedNpc(tick).filter((o) => o.qty > 0));
   const out = { unlocked: c.hub_level >= X.unlockCoreLevel, resources: {}, orders: [], trades: [], activity: false };
   const by = {};
   for (const o of open) (by[o.res] = by[o.res] || []).push(o);

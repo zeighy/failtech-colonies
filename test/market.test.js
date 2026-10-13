@@ -146,17 +146,21 @@ test('a resting buy fills when the market moves down to it, at the better (resti
   tick(1); // the next tick re-quotes the ladder around the reference price
 });
 
-test('eating the book makes it thinner, and it slowly regenerates', () => {
+test('eating the book makes it thinner, and it slowly regenerates (lazily, without per-tick work)', () => {
   const c = colony();
   const l = quote();
-  const rung = () => db.prepare("SELECT qty FROM market_orders WHERE owner = 'npc' AND resource_id = 'alloys' AND side = 'sell' AND level = 0").get().qty;
-  const full = rung();
+  const stored = () => db.prepare("SELECT qty FROM market_orders WHERE owner = 'npc' AND resource_id = 'alloys' AND side = 'sell' AND level = 0").get().qty;
+  const shown = () => viewFor(c.uid).exchange.resources.alloys.asks[0].qty;
+  tick(1);
+  const full = shown();
   db.prepare('UPDATE colonies SET credits = 1e9 WHERE id = ?').run(c.id);
-  post(c, { side: 'buy', price: l.asks[0].price * 1.5, qty: Math.min(X.maxQty, full) });
-  assert.ok(rung() < full);
-  const low = rung();
+  post(c, { side: 'buy', price: l.asks[0].price * 1.5, qty: Math.floor(full / 2) });
+  assert.ok(stored() < full);
+  const low = shown();
+  assert.ok(low < full);
   tick(2);
-  assert.ok(rung() > low && rung() <= ms.ladder(config, 'alloys', tickNow()).asks[0].target);
+  assert.ok(shown() > low && shown() <= ms.ladder(config, 'alloys', tickNow()).asks[0].target, 'the view shows what has regenerated');
+  assert.equal(store.getMeta('npc_seeded'), '1');
 });
 
 test('validation: price band, quantity, lifetime, funds, stock, level, open-order cap', () => {

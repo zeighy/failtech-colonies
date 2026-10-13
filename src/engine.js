@@ -168,13 +168,16 @@ function tickColony(c, globalTick, tickTime) {
     .run(hubLevel, Math.floor(credits), res.morale, population, status, res.won ? 1 : 0, res.progress, starving ? 1 : 0, brownout ? 1 : 0, c.id);
 }
 
-const processTick = db.transaction((tickTime = Date.now()) => {
+const processTickTx = db.transaction((tickTime) => {
   const globalTick = Number(store.getMeta('global_tick', 0)) + 1;
   market.advance(globalTick); // quotes, matching and expiry happen before any colony ticks, so settlements are in its stock
   for (const c of db.prepare("SELECT * FROM colonies WHERE status = 'active'").all()) tickColony(c, globalTick, tickTime);
   store.setMeta('global_tick', globalTick);
   return globalTick;
 });
+
+// BEGIN IMMEDIATE: the tick takes the write lock before it reads anything.
+const processTick = (tickTime = Date.now()) => processTickTx.immediate(tickTime);
 
 // Runs every tick that has come due, including those missed while the server was down.
 function runDueTicks(now = Date.now()) {

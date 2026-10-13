@@ -70,7 +70,7 @@ src/db.js          Schema, migrations, session store, colony helpers
 game_config.json   All balance data
 public/            index.html (login), game.html, css/, js/
 docs/              Design notes (docs/districts.md: the district system and its roadmap)
-test/              node:test suites: simulation (incl. multi-district), balance, hazards, express convoy, districts and migration, HTTP API
+test/              node:test suites: simulation (incl. multi-district), balance, hazards, express convoy, districts and migration, exchange, Free Port, security, HTTP API
 ```
 
 The client is purely presentational. It sends intents (`POST /api/build`, ...) and the server validates ownership, slots, plot, limits and resources before accepting them.
@@ -90,6 +90,11 @@ npm start                 # http://localhost:3000
 | `SESSION_SECRET` | generated, stored in the DB | Session signing key |
 | `DB_PATH` | `./failtech.db` | SQLite file |
 | `AUTH_RATE_LIMIT` | `20` | Login/register attempts per IP per minute |
+| `TRUST_PROXY` | `loopback` | Reverse proxies in front: a count (`1`), an address/range, or `false` when exposed directly |
+| `ALLOWED_ORIGINS` | none | Extra origins allowed to make writes (comma separated) |
+| `BCRYPT_ROUNDS` | `12` | Password hashing cost |
+| `API_RATE_LIMIT` | `120` | API requests per player per 10 seconds |
+| `MAX_STREAMS` | `1000` | Open live connections in total (4 per player) |
 
 **Upgrading:** schema v4 changed ring sizes and the economy, so existing colonies are dropped on first start (accounts are kept and colonies are re-founded at next login).
 
@@ -100,6 +105,10 @@ npm test
 ```
 
 Covers adjacency geometry, the power grid, plot penalties, hub upkeep, fuel generators, storage/defence, the beacon, market prices, convoy trading, the whole hazard lifecycle (only-when-active, strike while away, auto-averted, prorated penalty, away report), the full HTTP API, and a **balance guard**: a scripted player has to finish the beacon in a sane number of ticks without collapsing. If you retune the economy, that test tells you whether the game is still finishable.
+
+## Security
+
+The server is the only authority: the client sends intents and every rule is enforced server-side in a transaction. Input is validated strictly, writes must be same-origin JSON, sessions are regenerated on sign-in, logins and the API are rate limited, the database is owner-only, and a lock file stops two servers sharing one database. Details, deployment notes and what is deliberately not done are in [`docs/security.md`](docs/security.md). Run it behind HTTPS and set `TRUST_PROXY`.
 
 ## Where it is going
 
