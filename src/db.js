@@ -5,11 +5,15 @@ const path = require('path');
 const session = require('express-session');
 
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'game_config.json'), 'utf8'));
-const db = new Database(process.env.DB_PATH || path.join(__dirname, '..', 'failtech.db'));
+const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'failtech.db');
+const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of failing at once
+// The database holds password hashes and every colony: keep it readable by the owner only.
+for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 12;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -55,24 +59,37 @@ function migrate() {
       hazards_survived INTEGER NOT NULL DEFAULT 0,
       report_cursor INTEGER NOT NULL DEFAULT 0
     );
+    -- A district is a base: its own rings, stockpile, buildings and power grid. Every colony has exactly
+    -- one 'core' district (the original colony, whose level is colonies.hub_level).
+    CREATE TABLE IF NOT EXISTS districts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      level INTEGER NOT NULL DEFAULT 1,
+      name TEXT NOT NULL,
+      created_tick INTEGER NOT NULL DEFAULT 0
+    );
     CREATE TABLE IF NOT EXISTS colony_inventory (
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      district_id INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
       resource_id TEXT NOT NULL,
       amount REAL NOT NULL DEFAULT 0,
-      PRIMARY KEY (colony_id, resource_id)
+      PRIMARY KEY (district_id, resource_id)
     );
     CREATE TABLE IF NOT EXISTS colony_buildings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      district_id INTEGER REFERENCES districts(id) ON DELETE CASCADE,
       ring_index INTEGER NOT NULL,
       slot_index INTEGER NOT NULL,
       building_type TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
-      UNIQUE (colony_id, ring_index, slot_index)
+      UNIQUE (district_id, ring_index, slot_index)
     );
     CREATE TABLE IF NOT EXISTS colony_work_orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      district_id INTEGER REFERENCES districts(id) ON DELETE CASCADE,
       action_type TEXT NOT NULL,
       target_data TEXT NOT NULL,
       ticks_remaining INTEGER NOT NULL,
@@ -116,7 +133,152 @@ function migrate() {
   if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'express_ready_tick'").get()) {
     db.exec('ALTER TABLE colonies ADD COLUMN express_ready_tick INTEGER NOT NULL DEFAULT 0');
   }
+  // v6: districts. Existing colonies keep everything; their stockpile, buildings and orders become the Core district's.
+  if (v < 6) migrateToDistricts();
+  // v7 (additive): shipments between districts. Stock is taken at dispatch and lands on arrival.
+  db.exec(`CREATE TABLE IF NOT EXISTS colony_shipments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    from_district INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+    to_district INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+    resource_id TEXT NOT NULL,
+    qty INTEGER NOT NULL,
+    dispatched_tick INTEGER NOT NULL,
+    arrives_tick INTEGER NOT NULL
+  )`);
+  // v8 (additive): standing routes, the shipments they send, and the capacity of each district's link to the Core.
+  db.exec(`CREATE TABLE IF NOT EXISTS colony_routes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    from_district INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+    to_district INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+    resource_id TEXT NOT NULL,
+    rate INTEGER NOT NULL,
+    reserve INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (from_district, to_district, resource_id)
+  )`);
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('colony_shipments') WHERE name = 'route_id'").get()) {
+    db.exec('ALTER TABLE colony_shipments ADD COLUMN route_id INTEGER');
+  }
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('districts') WHERE name = 'link_level'").get()) {
+    db.exec('ALTER TABLE districts ADD COLUMN link_level INTEGER NOT NULL DEFAULT 1');
+  }
+  // v9 (additive): optional inputs a player can switch on per building
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('colony_buildings') WHERE name = 'boost'").get()) {
+    db.exec('ALTER TABLE colony_buildings ADD COLUMN boost INTEGER NOT NULL DEFAULT 0');
+  }
+  // v10 (additive): the exchange. NPC market makers and players share one order book.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS market_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner TEXT NOT NULL,                       -- 'npc' | 'player'
+      colony_id INTEGER REFERENCES colonies(id) ON DELETE CASCADE,
+      district_id INTEGER REFERENCES districts(id) ON DELETE SET NULL,   -- sells: where the goods came from; buys: where they are delivered
+      side TEXT NOT NULL,                        -- 'buy' | 'sell'
+      resource_id TEXT NOT NULL,
+      price REAL NOT NULL,                       -- credits per unit
+      qty INTEGER NOT NULL,                      -- remaining
+      qty_total INTEGER NOT NULL,
+      escrow INTEGER NOT NULL DEFAULT 0,         -- buys: credits held for the remaining quantity
+      level INTEGER,                             -- npc ladder rung
+      created_tick INTEGER NOT NULL,
+      expires_tick INTEGER,
+      status TEXT NOT NULL DEFAULT 'open'        -- open | filled | cancelled | expired
+    );
+    CREATE INDEX IF NOT EXISTS market_orders_book ON market_orders (resource_id, side, status, price);
+    CREATE TABLE IF NOT EXISTS market_trades (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tick INTEGER NOT NULL,
+      resource_id TEXT NOT NULL,
+      price REAL NOT NULL,
+      qty INTEGER NOT NULL,
+      buy_colony INTEGER,
+      sell_colony INTEGER
+    );
+  `);
+  // v11 (additive): Trade Workshop recipes, missions and faction standing
+  for (const [col, ddl] of [['recipe', 'TEXT'], ['recipe_ready_tick', 'INTEGER NOT NULL DEFAULT 0']]) {
+    if (!db.prepare("SELECT 1 FROM pragma_table_info('colony_buildings') WHERE name = ?").get(col)) db.exec(`ALTER TABLE colony_buildings ADD COLUMN ${col} ${ddl}`);
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS missions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      slot INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      offers TEXT NOT NULL,                      -- [{faction, good, qty, reward, standing}]
+      created_tick INTEGER NOT NULL,
+      expires_tick INTEGER NOT NULL,
+      closed_tick INTEGER,
+      status TEXT NOT NULL DEFAULT 'open',       -- open | done | expired
+      filled_faction TEXT
+    );
+    CREATE TABLE IF NOT EXISTS standing (
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      faction TEXT NOT NULL,
+      points INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (colony_id, faction)
+    );
+  `);
+  // v12 (additive): NPC rungs regenerate lazily, from the tick they were last brought up to date
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('market_orders') WHERE name = 'synced_tick'").get()) {
+    db.exec('ALTER TABLE market_orders ADD COLUMN synced_tick INTEGER NOT NULL DEFAULT 0');
+  }
+  // Callsigns are unique regardless of case, enforced by the database (the app also checks, but only the index is race-proof).
+  try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_username_nocase ON users (username COLLATE NOCASE)'); } catch (e) { console.warn('Could not enforce case-insensitive callsigns (existing duplicates?):', e.message); }
+  // A building inserted without a district belongs to the colony's Core district.
+  db.exec(`CREATE TRIGGER IF NOT EXISTS buildings_default_district AFTER INSERT ON colony_buildings
+    WHEN NEW.district_id IS NULL BEGIN
+      UPDATE colony_buildings SET district_id = (SELECT id FROM districts WHERE colony_id = NEW.colony_id AND type = 'core') WHERE id = NEW.id;
+    END`);
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
+}
+
+function migrateToDistricts() {
+  const hasCol = (table, col) => !!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col);
+  db.transaction(() => {
+    for (const c of db.prepare("SELECT id, hub_level FROM colonies WHERE id NOT IN (SELECT colony_id FROM districts WHERE type = 'core')").all()) {
+      db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'core', ?, 'The Core', 0)").run(c.id, c.hub_level);
+    }
+    const core = "(SELECT id FROM districts d WHERE d.colony_id = o.colony_id AND d.type = 'core')";
+    if (!hasCol('colony_inventory', 'district_id')) {
+      db.exec(`
+        CREATE TABLE colony_inventory_v6 (
+          colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+          district_id INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+          resource_id TEXT NOT NULL,
+          amount REAL NOT NULL DEFAULT 0,
+          PRIMARY KEY (district_id, resource_id)
+        );
+        INSERT INTO colony_inventory_v6 (colony_id, district_id, resource_id, amount)
+          SELECT o.colony_id, ${core}, o.resource_id, o.amount FROM colony_inventory o;
+        DROP TABLE colony_inventory;
+        ALTER TABLE colony_inventory_v6 RENAME TO colony_inventory;
+      `);
+    }
+    if (!hasCol('colony_buildings', 'district_id')) {
+      db.exec(`
+        CREATE TABLE colony_buildings_v6 (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+          district_id INTEGER REFERENCES districts(id) ON DELETE CASCADE,
+          ring_index INTEGER NOT NULL,
+          slot_index INTEGER NOT NULL,
+          building_type TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active',
+          UNIQUE (district_id, ring_index, slot_index)
+        );
+        INSERT INTO colony_buildings_v6 (id, colony_id, district_id, ring_index, slot_index, building_type, status)
+          SELECT o.id, o.colony_id, ${core}, o.ring_index, o.slot_index, o.building_type, o.status FROM colony_buildings o;
+        DROP TABLE colony_buildings;
+        ALTER TABLE colony_buildings_v6 RENAME TO colony_buildings;
+      `);
+    }
+    if (!hasCol('colony_work_orders', 'district_id')) {
+      db.exec('ALTER TABLE colony_work_orders ADD COLUMN district_id INTEGER REFERENCES districts(id) ON DELETE CASCADE');
+      db.exec(`UPDATE colony_work_orders AS o SET district_id = ${core} WHERE district_id IS NULL`);
+    }
+  })();
 }
 migrate();
 
@@ -149,14 +311,19 @@ class SqliteStore extends session.Store {
   }
 }
 
+function purgeSessions() {
+  db.prepare('DELETE FROM sessions WHERE expires <= ?').run(Date.now());
+}
+
 // ---- colonies ---------------------------------------------------------------
 function foundColony(userId, { credits = config.global.startingState.credits, failures = 0 } = {}) {
   const s = config.global.startingState;
   const id = db.prepare(
     'INSERT INTO colonies (user_id, credits, morale, population, failures, last_seen_at, next_hazard_age) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(userId, credits, config.global.startingMorale, s.population, failures, Date.now(), config.hazards.firstAtAge).lastInsertRowid;
-  const ins = db.prepare('INSERT INTO colony_inventory (colony_id, resource_id, amount) VALUES (?, ?, ?)');
-  for (const res of Object.keys(config.resources)) ins.run(id, res, s.resources[res] || 0);
+  const core = db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'core', 1, 'The Core', 0)").run(id).lastInsertRowid;
+  const ins = db.prepare('INSERT INTO colony_inventory (colony_id, district_id, resource_id, amount) VALUES (?, ?, ?, ?)');
+  for (const res of Object.keys(config.resources)) ins.run(id, core, res, s.resources[res] || 0);
   addEvent(id, 0, 'info', 'Colony founded. Keep your people fed, watered and powered.');
   return id;
 }
@@ -180,24 +347,55 @@ function addEvent(colonyId, tick, kind, message, tag = null) {
   return Number(id);
 }
 
-function loadInventory(colonyId) {
+// ---- districts -------------------------------------------------------------------
+// Most callers only know about the Core; every loader defaults to it, so single-base code keeps working.
+function coreId(colonyId) {
+  const r = db.prepare("SELECT id FROM districts WHERE colony_id = ? AND type = 'core'").get(colonyId);
+  return r ? r.id : null;
+}
+function loadDistricts(colonyId) {
+  return db.prepare('SELECT id, type, level, name, link_level AS linkLevel, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId);
+}
+
+function loadInventory(colonyId, districtId = coreId(colonyId)) {
   const inv = {};
-  for (const r of db.prepare('SELECT resource_id, amount FROM colony_inventory WHERE colony_id = ?').all(colonyId)) inv[r.resource_id] = r.amount;
+  for (const r of db.prepare('SELECT resource_id, amount FROM colony_inventory WHERE district_id = ?').all(districtId)) inv[r.resource_id] = r.amount;
   return inv;
 }
 
-function saveInventory(colonyId, inv) {
-  const up = db.prepare('INSERT INTO colony_inventory (colony_id, resource_id, amount) VALUES (?, ?, ?) ON CONFLICT(colony_id, resource_id) DO UPDATE SET amount = excluded.amount');
-  for (const [res, amt] of Object.entries(inv)) if (config.resources[res]) up.run(colonyId, res, amt);
+function saveInventory(colonyId, inv, districtId = coreId(colonyId)) {
+  const up = db.prepare('INSERT INTO colony_inventory (colony_id, district_id, resource_id, amount) VALUES (?, ?, ?, ?) ON CONFLICT(district_id, resource_id) DO UPDATE SET amount = excluded.amount');
+  for (const [res, amt] of Object.entries(inv)) if (config.resources[res]) up.run(colonyId, districtId, res, amt);
 }
 
-function loadBuildings(colonyId) {
-  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status FROM colony_buildings WHERE colony_id = ? ORDER BY id').all(colonyId);
+function loadBuildings(colonyId, districtId = coreId(colonyId)) {
+  const tick = Number(getMeta('global_tick', 0));
+  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, boost, recipe, recipe_ready_tick AS readyTick, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId)
+    .map((b) => ({ ...b, resetting: b.readyTick > tick }));
 }
 
-function loadOrders(colonyId) {
-  return db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? ORDER BY id').all(colonyId)
-    .map((o) => ({ ...o, data: JSON.parse(o.target_data) }));
+// With a districtId: that district's orders. Without: every order in the colony.
+function loadOrders(colonyId, districtId) {
+  const rows = districtId === undefined
+    ? db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? ORDER BY id').all(colonyId)
+    : db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? AND district_id = ? ORDER BY id').all(colonyId, districtId);
+  return rows.map((o) => ({ ...o, data: JSON.parse(o.target_data) }));
+}
+
+// Has the colony built a Beacon (in any district)? Used for progression unlocks.
+function hasBeacon(colonyId) {
+  const types = Object.keys(config.buildings).filter((k) => config.buildings[k].transmit);
+  if (!types.length) return false;
+  const marks = types.map(() => '?').join(',');
+  return !!db.prepare(`SELECT 1 FROM colony_buildings WHERE colony_id = ? AND building_type IN (${marks}) LIMIT 1`).get(colonyId, ...types);
+}
+
+function loadShipments(colonyId) {
+  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, qty, dispatched_tick AS dispatchedTick, arrives_tick AS arrivesTick, route_id AS routeId FROM colony_shipments WHERE colony_id = ? ORDER BY arrives_tick, id').all(colonyId);
+}
+
+function loadRoutes(colonyId) {
+  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, rate, reserve FROM colony_routes WHERE colony_id = ? ORDER BY id').all(colonyId);
 }
 
 function loadHazard(colonyId) {
@@ -217,7 +415,7 @@ function loadContracts(colonyId) {
 }
 
 module.exports = {
-  db, config, SqliteStore, getMeta, setMeta,
+  db, config, dbPath, purgeSessions, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
-  loadInventory, saveInventory, loadBuildings, loadOrders, loadContracts, loadHazard, loadExpress,
+  coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadShipments, loadRoutes, loadContracts, loadHazard, loadExpress,
 };

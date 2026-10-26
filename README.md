@@ -18,7 +18,7 @@ The **Brief** tab is your guide. Hazards mark the structures they touch on the m
 | --- | --- |
 | **Rings, slots and plots** | Rings 1-5 have 6/8/10/12/14 slots, unlocked by Hub level. **Plots get bigger outward** (Small, Medium, Large, Heavy, Colossal). |
 | **Minimum plot size** | Big buildings (Foundry, Cell Forge, Beacon, ...) want big plots. You may build them on smaller ones, but their output is multiplied by 0.6 for each missing size step. This ties advanced buildings to the outer rings, and so to Hub level, without locking them. |
-| **Adjacency** | A building's output is multiplied for each neighbour that pairs well (or badly). Neighbours = the two beside it in its ring plus touching slots in the rings above and below. |
+| **Adjacency** | A building's output is multiplied for each neighbour that pairs well (or badly). Neighbours = the two beside it in its ring plus touching slots in the rings above and below. Rings 2 and 4 of the Core are turned 15 degrees (`ringRotation` in the config) so slots straddle the seams of the rings beside them. |
 | **Power** | A grid, not a stockpile. Shortfalls throttle everything proportionally (a brownout). Scrap Burners are big generators that burn scrap. |
 | **Housing and crew** | The hub only houses a few colonists. **Dormitories and Habitat Blocks** raise the population cap, and most buildings need **workers**: with fewer hands than posts, every staffed building slows in proportion. Growth stops at the housing cap. |
 | **Morale and comfort** | Morale heads for a target set by **where homes are** (industry next door lowers comfort; greenery and guards raise it) and by **Prepared Meals** from a Kitchen (a second food tier). Low morale slows production; high morale gives a small bonus. |
@@ -27,9 +27,13 @@ The **Brief** tab is your guide. Hazards mark the structures they touch on the m
 | **Storage** | The Hub caps every resource; Warehouses raise the cap. Excess production is lost (the UI warns you). |
 | **Hazards** | Forecast ahead of time, strike on a fixed tick and then linger. The colony spends reserves automatically; unprepared means a prorated penalty, prepared still means a running cost. See below. |
 | **Convoy** | Every 40 ticks (plus on-demand express trips). Standing export/import orders execute at that convoy's prices, which drift from convoy to convoy and are shown in advance with their change. The per-resource trade limit grows with Hub level (×1 at level 1 up to ×4 at level 5). |
+| **Exchange** | From hub level 4 an order book separate from the convoy: post buy and sell orders at your own price against a book of NPC traders (and later other players). Sells are held, buys escrow credits, a 4% fee on proceeds. Prices drift on a seeded walk with shortage and glut events, and the book gets thin when you eat it. Goods are delivered to, and sold from, any district. |
+| **The Free Port** | After the Beacon, a harbour district that can build anything except other districts' raw extractors. Its **Trade Workshops** each lock in one recipe (changing costs credits and idle time) and turn colony goods into **trade goods**; a bigger plot runs a bigger batch. Sell them on the exchange, deploy them as **shields** that make a hazard harmless, or fill **missions** for the three factions to build standing. |
 | **Work orders** | Construction and upgrades take ticks. Costs are charged up front; cancelling refunds in full. |
 | **Failure** | Critical shortages drain morale; at zero the colony collapses. You keep half your credits for the next attempt. "Abandon colony" does a full reset. |
-| **Going offline** | If your connection drops, clicks to build, demolish, pause, upgrade or change convoy orders are **queued on screen** (a banner, a dashed marker on the map and a chip in the bottom bar) and sent in order when you reconnect. You can discard any of them first. Express trips and resets need a live connection. |
+| **Districts** | From hub level 4 the **Districts** tab lets you found satellite bases (**The Pits**: ore, ingots, alloys; **The Stacks**: crude, fuel, reagents, polymers, circuits, power cells; **The Greenbelt**: biomass, fertiliser, medicine). Each has its own stockpile, power grid and 3-5-7-9-11 rings; people, crew and morale stay colony-wide. Founding is paid from the Core, upgrades from the district itself, so goods are moved by **shipments** (take ticks by distance; stock leaves at dispatch) and by standing **routes** (units per tick moved straight between stockpiles, with a reserve the source keeps) over each district's **link**, whose capacity you can widen. Route flows show in every district's per-tick rates. District level 2 opens at hub 4, levels 3-4 at hub 5, level 5 once the Beacon is built. Switch between districts with the chips on the map. |
+| **Optional inputs** | Some buildings can take an extra input that is **off by default**. Switch it on from the Site pane and, while it is in stock, the building spends a fixed amount per tick for a bonus: fertiliser makes Hydroponics Bays grow x1.35, medicine makes homes happier. |
+| **Going offline** | If your connection drops, clicks to build, demolish, pause, switch optional inputs, upgrade or change convoy orders are **queued on screen** (a banner, a dashed marker on the map and a chip in the bottom bar) and sent in order when you reconnect. You can discard any of them first. Express trips, founding, shipments and resets need a live connection. |
 | **Offline progress** | The server owns the clock. Production, consumption, convoys and already-forecast hazards continue while you are logged out (capped at 1,200 ticks of catch-up after downtime). |
 
 ### Hazards
@@ -56,16 +60,17 @@ The full numbers (costs, rates, plots, hazards, prices) are in [`prod_guide.md`]
 
 ```
 server.js          Express app: auth, JSON API, SSE stream, activity tracking, static pages
-src/sim.js         Pure simulation (no DB, no clock): step(), runConvoy(), adjacency, plots, market
+src/sim.js         Pure simulation (no DB, no clock): stepDistrict(), stepColony(), step(), runConvoy(), adjacency, plots, market
 src/hazards.js     Hazard forecast / strike / preparedness / away report
 src/engine.js      Tick loop + offline catch-up; applies sim and hazards to the database
-src/actions.js     Validated player actions (build, demolish, pause, upgrade, contracts, reset, ack)
+src/actions.js     Validated player actions (build, demolish, pause, upgrade, contracts, reset, ack); building actions take an optional `district` (default: the Core)
 src/state.js       Builds the view the client renders (dry-run tick for live rates, market forecast)
 src/objectives.js  Onboarding directives and the collapse clock
 src/db.js          Schema, migrations, session store, colony helpers
 game_config.json   All balance data
 public/            index.html (login), game.html, css/, js/
-test/              node:test suites: simulation, balance, hazards, HTTP API
+docs/              Design notes (docs/districts.md: the district system and its roadmap)
+test/              node:test suites: simulation (incl. multi-district), balance, hazards, express convoy, districts and migration, exchange, Free Port, security, HTTP API
 ```
 
 The client is purely presentational. It sends intents (`POST /api/build`, ...) and the server validates ownership, slots, plot, limits and resources before accepting them.
@@ -85,6 +90,11 @@ npm start                 # http://localhost:3000
 | `SESSION_SECRET` | generated, stored in the DB | Session signing key |
 | `DB_PATH` | `./failtech.db` | SQLite file |
 | `AUTH_RATE_LIMIT` | `20` | Login/register attempts per IP per minute |
+| `TRUST_PROXY` | `loopback` | Reverse proxies in front: a count (`1`), an address/range, or `false` when exposed directly |
+| `ALLOWED_ORIGINS` | none | Extra origins allowed to make writes (comma separated) |
+| `BCRYPT_ROUNDS` | `12` | Password hashing cost |
+| `API_RATE_LIMIT` | `120` | API requests per player per 10 seconds |
+| `MAX_STREAMS` | `1000` | Open live connections in total (4 per player) |
 
 **Upgrading:** schema v4 changed ring sizes and the economy, so existing colonies are dropped on first start (accounts are kept and colonies are re-founded at next login).
 
@@ -95,6 +105,18 @@ npm test
 ```
 
 Covers adjacency geometry, the power grid, plot penalties, hub upkeep, fuel generators, storage/defence, the beacon, market prices, convoy trading, the whole hazard lifecycle (only-when-active, strike while away, auto-averted, prorated penalty, away report), the full HTTP API, and a **balance guard**: a scripted player has to finish the beacon in a sane number of ticks without collapsing. If you retune the economy, that test tells you whether the game is still finishable.
+
+## Security
+
+The server is the only authority: the client sends intents and every rule is enforced server-side in a transaction. Input is validated strictly, writes must be same-origin JSON, sessions are regenerated on sign-in, logins and the API are rate limited, the database is owner-only, and a lock file stops two servers sharing one database. Details, deployment notes and what is deliberately not done are in [`docs/security.md`](docs/security.md). Run it behind HTTPS and set `TRUST_PROXY`.
+
+## Where it is going
+
+The colony you build today is the **Core**: a stable base. The next stage adds **districts**: satellite bases, each a
+small copy of the Core with its own rings, stockpile and power grid, producing distinct resources that other districts
+and the Core need, linked by shipments and routes and traded on a larger order-book market. The design and roadmap are
+in [`docs/districts.md`](docs/districts.md). Built so far: the Core is "district 0", three districts can be founded and upgraded, goods move by shipments and standing routes, and the Beacon needs the whole web.
+The exchange and an endgame Free Port (trade goods, shields, missions) are in. Still to come: per-district hazards.
 
 ## Tuning the game
 

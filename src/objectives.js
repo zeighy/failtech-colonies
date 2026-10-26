@@ -53,7 +53,7 @@ const ticksToAfford = (v, cost) => affordInfo(v, cost).ticks;
 function leadTimeFor(config, v, res) {
   const lvl = v.colony.hubLevel;
   const candidates = Object.entries(config.buildings)
-    .filter(([, d]) => (d.outputsPerTick[res] || 0) > 0 && (!d.minHubLevel || d.minHubLevel <= lvl));
+    .filter(([, d]) => (d.outputsPerTick[res] || 0) > 0 && (!d.minHubLevel || d.minHubLevel <= lvl) && (!d.districts || d.districts.includes('core')));
   let best = { lead: null, blocked: [] };
   for (const [id, d] of candidates) {
     const queued = v.orders.find((o) => o.kind === 'build' && o.data.type === id);
@@ -95,6 +95,7 @@ function etaFor(v, cost) {
 const DIRECTIVES = (config, v) => {
   const netOf = (r) => v.resources[r].net;
   const made = (r) => v.resources[r].produced > EPS;
+  const madeAny = (r) => Object.values(v.views || {}).some((d) => d.resources[r] && (d.resources[r].produced > EPS || d.resources[r].amount >= 1));
   const lvl = v.colony.hubLevel;
   const nextLevel = config.hubLevels[lvl + 1];
   const hubGoal = (n) => ({ done: lvl >= n, timing: () => (lvl === n - 1 ? etaFor(v, config.hubLevels[n].upgradeCost) : null) });
@@ -148,20 +149,35 @@ const DIRECTIVES = (config, v) => {
       done: made('building_materials') || v.resources.building_materials.amount >= 1 },
     { id: 'hub3', title: "The crown's price", ...hubGoal(3),
       hint: 'A bigger hub is a hungrier one. From here it draws on the colony just to stay standing, so plan for the drain before you pay for it.' },
-    { id: 'synth', title: 'Something synthetic',
-      hint: 'The old world left plastics in the wreckage. They are where anything delicate begins.',
-      done: made('raw_synthetics') || v.resources.raw_synthetics.amount >= 1 },
     { id: 'alloys', title: 'Hard metal',
       hint: 'Structural metals need furnaces, and furnaces need room to breathe.',
       done: made('alloys') || v.resources.alloys.amount >= 1 },
-    { id: 'circuits', title: 'Fine work',
-      hint: 'Precision parts need synthetics, patience, and a plot that gives them space.',
-      done: made('circuits') || v.resources.circuits.amount >= 1 },
     { id: 'hub4', title: 'A wider circle', ...hubGoal(4),
       hint: 'Another ring, another bill. The upkeep climbs, and it now includes things you had to make.' },
+    { id: 'district', title: 'Beyond the walls',
+      hint: 'The hub is wide enough to reach past its own rings. Somewhere out there is ground worth holding, and it will need to be paid for from your own stockpile.',
+      done: (v.districts || []).length > 1 },
+    { id: 'ore', title: 'Raw from the ground',
+      hint: 'A satellite makes its own power and keeps its own stockpile. Whatever it digs up has to be fed and powered before it is any use to the colony.',
+      done: Object.values(v.views || {}).some((d) => !d.core && ((d.resources.ore && d.resources.ore.amount > 0) || (d.resources.ingots && d.resources.ingots.amount > 0))) },
+    { id: 'route', title: 'Keep it flowing',
+      hint: 'Hauling goods by hand does not scale. Some things are needed every tick, and a standing arrangement can bring them without you. Mind how much the road can carry.',
+      done: (v.routes || []).length > 0 },
+    { id: 'exchange', title: 'Name your price',
+      hint: 'The convoy takes what it is offered at its own prices. Somewhere there is a place where you can say what you will pay, or what you will take, and wait for someone to agree.',
+      done: !!(v.exchange && v.exchange.activity) },
+    { id: 'synth', title: 'Something synthetic',
+      hint: 'Plastics and fine chemistry come from the old refineries, a long way from the hub. Whoever works there will need metal they cannot make.',
+      done: madeAny('raw_synthetics') || madeAny('polymers') },
+    { id: 'circuits', title: 'Fine work',
+      hint: 'Precision parts need synthetics, a chemical ingredient, patience, and a plot that gives them space.',
+      done: madeAny('circuits') },
     { id: 'cells', title: 'Concentrated power',
       hint: 'Something has to combine your best metals and your finest circuits into a compact power source. It is the most demanding thing you will build.',
-      done: made('power_cells') || v.resources.power_cells.amount >= 1 },
+      done: madeAny('power_cells') },
+    { id: 'medicine', title: 'Something to heal with',
+      hint: 'The last materials for the transmitter are grown, not forged, in the one place that still has clean ground. It will want chemistry and plastics from elsewhere.',
+      done: madeAny('medicine') },
     { id: 'hub5', title: 'The far ring', ...hubGoal(5),
       hint: 'The outermost ring has plots big enough for anything. The hub has to be strong enough to open it.' },
     { id: 'beacon', title: 'Reach out', timing: () => (hasBuilding('beacon_array') ? null : etaFor(v, beacon.cost)),
@@ -171,6 +187,12 @@ const DIRECTIVES = (config, v) => {
       hint: 'It has to keep running, powered and supplied, until the message gets through. Anything that interrupts it costs you time.',
       progress: { value: Math.floor(v.colony.won ? need : v.colony.progress), max: need },
       done: v.colony.won },
+    { id: 'harbour', title: 'Someone heard',
+      hint: 'The signal reached something. There is a place now that will take anything you can make, and it is not short of ways to waste your time. It will want paying for, in full.',
+      done: (v.districts || []).some((d) => d.type === 'freeport') },
+    { id: 'mission', title: 'A name in the harbour',
+      hint: 'People there post what they need and name what they will pay. Doing someone a favour is a kind of currency, though nobody has said what it buys.',
+      done: !!(v.missions && v.missions.filled > 0) },
   ];
 };
 

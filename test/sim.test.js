@@ -21,11 +21,25 @@ const advance = (s, r) => ({ ...s, inventory: r.inventory, population: r.populat
   age: s.age + 1, progress: r.progress, won: r.won });
 
 test('neighbour map: rings wrap and touch the rings above and below', () => {
+  const flat = sim.buildNeighborMap({ ...config, ringRotation: {} });
+  const nm = flat; // plain geometry: no ring is turned
   assert.deepEqual(nm.get('1:0').filter(([r]) => r === 1).map(([, s]) => s).sort(), [1, 5]);
   // ring 1 has 6 slots and ring 2 has 8, so slot 0 of ring 1 touches the first two of ring 2
   assert.deepEqual(nm.get('1:0').filter(([r]) => r === 2).map(([, s]) => s).sort(), [0, 1]);
   assert.deepEqual(nm.get('2:3').filter(([r]) => r === 1).map(([, s]) => s), [2]);
   // symmetric: if A neighbours B then B neighbours A
+  for (const [k, list] of nm) for (const [r, s] of list) {
+    assert.ok(nm.get(`${r}:${s}`).some(([r2, s2]) => `${r2}:${s2}` === k), `${k} <-> ${r}:${s}`);
+  }
+});
+
+test('turned rings: slots straddle the seams of the rings beside them, and the map stays symmetric', () => {
+  assert.deepEqual(config.ringRotation, { 2: 15, 4: 15 });
+  // ring 2 is turned 15 degrees, so ring 1 slot 0 now touches the last slot of ring 2 as well as the first
+  assert.deepEqual(nm.get('1:0').filter(([r]) => r === 2).map(([, s]) => s).sort(), [0, 7]);
+  // ring 3 slot 0 straddles the top seam: it touches both sides of ring 2's seam
+  const above = nm.get('3:0').filter(([r]) => r === 2).map(([, s]) => s).sort();
+  assert.ok(above.includes(0) && above.includes(7), `ring 3 slot 0 touches ${above}`);
   for (const [k, list] of nm) for (const [r, s] of list) {
     assert.ok(nm.get(`${r}:${s}`).some(([r2, s2]) => `${r2}:${s2}` === k), `${k} <-> ${r}:${s}`);
   }

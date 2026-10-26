@@ -9,6 +9,8 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
 process.env.SESSION_SECRET = 'test-secret';
 process.env.AUTH_RATE_LIMIT = '1000';
+process.env.BCRYPT_ROUNDS = '4';
+process.env.API_RATE_LIMIT = '100000';
 process.env.HAZARDS = 'off'; // hazards have their own suite (test/hazards.test.js)
 
 const app = require('../server');
@@ -218,8 +220,8 @@ const directive = (s, id) => s.brief.directives.find((d) => d.id === id);
 test('brief: fresh colony has a full roadmap, a correct collapse clock, and hints that never name a building', async () => {
   const c = await newPlayer();
   const s = (await c.get('/api/state')).body;
-  assert.equal(s.brief.directives.length, 24);
-  assert.equal(s.brief.remaining, 24);
+  assert.equal(s.brief.directives.length, 31);
+  assert.equal(s.brief.remaining, 31);
   assert.equal(s.brief.directives.filter((d) => d.current).length, 1);
   assert.equal(s.brief.directives.find((d) => d.current).id, 'power');
   // 80 water at -2/tick = 40 ticks to shortage, then the morale runway: matches the sim's collapse
@@ -308,4 +310,12 @@ test('view exposes housing, crew and the morale breakdown', async () => {
   assert.equal(after.colony.maxPopulation, store.config.hubLevels['1'].baseHousing + store.config.buildings.dormitory.housing);
   const dorm = after.buildings.find((b) => b.type === 'dormitory');
   assert.equal(dorm.comfort, 0);
+});
+
+test('every building has a map icon', () => {
+  global.window = {};
+  require('../public/js/icons.js');
+  const missing = Object.keys(store.config.buildings).filter((k) => !global.window.ICONS[k]);
+  delete global.window;
+  assert.deepEqual(missing, []);
 });

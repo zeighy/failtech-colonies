@@ -6,18 +6,25 @@
 const EPS = 1e-9;
 const key = (ring, slot) => `${ring}:${slot}`;
 
-function maxLevel(config) {
-  return Math.max(...Object.keys(config.hubLevels).map(Number));
+function maxLevel(config, type = 'core') {
+  return Math.max(...Object.keys(districtType(config, type).levels).map(Number));
 }
 
 // Ring sizes never change between hub levels (higher levels only unlock more
 // rings), so one neighbour map built from the top level serves every colony.
-function ringCapacities(config) {
-  return config.hubLevels[maxLevel(config)].ringCapacities;
+function ringCapacities(config, type = 'core') {
+  return levelDef(config, type, maxLevel(config, type)).ringCapacities;
 }
 
-function buildNeighborMap(config) {
-  const caps = ringCapacities(config);
+// Rings may be turned by a few degrees (config.ringRotation for the Core, districtTypes.<type>.ringRotation
+// for the others) so that slots in neighbouring rings straddle each other's seams. Returns a fraction of a turn.
+function ringRotation(config, type, ring) {
+  const rot = type === 'core' ? config.ringRotation : (config.districtTypes[type] || {}).ringRotation;
+  return (((rot || {})[ring] || 0) / 360) % 1;
+}
+
+function buildNeighborMap(config, type = 'core') {
+  const caps = ringCapacities(config, type);
   const map = new Map();
   for (const [r, cap] of Object.entries(caps)) {
     const ring = Number(r);
@@ -27,13 +34,16 @@ function buildNeighborMap(config) {
         out.push([ring, (i - 1 + cap) % cap]);
         if (cap > 2) out.push([ring, (i + 1) % cap]);
       }
-      const lo = i / cap;
-      const hi = (i + 1) / cap;
+      const lo = i / cap + ringRotation(config, type, ring);
+      const hi = lo + 1 / cap;
       for (const other of [ring - 1, ring + 1]) {
         const oc = caps[other];
         if (!oc) continue;
+        const shift = ringRotation(config, type, other);
         for (let j = 0; j < oc; j++) {
-          const overlap = Math.min(hi, (j + 1) / oc) - Math.max(lo, j / oc);
+          const a = j / oc + shift;
+          let overlap = 0;
+          for (const k of [-1, 0, 1]) overlap += Math.max(0, Math.min(hi, a + k + 1 / oc) - Math.max(lo, a + k));
           if (overlap > EPS) out.push([other, j]);
         }
       }
@@ -56,9 +66,9 @@ function adjacencyMultiplier(config, buildingType, neighborTypes) {
 // Outer rings have bigger plots. A building may be placed on a plot smaller than
 // it wants, but its output is multiplied by `plotPenaltyPerStep` for every size
 // step it falls short (inputs are still consumed in full).
-const plotSize = (config, ring) => config.ringPlotSize[ring] || 1;
-function plotMultiplier(config, def, ring) {
-  const deficit = Math.max(0, (def.minPlotSize || 1) - plotSize(config, ring));
+const plotSize = (config, ring, type = 'core') => districtType(config, type).ringPlotSize[ring] || 1;
+function plotMultiplier(config, def, ring, type = 'core') {
+  const deficit = Math.max(0, (def.minPlotSize || 1) - plotSize(config, ring, type));
   return Math.pow(config.global.plotPenaltyPerStep, deficit);
 }
 
@@ -120,43 +130,95 @@ function moraleMultiplier(config, morale) {
   return Math.max(m.floor, 1 - (m.penaltyBelow - morale) * m.penaltyPerPoint);
 }
 
-// state: { hubLevel, population, morale, age, progress, won, inventory, buildings:[{id,ring,slot,type,status}] }
+// ---- districts ----------------------------------------------------------------
+// A district is a base: a district core with rings around it, its own stockpile, buildings and power grid.
+// 'core' is the original colony (config.hubLevels / config.ringPlotSize); other district types come from
+// config.districtTypes[type] = { levels, ringPlotSize }.
+function districtType(config, type) {
+  if (type === 'core') return { levels: config.hubLevels, ringPlotSize: config.ringPlotSize };
+  const d = config.districtTypes && config.districtTypes[type];
+  if (!d) throw new Error(`Unknown district type "${type}"`);
+  return d;
+}
+const levelDef = (config, type, level) => districtType(config, type).levels[level];
+// May this building be built in this kind of district? Buildings without a `districts` list go anywhere.
+const buildableIn = (def, type) => {
+  if (!def.districts || def.districts.includes(type)) return true;
+  // The Free Port builds anything except the other districts' base-resource extractors and Core-only structures.
+  return type === 'freeport' && !def.rawExtractor && !def.districts.includes('core');
+};
+
+// What a building consumes, makes and needs in crew. Ordinary buildings use their definition; a Trade Workshop
+// runs its locked-in recipe, scaled by its plot: a bigger plot runs a bigger batch (everything scales: inputs,
+// outputs, power and crew), never a better ratio. `idle` is why it is not running, if it is not.
+function rates(config, def, b, ring, type) {
+  if (!def.recipeBuilding) return { inputs: def.inputsPerTick, outputs: def.outputsPerTick, workers: def.workers || 0, idle: null, batch: 1 };
+  const rec = b.recipe && config.recipes[b.recipe];
+  if (!rec) return { inputs: {}, outputs: {}, workers: 0, idle: 'no_recipe', batch: 1 };
+  if (b.resetting) return { inputs: {}, outputs: {}, workers: 0, idle: 'resetting', batch: 1 };
+  const batch = config.tradeWorks.batchByPlot[plotSize(config, ring, type)] || 1;
+  const scale = (o) => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, v * batch]));
+  return { inputs: scale(rec.inputsPerTick), outputs: scale(rec.outputsPerTick), workers: (def.workers || 0) * batch, idle: null, batch };
+}
+
+// What it costs to abandon a recipe: so many ticks of the old recipe's output, at market value. Scales with batch size.
+function recipeResetFee(config, recipeId, ring, type) {
+  const rec = config.recipes[recipeId];
+  if (!rec) return 0;
+  const batch = config.tradeWorks.batchByPlot[plotSize(config, ring, type)] || 1;
+  let value = 0;
+  for (const [res, q] of Object.entries(rec.outputsPerTick)) value += q * Math.sqrt(config.resources[res].buy * config.resources[res].sell);
+  return Math.round(config.tradeWorks.reset.feeTicks * batch * value);
+}
+
+// A recipe runs better beside the workshops that make its ingredients: { recipeId: x } on the recipe.
+function recipeAdjacency(config, recipeId, neighbourRecipes) {
+  const rec = config.recipes[recipeId];
+  if (!rec) return 1;
+  let m = 1;
+  for (const r of neighbourRecipes) if (rec.adjacent && rec.adjacent[r]) m *= rec.adjacent[r];
+  return m;
+}
+// Ticks a shipment takes between two districts (the Core is at distance 0; travel goes via the Core).
+const shipDistance = (config, a, b) => {
+  const d = (t) => (t === 'core' ? 0 : config.districtTypes[t].distance);
+  return Math.max(1, a === b ? 0 : d(a) + d(b));
+};
+
+// ---- one district ----------------------------------------------------------------
+// d: { type, level, inventory, buildings:[{id,ring,slot,type,status}] }
+// ctx: { staff, morOut }  (colony-wide crew ratio and morale output multiplier, decided before any district runs)
 // mods (from active hazards):
 //   outputMult: {buildingType: m}   output multiplier by type
 //   degraded:   {buildingId: m}     output multiplier for specific buildings
 //   disabled:   Set<buildingId>     buildings knocked fully offline
-//   popConsumptionMult: number      multiplies what the population eats and drinks
 //   drain:      {resource: perTick} extra maintenance consumption
-function step(config, state, neighborMap, mods = {}) {
-  const g = config.global;
-  const lvl = config.hubLevels[state.hubLevel];
-  const grid = new Map(state.buildings.map((b) => [key(b.ring, b.slot), b]));
+// Returns the district's stockpile *before* storage caps and population draws; stepColony finishes those.
+function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
+  const lvl = levelDef(config, d.type, d.level);
+  const grid = new Map(d.buildings.map((b) => [key(b.ring, b.slot), b]));
   const disabled = mods.disabled || new Set();
   const outMult = mods.outputMult || {};
   const degraded = mods.degraded || {};
+  const { staff, morOut } = ctx;
 
   const infos = [];
-  for (const b of state.buildings) {
+  for (const b of d.buildings) {
     const def = config.buildings[b.type];
     if (!def) continue;
     const nbs = (neighborMap.get(key(b.ring, b.slot)) || [])
       .map(([r, s]) => grid.get(key(r, s)))
       .filter(Boolean);
-    const adj = adjacencyMultiplier(config, b.type, nbs.map((n) => n.type));
-    const plot = plotMultiplier(config, def, b.ring);
+    const rt = rates(config, def, b, b.ring, d.type);
+    let adj = adjacencyMultiplier(config, b.type, nbs.map((n) => n.type));
+    if (def.recipeBuilding && b.recipe) adj = Math.min(1.6, Math.max(0.5, adj * recipeAdjacency(config, b.recipe, nbs.filter((n) => n.recipe && !n.resetting).map((n) => n.recipe))));
+    const plot = plotMultiplier(config, def, b.ring, d.type);
     const haz = (outMult[b.type] === undefined ? 1 : outMult[b.type]) * (degraded[b.id] === undefined ? 1 : degraded[b.id]);
-    infos.push({ b, def, adj, plot, haz, nbs, mult: adj * plot });
+    infos.push({ b, def, adj, plot, haz, nbs, mult: adj * plot, inputs: rt.inputs, outputs: rt.outputs, workers: rt.workers, idle: rt.idle, batch: rt.batch, opt: def.optional && b.boost ? def.optional : null, optMult: 1, optOn: false });
   }
-  const offline = (i) => i.b.status !== 'active' || disabled.has(i.b.id);
+  const offline = (i) => i.b.status !== 'active' || disabled.has(i.b.id) || !!i.idle;
   const running = sortBuildings(config, infos.filter((i) => !offline(i)));
-
-  // Manpower: every post that needs workers draws on the same workforce. With fewer people
-  // than posts, all staffed buildings slow down in proportion.
-  const workforce = state.population * g.workforceShare;
-  const posts = running.reduce((s, i) => s + (i.def.workers || 0), 0);
-  const staff = posts <= workforce + EPS || posts === 0 ? 1 : workforce / posts;
-  const staffOf = (i) => ((i.def.workers || 0) > 0 ? staff : 1);
-  const morOut = moraleMultiplier(config, state.morale);
+  const staffOf = (i) => (i.workers > 0 ? staff : 1);
 
   const materialEff = (needs, inv) => {
     let eff = 1;
@@ -169,44 +231,44 @@ function step(config, state, neighborMap, mods = {}) {
     return { eff, limiting };
   };
   const apply = (info, eff, inv, flows) => {
-    for (const [res, amt] of Object.entries(info.def.inputsPerTick)) {
+    for (const [res, amt] of Object.entries(info.inputs)) {
       if (res === 'energy') continue;
       const used = amt * eff;
       inv[res] = (inv[res] || 0) - used;
       if (flows) flows[res].consumed += used;
     }
-    for (const [res, amt] of Object.entries(info.def.outputsPerTick)) {
+    for (const [res, amt] of Object.entries(info.outputs)) {
       if (res === 'energy') continue;
-      const made = amt * eff * info.mult * info.haz * morOut;
+      const made = amt * eff * info.mult * info.haz * info.optMult * morOut;
       inv[res] = (inv[res] || 0) + made;
       if (flows) flows[res].produced += made;
     }
   };
 
-  // Hub upkeep (level 3+): paid from stock at the start of the tick. If the hub
-  // can't be fully maintained, its own power output drops with it.
+  // District-core upkeep (hub level 3+ in the Core): paid from stock at the start of the tick. If it
+  // can't be fully maintained, the core's own power output drops with it.
   const upkeep = lvl.upkeepPerTick || {};
-  const hubMat = materialEff(upkeep, state.inventory);
+  const hubMat = materialEff(upkeep, d.inventory);
   const hubEff = hubMat.eff;
   const hubPower = (lvl.baseEnergy - (upkeep.energy || 0)) * hubEff;
 
   // Energy is a grid, not a stockpile: supply this tick vs. demand this tick.
   // Pass 1 (dry): how much power would everything want if power were unlimited?
-  const probe = { ...state.inventory };
+  const probe = { ...d.inventory };
   for (const [res, amt] of Object.entries(upkeep)) if (res !== 'energy') probe[res] = (probe[res] || 0) - amt * hubEff;
   let supply = hubPower;
   let demand = 0;
   for (const i of running) {
-    const eff = Math.min(materialEff(i.def.inputsPerTick, probe).eff, staffOf(i));
-    if (i.def.type === 'generator') supply += (i.def.outputsPerTick.energy || 0) * eff * i.mult * i.haz;
-    else demand += (i.def.inputsPerTick.energy || 0) * eff;
+    const eff = Math.min(materialEff(i.inputs, probe).eff, staffOf(i));
+    if (i.def.type === 'generator') supply += (i.outputs.energy || 0) * eff * i.mult * i.haz;
+    else demand += (i.inputs.energy || 0) * eff;
     apply(i, eff, probe, null);
   }
   supply = Math.max(0, supply);
   const sat = demand <= supply + EPS || demand === 0 ? 1 : supply / demand;
 
   // Pass 2: the real thing.
-  const inv = { ...state.inventory };
+  const inv = { ...d.inventory };
   for (const res of Object.keys(config.resources)) inv[res] = inv[res] || 0;
   const flows = {};
   for (const res of Object.keys(config.resources)) flows[res] = { produced: 0, consumed: 0 };
@@ -221,7 +283,7 @@ function step(config, state, neighborMap, mods = {}) {
     if (offline(i)) {
       bstate.set(i.b.id, {
         eff: 0, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, limiting: null,
-        status: i.b.status !== 'active' ? 'paused' : 'damaged',
+        status: i.b.status !== 'active' ? 'paused' : i.idle ? i.idle : 'damaged', batch: i.batch,
       });
     }
   }
@@ -229,11 +291,18 @@ function step(config, state, neighborMap, mods = {}) {
   let defense = 0;
   let storageBonus = 0;
   for (const i of running) {
-    const hasPower = (i.def.inputsPerTick.energy || 0) > 0;
-    const { eff: mEff, limiting } = materialEff(i.def.inputsPerTick, inv);
+    const hasPower = (i.inputs.energy || 0) > 0;
+    const { eff: mEff, limiting } = materialEff(i.inputs, inv);
     const pEff = hasPower ? sat : 1;
     const sEff = staffOf(i);
     const eff = Math.min(mEff, pEff, sEff);
+    // Optional input: switched on by the player, a fixed amount per tick while the building is working, and only
+    // if the whole amount is in stock (otherwise it sits idle and nothing is spent).
+    if (i.opt && eff > 0.01 && Object.entries(i.opt.inputsPerTick).every(([r, a]) => (inv[r] || 0) >= a)) {
+      for (const [r, a] of Object.entries(i.opt.inputsPerTick)) { inv[r] -= a; flows[r].consumed += a; }
+      i.optOn = true;
+      if (i.opt.outputMult) i.optMult = i.opt.outputMult;
+    }
     apply(i, eff, inv, flows);
     if (i.def.transmit) progressGain += eff * i.mult * i.haz;
     if (i.def.defense) defense += i.def.defense * eff * i.mult;
@@ -245,26 +314,24 @@ function step(config, state, neighborMap, mods = {}) {
       else if (pEff < mEff - EPS) { status = pEff < 0.01 ? 'no_power' : 'low_power'; }
       else { status = mEff < 0.01 ? 'starved' : 'low_input'; why = limiting; }
     }
-    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, status, limiting: why });
+    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, batch: i.batch, status, limiting: why, boost: i.opt ? (i.optOn ? 'on' : 'starved') : null });
   }
 
   // Housing and neighbourhood comfort. Homes next to noisy, smoky buildings are miserable.
+  const g = config.global;
   let housingBuilt = 0;
   let comfortWeighted = 0;
-  const comfortOf = new Map();
   for (const i of running) {
     if (!i.def.housing) continue;
     const cap = i.def.housing * i.plot;
-    const raw = i.nbs.reduce((s, n) => s + (n.status === 'active' ? (config.buildings[n.type].comfort || 0) : 0), 0);
+    const raw = i.nbs.reduce((s, n) => s + (n.status === 'active' ? (config.buildings[n.type].comfort || 0) : 0), 0)
+      + (i.optOn && i.opt.comfort ? i.opt.comfort : 0);
     const comfort = Math.max(g.morale.comfortMin, Math.min(g.morale.comfortMax, raw));
     housingBuilt += cap;
     comfortWeighted += cap * comfort;
-    comfortOf.set(i.b.id, comfort);
+    const s = bstate.get(i.b.id);
+    if (s) s.comfort = comfort;
   }
-  const housingCap = Math.floor(lvl.baseHousing + housingBuilt);
-  // The hub's own quarters count at neutral comfort, so one bad dormitory doesn't sink the colony.
-  const comfortAvg = comfortWeighted / (lvl.baseHousing + housingBuilt);
-  for (const [id, comfort] of comfortOf) { const s = bstate.get(id); if (s) s.comfort = comfort; }
 
   // Hazard maintenance: extra consumption while a hazard is being weathered.
   for (const [res, amt] of Object.entries(mods.drain || {})) {
@@ -274,12 +341,85 @@ function step(config, state, neighborMap, mods = {}) {
     flows[res].consumed += take;
   }
 
-  // Population draws on the stockpile.
-  const cap = lvl.maxStorage + storageBonus;
+  return {
+    inventory: inv, flows, buildings: bstate,
+    cap: lvl.maxStorage + storageBonus, defense, progressGain,
+    energy: { supply, demand, satisfaction: sat },
+    hub: { eff: hubEff, limiting: hubMat.limiting, power: hubPower },
+    baseHousing: lvl.baseHousing || 0, housingBuilt, comfortWeighted,
+  };
+}
+
+// How much of each resource a district can hold: its level plus warehouse bonuses (plot-adjusted).
+function storageCap(config, d) {
+  let cap = levelDef(config, d.type, d.level).maxStorage;
+  for (const b of d.buildings) {
+    const def = config.buildings[b.type];
+    if (def && def.storageBonus && b.status === 'active') cap += def.storageBonus * plotMultiplier(config, def, b.ring, d.type);
+  }
+  return cap;
+}
+
+// ---- standing routes ---------------------------------------------------------------
+// A route moves up to `rate` of a resource every tick straight from one district's stockpile into another's:
+// no trucks, no delay. It never takes the source below `reserve` and never overfills the destination.
+// bags: Map districtId -> { inv, cap } (mutated). Returns [{ route, qty, limit }] where limit says what held it
+// back: null (full rate), 'stock' (source at its reserve) or 'room' (destination full).
+function applyRoutes(config, routes, bags) {
+  const out = [];
+  for (const route of routes) {
+    const a = bags.get(route.fromDistrict); const b = bags.get(route.toDistrict);
+    if (!a || !b) continue;
+    const avail = Math.max(0, Math.floor((a.inv[route.resource] || 0) - route.reserve));
+    const room = Math.max(0, Math.floor(b.cap - (b.inv[route.resource] || 0)));
+    const qty = Math.min(route.rate, avail, room);
+    if (qty > 0) {
+      a.inv[route.resource] -= qty;
+      b.inv[route.resource] = (b.inv[route.resource] || 0) + qty;
+    }
+    out.push({ route, qty, limit: qty >= route.rate ? null : avail <= room ? 'stock' : 'room' });
+  }
+  return out;
+}
+
+// ---- the whole colony ---------------------------------------------------------------
+// colony: { population, morale, age, progress, won }
+// districts: [{ id, type, level, inventory, buildings }]   (exactly one has type 'core')
+// opts: { neighborMaps: {type: Map}, mods: {districtId: hazardMods}, popConsumptionMult }
+// Order of play: crew and morale are decided first (they depend on every district's posts), then each
+// district runs, then the population eats from the Core stockpile, storage caps apply, and morale and
+// growth are settled using housing and comfort from all districts.
+function stepColony(config, colony, districts, opts = {}) {
+  const g = config.global;
+  const maps = opts.neighborMaps || {};
+  const modsOf = (d) => (opts.mods && opts.mods[d.id]) || {};
+  const coreIdx = districts.findIndex((d) => d.type === 'core');
+  if (coreIdx < 0) throw new Error('A colony needs a core district');
+
+  // Manpower: every post that needs workers draws on one workforce. With fewer people than posts,
+  // all staffed buildings slow down in proportion.
+  const workforce = colony.population * g.workforceShare;
+  let posts = 0;
+  for (const d of districts) {
+    const disabled = modsOf(d).disabled || new Set();
+    for (const b of d.buildings) {
+      const def = config.buildings[b.type];
+      if (def && b.status === 'active' && !disabled.has(b.id)) posts += rates(config, def, b, b.ring, d.type).workers;
+    }
+  }
+  const staff = posts <= workforce + EPS || posts === 0 ? 1 : workforce / posts;
+  const morOut = moraleMultiplier(config, colony.morale);
+
+  const results = districts.map((d) => stepDistrict(config, d, { staff, morOut }, maps[d.type], modsOf(d)));
+  const core = results[coreIdx];
+  const inv = core.inventory;
+  const flows = core.flows;
+
+  // The population eats from the Core stockpile.
   const starving = [];
-  const popMult = mods.popConsumptionMult || 1;
+  const popMult = opts.popConsumptionMult || 1;
   for (const [res, rate] of Object.entries(g.populationConsumptionPerTick)) {
-    const need = rate * state.population * popMult;
+    const need = rate * colony.population * popMult;
     const take = Math.min(inv[res], need);
     inv[res] -= take;
     flows[res].consumed += take;
@@ -288,50 +428,83 @@ function step(config, state, neighborMap, mods = {}) {
   // Prepared meals are optional: nobody starves without them, but eating well lifts morale.
   let mealCoverage = 0;
   if (config.resources.meals) {
-    const need = g.mealsPerPopPerTick * state.population;
+    const need = g.mealsPerPopPerTick * colony.population;
     const take = Math.min(inv.meals || 0, need);
     inv.meals = (inv.meals || 0) - take;
     flows.meals.consumed += take;
     mealCoverage = need > 0 ? take / need : 0;
   }
-  for (const res of Object.keys(inv)) {
-    inv[res] = Math.min(cap, Math.max(0, inv[res]));
+  for (const r of results) {
+    for (const res of Object.keys(r.inventory)) r.inventory[res] = Math.min(r.cap, Math.max(0, r.inventory[res]));
   }
+
+  // Housing and comfort come from every district; the hub's own quarters count at neutral comfort,
+  // so one bad dormitory doesn't sink the colony.
+  const baseHousing = results.reduce((s, r) => s + r.baseHousing, 0);
+  const housingBuilt = results.reduce((s, r) => s + r.housingBuilt, 0);
+  const comfortWeighted = results.reduce((s, r) => s + r.comfortWeighted, 0);
+  const housingCap = Math.floor(baseHousing + housingBuilt);
+  const comfortAvg = comfortWeighted / (baseHousing + housingBuilt);
 
   // Morale drifts toward a target set by food variety and where people live.
   const net = (res) => flows[res].produced - flows[res].consumed;
   const mc = g.morale;
   const target = Math.max(0, Math.min(g.moraleMax, mc.base + comfortAvg + mealCoverage * mc.mealBonus));
-  let morale = state.morale;
+  let morale = colony.morale;
   if (starving.length) morale -= 100 / g.moraleFailureThresholdTicks;
   else if (morale < target) morale = Math.min(target, morale + g.moraleRecoveryPerTick);
   else morale = Math.max(target, morale - mc.fallPerTick);
   morale = Math.min(g.moraleMax, Math.max(0, morale));
 
   // Population grows while there is room, food and hope; it drains away if homes are lost.
-  let population = state.population;
+  let population = colony.population;
   let grew = false;
   const pg = g.populationGrowth;
   if (!starving.length && morale >= pg.minMorale && population < housingCap
-      && (state.age + 1) % pg.everyTicks === 0 && net('clean_water') > 0 && net('rations') > 0) {
+      && (colony.age + 1) % pg.everyTicks === 0 && net('clean_water') > 0 && net('rations') > 0) {
     population = Math.min(housingCap, population + (morale >= pg.fastMorale ? 2 : 1));
     grew = true;
-  } else if (population > housingCap && (state.age + 1) % g.emigrationEveryTicks === 0) {
+  } else if (population > housingCap && (colony.age + 1) % g.emigrationEveryTicks === 0) {
     population -= 1;
   }
 
-  const progress = (state.progress || 0) + progressGain;
-  const won = state.won || progress >= g.beacon.transmitTicks;
+  const progressGain = results.reduce((s, r) => s + r.progressGain, 0);
+  const progress = (colony.progress || 0) + progressGain;
+  const won = colony.won || progress >= g.beacon.transmitTicks;
 
   return {
-    inventory: inv, flows, population, morale, grew, starving, cap, defense,
+    population, morale, grew, starving, progress, progressGain, won, failed: morale <= 0,
+    defense: results.reduce((s, r) => s + r.defense, 0),
     staffing: { posts, workforce, ratio: staff },
-    housing: { base: lvl.baseHousing, built: housingBuilt, cap: housingCap },
+    housing: { base: baseHousing, built: housingBuilt, cap: housingCap },
     moraleInfo: { target, base: mc.base, comfort: comfortAvg, meals: mealCoverage * mc.mealBonus, mealCoverage, productivity: morOut },
-    energy: { supply, demand, satisfaction: sat },
-    hub: { eff: hubEff, limiting: hubMat.limiting, power: hubPower },
-    buildings: bstate, progress, progressGain, won, failed: morale <= 0,
+    districts: results.map((r, i) => ({ id: districts[i].id, type: districts[i].type, ...r })),
+    coreIndex: coreIdx,
   };
+}
+
+// The single-base shape callers have always used: the Core's results plus the colony-wide ones.
+function coreView(res) {
+  const c = res.districts[res.coreIndex];
+  return {
+    inventory: c.inventory, flows: c.flows, buildings: c.buildings, cap: c.cap, defense: res.defense,
+    energy: c.energy, hub: c.hub,
+    population: res.population, morale: res.morale, grew: res.grew, starving: res.starving,
+    staffing: res.staffing, housing: res.housing, moraleInfo: res.moraleInfo,
+    progress: res.progress, progressGain: res.progressGain, won: res.won, failed: res.failed,
+  };
+}
+
+// state: { hubLevel, population, morale, age, progress, won, inventory, buildings:[{id,ring,slot,type,status}] }
+// A colony with only its Core. Same behaviour as before districts existed.
+function step(config, state, neighborMap, mods = {}) {
+  const res = stepColony(
+    config,
+    { population: state.population, morale: state.morale, age: state.age, progress: state.progress, won: state.won },
+    [{ id: 0, type: 'core', level: state.hubLevel, inventory: state.inventory, buildings: state.buildings }],
+    { neighborMaps: { core: neighborMap }, mods: { 0: mods }, popConsumptionMult: mods.popConsumptionMult },
+  );
+  return coreView(res);
 }
 
 // Convoy: standing export/import contracts executed on arrival at that
@@ -377,12 +550,46 @@ function convoyLimit(config, hubLevel, res) {
   return Math.floor(base * (config.hubLevels[hubLevel].convoyCapMult || 1));
 }
 
-function slotUnlocked(config, hubLevel, ring, slot) {
-  const cap = config.hubLevels[hubLevel].ringCapacities[ring];
+// ---- district progression -----------------------------------------------------------------
+// Districts open up as the Core advances: nothing before Core level `unlockCoreLevel`, a first couple of levels
+// then, more when the Core is finished, and the top level as a reward for building the Beacon.
+// progress: { coreLevel, beaconBuilt }
+// Can this kind of district be founded yet? Most open with the Core's level; some need the Beacon built.
+function districtFoundable(config, type, { coreLevel, beaconBuilt }) {
+  if (!districtsUnlocked(config, { coreLevel })) return false;
+  const req = (config.districtTypes[type] || {}).requires || {};
+  return !(req.beaconBuilt && !beaconBuilt);
+}
+
+function districtsUnlocked(config, progress) {
+  return progress.coreLevel >= config.districtProgression.unlockCoreLevel;
+}
+function districtLevelCap(config, progress) {
+  if (!districtsUnlocked(config, progress)) return 0;
+  let cap = 1; // a freshly founded district is level 1
+  for (const u of config.districtProgression.levelUnlocks) {
+    const met = (u.coreLevel === undefined || progress.coreLevel >= u.coreLevel) && (!u.beaconBuilt || progress.beaconBuilt);
+    if (met) cap = Math.max(cap, u.districtLevel);
+  }
+  return cap;
+}
+// What it takes to reach a given district level, for messages.
+function districtLevelNeeds(config, level) {
+  const u = config.districtProgression.levelUnlocks.filter((x) => x.districtLevel >= level)
+    .sort((a, b) => a.districtLevel - b.districtLevel)[0];
+  if (!u) return null;
+  const parts = [];
+  if (u.coreLevel !== undefined) parts.push(`the Core reaches level ${u.coreLevel}`);
+  if (u.beaconBuilt) parts.push('the Beacon is built');
+  return parts.join(' and ');
+}
+
+function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
+  const cap = levelDef(config, type, hubLevel).ringCapacities[ring];
   return Number.isInteger(slot) && !!cap && slot >= 0 && slot < cap;
 }
 
 module.exports = {
-  key, maxLevel, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, districtFoundable, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };
