@@ -152,13 +152,29 @@ const buildableIn = (def, type) => {
 // runs its locked-in recipe, scaled by its plot: a bigger plot runs a bigger batch (everything scales: inputs,
 // outputs, power and crew), never a better ratio. `idle` is why it is not running, if it is not.
 function rates(config, def, b, ring, type) {
-  if (!def.recipeBuilding) return { inputs: def.inputsPerTick, outputs: def.outputsPerTick, workers: def.workers || 0, idle: null, batch: 1 };
+  if (!def.recipeBuilding) {
+    // An expanded building is built "upward": its whole line scales (inputs, outputs, power), and so does its crew,
+    // a little less than proportionally. It is more throughput in the same plot, never a better ratio.
+    const lvl = def.expand ? Math.min(config.expansion.maxLevel, b.level || 1) : 1;
+    if (lvl <= 1) return { inputs: def.inputsPerTick, outputs: def.outputsPerTick, workers: def.workers || 0, idle: null, batch: 1, scale: 1 };
+    const k = config.expansion.scale[lvl];
+    const scale = (o) => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, v * k]));
+    return { inputs: scale(def.inputsPerTick), outputs: scale(def.outputsPerTick), workers: (def.workers || 0) * config.expansion.crew[lvl], idle: null, batch: 1, scale: k };
+  }
   const rec = b.recipe && config.recipes[b.recipe];
-  if (!rec) return { inputs: {}, outputs: {}, workers: 0, idle: 'no_recipe', batch: 1 };
-  if (b.resetting) return { inputs: {}, outputs: {}, workers: 0, idle: 'resetting', batch: 1 };
+  if (!rec) return { inputs: {}, outputs: {}, workers: 0, idle: 'no_recipe', batch: 1, scale: 1 };
+  if (b.resetting) return { inputs: {}, outputs: {}, workers: 0, idle: 'resetting', batch: 1, scale: 1 };
   const batch = config.tradeWorks.batchByPlot[plotSize(config, ring, type)] || 1;
   const scale = (o) => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, v * batch]));
-  return { inputs: scale(rec.inputsPerTick), outputs: scale(rec.outputsPerTick), workers: (def.workers || 0) * batch, idle: null, batch };
+  return { inputs: scale(rec.inputsPerTick), outputs: scale(rec.outputsPerTick), workers: (def.workers || 0) * batch, idle: null, batch, scale: 1 };
+}
+
+// What it costs to expand a building to `level`: the class's base cost times (level - 1), so each step costs a little
+// more than the last and the total grows in a straight line.
+function expansionCost(config, def, level) {
+  const cls = config.expansion.classes[def.expand];
+  if (!cls) return null;
+  return Object.fromEntries(Object.entries(cls.baseCost).map(([r, q]) => [r, q * (level - 1)]));
 }
 
 // What it costs to abandon a recipe: so many ticks of the old recipe's output, at market value. Scales with batch size.
@@ -214,7 +230,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
     if (def.recipeBuilding && b.recipe) adj = Math.min(1.6, Math.max(0.5, adj * recipeAdjacency(config, b.recipe, nbs.filter((n) => n.recipe && !n.resetting).map((n) => n.recipe))));
     const plot = plotMultiplier(config, def, b.ring, d.type);
     const haz = (outMult[b.type] === undefined ? 1 : outMult[b.type]) * (degraded[b.id] === undefined ? 1 : degraded[b.id]);
-    infos.push({ b, def, adj, plot, haz, nbs, mult: adj * plot, inputs: rt.inputs, outputs: rt.outputs, workers: rt.workers, idle: rt.idle, batch: rt.batch, opt: def.optional && b.boost ? def.optional : null, optMult: 1, optOn: false });
+    infos.push({ b, def, adj, plot, haz, nbs, mult: adj * plot, inputs: rt.inputs, outputs: rt.outputs, workers: rt.workers, idle: rt.idle, batch: rt.batch, xscale: rt.scale, opt: def.optional && b.boost ? def.optional : null, optMult: 1, optOn: false });
   }
   const offline = (i) => i.b.status !== 'active' || disabled.has(i.b.id) || !!i.idle;
   const running = sortBuildings(config, infos.filter((i) => !offline(i)));
@@ -305,8 +321,8 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
     }
     apply(i, eff, inv, flows);
     if (i.def.transmit) progressGain += eff * i.mult * i.haz;
-    if (i.def.defense) defense += i.def.defense * eff * i.mult;
-    if (i.def.storageBonus) storageBonus += i.def.storageBonus * i.mult;
+    if (i.def.defense) defense += i.def.defense * eff * i.mult * i.xscale;
+    if (i.def.storageBonus) storageBonus += i.def.storageBonus * i.mult * i.xscale;
     let status = 'running';
     let why = null;
     if (eff < 0.999) {
@@ -314,7 +330,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
       else if (pEff < mEff - EPS) { status = pEff < 0.01 ? 'no_power' : 'low_power'; }
       else { status = mEff < 0.01 ? 'starved' : 'low_input'; why = limiting; }
     }
-    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, batch: i.batch, status, limiting: why, boost: i.opt ? (i.optOn ? 'on' : 'starved') : null });
+    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, batch: i.batch, xscale: i.xscale, status, limiting: why, boost: i.opt ? (i.optOn ? 'on' : 'starved') : null });
   }
 
   // Housing and neighbourhood comfort. Homes next to noisy, smoky buildings are miserable.
@@ -323,7 +339,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
   let comfortWeighted = 0;
   for (const i of running) {
     if (!i.def.housing) continue;
-    const cap = i.def.housing * i.plot;
+    const cap = i.def.housing * i.plot * i.xscale;
     const raw = i.nbs.reduce((s, n) => s + (n.status === 'active' ? (config.buildings[n.type].comfort || 0) : 0), 0)
       + (i.optOn && i.opt.comfort ? i.opt.comfort : 0);
     const comfort = Math.max(g.morale.comfortMin, Math.min(g.morale.comfortMax, raw));
@@ -417,13 +433,14 @@ function stepColony(config, colony, districts, opts = {}) {
 
   // The population eats from the Core stockpile.
   const starving = [];
+  let shortage = 0; // the worst share of any need that went unmet (0 to 1)
   const popMult = opts.popConsumptionMult || 1;
   for (const [res, rate] of Object.entries(g.populationConsumptionPerTick)) {
     const need = rate * colony.population * popMult;
     const take = Math.min(inv[res], need);
     inv[res] -= take;
     flows[res].consumed += take;
-    if (need - take > 1e-6) starving.push(res);
+    if (need - take > 1e-6) { starving.push(res); shortage = Math.max(shortage, (need - take) / need); }
   }
   // Prepared meals are optional: nobody starves without them, but eating well lifts morale.
   let mealCoverage = 0;
@@ -451,7 +468,8 @@ function stepColony(config, colony, districts, opts = {}) {
   const mc = g.morale;
   const target = Math.max(0, Math.min(g.moraleMax, mc.base + comfortAvg + mealCoverage * mc.mealBonus));
   let morale = colony.morale;
-  if (starving.length) morale -= 100 / g.moraleFailureThresholdTicks;
+  // Hunger hurts in proportion to how short the colony is, so a small shortfall is not a death sentence.
+  if (starving.length) morale -= (100 / g.moraleFailureThresholdTicks) * Math.max(g.exodus.minShortageLoss, shortage);
   else if (morale < target) morale = Math.min(target, morale + g.moraleRecoveryPerTick);
   else morale = Math.max(target, morale - mc.fallPerTick);
   morale = Math.min(g.moraleMax, Math.max(0, morale));
@@ -459,21 +477,34 @@ function stepColony(config, colony, districts, opts = {}) {
   // Population grows while there is room, food and hope; it drains away if homes are lost.
   let population = colony.population;
   let grew = false;
+  let left = 0; let leftWhy = null;
   const pg = g.populationGrowth;
-  if (!starving.length && morale >= pg.minMorale && population < housingCap
-      && (colony.age + 1) % pg.everyTicks === 0 && net('clean_water') > 0 && net('rations') > 0) {
-    population = Math.min(housingCap, population + (morale >= pg.fastMorale ? 2 : 1));
-    grew = true;
+  const ex = g.exodus;
+  const per = g.populationConsumptionPerTick;
+  // Growth only happens if the extra mouths can be fed from what the colony makes: a colony that is barely in surplus does not
+  // grow itself into a shortage.
+  const grow = morale >= pg.fastMorale ? 2 : 1;
+  const sustainable = (n) => Object.keys(per).every((res) => net(res) > per[res] * n * popMult);
+  if (starving.length) {
+    // People leave rather than starve: the colony shrinks to what it can feed, instead of collapsing.
+    left = Math.min(Math.max(0, population - g.minPopulation), Math.max(1, Math.ceil(population * ex.starvingFraction)));
+    leftWhy = 'hunger';
+  } else if (morale < ex.lowMoraleBelow && population > g.minPopulation && (colony.age + 1) % ex.lowMoraleEveryTicks === 0) {
+    left = 1; leftWhy = 'despair';
   } else if (population > housingCap && (colony.age + 1) % g.emigrationEveryTicks === 0) {
-    population -= 1;
+    left = 1; leftWhy = 'housing';
+  } else if (morale >= pg.minMorale && population < housingCap && (colony.age + 1) % pg.everyTicks === 0 && sustainable(grow)) {
+    population = Math.min(housingCap, population + grow);
+    grew = true;
   }
+  population -= left;
 
   const progressGain = results.reduce((s, r) => s + r.progressGain, 0);
   const progress = (colony.progress || 0) + progressGain;
   const won = colony.won || progress >= g.beacon.transmitTicks;
 
   return {
-    population, morale, grew, starving, progress, progressGain, won, failed: morale <= 0,
+    population, morale, grew, left, leftWhy, starving, shortage, progress, progressGain, won, failed: morale <= 0,
     defense: results.reduce((s, r) => s + r.defense, 0),
     staffing: { posts, workforce, ratio: staff },
     housing: { base: baseHousing, built: housingBuilt, cap: housingCap },
@@ -489,7 +520,7 @@ function coreView(res) {
   return {
     inventory: c.inventory, flows: c.flows, buildings: c.buildings, cap: c.cap, defense: res.defense,
     energy: c.energy, hub: c.hub,
-    population: res.population, morale: res.morale, grew: res.grew, starving: res.starving,
+    population: res.population, morale: res.morale, grew: res.grew, left: res.left, leftWhy: res.leftWhy, starving: res.starving, shortage: res.shortage,
     staffing: res.staffing, housing: res.housing, moraleInfo: res.moraleInfo,
     progress: res.progress, progressGain: res.progressGain, won: res.won, failed: res.failed,
   };
@@ -590,6 +621,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, districtFoundable, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, districtFoundable, expansionCost, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

@@ -109,9 +109,23 @@ test('widening a link: paid from the Core, raises the capacity, stops at the top
   assert.equal(stock(c.id, c.core, 'building_materials'), bm - config.logistics.link.levels[2].upgradeCost.building_materials);
   assert.equal(viewFor(c.uid).districts.find((d) => d.id === p.id).link.capacity, config.logistics.link.levels[2].capacity);
   db.prepare('UPDATE colony_inventory SET amount = 99999 WHERE district_id = ?').run(c.core);
-  assert.deepEqual(actions.upgradeLink(c.uid, { district: p.id }), { ok: true });
-  assert.deepEqual(actions.upgradeLink(c.uid, { district: p.id }), { ok: true });
+  const top = Math.max(...Object.keys(config.logistics.link.levels).map(Number));
+  for (let l = 3; l <= top; l++) assert.deepEqual(actions.upgradeLink(c.uid, { district: p.id }), { ok: true }, `level ${l}`);
   assert.match(actions.upgradeLink(c.uid, { district: p.id }).error, /maximum/);
+  assert.equal(viewFor(c.uid).districts.find((d) => d.id === p.id).link.capacity, config.logistics.link.levels[top].capacity);
+});
+
+test('links keep widening beyond 140 per tick with a straight-line growth in materials, up to a limit', () => {
+  const L = config.logistics.link.levels;
+  const top = Math.max(...Object.keys(L).map(Number));
+  assert.ok(top >= 10 && L[top].capacity > 140);
+  const trade = (l) => (L[l].upgradeCost.frames || 0);
+  for (let l = 6; l <= top; l++) {
+    assert.equal(L[l].capacity - L[l - 1].capacity, L[6].capacity - L[5].capacity, 'capacity grows in equal steps');
+    assert.equal(trade(l) - trade(l - 1), trade(6) - trade(5), 'and so does the demand for upgrade materials');
+  }
+  assert.ok(L[5].upgradeCost.frames > 0 && L[5].upgradeCost.fittings > 0, 'the extra levels need Free Port goods');
+  assert.ok(config.logistics.maxRoutes >= 40);
 });
 
 test('one-off shipments still work alongside routes, with all their slots free', () => {

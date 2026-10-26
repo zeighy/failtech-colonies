@@ -13,7 +13,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -226,6 +226,10 @@ function migrate() {
   }
   // Callsigns are unique regardless of case, enforced by the database (the app also checks, but only the index is race-proof).
   try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_username_nocase ON users (username COLLATE NOCASE)'); } catch (e) { console.warn('Could not enforce case-insensitive callsigns (existing duplicates?):', e.message); }
+  // v13 (additive): building expansion level (1 = as built)
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('colony_buildings') WHERE name = 'level'").get()) {
+    db.exec('ALTER TABLE colony_buildings ADD COLUMN level INTEGER NOT NULL DEFAULT 1');
+  }
   // A building inserted without a district belongs to the colony's Core district.
   db.exec(`CREATE TRIGGER IF NOT EXISTS buildings_default_district AFTER INSERT ON colony_buildings
     WHEN NEW.district_id IS NULL BEGIN
@@ -370,7 +374,7 @@ function saveInventory(colonyId, inv, districtId = coreId(colonyId)) {
 
 function loadBuildings(colonyId, districtId = coreId(colonyId)) {
   const tick = Number(getMeta('global_tick', 0));
-  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, boost, recipe, recipe_ready_tick AS readyTick, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId)
+  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, boost, level, recipe, recipe_ready_tick AS readyTick, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId)
     .map((b) => ({ ...b, resetting: b.readyTick > tick }));
 }
 

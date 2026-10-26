@@ -35,6 +35,12 @@ function clientConfig() {
       rings: sim.ringCapacities(config, type), ringRotation: t.ringRotation || {}, neighbors: Object.fromEntries(engine.neighborMaps[type]),
     }])),
     logistics: config.logistics,
+    expansion: config.expansion,
+    popConsumption: config.global.populationConsumptionPerTick,
+    minPopulation: config.global.minPopulation,
+    exodus: config.global.exodus,
+    growth: config.global.populationGrowth,
+    buildableIn: Object.fromEntries(['core', ...Object.keys(config.districtTypes || {})].map((t) => [t, Object.keys(config.buildings).filter((k) => sim.buildableIn(config.buildings[k], t))])),
     recipes: config.recipes,
     tradeWorks: config.tradeWorks,
     missions: { slots: config.missions.slots, factions: config.missions.factions },
@@ -167,6 +173,8 @@ function viewFor(userId, now = Date.now()) {
         return { id: b.id, ring: b.ring, slot: b.slot, type: b.type, paused: b.status !== 'active',
           status: st.status, eff: st.eff, mult: st.mult, adj: st.adj, plot: st.plot, haz: st.haz, limiting: st.limiting,
           boost: b.boost ? (st.boost || 'starved') : null,
+          level: b.level || 1, xscale: st.xscale || 1,
+          xnext: config.buildings[b.type].expand && (b.level || 1) < config.expansion.maxLevel ? { level: (b.level || 1) + 1, cost: sim.expansionCost(config, config.buildings[b.type], (b.level || 1) + 1), ticks: config.expansion.ticks[(b.level || 1) + 1], scale: config.expansion.scale[(b.level || 1) + 1], crew: config.expansion.crew[(b.level || 1) + 1] } : null,
           recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
           resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
       }),
@@ -177,6 +185,25 @@ function viewFor(userId, now = Date.now()) {
   districts.forEach((d, i) => { views[d.id] = districtView(d, full.districts[i]); });
   const coreV = views[coreD.id];
   const resources = coreV.resources;
+  // Where the population is heading and why: the answer to "why is nobody moving in" and "why are they leaving".
+  const gcfg = config.global;
+  const per = gcfg.populationConsumptionPerTick;
+  const pmult = mods.popConsumptionMult || 1;
+  const housingCap = proj.housing.cap;
+  const feedable = Object.keys(per).every((r) => resources[r].net > per[r] * pmult);
+  const outlook = proj.left ? { state: 'shrinking', why: proj.leftWhy }
+    : proj.grew ? { state: 'growing', why: null }
+      : c.population >= housingCap ? { state: 'steady', why: 'housing' }
+        : c.morale < gcfg.populationGrowth.minMorale ? { state: 'steady', why: 'morale' }
+          : !feedable ? { state: 'steady', why: 'food' }
+            : { state: 'growing', why: null };
+  const people = {
+    perPerson: per, multiplier: pmult, mealsPerPerson: gcfg.mealsPerPopPerTick,
+    use: Object.fromEntries(Object.keys(per).map((r) => [r, per[r] * c.population * pmult])),
+    meals: gcfg.mealsPerPopPerTick * c.population, minPopulation: gcfg.minPopulation, housingCap, outlook, shortage: proj.shortage || 0,
+    // how many more people the current surplus could feed
+    headroom: Object.fromEntries(Object.keys(per).map((r) => [r, Math.floor(Math.max(0, resources[r].net) / (per[r] * pmult))])),
+  };
 
   const ticksToConvoy = config.global.convoyIntervalTicks - (t.globalTick % config.global.convoyIntervalTicks);
   const nextTickAt = t.lastTickAt + t.tickMs;
@@ -212,6 +239,7 @@ function viewFor(userId, now = Date.now()) {
     buildings: coreV.buildings,
     orders: coreV.orders,
     views,
+    people,
     routes: routeFlows.map((f) => ({ ...f.route, flow: f.qty, limit: f.limit })),
     shipments: shipmentRows.map((sh) => ({ ...sh, ticksLeft: Math.max(0, sh.arrivesTick - t.globalTick) })),
     contracts: store.loadContracts(c.id),

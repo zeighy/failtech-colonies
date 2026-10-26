@@ -66,7 +66,14 @@
     },
     "workforceShare": 0.8,
     "mealsPerPopPerTick": 0.05,
-    "emigrationEveryTicks": 2
+    "emigrationEveryTicks": 2,
+    "minPopulation": 5,
+    "exodus": {
+      "starvingFraction": 0.06,
+      "lowMoraleBelow": 45,
+      "lowMoraleEveryTicks": 3,
+      "minShortageLoss": 0.2
+    }
   },
   "resources": {
     "scrap": {
@@ -337,6 +344,36 @@
       "showFromHub": 9,
       "convoyMax": 0,
       "trade": true
+    },
+    "frames": {
+      "name": "Structural Frames",
+      "color": "#8d99ae",
+      "buy": 213.14,
+      "sell": 122.32,
+      "tier": 3,
+      "showFromHub": 9,
+      "convoyMax": 0,
+      "trade": true
+    },
+    "fittings": {
+      "name": "Process Fittings",
+      "color": "#2ec4b6",
+      "buy": 234.77,
+      "sell": 134.74,
+      "tier": 4,
+      "showFromHub": 9,
+      "convoyMax": 0,
+      "trade": true
+    },
+    "modules": {
+      "name": "Habitat Modules",
+      "color": "#a3b8cc",
+      "buy": 679.64,
+      "sell": 390.06,
+      "tier": 4,
+      "showFromHub": 9,
+      "convoyMax": 0,
+      "trade": true
     }
   },
   "tierOrder": [
@@ -460,7 +497,8 @@
       },
       "color": "#ffd23f",
       "minPlotSize": 1,
-      "workers": 0
+      "workers": 0,
+      "expand": "infrastructure"
     },
     "scrap_extractor": {
       "name": "Scrap Extractor",
@@ -479,7 +517,8 @@
       "color": "#d08a4e",
       "minPlotSize": 1,
       "workers": 2,
-      "comfort": -6
+      "comfort": -6,
+      "expand": "industry"
     },
     "water_pump": {
       "name": "Groundwater Pump",
@@ -498,7 +537,8 @@
       "color": "#4fb3a6",
       "minPlotSize": 1,
       "workers": 2,
-      "comfort": -1
+      "comfort": -1,
+      "expand": "industry"
     },
     "water_purifier": {
       "name": "Filtration Plant",
@@ -519,7 +559,8 @@
       "color": "#4cc9f0",
       "minPlotSize": 1,
       "workers": 2,
-      "comfort": -1
+      "comfort": -1,
+      "expand": "industry"
     },
     "parts_assembler": {
       "name": "Parts Assembler",
@@ -539,7 +580,8 @@
       "color": "#c3cad4",
       "minPlotSize": 1,
       "workers": 3,
-      "comfort": -4
+      "comfort": -4,
+      "expand": "industry"
     },
     "hydroponics_bay": {
       "name": "Hydroponics Bay",
@@ -568,7 +610,8 @@
           "fertiliser": 0.5
         },
         "outputMult": 1.35
-      }
+      },
+      "expand": "industry"
     },
     "fabrication_works": {
       "name": "Fabrication Works",
@@ -590,7 +633,8 @@
       "color": "#ff9f1c",
       "minPlotSize": 2,
       "workers": 4,
-      "comfort": -5
+      "comfort": -5,
+      "expand": "industry"
     },
     "scrap_generator": {
       "name": "Scrap Burner",
@@ -610,7 +654,8 @@
       "minPlotSize": 3,
       "color": "#ff7b3a",
       "workers": 2,
-      "comfort": -7
+      "comfort": -7,
+      "expand": "infrastructure"
     },
     "synth_reclaimer": {
       "name": "Synthetics Reclaimer",
@@ -633,7 +678,8 @@
       "comfort": -3,
       "districts": [
         "stacks"
-      ]
+      ],
+      "expand": "industry"
     },
     "foundry": {
       "name": "Foundry",
@@ -656,7 +702,8 @@
       "minPlotSize": 3,
       "color": "#e07a5f",
       "workers": 5,
-      "comfort": -8
+      "comfort": -8,
+      "expand": "industry"
     },
     "circuit_fab": {
       "name": "Circuit Fabricator",
@@ -683,7 +730,8 @@
       "comfort": -3,
       "districts": [
         "stacks"
-      ]
+      ],
+      "expand": "industry"
     },
     "cell_forge": {
       "name": "Cell Forge",
@@ -711,7 +759,8 @@
       "comfort": -5,
       "districts": [
         "stacks"
-      ]
+      ],
+      "expand": "industry"
     },
     "warehouse": {
       "name": "Warehouse",
@@ -727,7 +776,8 @@
       "minPlotSize": 2,
       "color": "#9aa5b1",
       "storageBonus": 1000,
-      "workers": 1
+      "workers": 1,
+      "expand": "infrastructure"
     },
     "watch_post": {
       "name": "Watch Post",
@@ -746,7 +796,8 @@
       "color": "#ef6f6f",
       "defense": 1,
       "workers": 2,
-      "comfort": 2
+      "comfort": 2,
+      "expand": "infrastructure"
     },
     "beacon_array": {
       "name": "Beacon Array",
@@ -796,7 +847,8 @@
       "minPlotSize": 2,
       "color": "#ff8fa3",
       "workers": 3,
-      "comfort": 2
+      "comfort": 2,
+      "expand": "industry"
     },
     "dormitory": {
       "name": "Dormitory",
@@ -820,7 +872,8 @@
           "medicine": 0.3
         },
         "comfort": 6
-      }
+      },
+      "expand": "housing"
     },
     "habitat": {
       "name": "Habitat Block",
@@ -845,7 +898,8 @@
           "medicine": 0.5
         },
         "comfort": 8
-      }
+      },
+      "expand": "housing"
     },
     "ore_drill": {
       "name": "Ore Drill",
@@ -869,7 +923,8 @@
       "districts": [
         "pits"
       ],
-      "rawExtractor": true
+      "rawExtractor": true,
+      "expand": "industry"
     },
     "smelter": {
       "name": "Smelter",
@@ -894,7 +949,8 @@
       "comfort": -8,
       "districts": [
         "pits"
-      ]
+      ],
+      "expand": "industry"
     },
     "alloy_works": {
       "name": "Alloy Works",
@@ -920,7 +976,8 @@
       "comfort": -8,
       "districts": [
         "pits"
-      ]
+      ],
+      "expand": "industry"
     },
     "crude_pump": {
       "name": "Crude Pump",
@@ -944,7 +1001,8 @@
       "districts": [
         "stacks"
       ],
-      "rawExtractor": true
+      "rawExtractor": true,
+      "expand": "industry"
     },
     "cracking_tower": {
       "name": "Cracking Tower",
@@ -970,7 +1028,8 @@
       "comfort": -8,
       "districts": [
         "stacks"
-      ]
+      ],
+      "expand": "industry"
     },
     "polymer_plant": {
       "name": "Polymer Plant",
@@ -997,7 +1056,8 @@
       "comfort": -6,
       "districts": [
         "stacks"
-      ]
+      ],
+      "expand": "industry"
     },
     "fuel_generator": {
       "name": "Fuel Generator",
@@ -1020,7 +1080,8 @@
       "comfort": -7,
       "districts": [
         "stacks"
-      ]
+      ],
+      "expand": "infrastructure"
     },
     "bio_dome": {
       "name": "Bio Dome",
@@ -1044,7 +1105,8 @@
       "comfort": 4,
       "districts": [
         "greenbelt"
-      ]
+      ],
+      "expand": "industry"
     },
     "agri_lab": {
       "name": "Agri Lab",
@@ -1070,7 +1132,8 @@
       "comfort": -2,
       "districts": [
         "greenbelt"
-      ]
+      ],
+      "expand": "industry"
     },
     "pharma_lab": {
       "name": "Pharma Lab",
@@ -1097,7 +1160,8 @@
       "comfort": -2,
       "districts": [
         "greenbelt"
-      ]
+      ],
+      "expand": "industry"
     },
     "trade_workshop": {
       "name": "Trade Workshop",
@@ -2073,7 +2137,7 @@
   "logistics": {
     "shipmentMax": 300,
     "maxInFlight": 6,
-    "maxRoutes": 12,
+    "maxRoutes": 40,
     "link": {
       "levels": {
         "1": {
@@ -2100,6 +2164,66 @@
             "building_materials": 200,
             "machined_parts": 120,
             "alloys": 60
+          }
+        },
+        "5": {
+          "capacity": 200,
+          "upgradeCost": {
+            "building_materials": 200,
+            "machined_parts": 120,
+            "alloys": 60,
+            "frames": 4,
+            "fittings": 2
+          }
+        },
+        "6": {
+          "capacity": 260,
+          "upgradeCost": {
+            "building_materials": 200,
+            "machined_parts": 120,
+            "alloys": 60,
+            "frames": 8,
+            "fittings": 4
+          }
+        },
+        "7": {
+          "capacity": 320,
+          "upgradeCost": {
+            "building_materials": 200,
+            "machined_parts": 120,
+            "alloys": 60,
+            "frames": 12,
+            "fittings": 6
+          }
+        },
+        "8": {
+          "capacity": 380,
+          "upgradeCost": {
+            "building_materials": 200,
+            "machined_parts": 120,
+            "alloys": 60,
+            "frames": 16,
+            "fittings": 8
+          }
+        },
+        "9": {
+          "capacity": 440,
+          "upgradeCost": {
+            "building_materials": 200,
+            "machined_parts": 120,
+            "alloys": 60,
+            "frames": 20,
+            "fittings": 10
+          }
+        },
+        "10": {
+          "capacity": 500,
+          "upgradeCost": {
+            "building_materials": 200,
+            "machined_parts": 120,
+            "alloys": 60,
+            "frames": 24,
+            "fittings": 12
           }
         }
       }
@@ -2305,6 +2429,56 @@
         "precision_tools": 1.15,
         "luxuries": 1.1
       }
+    },
+    "frames": {
+      "name": "Structural Frames",
+      "tier": 2,
+      "inputsPerTick": {
+        "tool_steel": 3,
+        "plastics": 2,
+        "alloys": 1,
+        "energy": 14
+      },
+      "outputsPerTick": {
+        "frames": 2
+      },
+      "adjacent": {
+        "tool_steel": 1.1,
+        "plastics": 1.1
+      }
+    },
+    "fittings": {
+      "name": "Process Fittings",
+      "tier": 3,
+      "inputsPerTick": {
+        "precision_tools": 1,
+        "plastics": 3,
+        "circuits": 1,
+        "energy": 16
+      },
+      "outputsPerTick": {
+        "fittings": 2
+      },
+      "adjacent": {
+        "precision_tools": 1.15
+      }
+    },
+    "modules": {
+      "name": "Habitat Modules",
+      "tier": 3,
+      "inputsPerTick": {
+        "frames": 2,
+        "luxuries": 1,
+        "polymers": 2,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "modules": 1
+      },
+      "adjacent": {
+        "frames": 1.15,
+        "luxuries": 1.1
+      }
     }
   },
   "tradeWorks": {
@@ -2386,6 +2560,51 @@
           "curios": 2,
           "precision_tools": 2,
           "masterworks": 2
+        }
+      }
+    }
+  },
+  "expansion": {
+    "maxLevel": 5,
+    "scale": {
+      "1": 1,
+      "2": 1.4,
+      "3": 1.8,
+      "4": 2.2,
+      "5": 2.6
+    },
+    "crew": {
+      "1": 1,
+      "2": 1.2,
+      "3": 1.4,
+      "4": 1.6,
+      "5": 1.8
+    },
+    "ticks": {
+      "2": 6,
+      "3": 8,
+      "4": 10,
+      "5": 12
+    },
+    "classes": {
+      "housing": {
+        "label": "Housing",
+        "baseCost": {
+          "modules": 2,
+          "frames": 3
+        }
+      },
+      "infrastructure": {
+        "label": "Infrastructure",
+        "baseCost": {
+          "frames": 4
+        }
+      },
+      "industry": {
+        "label": "Industry",
+        "baseCost": {
+          "frames": 3,
+          "fittings": 2
         }
       }
     }
