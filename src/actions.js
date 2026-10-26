@@ -99,6 +99,13 @@ const demolish = guarded((c, { ring, slot, district }) => {
     if (c.credits < fee) return fail(`Scrapping a configured workshop costs ${fee} cr.`);
     db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(fee, c.id);
   }
+  // an expansion still under way is called off and refunded in full
+  for (const o of store.loadOrders(c.id, d.id)) {
+    if (o.action_type === 'expand' && o.data.ring === b.ring_index && o.data.slot === b.slot_index) {
+      refund(d.id, sim.expansionCost(config, config.buildings[o.data.type], o.data.level), 1);
+      db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
+    }
+  }
   db.prepare('DELETE FROM colony_buildings WHERE id = ?').run(b.id);
   refund(d.id, config.buildings[b.building_type].cost, config.global.demolishRefund);
   return OK;
@@ -113,6 +120,28 @@ const toggle = guarded((c, { ring, slot, paused, district }) => {
   // with no explicit state the building simply flips.
   const next = typeof paused === 'boolean' ? (paused ? 'paused' : 'active') : (b.status === 'active' ? 'paused' : 'active');
   db.prepare('UPDATE colony_buildings SET status = ? WHERE id = ?').run(next, b.id);
+  return OK;
+});
+
+// Expand a building "upward": it stays in its plot but its whole line scales up. Paid from the district's own stockpile
+// (so the materials have to be routed or shipped in), takes a few ticks as a work order, and the cost grows linearly with the level.
+const expand = guarded((c, { ring, slot, district }) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  const b = buildingAt(d, ring, slot);
+  if (!b) return fail('Nothing there.');
+  const def = config.buildings[b.building_type];
+  if (!def.expand) return fail(`${def.name} cannot be expanded.`);
+  const level = b.level || 1;
+  if (level >= config.expansion.maxLevel) return fail(`${def.name} is fully expanded.`);
+  if (store.loadOrders(c.id, d.id).some((o) => o.action_type === 'expand' && o.data.ring === b.ring_index && o.data.slot === b.slot_index)) return fail('An expansion is already underway there.');
+  const next = level + 1;
+  const cost = sim.expansionCost(config, def, next);
+  if (!canAfford(store.loadInventory(c.id, d.id), cost)) return fail(`Not enough materials in ${d.name} to expand ${def.name}.`);
+  pay(d.id, cost);
+  const ticks = config.expansion.ticks[next];
+  db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(c.id, d.id, 'expand', JSON.stringify({ ring: b.ring_index, slot: b.slot_index, type: b.building_type, level: next }), ticks, ticks);
   return OK;
 });
 
@@ -134,7 +163,8 @@ const cancelOrder = guarded((c, { orderId }) => {
   const d = districtFor(c, o.district_id);
   const cost = o.action_type === 'build' ? config.buildings[o.data.type].cost
     : o.action_type === 'found' ? config.districtTypes[o.data.type].foundCost
-      : sim.levelDef(config, d.type, o.data.level).upgradeCost;
+      : o.action_type === 'expand' ? sim.expansionCost(config, config.buildings[o.data.type], o.data.level)
+        : sim.levelDef(config, d.type, o.data.level).upgradeCost;
   refund(d.id, cost, 1);
   db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
   return OK;
@@ -377,4 +407,4 @@ const restart = guarded((c) => {
   return OK;
 }, { allowFailed: true });
 
-module.exports = { build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

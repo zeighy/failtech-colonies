@@ -187,3 +187,21 @@ spent on hazards, or handed to factions.
 - **Missions** (`src/missions.js`, `missions` and `standing` tables): three open at once. Each is offered in the name of every faction, each asking for a different good;
   fill one offer and the others lapse. Pays `rewardMult` x market value plus standing. Standing has no effect yet; it is a score, per faction and in total, and the hook for later.
   Deterministic per colony and tick. Factions are in `config.missions.factions`.
+
+## Quality-of-life pass (built)
+
+- **Routes**: up to 40 (was 12). **Links** now widen beyond 140 per tick, to level 10 (440 per tick): each level past 4 adds 60 per tick and costs
+  `n x (4 frames + 2 fittings)` on top of the usual materials, a straight-line growth in trade goods. Paid from the Core, so the Free Port's goods have to be routed there.
+- **Free Port building list**: the server decides what each district can build (`sim.buildableIn`) and sends it to the client (`buildableIn` in the client config); the menu
+  used to apply only the per-district `districts` list, which hid every other district's buildings at the Free Port.
+- **Expansions** (`building.expand`, `config.expansion`): build a building "upward" in its plot, to level 5. The whole line scales (inputs, outputs, power; homes for housing,
+  storage, defence) by x1.4/1.8/2.2/2.6, and crew by x1.2/1.4/1.6/1.8, so it is size, never efficiency. Paid from the district's own stockpile with trade goods made by recipes
+  at the Free Port (Structural Frames, Process Fittings, Habitat Modules). The cost is the class's base cost x (level - 1): a straight line. A work order; cancelling or
+  demolishing refunds it. `colony_buildings.level`, `POST /api/expand`.
+- **People**: a People tab shows population against homes, what each person eats, the whole colony's use, stock, net and how many more people the surplus would feed, the
+  morale breakdown and thresholds, crew, and an "if you leave now" line.
+- **Leaving instead of collapsing**: when food or water runs short, 6% of the people (at least one) leave each tick, down to `minPopulation` (5), and hunger costs morale in
+  proportion to the shortage (min 20%) instead of the full rate, so a colony shrinks to what it can feed and recovers rather than being lost. Below morale 45 people also leave, slowly.
+  Growth now needs a surplus big enough for the new people, so a colony no longer grows itself into a shortage. A colony with no food production at all is still lost.
+- **Interface**: typed values everywhere there was a +/- stepper (hold Shift for steps of 100; steps are 10 for everything); logistics has its own tab; toasts sit left of the
+  panel; the Brief tab drops the directives once they are all complete.

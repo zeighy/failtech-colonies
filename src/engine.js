@@ -59,6 +59,10 @@ function tickColony(c, globalTick, tickTime) {
   if (brownout && !c.brownout) ev('warn', `Brownout: grid supplies ${Math.floor(res.energy.supply)} of ${Math.ceil(res.energy.demand)} power. Production is throttled.`);
   if (!brownout && c.brownout) ev('good', 'Power grid stable again.');
   if (res.grew) ev('info', `Population grew to ${population}.`);
+  if (res.left && (c.age % 4 === 0 || population <= config.global.minPopulation)) {
+    const why = { hunger: 'There is not enough food or water: people are leaving', despair: 'Morale is low: people are leaving', housing: 'There are not enough homes: people are leaving' }[res.leftWhy];
+    ev('warn', `${why}. Population is ${population}.`);
+  }
   const need = config.global.beacon.transmitTicks;
   for (const q of [0.25, 0.5, 0.75]) {
     if (c.progress < need * q && res.progress >= need * q && !res.won) ev('info', `Beacon transmission ${Math.round(q * 100)}% complete.`);
@@ -82,6 +86,11 @@ function tickColony(c, globalTick, tickTime) {
       if (d.type === 'core') hubLevel = o.data.level;
       else db.prepare('UPDATE districts SET level = ? WHERE id = ?').run(o.data.level, d.id);
       ev('good', `${d.type === 'core' ? 'Hub' : d.name} upgraded to level ${o.data.level}.${caps[o.data.level] ? ` Ring ${o.data.level} unlocked.` : ''}`);
+    }
+    if (o.action_type === 'expand') {
+      // (the building may have been demolished meanwhile; demolishing refunds and removes the order, so this is a safety net)
+      const upd = db.prepare('UPDATE colony_buildings SET level = ? WHERE district_id = ? AND ring_index = ? AND slot_index = ?').run(o.data.level, d.id, o.data.ring, o.data.slot);
+      if (upd.changes) ev('good', `${config.buildings[o.data.type].name} expanded to level ${o.data.level}${where}.`);
     }
     if (o.action_type === 'found') {
       const t = config.districtTypes[o.data.type];
