@@ -241,7 +241,32 @@ function acquireLock() {
   }
   const release = () => { try { if (fs.readFileSync(lock, 'utf8') === mine) fs.rmSync(lock, { force: true }); } catch (e) { /* already gone */ } };
   process.on('exit', release);
-  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { release(); process.exit(0); });
+}
+
+// ---- graceful shutdown --------------------------------------------------------
+// Stop ticking, end the SSE streams (they would keep the server open forever), let in-flight
+// requests finish, then close the database so the WAL is checkpointed. Missed ticks are
+// caught up on the next start, so nothing is lost by stopping early.
+function installShutdown(server) {
+  let closing = false;
+  const shutdown = (reason, code = 0) => {
+    if (closing) return;
+    closing = true;
+    console.log(`${reason}: shutting down.`);
+    const force = setTimeout(() => { console.error('Shutdown timed out; forcing exit.'); process.exit(1); }, 8000);
+    force.unref();
+    engine.stop();
+    for (const set of streams.values()) for (const r of set) r.end();
+    server.close(() => {
+      try { store.db.close(); } catch (e) { console.error('Database close failed:', e); code = code || 1; }
+      console.log('Shutdown complete.');
+      process.exit(code);
+    });
+    server.closeIdleConnections();
+  };
+  for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => shutdown(sig));
+  process.on('uncaughtException', (err) => { console.error('Uncaught exception:', err); shutdown('uncaughtException', 1); });
+  process.on('unhandledRejection', (err) => { console.error('Unhandled rejection:', err); shutdown('unhandledRejection', 1); });
 }
 
 if (require.main === module) {
@@ -254,5 +279,6 @@ if (require.main === module) {
   server.headersTimeout = 15000;
   server.keepAliveTimeout = 15000;
   server.maxHeadersCount = 50;
+  installShutdown(server);
 }
 module.exports = app;
