@@ -50,7 +50,7 @@
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
   var STEP = { scrap: 50, ore: 25, ingots: 10, reagents: 5, crude: 25, fuel: 10, polymers: 5, biomass: 25, fertiliser: 10, medicine: 2, unpurified_water: 25, raw_synthetics: 25, clean_water: 10, rations: 10, machined_parts: 5, building_materials: 5, alloys: 5, circuits: 5, power_cells: 2 };
-  var TABS = [['brief', 'Brief', 'list'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'site'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'list'], ['missions', 'Missions', 'check'], ['log', 'Log', 'list']];
+  var TABS = [['brief', 'Brief', 'check'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'map'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'scale'], ['missions', 'Missions', 'flag'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
   function api(path, body) {
@@ -476,7 +476,7 @@
       return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
     });
     var h = TABS.map(function (t) {
-      return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] +
+      return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '" title="' + t[1] + '" aria-label="' + t[1] + '">' + icon(t[2], 20) + '<span>' + t[1] + '</span>' +
         ((t[0] === 'hub' && dot) || (t[0] === 'districts' && ddot) ? '<span class="badge" style="background:var(--good)"></span>' : '') +
         (t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') + '</button>';
     }).join('');
