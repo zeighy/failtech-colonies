@@ -88,9 +88,9 @@
     "n2": {
      "who": "seven",
      "text": [
-      "Your first duty is power. Everything else wants it. Begin with the panels. Form 7 will follow.",
-      "One more item. A clock is running in the corner of your screen. It is called Net Drag. If this colony costs more to keep than it produces, the Office writes it off. Out here, that means everyone. Do not let it reach zero."
-     ]
+      "Your first duty is power. Everything else wants it. Begin with the panels. Form 7 will follow."
+     ],
+     "next": "n2_1"
     },
     "n3": {
      "who": "seven",
@@ -104,7 +104,15 @@
      "text": [
       "The Office's position is that it is gathering information. The Office has gathered a great deal of information. None of it agrees."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "thoughtful"
+    },
+    "n2_1": {
+     "who": "seven",
+     "text": [
+      "One more item. A clock is running in the corner of your screen. It is called Net Drag. If this colony costs more to keep than it produces, the Office writes it off. Out here, that means everyone. Do not let it reach zero."
+     ],
+     "mood": "serious"
     }
    },
    "background": "command_hub.jpg"
@@ -116,10 +124,24 @@
     "n1": {
      "who": "seven",
      "text": [
-      "The first sample from your filtration plant has passed analysis. It is clear, it is liquid, and it is, in the Office's formal wording, \"technically wet.\"",
-      "I am required to read you Form 7-L, the Incident Summary for the Lapse. It reads, in full: \"Anomalous events occurred across approximately 90 percent of the surface. Cause: see attached.\" There is no attachment.",
+      "The first sample from your filtration plant has passed analysis. It is clear, it is liquid, and it is, in the Office's formal wording, \"technically wet.\""
+     ],
+     "next": "n1_1"
+    },
+    "n1_1": {
+     "who": "seven",
+     "text": [
+      "I am required to read you Form 7-L, the Incident Summary for the Lapse. It reads, in full: \"Anomalous events occurred across approximately 90 percent of the surface. Cause: see attached.\" There is no attachment."
+     ],
+     "mood": "serious",
+     "next": "n1_2"
+    },
+    "n1_2": {
+     "who": "seven",
+     "text": [
       "The Office has no cause for the Lapse, Commander. It has seven theories. They are filed on separate forms. This node will not be reading you the forms. They contradict one another, and the contradiction is not entertaining."
-     ]
+     ],
+     "mood": "thoughtful"
     }
    },
    "background": "command_hub.jpg"
@@ -133,7 +155,8 @@
      "text": [
       "You the new Commander? Great. Dispatcher Raf, Ammano Transit. I move things. You'll love me, I never ask what's in the crate."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "happy"
     },
     "n2": {
      "who": "seven",
@@ -147,7 +170,8 @@
      "text": [
       "Verify away. Nobody's home at the licence office. Look, here's how it works. The run comes by on a schedule. Prices wobble, because the road does. And I only carry what you've lined up before I show. Show up empty and I wave.",
       "One more thing, boss. If something big's coming down the road, I'll tell you. Not for free. For the usual rate. Which is gossip."
-     ]
+     ],
+     "mood": "happy"
     }
    },
    "background": "freight_road.jpg"
@@ -161,7 +185,8 @@
      "text": [
       "Commander, the event has ended. The Office classifies hazards by cause. For this one, the cause field is blank. I have left it blank. Filling it in felt dishonest."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "thoughtful"
     },
     "n2": {
      "who": "raf",
@@ -169,13 +194,15 @@
       "Saw that one from the road. Weather's got opinions now, boss. You're still standing. Few people say that this month."
      ],
      "tag": "radio",
-     "next": "n3"
+     "next": "n3",
+     "mood": "serious"
     },
     "n3": {
      "who": "seven",
      "text": [
       "Reserves, Sentinel Posts and a clean stockpile decide how a hazard lands. This node recommends all three. This node recommends them again."
-     ]
+     ],
+     "mood": "serious"
     }
    },
    "background": "command_hub.jpg"
@@ -202,7 +229,8 @@
      "who": "pell",
      "text": [
       "I do not know what is out there. The Office does not know. I only keep the records. And the records, I should tell you, are not behaving. Please write everything down."
-     ]
+     ],
+     "mood": "afraid"
     }
    },
    "background": "colony_dusk.jpg"
@@ -228,9 +256,17 @@
     "n3": {
      "who": "mags",
      "text": [
-      "Neither can I, honey. I count tonnes, not laws. You send what cuts and what carries and we'll get along. You send forms and I'll use them to light the furnace.",
+      "Neither can I, honey. I count tonnes, not laws. You send what cuts and what carries and we'll get along. You send forms and I'll use them to light the furnace."
+     ],
+     "mood": "happy",
+     "next": "n3_1"
+    },
+    "n3_1": {
+     "who": "mags",
+     "text": [
       "One rumour for free. Reactor in Pit Nine ran six months with no fuel. Don't look at me. I only hauled the ash."
-     ]
+     ],
+     "mood": "serious"
     }
    },
    "background": "black_cut.jpg"
@@ -252,7 +288,8 @@
       "Offers from where, boss? That's the thing. Nobody's out there. And yet, the board fills."
      ],
      "tag": "radio",
-     "next": "n3"
+     "next": "n3",
+     "mood": "thoughtful"
     },
     "n3": {
      "who": "seven",
@@ -285,9 +322,17 @@
     "n3": {
      "who": "noor",
      "text": [
-      "I am a gardener, Seven. Please do not give me a title. Commander, one condition. Nothing from Klein enters these domes. Those reactors are loud. The plants heard them.",
+      "I am a gardener, Seven. Please do not give me a title. Commander, one condition. Nothing from Klein enters these domes. Those reactors are loud. The plants heard them."
+     ],
+     "mood": "serious",
+     "next": "n3_1"
+    },
+    "n3_1": {
+     "who": "noor",
+     "text": [
       "In return, I will keep the green alive. And I will tell you what I know, which is little, and what I suspect, which is more."
-     ]
+     ],
+     "mood": "happy"
     }
    },
    "background": "cliffside_reserve.jpg"
@@ -333,7 +378,8 @@
        "label": "Raf.",
        "next": "a_mags_raf_raf"
       }
-     ]
+     ],
+     "mood": "angry"
     },
     "a_noor_noor": {
      "who": "noor",
@@ -350,7 +396,8 @@
        "label": "Raf.",
        "next": "a_noor_raf_raf"
       }
-     ]
+     ],
+     "mood": "thoughtful"
     },
     "a_raf_raf": {
      "who": "raf",
@@ -367,7 +414,8 @@
        "label": "Noor.",
        "next": "a_noor_raf_noor"
       }
-     ]
+     ],
+     "mood": "happy"
     },
     "a_mags_noor_mags": {
      "who": "mags",
@@ -380,7 +428,8 @@
        "label": "Raf.",
        "next": "a_mags_noor_raf_raf"
       }
-     ]
+     ],
+     "mood": "angry"
     },
     "a_mags_noor_noor": {
      "who": "noor",
@@ -393,7 +442,8 @@
        "label": "Raf.",
        "next": "a_mags_noor_raf_raf"
       }
-     ]
+     ],
+     "mood": "thoughtful"
     },
     "a_mags_raf_mags": {
      "who": "mags",
@@ -406,7 +456,8 @@
        "label": "Noor.",
        "next": "a_mags_noor_raf_noor"
       }
-     ]
+     ],
+     "mood": "angry"
     },
     "a_mags_raf_raf": {
      "who": "raf",
@@ -419,7 +470,8 @@
        "label": "Noor.",
        "next": "a_mags_noor_raf_noor"
       }
-     ]
+     ],
+     "mood": "happy"
     },
     "a_noor_raf_noor": {
      "who": "noor",
@@ -432,7 +484,8 @@
        "label": "Mags.",
        "next": "a_mags_noor_raf_mags"
       }
-     ]
+     ],
+     "mood": "thoughtful"
     },
     "a_noor_raf_raf": {
      "who": "raf",
@@ -445,41 +498,47 @@
        "label": "Mags.",
        "next": "a_mags_noor_raf_mags"
       }
-     ]
+     ],
+     "mood": "happy"
     },
     "a_mags_noor_raf_mags": {
      "who": "mags",
      "text": [
       "Somebody pulled a plug. Big plug. The whole planet went from running to off. Somebody at the top flipped a switch and left us the mess. I don't know who. I want a word with them."
      ],
-     "next": "close"
+     "next": "close",
+     "mood": "angry"
     },
     "a_mags_noor_raf_noor": {
      "who": "noor",
      "text": [
       "A pruning. Every garden needs one. I do not believe it was cruel. I believe it was deliberate. Something cut away what could not grow, and left the rest to see what it would do."
      ],
-     "next": "close"
+     "next": "close",
+     "mood": "thoughtful"
     },
     "a_mags_noor_raf_raf": {
      "who": "raf",
      "text": [
       "Okay, boss, I've heard nine versions on the road. Best one says the Lapse is a delivery. We're the crate. Somebody is still deciding where to send us."
      ],
-     "next": "close"
+     "next": "close",
+     "mood": "happy"
     },
     "close": {
      "who": "seven",
      "text": [
       "Theories are not data. Thank you, all of you. This node would like the record to show that none of those theories is supported."
      ],
-     "next": "close2"
+     "next": "close2",
+     "mood": "serious"
     },
     "close2": {
      "who": "noor",
      "text": [
       "Nor refuted, Seven."
-     ]
+     ],
+     "mood": "thoughtful"
     }
    }
   },
@@ -492,14 +551,16 @@
      "text": [
       "Commander. Your assignment file includes an instruction this node has withheld until now. It is Form 7-B, a beacon build order."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "serious"
     },
     "n2": {
      "who": "pell",
      "text": [
       "Commander, I should explain. I checked the file's date stamp. It was issued before the Lapse. The Office wrote this instruction before any of us knew we would need it."
      ],
-     "next": "n3"
+     "next": "n3",
+     "mood": "afraid"
     },
     "n3": {
      "who": "seven",
@@ -514,13 +575,14 @@
       "A clerical error with a complete schematic, Seven."
      ],
      "next": "n5",
-     "mood": "afraid"
+     "mood": "serious"
     },
     "n5": {
      "who": "seven",
      "text": [
       "Commander, the Office makes no claim about what a beacon will find. It makes the claim that you should build it. This node concurs, and notes that concurring is unusual."
-     ]
+     ],
+     "mood": "serious"
     }
    },
    "background": "command_hub.jpg"
@@ -532,20 +594,10 @@
     "n1": {
      "who": "seven",
      "text": [
-      "Commander, the beacon is transmitting. This node is also receiving. That is not in the manual.",
-      "The incoming signal is a hum. It is not a hum from the beacon. It is a hum from outside it."
+      "Commander, the beacon is transmitting. This node is also receiving. That is not in the manual."
      ],
-     "prompt": "How do you answer?",
-     "choices": [
-      {
-       "label": "Answer it.",
-       "next": "n4"
-      },
-      {
-       "label": "Stay silent.",
-       "next": "n5"
-      }
-     ]
+     "mood": "surprised",
+     "next": "n1_1"
     },
     "n2": {
      "who": "signal",
@@ -566,14 +618,34 @@
      "text": [
       "Reply sent. Content: your call sign. This node regrets that it did not ask first."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "afraid"
     },
     "n5": {
      "who": "seven",
      "text": [
       "Acknowledged. The beacon continues transmitting. It does not appear to care that you are silent."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "thoughtful"
+    },
+    "n1_1": {
+     "who": "seven",
+     "text": [
+      "The incoming signal is a hum. It is not a hum from the beacon. It is a hum from outside it."
+     ],
+     "mood": "afraid",
+     "choices": [
+      {
+       "label": "Answer it.",
+       "next": "n4"
+      },
+      {
+       "label": "Stay silent.",
+       "next": "n5"
+      }
+     ],
+     "prompt": "How do you answer?"
     }
    },
    "background": "beacon_night.jpg"
@@ -595,7 +667,8 @@
      "text": [
       "Commander, the Sanctuary Port has come online. Lights are lit. A relay is active. This node cannot identify the operator."
      ],
-     "next": "n3"
+     "next": "n3",
+     "mood": "surprised"
     },
     "n3": {
      "who": "raf",
@@ -612,27 +685,31 @@
        "label": "Where are you?",
        "next": "n6"
       }
-     ]
+     ],
+     "mood": "happy"
     },
     "n4": {
      "who": "seven",
      "text": [
       "The Office formally acknowledges that the Harbour is open. The Office does not formally acknowledge anything else."
-     ]
+     ],
+     "mood": "serious"
     },
     "n5": {
      "who": "signal",
      "text": [
       "The one who sings back. The one who heard. The song is older than the silence."
      ],
-     "next": "n4"
+     "next": "n4",
+     "mood": "thoughtful"
     },
     "n6": {
      "who": "signal",
      "text": [
       "Here. There. Between the notes."
      ],
-     "next": "n4"
+     "next": "n4",
+     "mood": "thoughtful"
     }
    },
    "background": "sanctuary_port.jpg"
@@ -644,11 +721,10 @@
     "n1": {
      "who": "mags",
      "text": [
-      "Look at that. Commander. I'm not saying Clipboard any more. I'm saying Hand. A Cut Hand is someone I'd hand a tool to. Don't make it a speech.",
-      "Here's the situation. Foundry Nine has been dead since the Lapse. I want it relit. I've got men. I've got coal. I haven't got frames, steel, or an idea where to start."
+      "Look at that. Commander. I'm not saying Clipboard any more. I'm saying Hand. A Cut Hand is someone I'd hand a tool to. Don't make it a speech."
      ],
-     "next": "n2",
-     "mood": "happy"
+     "mood": "happy",
+     "next": "n1_1"
     },
     "n2": {
      "who": "seven",
@@ -661,7 +737,16 @@
      "who": "mags",
      "text": [
       "That's because the Office wasn't here when we built it, honey. Send me tool steel and frames and I'll make the list myself."
-     ]
+     ],
+     "mood": "happy"
+    },
+    "n1_1": {
+     "who": "mags",
+     "text": [
+      "Here's the situation. Foundry Nine has been dead since the Lapse. I want it relit. I've got men. I've got coal. I haven't got frames, steel, or an idea where to start."
+     ],
+     "mood": "serious",
+     "next": "n2"
     }
    },
    "background": "black_cut.jpg"
@@ -709,14 +794,16 @@
      "text": [
       "Not yet. I'm not afraid of what's inside. I'm afraid of what's next to it. The wall on the far side is warm. Warm like a hand."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "afraid"
     },
     "n5": {
      "who": "mags",
      "text": [
       "I thought you'd say that. It's why I told you."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "thoughtful"
     }
    },
    "background": "black_cut.jpg"
@@ -728,10 +815,10 @@
     "n1": {
      "who": "noor",
      "text": [
-      "Commander. You may call yourself a Tender now. It means you may hold the living things without asking. I have not said that to anyone in years.",
-      "Here is a seed. Do not plant it yet. It is from a harvest that came on the eleventh day, exactly as the log said it would. It was good. I am afraid of it."
+      "Commander. You may call yourself a Tender now. It means you may hold the living things without asking. I have not said that to anyone in years."
      ],
-     "next": "n2"
+     "mood": "happy",
+     "next": "n1_1"
     },
     "n2": {
      "who": "seven",
@@ -746,6 +833,14 @@
       "I know, Seven. That is what I am afraid of."
      ],
      "mood": "afraid"
+    },
+    "n1_1": {
+     "who": "noor",
+     "text": [
+      "Here is a seed. Do not plant it yet. It is from a harvest that came on the eleventh day, exactly as the log said it would. It was good. I am afraid of it."
+     ],
+     "mood": "afraid",
+     "next": "n2"
     }
    },
    "background": "cliffside_reserve.jpg"
@@ -757,17 +852,18 @@
     "n1": {
      "who": "noor",
      "text": [
-      "Keeper. The word is not mine, it is the valley's. It means you may enter the seed store. I will go first. Nothing in here has been touched since the Lapse.",
-      "Look at the labels. Every seed has a date written on it. They are not harvest dates. They are not storage dates. They are dates that have not happened."
+      "Keeper. The word is not mine, it is the valley's. It means you may enter the seed store. I will go first. Nothing in here has been touched since the Lapse."
      ],
-     "next": "n2"
+     "mood": "serious",
+     "next": "n1_1"
     },
     "n2": {
      "who": "seven",
      "text": [
       "Commander, this node recommends not reading the dates aloud."
      ],
-     "next": "n3"
+     "next": "n3",
+     "mood": "serious"
     },
     "n3": {
      "who": "noor",
@@ -775,6 +871,14 @@
       "I have read them aloud, Seven. Nothing happened. That is the part I cannot explain."
      ],
      "mood": "afraid"
+    },
+    "n1_1": {
+     "who": "noor",
+     "text": [
+      "Look at the labels. Every seed has a date written on it. They are not harvest dates. They are not storage dates. They are dates that have not happened."
+     ],
+     "mood": "thoughtful",
+     "next": "n2"
     }
    },
    "background": "cliffside_reserve.jpg"
@@ -786,10 +890,10 @@
     "n1": {
      "who": "raf",
      "text": [
-      "Boss! You're a Regular now. That means I tell you the real road stories. The ones I don't tell the Harbour.",
-      "Okay. East of the second bridge, the road goes quiet. Not empty. Quiet. I drove it once. The engine was running. I couldn't hear it. I couldn't hear anything. For eleven minutes."
+      "Boss! You're a Regular now. That means I tell you the real road stories. The ones I don't tell the Harbour."
      ],
-     "next": "n2"
+     "mood": "happy",
+     "next": "n1_1"
     },
     "n2": {
      "who": "seven",
@@ -802,7 +906,16 @@
      "who": "raf",
      "text": [
       "I know it has. Don't tell the others. They'll think I'm making it up."
-     ]
+     ],
+     "mood": "happy"
+    },
+    "n1_1": {
+     "who": "raf",
+     "text": [
+      "Okay. East of the second bridge, the road goes quiet. Not empty. Quiet. I drove it once. The engine was running. I couldn't hear it. I couldn't hear anything. For eleven minutes."
+     ],
+     "mood": "serious",
+     "next": "n2"
     }
    },
    "background": "freight_road.jpg"
@@ -841,21 +954,24 @@
      "who": "raf",
      "text": [
       "Already did. I wrote it on my hand."
-     ]
+     ],
+     "mood": "happy"
     },
     "n4": {
      "who": "raf",
      "text": [
       "I tried. Three times. The lid is fine. The hands go quiet before I can pull. I don't know why."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "afraid"
     },
     "n5": {
      "who": "raf",
      "text": [
       "Good. That's what I told myself. I'm just telling you, so somebody else knows."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "thoughtful"
     }
    },
    "background": "freight_road.jpg"
