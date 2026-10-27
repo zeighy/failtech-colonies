@@ -1,107 +1,509 @@
 {
-  "characters": {
-    "steward": { "name": "Hub Steward", "title": "Keeper of the Core", "color": "#ff9f1c", "side": "left" },
-    "signal": { "name": "The Signal", "title": "Unknown origin", "color": "#4cc9f0", "side": "right" },
-    "cinder": { "name": "Foreman Ash", "title": "Cinder Syndicate", "color": "#e07a5f", "side": "right" },
-    "verdant": { "name": "Warden Fern", "title": "Verdant Accord", "color": "#81b29a", "side": "right" },
-    "meridian": { "name": "Dispatcher Vale", "title": "Meridian Transit", "color": "#6c9bd2", "side": "right" }
+ "characters": {
+  "steward": {
+   "name": "Hub Steward",
+   "title": "Keeper of the Core",
+   "color": "#ff9f1c",
+   "side": "left"
   },
-  "scenes": {
-    "prologue": {
-      "title": "Cold start",
-      "start": "wake",
-      "nodes": {
-        "wake": {
-          "who": "steward",
-          "text": ["Core systems are up. Barely.", "The cache is thin, the tanks are draining, and nobody has told the people what happens next. That would be you."],
-          "choices": [
-            { "label": "Where is everyone?", "next": "where" },
-            { "label": "Tell me what we have.", "next": "have" }
-          ]
-        },
-        "where": {
-          "who": "steward",
-          "text": ["Asleep, mostly. Those who could still walk are waiting to see if you keep the lights on.", "I would start there."],
-          "next": "end"
-        },
-        "have": {
-          "who": "steward",
-          "text": ["A hub, a handful of scrap, and a grid that will not carry much.", "Power first. Everything else wants it."],
-          "next": "end"
-        },
-        "end": { "who": null, "text": ["The radar hums. Somewhere beyond the walls, the wastes wait."] }
+  "signal": {
+   "name": "The Signal",
+   "title": "Unknown origin",
+   "color": "#4cc9f0",
+   "side": "right"
+  },
+  "cinder": {
+   "name": "Foreman Ash",
+   "title": "Cinder Syndicate",
+   "color": "#e07a5f",
+   "side": "right"
+  },
+  "verdant": {
+   "name": "Warden Fern",
+   "title": "Verdant Accord",
+   "color": "#81b29a",
+   "side": "right"
+  },
+  "meridian": {
+   "name": "Dispatcher Vale",
+   "title": "Meridian Transit",
+   "color": "#6c9bd2",
+   "side": "right"
+  }
+ },
+ "scenes": {
+  "prologue": {
+   "title": "Cold start",
+   "start": "wake",
+   "nodes": {
+    "wake": {
+     "who": "steward",
+     "text": [
+      "Core systems are up. Barely.",
+      "The cache is thin, the tanks are draining, and nobody has told the people what happens next. That would be you."
+     ],
+     "choices": [
+      {
+       "label": "Where is everyone?",
+       "next": "where"
+      },
+      {
+       "label": "Tell me what we have.",
+       "next": "have"
       }
+     ]
     },
-    "steady": {
-      "title": "Holding",
-      "start": "a",
-      "nodes": {
-        "a": { "who": "steward", "text": ["The tanks are filling and the pantry is not shrinking. I had stopped expecting that.", "People are starting to notice. They are looking at the walls differently."], "next": null }
-      }
+    "where": {
+     "who": "steward",
+     "text": [
+      "Asleep, mostly. Those who could still walk are waiting to see if you keep the lights on.",
+      "I would start there."
+     ],
+     "next": "end"
     },
-    "reach": {
-      "title": "Beyond the walls",
-      "start": "a",
-      "nodes": {
-        "a": { "who": "steward", "text": ["A second site, with its own grid and its own stores. We are no longer one fortress, we are a network.", "Keep the roads open. They will be asked to carry more than anyone planned."], "next": null }
-      }
+    "have": {
+     "who": "steward",
+     "text": [
+      "A hub, a handful of scrap, and a grid that will not carry much.",
+      "Power first. Everything else wants it."
+     ],
+     "next": "end"
     },
-    "beacon": {
-      "title": "Reaching out",
-      "start": "a",
-      "nodes": {
-        "a": { "who": "steward", "text": ["The array is standing. All it wants now is power and time.", "Whatever answers, we should be ready for it."], "next": "b" },
-        "b": { "who": "signal", "text": ["...", "Carrier detected. We are listening."], "next": null }
-      }
-    },
-    "answered": {
-      "title": "Someone heard",
-      "start": "a",
-      "nodes": {
-        "a": { "who": "signal", "text": ["Your message crossed the wastes. Others heard it too.", "There is a harbour on the far side. It trades with anyone who has something worth trading."], "next": "b" },
-        "b": { "who": "steward", "text": ["A market, then. We will need goods that are worth more than scrap.", "And we will need to decide who we deal with."], "choices": [{ "label": "Trade with everyone.", "next": "all" }, { "label": "Choose carefully.", "next": "careful" }] },
-        "all": { "who": "steward", "text": ["Open hands, then. They will remember who paid well."], "next": null },
-        "careful": { "who": "steward", "text": ["A wise instinct. Favours are a currency here, and they are not cheap to earn back."], "next": null }
-      }
-    },
-    "cinder_intro": {
-      "title": "The foundries",
-      "start": "a",
-      "nodes": { "a": { "who": "cinder", "text": ["You have been filling orders. Good. Few do.", "The foundries run on tool steel and patience. Bring us the first, and we will teach you the second."], "next": null } }
-    },
-    "verdant_intro": {
-      "title": "The green",
-      "start": "a",
-      "nodes": { "a": { "who": "verdant", "text": ["We keep the valleys alive, one jar at a time.", "If you can keep our shelves stocked, we can keep your people well."], "next": null } }
-    },
-    "meridian_intro": {
-      "title": "The roads",
-      "start": "a",
-      "nodes": { "a": { "who": "meridian", "text": ["Meridian moves anything, anywhere, on schedule.", "Finished goods by the crate, and we will make sure it gets where it is going."], "next": null } }
+    "end": {
+     "who": null,
+     "text": [
+      "The radar hums. Somewhere beyond the walls, the wastes wait."
+     ]
     }
+   }
   },
-  "beats": [
-    { "id": "c01_prologue", "phase": "campaign", "trigger": { "type": "start" }, "delivery": "dialogue", "scene": "prologue" },
-    { "id": "c02_power", "phase": "campaign", "trigger": { "type": "directive", "id": "power" }, "delivery": "mail",
-      "mail": { "from": "steward", "subject": "Lights on", "body": ["The grid is holding. It is not much, but it is ours.", "Scrap next. Everything we build is paid for in it."] } },
-    { "id": "c03_steady", "phase": "campaign", "trigger": { "type": "directive", "id": "steady" }, "delivery": "dialogue", "scene": "steady" },
-    { "id": "c04_market", "phase": "campaign", "trigger": { "type": "directive", "id": "market" }, "delivery": "mail",
-      "mail": { "from": "steward", "subject": "A convoy at the gate", "body": ["Traders pass on a schedule. They pay for surplus and they sell what we cannot make.", "Set your terms before they arrive. They will not wait."] } },
-    { "id": "c05_district", "phase": "campaign", "trigger": { "type": "directive", "id": "district" }, "delivery": "dialogue", "scene": "reach" },
-    { "id": "c06_cells", "phase": "campaign", "trigger": { "type": "directive", "id": "cells" }, "delivery": "mail",
-      "mail": { "from": "steward", "subject": "Concentrated power", "body": ["The first power cell came off the line today. Dense, quiet, and worth more than the rest of the cache together.", "The transmitter is within reach."] } },
-    { "id": "c07_beacon", "phase": "campaign", "trigger": { "type": "directive", "id": "beacon" }, "delivery": "dialogue", "scene": "beacon" },
-    { "id": "c08_answered", "phase": "campaign", "trigger": { "type": "directive", "id": "harbour" }, "delivery": "dialogue", "scene": "answered" },
-    { "id": "c09_first_mission", "phase": "campaign", "trigger": { "type": "directive", "id": "mission" }, "delivery": "mail",
-      "mail": { "from": "signal", "subject": "You are not alone", "body": ["Every order you fill is heard further than you think.", "There are others like you. In time, you may meet them."] } },
-    { "id": "o01_cinder", "phase": "open", "trigger": { "type": "standing", "faction": "cinder", "min": 10 }, "delivery": "dialogue", "scene": "cinder_intro" },
-    { "id": "o02_verdant", "phase": "open", "trigger": { "type": "standing", "faction": "verdant", "min": 10 }, "delivery": "dialogue", "scene": "verdant_intro" },
-    { "id": "o03_meridian", "phase": "open", "trigger": { "type": "standing", "faction": "meridian", "min": 10 }, "delivery": "dialogue", "scene": "meridian_intro" },
-    { "id": "o04_cinder_mail", "phase": "open", "trigger": { "type": "standing", "faction": "cinder", "min": 40 }, "delivery": "mail",
-      "mail": { "from": "cinder", "subject": "A seat at the table", "body": ["You have earned a name in the foundries. That does not happen often.", "There will be work for you, if you want it."] } },
-    { "id": "o05_verdant_mail", "phase": "open", "trigger": { "type": "standing", "faction": "verdant", "min": 40 }, "delivery": "mail",
-      "mail": { "from": "verdant", "subject": "Seeds for the road", "body": ["The valley remembers its friends.", "Come and see what grows when it is tended properly."] } },
-    { "id": "o06_meridian_mail", "phase": "open", "trigger": { "type": "standing", "faction": "meridian", "min": 40 }, "delivery": "mail",
-      "mail": { "from": "meridian", "subject": "Preferred routing", "body": ["Your crates arrive on time and in one piece. We notice.", "Consider yourself on our short list."] } }
-  ]
+  "steady": {
+   "title": "Holding",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "The tanks are filling and the pantry is not shrinking. I had stopped expecting that.",
+      "People are starting to notice. They are looking at the walls differently."
+     ],
+     "next": null
+    }
+   }
+  },
+  "reach": {
+   "title": "Beyond the walls",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "A second site, with its own grid and its own stores. We are no longer one fortress, we are a network.",
+      "Keep the roads open. They will be asked to carry more than anyone planned."
+     ],
+     "next": null
+    }
+   }
+  },
+  "beacon": {
+   "title": "Reaching out",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "The array is standing. All it wants now is power and time.",
+      "Whatever answers, we should be ready for it."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "signal",
+     "text": [
+      "...",
+      "Carrier detected. We are listening."
+     ],
+     "next": null
+    }
+   }
+  },
+  "answered": {
+   "title": "Someone heard",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "signal",
+     "text": [
+      "Your message crossed the wastes. Others heard it too.",
+      "There is a harbour on the far side. It trades with anyone who has something worth trading."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "steward",
+     "text": [
+      "A market, then. We will need goods that are worth more than scrap.",
+      "And we will need to decide who we deal with."
+     ],
+     "choices": [
+      {
+       "label": "Trade with everyone.",
+       "next": "all"
+      },
+      {
+       "label": "Choose carefully.",
+       "next": "careful"
+      }
+     ]
+    },
+    "all": {
+     "who": "steward",
+     "text": [
+      "Open hands, then. They will remember who paid well."
+     ],
+     "next": null
+    },
+    "careful": {
+     "who": "steward",
+     "text": [
+      "A wise instinct. Favours are a currency here, and they are not cheap to earn back."
+     ],
+     "next": null
+    }
+   }
+  },
+  "cinder_intro": {
+   "title": "The foundries",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "cinder",
+     "text": [
+      "You have been filling orders. Good. Few do.",
+      "The foundries run on tool steel and patience. Bring us the first, and we will teach you the second."
+     ],
+     "next": null
+    }
+   }
+  },
+  "verdant_intro": {
+   "title": "The green",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "verdant",
+     "text": [
+      "We keep the valleys alive, one jar at a time.",
+      "If you can keep our shelves stocked, we can keep your people well."
+     ],
+     "next": null
+    }
+   }
+  },
+  "meridian_intro": {
+   "title": "The roads",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "meridian",
+     "text": [
+      "Meridian moves anything, anywhere, on schedule.",
+      "Finished goods by the crate, and we will make sure it gets where it is going."
+     ],
+     "next": null
+    }
+   }
+  },
+  "x01_recognised": {
+   "title": "Recognised",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "Word has spread. The factions know your name now, and someone has sent plans for something far bigger than a beacon.",
+      "A staging platform and a catapult on the outer ring, and a command center at the harbour. Orbit, if we can afford it."
+     ]
+    }
+   }
+  },
+  "x04_launch": {
+   "title": "Up",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "The station is in orbit. Orbital Command is open: storage, links to the Core, and one dropship.",
+      "Below, the anomalies are opening ground nobody has seen. It will not stay open."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "signal",
+     "text": [
+      "Higher now. Closer."
+     ]
+    }
+   }
+  }
+ },
+ "beats": [
+  {
+   "id": "c01_prologue",
+   "phase": "campaign",
+   "trigger": {
+    "type": "start"
+   },
+   "delivery": "dialogue",
+   "scene": "prologue"
+  },
+  {
+   "id": "c02_power",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "power"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "Lights on",
+    "body": [
+     "The grid is holding. It is not much, but it is ours.",
+     "Scrap next. Everything we build is paid for in it."
+    ]
+   }
+  },
+  {
+   "id": "c03_steady",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "steady"
+   },
+   "delivery": "dialogue",
+   "scene": "steady"
+  },
+  {
+   "id": "c04_market",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "market"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "A convoy at the gate",
+    "body": [
+     "Traders pass on a schedule. They pay for surplus and they sell what we cannot make.",
+     "Set your terms before they arrive. They will not wait."
+    ]
+   }
+  },
+  {
+   "id": "c05_district",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "district"
+   },
+   "delivery": "dialogue",
+   "scene": "reach"
+  },
+  {
+   "id": "c06_cells",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "cells"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "Concentrated power",
+    "body": [
+     "The first power cell came off the line today. Dense, quiet, and worth more than the rest of the cache together.",
+     "The transmitter is within reach."
+    ]
+   }
+  },
+  {
+   "id": "c07_beacon",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "beacon"
+   },
+   "delivery": "dialogue",
+   "scene": "beacon"
+  },
+  {
+   "id": "c08_answered",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "harbour"
+   },
+   "delivery": "dialogue",
+   "scene": "answered"
+  },
+  {
+   "id": "c09_first_mission",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "mission"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "signal",
+    "subject": "You are not alone",
+    "body": [
+     "Every order you fill is heard further than you think.",
+     "There are others like you. In time, you may meet them."
+    ]
+   }
+  },
+  {
+   "id": "o01_cinder",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "cinder",
+    "min": 10
+   },
+   "delivery": "dialogue",
+   "scene": "cinder_intro"
+  },
+  {
+   "id": "o02_verdant",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "verdant",
+    "min": 10
+   },
+   "delivery": "dialogue",
+   "scene": "verdant_intro"
+  },
+  {
+   "id": "o03_meridian",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "meridian",
+    "min": 10
+   },
+   "delivery": "dialogue",
+   "scene": "meridian_intro"
+  },
+  {
+   "id": "o04_cinder_mail",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "cinder",
+    "min": 40
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "cinder",
+    "subject": "A seat at the table",
+    "body": [
+     "You have earned a name in the foundries. That does not happen often.",
+     "There will be work for you, if you want it."
+    ]
+   }
+  },
+  {
+   "id": "o05_verdant_mail",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "verdant",
+    "min": 40
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "verdant",
+    "subject": "Seeds for the road",
+    "body": [
+     "The valley remembers its friends.",
+     "Come and see what grows when it is tended properly."
+    ]
+   }
+  },
+  {
+   "id": "o06_meridian_mail",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "meridian",
+    "min": 40
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "meridian",
+    "subject": "Preferred routing",
+    "body": [
+     "Your crates arrive on time and in one piece. We notice.",
+     "Consider yourself on our short list."
+    ]
+   }
+  },
+  {
+   "id": "x01_recognised",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "unlocked"
+   },
+   "delivery": "dialogue",
+   "scene": "x01_recognised"
+  },
+  {
+   "id": "x03_payload",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "cycleDone"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "Payload ready",
+    "body": [
+     "The payload is complete and the staging platform has stood down. The catapult is waiting for your word, and a name for the station."
+    ]
+   }
+  },
+  {
+   "id": "x04_launch",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "launched"
+   },
+   "delivery": "dialogue",
+   "scene": "x04_launch"
+  },
+  {
+   "id": "x06_samples",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "rareReturned"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "Samples",
+    "body": [
+     "The dropship brought back something the colony has never had. The orbital foundry can work it, two kinds at a time."
+    ]
+   }
+  }
+ ]
 }

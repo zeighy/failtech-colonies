@@ -42,13 +42,19 @@ function clientConfig() {
       foundCost: t.foundCost, foundTicks: t.foundTicks, levels: t.levels, ringPlotSize: t.ringPlotSize,
       rings: sim.ringCapacities(config, type), ringRotation: t.ringRotation || {}, neighbors: Object.fromEntries(engine.neighborMaps[type]),
     }])),
+    orbitalTypes: Object.fromEntries(Object.entries(config.orbitalTypes || {}).map(([type, t]) => [type, {
+      name: t.name, color: t.color, levels: t.levels, ringPlotSize: t.ringPlotSize,
+      rings: sim.ringCapacities(config, type), ringRotation: t.ringRotation || {}, neighbors: Object.fromEntries(engine.neighborMaps[type]),
+    }])),
+    orbitalRecipeBook: sim.recipeBook(config, config.buildings.orbital_foundry),
+    orbital: config.orbital,
     logistics: config.logistics,
     expansion: config.expansion,
     popConsumption: config.global.populationConsumptionPerTick,
     minPopulation: config.global.minPopulation,
     exodus: config.global.exodus,
     growth: config.global.populationGrowth,
-    buildableIn: Object.fromEntries(['core', ...Object.keys(config.districtTypes || {})].map((t) => [t, Object.keys(config.buildings).filter((k) => sim.buildableIn(config.buildings[k], t))])),
+    buildableIn: Object.fromEntries(['core', ...Object.keys(config.districtTypes || {}), ...Object.keys(config.orbitalTypes || {})].map((t) => [t, Object.keys(config.buildings).filter((k) => sim.buildableIn(config.buildings[k], t))])),
     recipes: config.recipes,
     tradeWorks: config.tradeWorks,
     missions: { slots: config.missions.slots, factions: config.missions.factions },
@@ -170,6 +176,7 @@ function viewFor(userId, now = Date.now()) {
     const hub = isCore ? proj.hub : r.hub;
     return {
       id: d.id, type: d.type, name: d.name, level: d.level, core: isCore, orbital: !!(config.orbitalTypes || {})[d.type],
+      resolve: d.resolve || null,
       resources, cap,
       hub: {
         maxStorage: cap, baseStorage: lvl.maxStorage, baseEnergy: lvl.baseEnergy, rings: lvl.ringCapacities,
@@ -333,7 +340,7 @@ function viewFor(userId, now = Date.now()) {
     db.prepare('UPDATE colonies SET milestones = ? WHERE id = ?').run(JSON.stringify(brief.doneIds), c.id);
   }
   view.brief = { directives: brief.list, remaining: brief.remaining };
-  story.evaluate(c.id, view, brief.list.filter((d) => d.done).map((d) => d.id), brief.remaining === 0, t.globalTick);
+  story.evaluate(c.id, view, brief.list.filter((d) => d.done).map((d) => d.id), brief.remainingMain === 0, t.globalTick);
   view.story = story.view(c.id);
   view.doom = view.colony.shutdown ? { phase: 'shutdown', ticks: 0 } : brief.doom;
   return view;

@@ -22,7 +22,12 @@
       "exchange": "Harbour Ledger",
       "missions": "Postings",
       "comms": "Signal",
-      "log": "Incident Log"
+      "log": "Incident Log",
+      "oplace": "Station",
+      "ostore": "Orbital Storage",
+      "oterr": "Territories",
+      "omarket": "Orbital Market",
+      "oproject": "Global Project"
     },
     "labels": {
       "credits": "Liquid Credits",
@@ -226,7 +231,9 @@
       "hint": "If you would rather start over, Abandon colony is in the command menu.",
       "button": "Understood"
     },
-    "hubLabel": "HUB"
+    "hubLabel": "HUB",
+    "missionsHint": "Earn a combined standing of 500 with the factions and your name will be known across the lands.",
+    "chapterTwo": "Form 7-O: Orbital Recontinuation"
   },
   "resources": {
     "scrap": {
@@ -800,6 +807,46 @@
     "mission": {
       "title": "A Name on the Board",
       "hint": "People there post what they need and name what they will pay. Doing someone a favour is a kind of currency, though nobody has said what it buys."
+    },
+    "o_staging": {
+      "title": "Form 7-O: Staging",
+      "hint": "A payload has to be assembled before anything leaves the ground. The plans want the outermost ring of the Command Hub, and they are not cheap."
+    },
+    "o_catapult": {
+      "title": "Form 7-O: Catapult",
+      "hint": "A payload needs a push. Whatever pushes it has to stand right beside the platform that builds it."
+    },
+    "o_command": {
+      "title": "Form 7-O: Command",
+      "hint": "Nothing goes up without someone on the ground tracking it. The Sanctuary Port has room on its biggest plots."
+    },
+    "o_cycle": {
+      "title": "Capital Investment",
+      "hint": "The payload is built a little every cycle, for a long time, out of the harbour's best goods. Keep them coming until it is complete."
+    },
+    "o_launch": {
+      "title": "Up",
+      "hint": "A finished payload is only cargo until it leaves. It will need a name that survives a radio."
+    },
+    "o_reactor": {
+      "title": "Klein Grid, Orbital",
+      "hint": "Nothing up there runs on sunlight or workforce. Something has to burn the colony's most concentrated power."
+    },
+    "o_foundry": {
+      "title": "Automated Hands",
+      "hint": "The station can make things, one recipe at a time, if it has the power to replace the people."
+    },
+    "o_deploy": {
+      "title": "Down Again",
+      "hint": "The anomalies have opened ground nobody has mapped, and it will not stay open. The station has a ship for that."
+    },
+    "o_rare": {
+      "title": "Samples",
+      "hint": "What grows in an anomaly grows nowhere else. Getting it out takes a chain on the ground and a ship that leaves in time."
+    },
+    "o_project": {
+      "title": "The Relay",
+      "hint": "Every station on the relay is building the same thing, one project at a time. A dropship can carry your share."
     }
   },
   "orbitalRecipes": {

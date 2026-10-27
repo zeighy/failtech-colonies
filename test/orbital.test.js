@@ -365,3 +365,17 @@ test('ground markets never see orbital-only resources', () => {
   const r = market.post(row(c), { id: c.core, type: 'core' }, { resource: 'void_glass', side: 'sell', price: 10, qty: 1, ttl: 30 }, now());
   assert.equal(r.ok, false);
 });
+
+test('station rings come from further launch cycles; ring 3 also needs orbital-only goods already in orbit', () => {
+  const c = launched('Ring Builder');
+  assert.equal(orbital.nextCycle(c.id), 'ring2');
+  assert.deepEqual(actions.launchCycle(c.uid, { cycle: 'ring2' }), { ok: true });
+  db.prepare("UPDATE colonies SET launch_ready = 'ring2', launch_progress = 0 WHERE id = ?").run(c.id);
+  db.prepare("UPDATE colony_buildings SET recipe = NULL WHERE colony_id = ? AND building_type = 'orbital_staging'").run(c.id);
+  assert.deepEqual(actions.launch(c.uid, {}), { ok: true });
+  assert.equal(db.prepare('SELECT level FROM districts WHERE id = ?').get(c.station.district_id).level, 2);
+  assert.deepEqual(actions.build(c.uid, { ring: 2, slot: 0, type: 'klein_reactor', district: c.station.district_id }).ok, true, 'ring 2 is open');
+  db.prepare("UPDATE colonies SET launch_ready = 'ring3' WHERE id = ?").run(c.id);
+  assert.match(actions.launch(c.uid, {}).error, /Lattice Cores in orbital storage/);
+  assert.equal(orbital.flagsOf(row(c)).ring2 !== undefined, true);
+});

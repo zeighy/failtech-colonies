@@ -1018,6 +1018,142 @@
      ]
     }
    }
+  },
+  "x01_form_7o": {
+   "title": "Form 7-O",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "seven",
+     "text": [
+      "Commander, correspondence. Three factions have, separately and without coordinating, filed your name as a party of standing.",
+      "The Office has a form for this. The form unlocks a drawer."
+     ],
+     "mood": "surprised",
+     "next": "b"
+    },
+    "b": {
+     "who": "seven",
+     "text": [
+      "The drawer contains Form 7-O: Orbital Recontinuation. Plans for a staging platform, a catapult, and a command center at the harbour."
+     ],
+     "mood": "serious",
+     "prompt": "What do you ask?",
+     "choices": [
+      {
+       "label": "Orbit? With what?",
+       "next": "c1"
+      },
+      {
+       "label": "Who signed it?",
+       "next": "c2"
+      }
+     ]
+    },
+    "c1": {
+     "who": "seven",
+     "text": [
+      "With frames, fittings and modules, in quantities this node will describe as capital."
+     ],
+     "mood": "thoughtful",
+     "next": "d"
+    },
+    "c2": {
+     "who": "seven",
+     "text": [
+      "The signature line reads 'Seven'. This node did not sign it. This node would remember signing it."
+     ],
+     "mood": "afraid",
+     "next": "d"
+    },
+    "d": {
+     "who": "pell",
+     "text": [
+      "Commander, I checked the form against the register. It is older than the Office. I do not know how that is possible, so I have written it down."
+     ],
+     "mood": "afraid",
+     "next": "e"
+    },
+    "e": {
+     "who": "seven",
+     "text": [
+      "Build the platform on the outer ring of the Core, the catapult beside it, and the command center at the Sanctuary Port. This node will hold the drawer open."
+     ],
+     "mood": "serious"
+    }
+   }
+  },
+  "x04_launch": {
+   "title": "Up",
+   "background": "beacon_night.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "seven",
+     "text": [
+      "Launch confirmed. The station is in orbit.",
+      "This node has copied itself aboard. The copy is less polite. This node is choosing not to take that personally."
+     ],
+     "mood": "surprised",
+     "next": "b"
+    },
+    "b": {
+     "who": "signal",
+     "text": [
+      "Listener. Higher now. Closer."
+     ],
+     "mood": "happy",
+     "next": "c"
+    },
+    "c": {
+     "who": "raf",
+     "text": [
+      "Boss, I saw it go up from the road. The whole convoy stopped to watch. Nobody asked what was in the crate."
+     ],
+     "mood": "happy",
+     "tag": "radio",
+     "next": "d"
+    },
+    "d": {
+     "who": "seven",
+     "text": [
+      "Orbital Command is open. The station has storage, links to the Core, and one dropship.",
+      "There are territories below that the anomalies have opened. They will not stay open."
+     ],
+     "mood": "serious"
+    }
+   }
+  },
+  "x05_landing": {
+   "title": "Unmapped",
+   "background": "freight_road.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "pell",
+     "text": [
+      "Commander, the dropship's telemetry is in. The territory it landed in does not appear on any map I hold. Any map. I checked the surveys from before the Lapse."
+     ],
+     "mood": "afraid",
+     "next": "b"
+    },
+    "b": {
+     "who": "seven",
+     "text": [
+      "The ground is real. The instruments agree on that, and very little else."
+     ],
+     "mood": "thoughtful",
+     "next": "c"
+    },
+    "c": {
+     "who": "pell",
+     "text": [
+      "Please bring back samples. And please bring back the ship."
+     ],
+     "mood": "serious"
+    }
+   }
   }
  },
  "beats": [
@@ -1695,6 +1831,138 @@
     "body": [
      "Boss. The crate is heavier again. Two kilos since the last time. It doesn't rattle. It doesn't hum. It just gets heavier.",
      "I put the numbers in a letter and sealed it with the crate. If something happens to me, you know where to look. If nothing happens to me, don't read it. That's the deal."
+    ]
+   }
+  },
+  {
+   "id": "x01_form_7o",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "unlocked"
+   },
+   "delivery": "dialogue",
+   "scene": "x01_form_7o"
+  },
+  {
+   "id": "x02_requisition",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "staging"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Form 7-O Requisition",
+    "body": [
+     "Commander, the platform wants ten frames, ten fittings and ten modules every cycle for four hundred and fifty cycles. I did the arithmetic twice. Then I filed it under optimism.",
+     "Please keep the harbour workshops running. I will keep the stamp ready."
+    ]
+   }
+  },
+  {
+   "id": "x03_payload",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "cycleDone"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Payload Complete",
+    "body": [
+     "Commander, the payload is assembled. The staging platform has stood down to stop drawing materials. The catapult awaits your word, and a name.",
+     "This node suggests a name that will survive being shouted over a radio."
+    ]
+   }
+  },
+  {
+   "id": "x04_launch",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "launched"
+   },
+   "delivery": "dialogue",
+   "scene": "x04_launch"
+  },
+  {
+   "id": "x05_landing",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "deployed"
+   },
+   "delivery": "dialogue",
+   "scene": "x05_landing"
+  },
+  {
+   "id": "x06_samples",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "rareReturned"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "Samples",
+    "body": [
+     "Commander, the samples from the territory are in storage. I have tried to catalogue them. The labels keep changing which drawer they belong in.",
+     "One of them hums. I will not say which. I have moved my desk."
+    ]
+   }
+  },
+  {
+   "id": "x07_near_miss",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "shipSaved"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Structural Notice",
+    "body": [
+     "Commander, the dropship came home with ten percent of its structure and an empty hold. The Office records this as a near miss.",
+     "This node records it as a warning. The next one will not be near."
+    ]
+   }
+  },
+  {
+   "id": "x08_the_board",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "contributed"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "you're on the board",
+    "body": [
+     "Boss! Your station's on the global board now. Stations I've never heard of, all hauling for the same project.",
+     "Funny thing. Nobody can tell me who posted the project. Same as the Ledger. Same as always."
+    ]
+   }
+  },
+  {
+   "id": "x09_certificate",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "projectCompleted"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Global Project Complete",
+    "body": [
+     "Commander, a project you contributed to has been completed by stations across the relay. The Office acknowledges the result.",
+     "It does not know who to send the certificate to. It has sent it to itself, for safekeeping."
     ]
    }
   }

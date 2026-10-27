@@ -26,6 +26,8 @@
 //   { type: 'won' }                          the Beacon message got through
 //   { type: 'campaignDone' }                 every Brief directive is done (the open-ended phase)
 //   { type: 'after', beat, delayTicks? }     some ticks after another beat was delivered
+//   { type: 'orbital', flag }                an orbit milestone (unlocked, staging, catapult, command, cycleDone, launched,
+//                                            ring2, ring3, deployed, rareReturned, shipSaved, shipLost, contributed, projectCompleted)
 const store = require('./db');
 const theme = require('./theme');
 const fs = require('fs');
@@ -41,6 +43,8 @@ const COLOR = /^#[0-9a-f]{3,8}$/i;
 const MOODS = ['happy', 'sad', 'angry', 'afraid', 'surprised', 'serious', 'thoughtful'];
 const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
 
+// Orbit milestones a beat can wait for (see src/orbital.js setFlag, and the launch site).
+const ORBITAL_FLAGS = ['unlocked', 'staging', 'catapult', 'command', 'cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted'];
 const TRIGGERS = {
   start: () => [],
   directive: (t) => (DIRECTIVE_IDS.includes(t.id) ? [] : [`unknown directive "${t.id}"`]),
@@ -54,6 +58,7 @@ const TRIGGERS = {
   won: () => [],
   campaignDone: () => [],
   after: (t) => (nonEmpty(t.beat) ? [] : ['needs a beat id']),
+  orbital: (t) => (ORBITAL_FLAGS.includes(t.flag) ? [] : [`unknown orbital flag "${t.flag}" (${ORBITAL_FLAGS.join(', ')})`]),
 };
 
 // Everything wrong with a story file, as readable lines. Empty means it is safe to run.
@@ -160,6 +165,13 @@ function fires(t, x) {
     case 'progress': return (x.view.colony.progress || 0) >= t.min;
     case 'won': return !!x.view.colony.won;
     case 'campaignDone': return x.campaignDone;
+    case 'orbital': {
+      const o = x.view.orbital;
+      if (!o) return false;
+      if (t.flag === 'unlocked') return !!o.unlocked;
+      if (o.site && o.site[t.flag] !== undefined) return !!o.site[t.flag];
+      return !!(o.flags && o.flags[t.flag] !== undefined);
+    }
     case 'after': { const d = x.delivered.get(t.beat); return !!d && x.tick - d.tick >= (t.delayTicks || 0); }
     default: return false;
   }
