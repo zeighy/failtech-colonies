@@ -3011,20 +3011,35 @@
       "2": 1.4,
       "3": 1.8,
       "4": 2.2,
-      "5": 2.6
+      "5": 2.6,
+      "6": 3.0,
+      "7": 3.4,
+      "8": 3.8,
+      "9": 4.2,
+      "10": 4.6
     },
     "crew": {
       "1": 1,
       "2": 1.2,
       "3": 1.4,
       "4": 1.6,
-      "5": 1.8
+      "5": 1.8,
+      "6": 2.0,
+      "7": 2.2,
+      "8": 2.4,
+      "9": 2.6,
+      "10": 2.8
     },
     "ticks": {
       "2": 6,
       "3": 8,
       "4": 10,
-      "5": 12
+      "5": 12,
+      "6": 14,
+      "7": 16,
+      "8": 18,
+      "9": 20,
+      "10": 24
     },
     "classes": {
       "housing": {
@@ -3032,12 +3047,20 @@
         "baseCost": {
           "modules": 2,
           "frames": 3
+        },
+        "orbitalCost": {
+          "chiral_serum": 2,
+          "still_frames": 2
         }
       },
       "infrastructure": {
         "label": "Infrastructure",
         "baseCost": {
           "frames": 4
+        },
+        "orbitalCost": {
+          "phase_cells": 2,
+          "resonators": 2
         }
       },
       "industry": {
@@ -3045,8 +3068,21 @@
         "baseCost": {
           "frames": 3,
           "fittings": 2
+        },
+        "orbitalCost": {
+          "null_alloy": 2,
+          "lattice_cores": 2
         }
       }
+    },
+    "orbitalMaxLevel": 10,
+    "orbitalUnlockFlag": "rareReturned",
+    "orbitalCostMult": {
+      "6": 1,
+      "7": 2,
+      "8": 3,
+      "9": 5,
+      "10": 8
     }
   },
   "orbitalTypes": {
@@ -3124,7 +3160,7 @@
       "name": "Lattice Cores",
       "tier": 5,
       "inputsPerTick": {
-        "void_glass": 1,
+        "void_glass": 2,
         "echo_quartz": 1,
         "circuits": 1,
         "energy": 40
@@ -3138,7 +3174,7 @@
       "name": "Null Alloy",
       "tier": 5,
       "inputsPerTick": {
-        "null_ore": 1,
+        "null_ore": 2,
         "still_metal": 1,
         "alloys": 2,
         "energy": 45
@@ -3152,8 +3188,8 @@
       "name": "Chiral Serum",
       "tier": 5,
       "inputsPerTick": {
-        "chiral_salts": 1,
-        "drift_spores": 1,
+        "drift_spores": 2,
+        "hum_resin": 1,
         "medicine": 1,
         "energy": 30
       },
@@ -3166,8 +3202,8 @@
       "name": "Phase Cells",
       "tier": 5,
       "inputsPerTick": {
+        "chiral_salts": 2,
         "phase_silt": 1,
-        "hum_resin": 1,
         "power_cells": 2,
         "energy": 55
       },
@@ -3313,7 +3349,13 @@
       "fuelBase": 150,
       "fuelPerUnit": 0.5,
       "travelTicks": 12,
-      "cooldownTicks": 480
+      "cooldownTicks": 480,
+      "drop": {
+        "cost": {
+          "fittings": 10
+        },
+        "travelTicks": 12
+      }
     },
     "dropships": {
       "max": 3,
@@ -3593,6 +3635,67 @@
             "kind": "drip",
             "label": "A trickle of one rare resource to every station",
             "perTick": 0.2
+          }
+        },
+        {
+          "key": "relay_spire",
+          "name": "Relay Spire",
+          "desc": "A mast in orbit that every station can talk through.",
+          "faction": "meridian",
+          "needs": {
+            "resonators": 20,
+            "phase_cells": 15
+          },
+          "bonus": {
+            "kind": "efficiency",
+            "label": "Power plants +10%",
+            "buildings": [
+              "solar_array",
+              "scrap_generator",
+              "fuel_generator",
+              "klein_reactor"
+            ],
+            "mult": 1.1
+          }
+        },
+        {
+          "key": "commons",
+          "name": "Mycelium Commons",
+          "desc": "A shared garden in orbit, grown from what the anomalies left behind.",
+          "faction": "verdant",
+          "needs": {
+            "chiral_serum": 20,
+            "still_frames": 15
+          },
+          "bonus": {
+            "kind": "efficiency",
+            "label": "Kitchens and pharma labs +15%",
+            "buildings": [
+              "kitchen",
+              "pharma_lab"
+            ],
+            "mult": 1.15
+          }
+        },
+        {
+          "key": "gravity_well",
+          "name": "Gravity Well",
+          "desc": "Anchor the relay with a mass heavy enough to hold everything else in place.",
+          "faction": "cinder",
+          "needs": {
+            "null_alloy": 20,
+            "lattice_cores": 15
+          },
+          "bonus": {
+            "kind": "efficiency",
+            "label": "Fabrication lines +10%",
+            "buildings": [
+              "parts_assembler",
+              "fabrication_works",
+              "circuit_fab",
+              "cell_forge"
+            ],
+            "mult": 1.1
           }
         }
       ]

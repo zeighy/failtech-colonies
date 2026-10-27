@@ -378,6 +378,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .stepper .numin:focus { outline: 1px solid var(--amber); outline-offset: -1px; background: #10161b; }
 .stepper .unit { color: var(--dim); font-size: 11px; padding-right: 8px; }
 .lvdots { display: flex; gap: 4px; margin: 2px 0 4px; } .lvdots i { width: 18px; height: 5px; border-radius: 2px; background: var(--line2); } .lvdots i.on { background: var(--amber); }
+.lvdots i.orb { background: color-mix(in srgb, #90e0ef 25%, var(--line2)); } .lvdots i.orb.on { background: #90e0ef; }
 .popbig { display: flex; align-items: baseline; gap: 6px; margin-top: 6px; } .popbig .big { font-size: 30px; font-weight: 700; color: var(--amber); } .popbig .trend { margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .ptable { width: 100%; border-collapse: collapse; font-size: 12px; } .ptable th { text-align: right; font-size: 9px; color: var(--dim); font-weight: 400; letter-spacing: .08em; text-transform: uppercase; padding: 0 0 4px 6px; } .ptable th:first-child { text-align: left; }
 .ptable td { padding: 5px 0 2px 6px; text-align: right; } .ptable td:first-child { text-align: left; padding-left: 0; } .ptable td i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }

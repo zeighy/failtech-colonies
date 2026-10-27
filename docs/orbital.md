@@ -31,12 +31,14 @@ Orbit is where colonies stop being separate games. Every station shares the same
 - Only station buildings can be built there:
   - **Klein Reactor:** burns power cells for power. The station has almost no base power.
   - **Orbital Foundry:** a crewless workshop. It runs the standard trade recipes at 2.5 × power (clamped 10 to 60) plus six orbital-only recipes, each of which needs two rare resources. It gets an adjacency bonus beside a reactor.
+- **The rare resources are balanced.** Four of them feed two recipes each at 1 per tick; the other four feed one recipe each at 2 per tick. So if every orbital recipe runs, every rare resource is drawn at the same 2 per tick, and no territory roll is a worse pull than another.
 - **Storage is slot-limited.** Each slot holds one resource, up to the level's cap.
   - Every tick the largest stocks claim slots first (`orbital.enforceSlots`). Anything left without a slot is lost, with a warning in the log.
   - Jettisoning empties a slot and removes the routes that carry that resource. The slot must then be rebuilt before it can be used again.
   - Storage upgrades add slots and raise the cap.
 - **Orbital links** are ordinary routes between the Core and the station, in either direction. There are 4 at level 1, upgradable in count and rate. Rare resources never travel by link; they only come home by dropship.
 - **Express launch** sends up to 400 of one resource from the Core for fuel. It arrives in 12 ticks and has a long cooldown, so it is for emergencies, not supply.
+- **Express drop** is the other way: up to 400 of one resource from orbital storage to the Core, for a capsule (10 fittings from orbital storage) and no fuel. It needs the Command Center running and shares the express slot and cooldown with launches.
 
 ## Dropships and anomalous territories
 
@@ -65,6 +67,16 @@ Orbit is where colonies stop being separate games. Every station shares the same
   - The first time a ship would be destroyed, it limps home at 10% integrity with its cargo lost. The second time, it is gone.
   - Up to 3 ships can be owned, built and upgraded at the station.
 
+## Expansion levels 6 to 10
+
+- Ground buildings can be expanded past level 5, up to 10 (output ×3.0 to ×4.6), once the colony's first rare resource has come home to its station (the `rareReturned` flag). Until then the expansion card stops at 5 and nothing says there is more. The story hints at it in the same moment (Vane and the footings).
+- Each level past 5 costs the usual ground goods × (level - 1), plus the class's orbital goods × 1, 2, 3, 5, 8 for levels 6 to 10:
+  - housing: Cliffside Rejuvenator and Stabilized Alloy;
+  - infrastructure: Sirius Cell and Phononic Amplifier;
+  - industry: Dense Metal and Sirius Core.
+- The goods are paid from the building's own district, like any expansion, so they come down from orbit to the Core (by link or express drop) and are routed or shipped on from there. This is what the downward links and the express drop are for.
+- `sim.expansionMax` gives a colony's ceiling, and `sim.expansionCost` adds the orbital goods above `expansion.maxLevel`.
+
 ## Orbital market
 
 - This market is separate from the ground exchange. It trades only trade goods (`trade` or `orbitalTrade`), straight from orbital storage, and every order shows the station that posted it.
@@ -86,6 +98,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
 - Needs are per player, multiplied by the number of stations active since the previous announcement, so a small server can still finish one.
 - The contribution period is twice the time it would take one player to make their share at a reference rate.
 - Contributions travel by dropship. A ship is away for 240 ticks and delivers halfway through the trip. If the project closes first, the cargo comes back.
+- There are seven projects in rotation, and every orbital good is needed by at least two of them, so projects are a sink for all six.
 - Completion gives every colony standing with the project's faction, and one of two kinds of bonus:
   - an efficiency bonus for a set of buildings, on every colony;
   - a drip of one rare resource into every station's storage.
@@ -97,7 +110,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
   - `launched`, `ring2`, `ring3`
   - `deployed`, `rareReturned`, `shipSaved`, `shipLost`
   - `contributed`, `projectCompleted`
-- The Recontinuation story adds four scenes and eight mails for chapter two (the ring launches and a lost dropship are flavour beats with no directive). The basic theme has a shorter set.
+- The Recontinuation story adds five scenes and eight mails for chapter two (the ring launches and a lost dropship are flavour beats with no directive). The basic theme has a shorter set.
 
 ## Code map
 

@@ -281,7 +281,8 @@ function migrate() {
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
       resource_id TEXT NOT NULL,
       qty INTEGER NOT NULL,
-      arrives_tick INTEGER NOT NULL
+      arrives_tick INTEGER NOT NULL,
+      dest TEXT NOT NULL DEFAULT 'station'           -- station (an express launch) | core (an express drop)
     );
     CREATE TABLE IF NOT EXISTS dropships (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -356,6 +357,7 @@ function migrate() {
       seller TEXT NOT NULL
     );
   `);
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('orbital_shipments') WHERE name = 'dest'").get()) db.exec("ALTER TABLE orbital_shipments ADD COLUMN dest TEXT NOT NULL DEFAULT 'station'");
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
 

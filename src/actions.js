@@ -152,7 +152,7 @@ const expand = guarded((c, { ring, slot, district }) => {
   const def = config.buildings[b.building_type];
   if (!def.expand) return fail(`${def.name} cannot be expanded.`);
   const level = b.level || 1;
-  if (level >= config.expansion.maxLevel) return fail(`${def.name} is fully expanded.`);
+  if (level >= sim.expansionMax(config, orbital.flagsOf(c))) return fail(`${def.name} is fully expanded.`);
   if (store.loadOrders(c.id, d.id).some((o) => o.action_type === 'expand' && o.data.ring === b.ring_index && o.data.slot === b.slot_index)) return fail('An expansion is already underway there.');
   const next = level + 1;
   const cost = sim.expansionCost(config, def, next);

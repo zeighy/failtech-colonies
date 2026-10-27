@@ -645,6 +645,18 @@
     "quiet_array": {
       "name": "Quiet Array",
       "desc": "Listen to the hum with something built to hear it."
+    },
+    "relay_spire": {
+      "name": "Relay Spire",
+      "desc": "A mast in orbit that every station can talk through."
+    },
+    "commons": {
+      "name": "Mycelium Commons",
+      "desc": "A shared garden in orbit, grown from what the anomalies left behind."
+    },
+    "gravity_well": {
+      "name": "Gravity Well",
+      "desc": "Anchor the relay with a mass heavy enough to hold everything else in place."
     }
   },
   "territoryNames": [

@@ -4,7 +4,7 @@
   var H = null; // host: { S(), CFG(), act(path, body, okMsg), esc, fmt, icon, pill, modal, enter(id), tab(t), redraw(), activeD() }
   var draft = {
     link: { dir: 'up', res: 'frames', rate: 10 },
-    express: { res: 'frames', qty: 100 },
+    express: { res: 'frames', qty: 100, dir: 'up' },
     market: { res: null, side: 'buy', price: null, qty: 10, ttl: 300 },
     deploy: null,   // { ship, territory, preload: {res: qty} }
     contrib: null,  // { ship, cargo: {res: qty} }
@@ -77,17 +77,25 @@
   }
 
   function expressCard() {
-    var x = O().station.express, d = draft.express, core = S().coreRes;
-    var res = Object.keys(C().resources).filter(function (r) { return !C().resources[r].rare && core[r] && core[r].amount >= 1; });
+    var x = O().station.express, d = draft.express, core = S().coreRes, down = d.dir === 'down';
+    var held = {}; O().station.storage.slots.forEach(function (sl) { if (sl.resource) held[sl.resource] = sl.amount; });
+    var src = down ? held : Object.keys(core).reduce(function (m, r) { m[r] = core[r].amount; return m; }, {});
+    var res = Object.keys(C().resources).filter(function (r) { return !C().resources[r].rare && src[r] >= 1; });
     if (res.indexOf(d.res) < 0 && res.length) d.res = res[0];
     var fuel = Math.ceil(x.fuelBase + d.qty * x.fuelPerUnit);
-    var h = '<div class="label sec">Express launch</div>';
-    if (x.inFlight.length) h += x.inFlight.map(function (s) { return '<div class="dim" style="font-size:12px">' + fmt(s.qty) + ' ' + esc(rn(s.resource)) + ' arriving in ' + ticks(s.ticksLeft) + '</div>'; }).join('');
-    if (x.readyIn > 0) return h + '<div class="dim" style="font-size:12px">The launch slot is cooling down: ready in ' + ticks(x.readyIn) + '.</div>';
-    return h + '<div class="dim" style="font-size:11px;margin-bottom:6px">One payload straight from the Core to orbital storage, up to ' + x.maxQty + ', for fuel. Then the slot rests for ' + ticks(x.cooldownTicks) + '.</div>' +
-      '<div class="orow">' + sel('express-res', res.map(function (r) { return [r, rn(r) + ' (' + fmt(core[r].amount) + ')']; }), d.res) + num('express-qty', d.qty) + '</div>' +
-      '<div class="dim" style="font-size:12px;margin:6px 0">Fuel: <b>' + fmt(fuel) + '</b> (you have ' + fmt(core.fuel ? core.fuel.amount : 0) + ') · arrives in ' + ticks(x.travelTicks) + '</div>' +
-      '<div class="actions"><button class="btn primary" data-orbit="express">Express launch</button></div>';
+    var h = '<div class="label sec">Express launch and drop</div>';
+    if (x.inFlight.length) h += x.inFlight.map(function (s) { return '<div class="dim" style="font-size:12px">' + fmt(s.qty) + ' ' + esc(rn(s.resource)) + (s.dir === 'down' ? ' landing at the Core in ' : ' arriving in orbit in ') + ticks(s.ticksLeft) + '</div>'; }).join('');
+    if (x.readyIn > 0) return h + '<div class="dim" style="font-size:12px">The express slot is cooling down: ready in ' + ticks(x.readyIn) + '.</div>';
+    var capsule = Object.keys(x.drop.cost).map(function (r) { return fmt(x.drop.cost[r]) + ' ' + esc(rn(r)); }).join(', ');
+    return h + '<div class="dim" style="font-size:11px;margin-bottom:6px">' + (down
+        ? 'One capsule from orbital storage down to the Core, up to ' + x.maxQty + '. Gravity does the work: it costs only the capsule (' + capsule + ' from orbital storage).'
+        : 'One payload straight from the Core to orbital storage, up to ' + x.maxQty + ', for fuel.') + ' Then the slot rests for ' + ticks(x.cooldownTicks) + '.</div>' +
+      '<div class="orow">' + sel('express-dir', [['up', 'Core → orbit'], ['down', 'Orbit → Core']], d.dir) + '</div>' +
+      (res.length ? '<div class="orow">' + sel('express-res', res.map(function (r) { return [r, rn(r) + ' (' + fmt(src[r]) + ')']; }), d.res) + num('express-qty', d.qty) + '</div>' +
+        (down ? '<div class="dim" style="font-size:12px;margin:6px 0">Capsule: <b>' + capsule + '</b> (you have ' + fmt(held.fittings || 0) + ' ' + esc(rn('fittings')) + ') · lands in ' + ticks(x.drop.travelTicks) + '</div>'
+          : '<div class="dim" style="font-size:12px;margin:6px 0">Fuel: <b>' + fmt(fuel) + '</b> (you have ' + fmt(core.fuel ? core.fuel.amount : 0) + ') · arrives in ' + ticks(x.travelTicks) + '</div>') +
+        '<div class="actions"><button class="btn primary" data-orbit="express">' + (down ? 'Express drop' : 'Express launch') + '</button></div>'
+        : '<div class="dim" style="font-size:12px;margin-top:6px">Nothing to send that way yet.</div>');
   }
 
   // ---------------------------------------------------------------- the panes
@@ -325,7 +333,7 @@
       if (nm) draft.name = nm.value;
       act('launch', { name: draft.name }).then(function (d) { if (d && d.ok) H.toast('Launch!', true); });
     } else if (a === 'enter-orbit') H.enterOrbit();
-    else if (a === 'express') act('express-launch', { resource: draft.express.res, qty: draft.express.qty }, 'Express launch away.');
+    else if (a === 'express') act('express-launch', { resource: draft.express.res, qty: draft.express.qty, dir: draft.express.dir }, draft.express.dir === 'down' ? 'Capsule away.' : 'Express launch away.');
     else if (a === 'jettison') {
       var key = 'j' + el.dataset.slot;
       if (confirmJettison !== key) { confirmJettison = key; H.redraw(); setTimeout(function () { if (confirmJettison === key) { confirmJettison = null; H.redraw(); } }, 3000); return; }
@@ -380,6 +388,7 @@
     if (!s) return;
     var key = s.dataset.osel;
     if (key === 'express-res') draft.express.res = s.value;
+    else if (key === 'express-dir') draft.express.dir = s.value === 'down' ? 'down' : 'up';
     else if (key === 'link-dir') draft.link.dir = s.value;
     else if (key === 'link-res') draft.link.res = s.value;
     else if (key === 'tlink-dir') draft.tlink.dir = s.value;

@@ -220,9 +220,10 @@ function launch(c, { name }, tick) {
 // ---- express launch -------------------------------------------------------------------
 function expressCost(qty) { return Math.ceil(O.express.fuelBase + qty * O.express.fuelPerUnit); }
 
-function expressLaunch(c, { resource, qty }, tick) {
+function expressLaunch(c, { resource, qty, dir }, tick) {
   const st = stationOf(c.id);
   if (!st) return fail('There is no station to launch to.');
+  if (dir === 'down') return expressDrop(c, st, { resource, qty }, tick);
   const site = launchSite(c.id);
   if (!site.catapult || site.catapult.status !== 'active') return fail('The catapult must be built and switched on.');
   if (c.express_launch_ready_tick > tick) return fail(`The launch slot is not ready for ${c.express_launch_ready_tick - tick} more ticks.`);
@@ -243,12 +244,35 @@ function expressLaunch(c, { resource, qty }, tick) {
   return OK;
 }
 
-// Express launches that have arrived: into the station stockpile (slots are enforced afterwards).
-function arrivals(c, inv, tick) {
+// An express drop: the other way, a capsule from orbital storage down to the Core. Gravity does the work, so it costs no
+// fuel, only the capsule (paid from orbital storage); it shares the express slot and its cooldown with launches.
+function expressDrop(c, st, { resource, qty }, tick) {
+  const D = O.express.drop;
+  const site = launchSite(c.id);
+  if (!site.command || site.command.status !== 'active') return fail('The Orbital Command Center must be running to bring a capsule down.');
+  if (c.express_launch_ready_tick > tick) return fail(`The express slot is not ready for ${c.express_launch_ready_tick - tick} more ticks.`);
+  if (!own(config.resources, resource) || isRare(resource)) return fail('That cannot be dropped.');
+  qty = toInt(qty);
+  if (Number.isNaN(qty) || qty < 1 || qty > O.express.maxQty) return fail(`Drop between 1 and ${O.express.maxQty}.`);
+  const inv = store.loadInventory(c.id, st.district_id);
+  const need = { ...D.cost }; need[resource] = (need[resource] || 0) + qty;
+  for (const [r, q] of Object.entries(need)) if ((inv[r] || 0) < q) return fail(r === resource ? `Not enough ${config.resources[r].name} in orbital storage.` : `A drop capsule needs ${Object.entries(D.cost).map(([k, v]) => `${v} ${config.resources[k].name}`).join(', ')} from orbital storage.`);
+  for (const [r, q] of Object.entries(need)) inv[r] -= q;
+  store.saveInventory(c.id, inv, st.district_id);
+  db.prepare("INSERT INTO orbital_shipments (colony_id, resource_id, qty, arrives_tick, dest) VALUES (?, ?, ?, ?, 'core')").run(c.id, resource, qty, tick + D.travelTicks);
+  db.prepare('UPDATE colonies SET express_launch_ready_tick = ? WHERE id = ?').run(tick + O.express.cooldownTicks, c.id);
+  return OK;
+}
+
+// Express launches and drops that have arrived: into the station stockpile (slots are enforced afterwards) or the Core's.
+function arrivals(c, inv, tick, coreInv) {
   for (const s of db.prepare('SELECT * FROM orbital_shipments WHERE colony_id = ? AND arrives_tick <= ?').all(c.id, tick)) {
-    inv[s.resource_id] = (inv[s.resource_id] || 0) + s.qty;
+    const down = s.dest === 'core';
+    if (down && !coreInv) continue;
+    const into = down ? coreInv : inv;
+    into[s.resource_id] = (into[s.resource_id] || 0) + s.qty;
     db.prepare('DELETE FROM orbital_shipments WHERE id = ?').run(s.id);
-    store.addEvent(c.id, tick, 'good', `Express launch arrived in orbit: ${s.qty} ${config.resources[s.resource_id].name}.`);
+    store.addEvent(c.id, tick, 'good', down ? `Express drop landed at the Core: ${s.qty} ${config.resources[s.resource_id].name}.` : `Express launch arrived in orbit: ${s.qty} ${config.resources[s.resource_id].name}.`);
   }
 }
 
@@ -369,7 +393,8 @@ function view(c, tick, opts = {}) {
     express: {
       readyIn: Math.max(0, (c.express_launch_ready_tick || 0) - tick), maxQty: O.express.maxQty, fuelBase: O.express.fuelBase, fuelPerUnit: O.express.fuelPerUnit,
       travelTicks: O.express.travelTicks, cooldownTicks: O.express.cooldownTicks,
-      inFlight: db.prepare('SELECT resource_id AS resource, qty, arrives_tick FROM orbital_shipments WHERE colony_id = ?').all(c.id).map((s) => ({ resource: s.resource, qty: s.qty, ticksLeft: Math.max(0, s.arrives_tick - tick) })),
+      drop: { cost: O.express.drop.cost, travelTicks: O.express.drop.travelTicks },
+      inFlight: db.prepare('SELECT resource_id AS resource, qty, arrives_tick, dest FROM orbital_shipments WHERE colony_id = ?').all(c.id).map((s) => ({ resource: s.resource, qty: s.qty, dir: s.dest === 'core' ? 'down' : 'up', ticksLeft: Math.max(0, s.arrives_tick - tick) })),
     },
   };
   return out;

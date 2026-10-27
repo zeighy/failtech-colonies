@@ -379,3 +379,69 @@ test('station rings come from further launch cycles; ring 3 also needs orbital-o
   assert.match(actions.launch(c.uid, {}).error, /Lattice Cores in orbital storage/);
   assert.equal(orbital.flagsOf(row(c)).ring2 !== undefined, true);
 });
+
+test('express drop: a capsule from orbital storage to the Core, no fuel, the capsule paid in orbit, the same express slot', () => {
+  const c = launched('Down Again');
+  const did = c.station.district_id;
+  const D = O.express.drop;
+  const st0 = store.loadInventory(c.id, did); const core0 = store.loadInventory(c.id, c.core);
+  assert.match(actions.expressLaunch(c.uid, { resource: 'void_glass', qty: 1, dir: 'down' }).error, /cannot be dropped/);
+  assert.deepEqual(actions.expressLaunch(c.uid, { resource: 'frames', qty: 50, dir: 'down' }), { ok: true });
+  const st1 = store.loadInventory(c.id, did);
+  assert.equal(st1.frames, st0.frames - 50);
+  for (const [r, q] of Object.entries(D.cost)) assert.equal(st1[r], st0[r] - q, 'the capsule comes out of orbital storage');
+  assert.equal(store.loadInventory(c.id, c.core).fuel, core0.fuel, 'no fuel');
+  assert.match(actions.expressLaunch(c.uid, { resource: 'frames', qty: 1 }).error, /not ready/, 'shares the slot with launches');
+  const f0 = store.loadInventory(c.id, c.core).frames;
+  tick(D.travelTicks);
+  assert.ok(store.loadInventory(c.id, c.core).frames >= f0 + 50 - 1, 'it lands at the Core');
+});
+
+test('expansion levels 6 to 10: hidden until the first rare resource is home, paid in orbital goods at an escalating rate', () => {
+  const E = config.expansion;
+  const c = colony();
+  put(c, c.core, 2, 0, 'hydroponics_bay');
+  db.prepare('UPDATE colony_buildings SET level = ? WHERE district_id = ? AND ring_index = 2 AND slot_index = 0').run(E.maxLevel, c.core);
+  assert.match(actions.expand(c.uid, { ring: 2, slot: 0 }).error, /fully expanded/);
+  const b = () => viewFor(c.uid).buildings.find((x) => x.type === 'hydroponics_bay');
+  assert.equal(b().xnext, null);
+  assert.equal(viewFor(c.uid).colony.expandMax, E.maxLevel);
+  orbital.setFlag(c.id, E.orbitalUnlockFlag, now());
+  assert.equal(viewFor(c.uid).colony.expandMax, E.orbitalMaxLevel);
+  const cost = (l) => sim.expansionCost(config, config.buildings.hydroponics_bay, l);
+  const orb = E.classes.industry.orbitalCost;
+  for (const [r, q] of Object.entries(orb)) {
+    assert.ok(config.resources[r].orbitalTrade, `${r} is made in orbit`);
+    assert.equal(cost(6)[r], q * E.orbitalCostMult[6]);
+    assert.equal(cost(10)[r], q * E.orbitalCostMult[10]);
+    assert.equal(cost(5)[r], undefined, 'levels up to 5 never ask for orbital goods');
+  }
+  assert.deepEqual(b().xnext.cost, cost(6));
+  const before = store.loadInventory(c.id, c.core);
+  assert.deepEqual(actions.expand(c.uid, { ring: 2, slot: 0 }), { ok: true });
+  for (const [r, q] of Object.entries(cost(6))) assert.equal(store.loadInventory(c.id, c.core)[r], before[r] - q);
+  tick(E.ticks[6]);
+  assert.equal(b().level, 6);
+  for (let l = 7; l <= E.orbitalMaxLevel; l++) { assert.deepEqual(actions.expand(c.uid, { ring: 2, slot: 0 }), { ok: true }); tick(E.ticks[l]); }
+  assert.equal(b().level, E.orbitalMaxLevel);
+  assert.match(actions.expand(c.uid, { ring: 2, slot: 0 }).error, /fully expanded/);
+  const lv = (l) => sim.rates(config, config.buildings.hydroponics_bay, { type: 'hydroponics_bay', level: l, status: 'active' }, 1, 'core');
+  assert.ok(Math.abs(lv(10).scale - E.scale[10]) < 1e-9, 'level 10 scales the line');
+});
+
+test('rare resources are even: every orbital good uses two, and every rare is drawn at the same total rate across the recipes', () => {
+  const rares = O.territories.rare;
+  const demand = Object.fromEntries(rares.map((r) => [r, 0]));
+  for (const rec of Object.values(config.orbitalRecipes)) {
+    const used = Object.keys(rec.inputsPerTick).filter((r) => rares.includes(r));
+    assert.equal(used.length, 2, `${rec.name} uses two rare resources`);
+    for (const r of used) demand[r] += rec.inputsPerTick[r];
+  }
+  assert.equal(new Set(Object.values(demand)).size, 1, JSON.stringify(demand));
+  const inProjects = new Set(O.projects.list.flatMap((p) => Object.keys(p.needs)));
+  const inExpansion = new Set(Object.values(config.expansion.classes).flatMap((k) => Object.keys(k.orbitalCost || {})));
+  for (const g of Object.keys(config.orbitalRecipes)) {
+    assert.ok(O.projects.list.filter((p) => p.needs[g]).length >= 2, `${g} is needed by at least two projects`);
+    assert.ok(inProjects.has(g) && inExpansion.has(g), `${g} has a use in projects and in expansions`);
+  }
+});

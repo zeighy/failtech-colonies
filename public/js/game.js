@@ -984,7 +984,8 @@
     var rst = 5;
     h += '<div class="label sec">New route</div><div class="shipform"><label>From<select data-sel="r:from">' + opt(route.from) + '</select></label><label>To<select data-sel="r:to">' + opt(route.to) + '</select></label>' +
       '<label class="wide">Goods<select data-sel="r:res">' + Object.keys(CFG.resources).map(function (r) {
-        if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1) return '';
+        var rfrom = ds.filter(function (d) { return d.id === route.from; })[0], held = rfrom && rfrom.resources && rfrom.resources[r] && rfrom.resources[r].amount >= 1;
+        if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1 && !held && r !== route.res) return '';
         return '<option value="' + r + '"' + (r === route.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + '</option>';
       }).join('') + '</select></label></div>' +
       '<div class="stepper" style="margin-top:8px"><span class="lab">Rate</span><button data-act="rdraft" data-f="rate" data-delta="-' + rst + '">−</button>' + numIn('rdraft', route.rate, 'data-f="rate"') + '<span class="unit">/t</span><button data-act="rdraft" data-f="rate" data-delta="' + rst + '">+</button></div>' +
@@ -1109,22 +1110,22 @@
 
   // ---- expansion: building upward ---------------------------------------------------
   function expansionCard(b, d) {
-    var E = CFG.expansion, lv = b.level || 1, pend = S.orders.filter(function (o) { return o.kind === 'expand' && o.data.ring === b.ring && o.data.slot === b.slot; })[0];
+    var E = CFG.expansion, top = S.colony.expandMax || E.maxLevel, lv = b.level || 1, pend = S.orders.filter(function (o) { return o.kind === 'expand' && o.data.ring === b.ring && o.data.slot === b.slot; })[0];
     var dots = '';
-    for (var i = 1; i <= E.maxLevel; i++) dots += '<i class="' + (i <= lv ? 'on' : '') + '"></i>';
+    for (var i = 1; i <= top; i++) dots += '<i class="' + (i <= lv ? 'on' : '') + (i > E.maxLevel ? ' orb' : '') + '"></i>';
     var effect = function (k, crew) {
       var what = d.housing ? '+' + (Math.floor(d.housing * plotMultFor(d, b.ring) * k) - Math.floor(d.housing * plotMultFor(d, b.ring) * E.scale[lv])) + ' more homes'
         : d.storageBonus ? 'Storage ×' + k : d.defense ? 'Defence ×' + k : 'Output, inputs and power ×' + k;
       return what + (d.workers ? ' · crew ×' + crew : '');
     };
-    var h = '<div class="label sec">Expansion</div><div class="optcard' + (lv > 1 ? ' on' : '') + '"><div class="top"><b>Level ' + lv + ' / ' + E.maxLevel + '</b><span class="dim">' + (lv > 1 ? 'output ×' + E.scale[lv] : 'as built') + '</span></div><div class="lvdots">' + dots + '</div>';
+    var h = '<div class="label sec">Expansion</div><div class="optcard' + (lv > 1 ? ' on' : '') + '"><div class="top"><b>Level ' + lv + ' / ' + top + '</b><span class="dim">' + (lv > 1 ? 'output ×' + E.scale[lv] : 'as built') + '</span></div><div class="lvdots">' + dots + '</div>';
     if (pend) {
       h += '<div class="note" style="margin:8px 0 0">Expanding to level ' + pend.data.level + ': ' + pend.remaining + ' tick' + (pend.remaining === 1 ? '' : 's') + ' left.</div>';
     } else if (b.xnext) {
       var nx = b.xnext, short = Object.keys(nx.cost).filter(function (r) { return S.resources[r].amount < nx.cost[r]; });
       h += '<div class="dim" style="font-size:12px;margin:6px 0">Build it upward in the same plot: the whole line gets bigger, not better. ' + esc(effect(nx.scale, nx.crew)) + '.</div>' +
         '<div class="label" style="margin-top:4px">Level ' + nx.level + ' · ' + nx.ticks + ' ticks</div><div class="io">' + costPills(nx.cost, S.resources) + '</div>' +
-        (short.length ? '<div class="note" style="margin:8px 0 0">Paid from <b>' + esc(activeD().name) + '</b>\'s stockpile. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': these are made by Trade Workshops at the Free Port, so route or ship them here.</div>' : '') +
+        (short.length ? '<div class="note" style="margin:8px 0 0">Paid from <b>' + esc(activeD().name) + '</b>\'s stockpile. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': ' + (short.some(function (r) { return CFG.resources[r].orbitalTrade; }) ? 'some of these are made in orbit, so bring them down to the Core by orbital link or express drop, then route or ship them here.' : 'these are made by Trade Workshops at the Free Port, so route or ship them here.') + '</div>' : '') +
         '<div class="actions"><button class="btn primary" data-act="expand" data-ring="' + b.ring + '" data-slot="' + b.slot + '"' + (short.length ? ' disabled' : '') + '>Expand to level ' + nx.level + '</button></div>';
     } else h += '<div class="dim" style="font-size:12px;margin-top:6px">Fully expanded.</div>';
     return h + '</div>';

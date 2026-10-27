@@ -327,49 +327,49 @@
       "name": "Donstand-Pattern Modules"
     },
     "void_glass": {
-      "name": "Void Glass"
+      "name": "Anfang Glass"
     },
     "chiral_salts": {
-      "name": "Chiral Salts"
+      "name": "Icarus Compound"
     },
     "null_ore": {
-      "name": "Null Ore"
+      "name": "Mobiulic Ore"
     },
     "echo_quartz": {
-      "name": "Echo Quartz"
+      "name": "Windsor Crystal"
     },
     "drift_spores": {
-      "name": "Drift Spores"
+      "name": "Mycolian Spores"
     },
     "phase_silt": {
-      "name": "Phase Silt"
+      "name": "Orphic Silt"
     },
     "hum_resin": {
-      "name": "Hum Resin"
+      "name": "Phononic Substrate"
     },
     "still_metal": {
-      "name": "Still Metal"
+      "name": "Graviton Metaloid"
     },
     "stabilizer": {
       "name": "Stabiliser Charge"
     },
     "lattice_cores": {
-      "name": "Lattice Cores"
+      "name": "Sirius Core"
     },
     "null_alloy": {
-      "name": "Null Alloy"
+      "name": "Dense Metal"
     },
     "chiral_serum": {
-      "name": "Chiral Serum"
+      "name": "Cliffside Rejuvenator"
     },
     "phase_cells": {
-      "name": "Phase Cells"
+      "name": "Sirius Cell"
     },
     "resonators": {
-      "name": "Resonators"
+      "name": "Phononic Amplifier"
     },
     "still_frames": {
-      "name": "Still Frames"
+      "name": "Stabilized Alloy"
     }
   },
   "buildings": {
@@ -851,22 +851,22 @@
   },
   "orbitalRecipes": {
     "lattice_cores": {
-      "name": "Lattice Cores"
+      "name": "Sirius Core"
     },
     "null_alloy": {
-      "name": "Null Alloy"
+      "name": "Dense Metal"
     },
     "chiral_serum": {
-      "name": "Chiral Serum"
+      "name": "Cliffside Rejuvenator"
     },
     "phase_cells": {
-      "name": "Phase Cells"
+      "name": "Sirius Cell"
     },
     "resonators": {
-      "name": "Resonators"
+      "name": "Phononic Amplifier"
     },
     "still_frames": {
-      "name": "Still Frames"
+      "name": "Stabilized Alloy"
     }
   },
   "places": {
@@ -919,6 +919,18 @@
     "quiet_array": {
       "name": "Quiet Array",
       "desc": "Listen to the hum with something built to hear it."
+    },
+    "relay_spire": {
+      "name": "Relay Spire",
+      "desc": "A mast in orbit that every station can talk through."
+    },
+    "commons": {
+      "name": "Mycelium Commons",
+      "desc": "A shared garden in orbit, grown from what the anomalies left behind."
+    },
+    "gravity_well": {
+      "name": "Gravity Well",
+      "desc": "Anchor the relay with a mass heavy enough to hold everything else in place."
     }
   },
   "territoryNames": [

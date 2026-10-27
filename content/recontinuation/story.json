@@ -1193,6 +1193,53 @@
      "mood": "serious"
     }
    }
+  },
+  "x13_footings": {
+   "title": "Footings",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "vane",
+     "text": [
+      "Commander. I went down to see the tray Pell keeps the samples in. Nobody should keep anything in a tray that hums."
+     ],
+     "mood": "thoughtful",
+     "next": "b"
+    },
+    "b": {
+     "who": "pell",
+     "text": [
+      "It is a very good tray."
+     ],
+     "mood": "afraid",
+     "next": "c"
+    },
+    "c": {
+     "who": "vane",
+     "text": [
+      "Seven says the station can work them, two kinds at a time. Whatever comes out of that foundry will be denser than anything we have ever poured."
+     ],
+     "mood": "thoughtful",
+     "next": "d"
+    },
+    "d": {
+     "who": "vane",
+     "text": [
+      "I have the original drawings for the footings under this colony. Everything we have built upward stands on them, and they were drawn for far more than five storeys.",
+      "Somebody planned for this. Or for something like it."
+     ],
+     "mood": "serious",
+     "next": "e"
+    },
+    "e": {
+     "who": "seven",
+     "text": [
+      "This node has filed the observation. It has not yet decided which drawer."
+     ],
+     "mood": "thoughtful"
+    }
+   }
   }
  },
  "beats": [
@@ -1953,6 +2000,16 @@
      "One of them hums. I will not say which. I have moved my desk."
     ]
    }
+  },
+  {
+   "id": "x13_footings",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "rareReturned"
+   },
+   "delivery": "dialogue",
+   "scene": "x13_footings"
   },
   {
    "id": "x07_near_miss",

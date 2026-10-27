@@ -281,7 +281,7 @@ test('Recontinuation: 13 campaign dialogues, 22 campaign mails and the open beat
   const open = s.beats.filter((b) => b.phase === 'open');
   assert.equal(campaign.filter((b) => b.delivery === 'dialogue').length, 13);
   assert.equal(campaign.filter((b) => b.delivery === 'mail').length, 22);
-  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 10, 'six faction scenes and four for orbit');
+  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 11, 'six faction scenes and five for orbit');
   assert.equal(open.filter((b) => b.delivery === 'mail').length, 14, 'six faction mails and eight for orbit');
   // Run the real evaluator over this script with every condition satisfied and the clock moving.
   const all = objectives.DIRECTIVE_IDS;

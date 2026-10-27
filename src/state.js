@@ -158,6 +158,7 @@ function viewFor(userId, now = Date.now()) {
 
   // A view of one district: stock with rates, grid, hub, buildings and orders.
   const allOrders = store.loadOrders(c.id);
+  const xmax = sim.expansionMax(config, orbital.flagsOf(c));
   const districtView = (d, r) => {
     const isCore = d.type === 'core';
     const flows = isCore ? proj.flows : r.flows;
@@ -191,7 +192,7 @@ function viewFor(userId, now = Date.now()) {
           status: st.status, eff: st.eff, mult: st.mult, adj: st.adj, plot: st.plot, haz: st.haz, limiting: st.limiting,
           boost: b.boost ? (st.boost || 'starved') : null,
           level: b.level || 1, xscale: st.xscale || 1,
-          xnext: config.buildings[b.type].expand && (b.level || 1) < config.expansion.maxLevel ? { level: (b.level || 1) + 1, cost: sim.expansionCost(config, config.buildings[b.type], (b.level || 1) + 1), ticks: config.expansion.ticks[(b.level || 1) + 1], scale: config.expansion.scale[(b.level || 1) + 1], crew: config.expansion.crew[(b.level || 1) + 1] } : null,
+          xnext: config.buildings[b.type].expand && (b.level || 1) < xmax ? { level: (b.level || 1) + 1, cost: sim.expansionCost(config, config.buildings[b.type], (b.level || 1) + 1), ticks: config.expansion.ticks[(b.level || 1) + 1], scale: config.expansion.scale[(b.level || 1) + 1], crew: config.expansion.crew[(b.level || 1) + 1] } : null,
           recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
           resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type, config.buildings[b.type]) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
       }),
@@ -253,6 +254,7 @@ function viewFor(userId, now = Date.now()) {
       shutdown: c.shutdown_tick === null || c.shutdown_tick === undefined ? null : { since: c.shutdown_tick, ticks: t.globalTick - c.shutdown_tick, parked: shutdown.parkedCount(c.id) },
       parked: shutdown.parkedCount(c.id),
       starving: proj.starving,
+      expandMax: xmax,
     },
     hub: coreV.hub,
     defense: proj.defense,

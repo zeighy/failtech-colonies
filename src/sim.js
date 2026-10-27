@@ -188,7 +188,7 @@ function rates(config, def, b, ring, type) {
   if (!def.recipeBuilding) {
     // An expanded building is built "upward": its whole line scales (inputs, outputs, power), and so does its crew,
     // a little less than proportionally. It is more throughput in the same plot, never a better ratio.
-    const lvl = def.expand ? Math.min(config.expansion.maxLevel, b.level || 1) : 1;
+    const lvl = def.expand ? Math.min(expansionTop(config), b.level || 1) : 1;
     if (lvl <= 1) return { inputs: def.inputsPerTick, outputs: def.outputsPerTick, workers: def.workers || 0, idle: null, batch: 1, scale: 1 };
     const k = config.expansion.scale[lvl];
     const scale = (o) => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, v * k]));
@@ -205,10 +205,24 @@ function rates(config, def, b, ring, type) {
 
 // What it costs to expand a building to `level`: the class's base cost times (level - 1), so each step costs a little
 // more than the last and the total grows in a straight line.
+// The highest level any building can reach, and the highest this colony can reach: levels past `maxLevel` open once the
+// colony's first rare resource has come home to its station (the sticky orbital flag), and are paid partly in orbital goods.
+const expansionTop = (config) => config.expansion.orbitalMaxLevel || config.expansion.maxLevel;
+function expansionMax(config, flags) {
+  const E = config.expansion;
+  return E.orbitalMaxLevel && flags && flags[E.orbitalUnlockFlag] ? E.orbitalMaxLevel : E.maxLevel;
+}
+
 function expansionCost(config, def, level) {
-  const cls = config.expansion.classes[def.expand];
+  const E = config.expansion;
+  const cls = E.classes[def.expand];
   if (!cls) return null;
-  return Object.fromEntries(Object.entries(cls.baseCost).map(([r, q]) => [r, q * (level - 1)]));
+  const cost = Object.fromEntries(Object.entries(cls.baseCost).map(([r, q]) => [r, q * (level - 1)]));
+  if (level > E.maxLevel && cls.orbitalCost) {
+    const k = (E.orbitalCostMult || {})[level] || 1;
+    for (const [r, q] of Object.entries(cls.orbitalCost)) cost[r] = (cost[r] || 0) + q * k;
+  }
+  return cost;
 }
 
 // What it costs to abandon a recipe: so many ticks of the old recipe's output, at market value. Scales with batch size.
@@ -683,6 +697,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, canFeed, recipeBook, resolveDef, districtFoundable, expansionCost, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, canFeed, recipeBook, resolveDef, districtFoundable, expansionCost, expansionMax, expansionTop, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

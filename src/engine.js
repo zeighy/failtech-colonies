@@ -198,7 +198,7 @@ function tickColony(c, globalTick, tickTime) {
   if (stationR) {
     territories.advanceColony(c, stationR.inventory, globalTick);
     projects.advanceColony(c, stationR.inventory, globalTick);
-    orbital.arrivals(c, stationR.inventory, globalTick);
+    orbital.arrivals(c, stationR.inventory, globalTick, inventory);
     for (const l of orbital.enforceSlots(c.id, stationR.inventory, stationR.cap)) {
       if (!l.full && l.qty >= 1) ev('warn', `No storage slot in orbit for ${config.resources[l.resource].name}: ${Math.floor(l.qty)} lost.`);
     }
