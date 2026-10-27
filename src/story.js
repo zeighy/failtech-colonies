@@ -3,7 +3,8 @@
 // inbox). It never changes the simulation: beats are *triggered by* what the colony has done and nothing flows back,
 // not even the choices in a branching scene. All text lives in content/<theme>/story.json:
 //
-//   characters  { id: { name, title?, color?, portrait? (file in assets/), side? ('left'|'right') } }
+//   characters  { id: { name, title?, color?, portrait? (large, for scenes), avatar? (square, for the call card and mail window;
+//               falls back to the portrait), side? ('left'|'right') } }
 //   scenes      { id: { title?, background? (file in assets/), start, nodes: { nodeId: node } } }
 //     node      { who: characterId | null (narration), text: [passage, ...], next?: nodeId, choices?: [{ label, next }] }
 //               A node with neither next nor choices ends the scene. Choices only pick the next node.
@@ -59,7 +60,7 @@ function validate(story, cfg = config) {
   for (const [id, ch] of Object.entries(story.characters)) {
     const w = `characters.${id}`;
     if (!nonEmpty(ch.name)) bad(w, 'needs a name');
-    if (ch.portrait !== undefined && !(typeof ch.portrait === 'string' && FILE.test(ch.portrait))) bad(w, 'portrait must be a plain file name in assets/');
+    for (const f of ['portrait', 'avatar']) if (ch[f] !== undefined && !(typeof ch[f] === 'string' && FILE.test(ch[f]))) bad(w, `${f} must be a plain file name in assets/`);
     if (ch.color !== undefined && !COLOR.test(ch.color)) bad(w, 'color must look like #aabbcc');
     if (ch.side !== undefined && !['left', 'right'].includes(ch.side)) bad(w, 'side must be left or right');
   }
@@ -114,7 +115,7 @@ function validate(story, cfg = config) {
 function dropMissingArt(story) {
   const notes = [];
   const have = (f) => fs.existsSync(require('path').join(theme.dir(), 'assets', f));
-  for (const [id, ch] of Object.entries(story.characters)) if (ch.portrait && FILE.test(ch.portrait) && !have(ch.portrait)) { notes.push(`characters.${id}: portrait "${ch.portrait}" is not in assets/ yet`); delete ch.portrait; }
+  for (const [id, ch] of Object.entries(story.characters)) for (const f of ['portrait', 'avatar']) if (ch[f] && FILE.test(ch[f]) && !have(ch[f])) { notes.push(`characters.${id}: ${f} "${ch[f]}" is not in assets/ yet`); delete ch[f]; }
   for (const [id, sc] of Object.entries(story.scenes)) if (sc.background && FILE.test(sc.background) && !have(sc.background)) { notes.push(`scenes.${id}: background "${sc.background}" is not in assets/ yet`); delete sc.background; }
   return notes;
 }

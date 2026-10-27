@@ -92,9 +92,11 @@ several triggers gets its backlog in script order, one beat at a time (see Pacin
 
 ## Artwork
 
-`portrait` (characters) and `background` (scenes) name files in `content/<theme>/assets/`. A file that is not there yet is
+`portrait` and `avatar` (characters) and `background` (scenes) name files in `content/<theme>/assets/`. A file that is not there yet is
 simply ignored (a coloured silhouette and a plain backdrop are shown) and `npm run check-content` lists what is still
-missing, so the story can be written before the art exists. Portraits: transparent PNG or WebP, about 800 x 1200.
+missing, so the story can be written before the art exists. Portraits (used in scenes): transparent PNG or WebP, about
+800 x 1200. Avatars (used in the call card and mail window, shown in a circle): square, about 256 x 256, face at the top
+centre; a character without one falls back to the portrait.
 Backgrounds: 1920 x 1080.
 
 ## Delivery of text

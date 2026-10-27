@@ -5,49 +5,56 @@
    "title": "Continuity Node 7",
    "color": "#C9A227",
    "side": "left",
-   "portrait": "seven.png"
+   "portrait": "seven.png",
+   "avatar": "seven_avatar.png"
   },
   "signal": {
    "name": "The Signal",
    "title": "Unknown origin",
    "color": "#7FD6C8",
    "side": "right",
-   "portrait": "signal.png"
+   "portrait": "signal.png",
+   "avatar": "signal_avatar.png"
   },
   "mags": {
    "name": "Mags Valdivia",
    "title": "Shift Boss, Black Industries Remnant",
    "color": "#D2691E",
    "side": "right",
-   "portrait": "mags.png"
+   "portrait": "mags.png",
+   "avatar": "mags_avatar.png"
   },
   "noor": {
    "name": "Dr. Noor Haddad",
    "title": "Reserve Warden, Cliffside Accord",
    "color": "#6FAF5B",
    "side": "left",
-   "portrait": "noor.png"
+   "portrait": "noor.png",
+   "avatar": "noor_avatar.png"
   },
   "raf": {
    "name": "Raf Dimaculangan",
    "title": "Dispatcher, Ammano Transit",
    "color": "#4F8FD6",
    "side": "right",
-   "portrait": "raf.png"
+   "portrait": "raf.png",
+   "avatar": "raf_avatar.png"
   },
   "pell": {
    "name": "Ansel Pell",
    "title": "Archivist, Colorado",
    "color": "#9B7FD1",
    "side": "left",
-   "portrait": "pell.png"
+   "portrait": "pell.png",
+   "avatar": "pell_avatar.png"
   },
   "vane": {
    "name": "Hesper Vane",
    "title": "Quartermaster",
    "color": "#B0B7C3",
    "side": "left",
-   "portrait": "vane.png"
+   "portrait": "vane.png",
+   "avatar": "vane_avatar.png"
   },
   "nobody": {
    "name": "(no sender)",

@@ -53,7 +53,8 @@
     return who && content.characters[who] ? content.characters[who] : null;
   }
   function avatar(ch) {
-    if (ch && ch.portrait) return '<img alt="" src="/theme-assets/' + encodeURIComponent(ch.portrait) + '">';
+    var img = ch && (ch.avatar || ch.portrait);
+    if (img) return '<img alt="" src="/theme-assets/' + encodeURIComponent(img) + '">';
     return '<span style="--c:' + esc((ch && ch.color) || '#888') + '">' + esc(ch ? ch.name.split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join('') : '?') + '</span>';
   }
   function titleOf(beatId) { var i = view.items.filter(function (x) { return x.id === beatId; })[0]; return i ? i.title : ''; }
