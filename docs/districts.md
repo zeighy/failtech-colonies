@@ -205,3 +205,12 @@ spent on hazards, or handed to factions.
   Growth now needs a surplus big enough for the new people, so a colony no longer grows itself into a shortage. A colony with no food production at all is still lost.
 - **Interface**: typed values everywhere there was a +/- stepper (hold Shift for steps of 100; steps are 10 for everything); logistics has its own tab; toasts sit left of the
   panel; the Brief tab drops the directives once they are all complete.
+
+## Reclaimer and growth on a full stockpile (built)
+
+- **Synthetics Reclaimer** now converts surplus raw synthetics into polymers at 2:1 (12 in, 6 out per tick at full speed; it sits beside a polymer plant for x1.1).
+  Raw synthetics were priced near zero, which would have made that conversion a money machine on the exchange, so their price now follows the polymer price
+  (`exchange.priceLinks`: half a polymer) and the convoy price was raised to match. A test checks that buying synthetics to convert never beats selling polymers.
+- **Growth** no longer stops just because the surplus is thin while the store is full. `sim.canFeed`: new people are allowed if what the colony makes covers them, or, failing
+  that, if the stock above 60% of the cap would carry the new shortfall for 2000 ticks (`populationGrowth.bufferFloor`, `bufferTicks`). A full store lets a colony whose production only just
+  matches use keep growing a little; an empty one does not, and a real shortage is never carried. The People tab says when the colony is growing on its stockpile.

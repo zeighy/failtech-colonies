@@ -190,13 +190,15 @@ function viewFor(userId, now = Date.now()) {
   const per = gcfg.populationConsumptionPerTick;
   const pmult = mods.popConsumptionMult || 1;
   const housingCap = proj.housing.cap;
-  const feedable = Object.keys(per).every((r) => resources[r].net > per[r] * pmult);
+  const roomFor = (r) => ({ net: resources[r].net, stock: resources[r].amount, cap: resources[r].cap });
+  const feedable = Object.keys(per).every((r) => sim.canFeed(config, roomFor(r), per[r] * pmult));
+  const onBuffer = feedable && !Object.keys(per).every((r) => resources[r].net > per[r] * pmult); // growing on the stockpile, not on surplus
   const outlook = proj.left ? { state: 'shrinking', why: proj.leftWhy }
-    : proj.grew ? { state: 'growing', why: null }
+    : proj.grew ? { state: 'growing', why: onBuffer ? 'buffer' : null }
       : c.population >= housingCap ? { state: 'steady', why: 'housing' }
         : c.morale < gcfg.populationGrowth.minMorale ? { state: 'steady', why: 'morale' }
           : !feedable ? { state: 'steady', why: 'food' }
-            : { state: 'growing', why: null };
+            : { state: 'growing', why: onBuffer ? 'buffer' : null };
   const people = {
     perPerson: per, multiplier: pmult, mealsPerPerson: gcfg.mealsPerPopPerTick,
     use: Object.fromEntries(Object.keys(per).map((r) => [r, per[r] * c.population * pmult])),

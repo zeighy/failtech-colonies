@@ -13,7 +13,9 @@
     "populationGrowth": {
       "everyTicks": 3,
       "minMorale": 60,
-      "fastMorale": 90
+      "fastMorale": 90,
+      "bufferFloor": 0.6,
+      "bufferTicks": 2000
     },
     "goalSustainTicks": 10,
     "maxOfflineTicks": 1200,
@@ -123,8 +125,8 @@
     "raw_synthetics": {
       "name": "Raw Synthetics",
       "color": "#b08ad6",
-      "buy": 3,
-      "sell": 1,
+      "buy": 20,
+      "sell": 11,
       "tier": 0,
       "showFromHub": 2
     },
@@ -659,18 +661,19 @@
     },
     "synth_reclaimer": {
       "name": "Synthetics Reclaimer",
-      "type": "extractor",
-      "desc": "Strips old-world plastics into extra raw synthetics. Optional now: the polymer plant makes its own.",
+      "type": "refinery",
+      "desc": "Turns surplus raw synthetics into polymers, two to one. The polymer plant makes more synthetics than the circuit line needs; this puts the rest to work.",
       "constructionTicks": 4,
       "cost": {
         "scrap": 250,
         "machined_parts": 10
       },
       "inputsPerTick": {
-        "energy": 8
+        "energy": 8,
+        "raw_synthetics": 12
       },
       "outputsPerTick": {
-        "raw_synthetics": 12
+        "polymers": 6
       },
       "minPlotSize": 1,
       "color": "#b08ad6",
@@ -1229,11 +1232,6 @@
         "outputMultiplier": 1.1
       },
       {
-        "targetBuilding": "circuit_fab",
-        "adjacentBuilding": "synth_reclaimer",
-        "outputMultiplier": 1.15
-      },
-      {
         "targetBuilding": "cell_forge",
         "adjacentBuilding": "foundry",
         "outputMultiplier": 1.1
@@ -1322,6 +1320,11 @@
         "targetBuilding": "bio_dome",
         "adjacentBuilding": "bio_dome",
         "outputMultiplier": 0.95
+      },
+      {
+        "targetBuilding": "synth_reclaimer",
+        "adjacentBuilding": "polymer_plant",
+        "outputMultiplier": 1.1
       }
     ]
   },
@@ -2281,7 +2284,13 @@
       "bidMaxOfConvoyBuy": 0.9,
       "askMinOfConvoySell": 1.1
     },
-    "tradeRegenPerTick": 0.025
+    "tradeRegenPerTick": 0.025,
+    "priceLinks": {
+      "raw_synthetics": {
+        "of": "polymers",
+        "ratio": 0.5
+      }
+    }
   },
   "recipes": {
     "curios": {

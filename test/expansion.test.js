@@ -215,3 +215,68 @@ test('the engine reports people leaving in the log', () => {
   assert.ok(msgs.some((m) => /people are leaving/.test(m)), msgs.join(' | '));
   assert.ok(db.prepare('SELECT population FROM colonies WHERE id = ?').get(c.id).population < 25);
 });
+
+// ---- the reclaimer and growth on a full stockpile -------------------------------------------------
+const ms = require('../src/marketsim');
+
+test('the Synthetics Reclaimer turns raw synthetics into polymers, two to one', () => {
+  const dist = (eff) => ({ id: 1, type: 'stacks', level: 2, inventory: { ...Object.fromEntries(Object.keys(config.resources).map((r) => [r, 1000])), raw_synthetics: eff, polymers: 0 },
+    buildings: [{ id: 1, ring: 1, slot: 0, type: 'solar_array', status: 'active' }, { id: 2, ring: 1, slot: 1, type: 'synth_reclaimer', status: 'active' }] });
+  const nmap2 = sim.buildNeighborMap(config, 'stacks');
+  const r = sim.stepDistrict(config, dist(1000), { staff: 1, morOut: 1 }, nmap2, {});
+  assert.ok(Math.abs(r.flows.raw_synthetics.consumed / r.flows.polymers.produced - 2) < 1e-9, 'exactly 2 in for 1 out');
+  assert.ok(r.flows.polymers.produced > 0 && r.flows.raw_synthetics.produced === 0, 'it makes polymers and no synthetics');
+  const starved = sim.stepDistrict(config, dist(3), { staff: 1, morOut: 1 }, nmap2, {});
+  assert.ok(starved.flows.polymers.produced > 0 && starved.flows.polymers.produced < r.flows.polymers.produced, 'with little to convert it slows, and never makes polymers from nothing');
+  assert.deepEqual(config.buildings.synth_reclaimer.districts, ['stacks']);
+});
+
+test('converting raw synthetics bought on the exchange into polymers never makes money (the prices keep the conversion honest)', () => {
+  const fee = config.exchange.feeRate;
+  const inp = config.buildings.synth_reclaimer.inputsPerTick.raw_synthetics; const out = config.buildings.synth_reclaimer.outputsPerTick.polymers;
+  let tested = 0;
+  for (let t = 0; t < 2000; t += 7) {
+    if (ms.event(config, 'raw_synthetics', t) || ms.event(config, 'polymers', t)) continue;
+    const cost = inp * ms.ladder(config, 'raw_synthetics', t).asks[0].price;
+    const revenue = out * ms.ladder(config, 'polymers', t).bids[0].price * (1 - fee);
+    assert.ok(revenue < cost, `@${t}: ${revenue.toFixed(1)} vs ${cost.toFixed(1)}`);
+    tested++;
+  }
+  assert.ok(tested > 100);
+});
+
+test('canFeed: a surplus covers new people; a full stockpile can carry a small shortfall; a low one cannot', () => {
+  const cap = 6000; const extra = 0.2;
+  assert.equal(sim.canFeed(config, { net: 5, stock: 10, cap }, extra), true, 'plain surplus');
+  assert.equal(sim.canFeed(config, { net: 0.1, stock: 10, cap }, extra), false, 'a thin surplus and an empty store: no');
+  assert.equal(sim.canFeed(config, { net: 0.1, stock: cap, cap }, extra), true, 'the same thin surplus with a full store: yes');
+  assert.equal(sim.canFeed(config, { net: 0.1, stock: cap * config.global.populationGrowth.bufferFloor, cap }, extra), false, 'the store has to be above its floor');
+  assert.equal(sim.canFeed(config, { net: -50, stock: cap, cap }, extra), false, 'a big shortfall is never carried');
+  const limit = (cap - cap * config.global.populationGrowth.bufferFloor) / config.global.populationGrowth.bufferTicks;
+  assert.equal(sim.canFeed(config, { net: 0, stock: cap, cap }, limit * 0.99), true);
+  assert.equal(sim.canFeed(config, { net: 0, stock: cap, cap }, limit * 1.01), false, 'and the allowance is bounded');
+});
+
+test('a colony with a full store and production only just matching use keeps growing, a little, and never starves', () => {
+  const build = [bld(1, 0, 'solar_array'), bld(1, 1, 'solar_array'), bld(2, 0, 'hydroponics_bay'), bld(2, 1, 'water_purifier'), bld(2, 2, 'water_pump'), ...[0, 1, 2, 3, 4].map((i) => bld(3, i, 'habitat'))];
+  const cap = config.hubLevels[3].maxStorage;
+  const start = (rations) => ({ hubLevel: 3, population: 123, morale: 100, age: 0, progress: 0, won: false, inventory: { ...config.global.startingState.resources, clean_water: cap, rations, machined_parts: 500 }, buildings: build });
+  const go = (s, ticks) => { let starved = false; let r; for (let t = 0; t < ticks; t++) { r = sim.step(config, s, nmap); starved = starved || r.starving.length > 0; s = { ...s, inventory: r.inventory, population: r.population, morale: r.morale, age: s.age + 1 }; } return { s, starved, r }; };
+  const first = sim.step(config, start(cap), nmap);
+  const net0 = first.flows.rations.produced - first.flows.rations.consumed;
+  assert.ok(net0 > 0 && net0 < 0.5, `production only just matches use (net ${net0.toFixed(2)})`);
+  const full = go(start(cap), 400);
+  assert.ok(full.s.population > 123, `a full store lets it grow (${full.s.population})`);
+  assert.ok(full.s.population < 123 + 40, `but only a little (${full.s.population})`);
+  assert.ok(!full.starved, 'and it never ran short');
+  const empty = go(start(40), 400);
+  assert.ok(empty.s.population <= 125, `an empty store does not (${empty.s.population})`);
+});
+
+test('the view says when the colony is growing on its stockpile rather than on surplus', () => {
+  const c = colony(3);
+  const v = viewFor(c.uid);
+  assert.ok(v.people.outlook && typeof v.people.outlook.state === 'string');
+  const note = JSON.stringify(v.people.outlook);
+  assert.ok(!/buffer/.test(note) || v.people.outlook.state === 'growing');
+});

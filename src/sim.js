@@ -398,6 +398,17 @@ function applyRoutes(config, routes, bags) {
   return out;
 }
 
+// Could the colony feed `extra` more consumption per tick? Yes if what it makes still covers it. Failing that, a big stockpile can carry a
+// small shortfall: growth is allowed when the stock above `bufferFloor` of the cap would cover the new shortfall for `bufferTicks`. That lets
+// a colony whose storage is full (production only just matching use) keep growing, without ever growing itself into a real shortage.
+function canFeed(config, { net, stock, cap }, extra) {
+  const after = net - extra;
+  if (after > 0) return true;
+  const pg = config.global.populationGrowth;
+  const spare = stock - pg.bufferFloor * cap;
+  return spare > 0 && -after <= spare / pg.bufferTicks;
+}
+
 // ---- the whole colony ---------------------------------------------------------------
 // colony: { population, morale, age, progress, won }
 // districts: [{ id, type, level, inventory, buildings }]   (exactly one has type 'core')
@@ -484,7 +495,7 @@ function stepColony(config, colony, districts, opts = {}) {
   // Growth only happens if the extra mouths can be fed from what the colony makes: a colony that is barely in surplus does not
   // grow itself into a shortage.
   const grow = morale >= pg.fastMorale ? 2 : 1;
-  const sustainable = (n) => Object.keys(per).every((res) => net(res) > per[res] * n * popMult);
+  const sustainable = (n) => Object.keys(per).every((res) => canFeed(config, { net: net(res), stock: inv[res], cap: core.cap }, per[res] * n * popMult));
   if (starving.length) {
     // People leave rather than starve: the colony shrinks to what it can feed, instead of collapsing.
     left = Math.min(Math.max(0, population - g.minPopulation), Math.max(1, Math.ceil(population * ex.starvingFraction)));
@@ -621,6 +632,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, districtFoundable, expansionCost, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, canFeed, districtFoundable, expansionCost, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

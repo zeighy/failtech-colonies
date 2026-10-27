@@ -65,6 +65,10 @@ function makerOf(config, res) {
 function refPrice(config, res, tick) {
   const ev = event(config, res, tick);
   const mult = ev ? config.exchange.events[ev.kind].price : 1;
+  // Some goods follow another good's price, so a conversion between them can never be a money machine
+  // (raw synthetics are half a polymer: the reclaimer turns two into one).
+  const link = config.exchange.priceLinks && config.exchange.priceLinks[res];
+  if (link) return link.ratio * refPrice(config, link.of, tick) * mult;
   const rec = config.resources[res].trade && makerOf(config, res);
   if (rec) {
     let cost = 0;
