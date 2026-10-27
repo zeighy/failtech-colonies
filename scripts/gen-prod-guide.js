@@ -15,7 +15,8 @@ for (const f of [process.env.DB_PATH, `${process.env.DB_PATH}-wal`, `${process.e
 const G = C.global;
 const R = C.resources;
 const B = C.buildings;
-const rn = (id) => (R[id] ? R[id].name : id === 'energy' ? 'power' : id);
+const SLOTS = { $common1: "territory's common A", $common2: "territory's common B", $district: "territory's district resource", $rare: "territory's rare" };
+const rn = (id) => (R[id] ? R[id].name : id === 'energy' ? 'power' : SLOTS[id] || id);
 const bn = (id) => (B[id] ? B[id].name : id);
 const list = (o) => (o && Object.keys(o).length ? Object.entries(o).map(([k, v]) => `${v} ${rn(k)}`).join(', ') : '–');
 const n = (x) => Number(x).toLocaleString('en-US');
@@ -133,8 +134,27 @@ add('## **14. The Free Port: trade goods, missions and standing**',
 add('## **15. The Beacon**',
   `Build the ${bn('beacon_array')} (only one; it wants a ${plot(B.beacon_array.minPlotSize)} plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **${G.beacon.transmitTicks} signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes ${(C.districtTypes.freeport || {}).name || 'the Free Port'} available.`);
 
+// ---- orbit
+const O = C.orbital, OT = C.orbitalTypes;
+const cyc = O.launch.cycles;
+add('## **16. Orbit (endgame)**',
+  `Hidden until the colony's standing with all factions adds up to **${O.unlockStanding}** (the Brief only hints at it before then). Then three buildings appear: the ${bn('orbital_staging')} and the ${bn('orbital_catapult')} in the Core, each on its own ${plot(5)} plot and side by side, and the ${bn('orbital_command')} in ${(C.districtTypes.freeport || {}).name || 'the Free Port'} on a ${plot(4)} plot.`,
+  `**Launch cycles.** The staging platform takes one cycle at a time and draws its inputs every tick until the progress is complete (only the fully supplied share of a tick counts), then waits. The catapult launches it while the command center is running.`,
+  table(['Cycle', 'Draws / tick', 'Ticks', 'Also costs', 'Result'], Object.entries(cyc).map(([k, v]) => [k, list(v.perTick), v.ticks, list(v.orbitalCost), k === 'station' ? `the station (named by the player) with ${list(O.launch.starterKit)} and one dropship` : `station level ${v.stationLevel}`])),
+  `**Station.** Rings ${Object.entries(OT.station.levels[3].ringCapacities).map(([r, n]) => `${r}: ${n} slots of ${plot(OT.station.ringPlotSize[r])}`).join(', ')}; ring 1 at level 1, the others from the ring launches. Base power ${OT.station.levels[1].baseEnergy}. ${bn('klein_reactor')}: ${list(B.klein_reactor.inputsPerTick)} → ${list(B.klein_reactor.outputsPerTick)}. ${bn('orbital_foundry')}: any standard trade recipe at power × ${O.standardRecipeEnergy.mult} (clamped ${O.standardRecipeEnergy.min}-${O.standardRecipeEnergy.max}) plus the orbital recipes, no crew.`,
+  table(['Orbital recipe (id)', 'Inputs / tick', 'Outputs / tick'], Object.entries(C.orbitalRecipes).map(([id, r]) => [`${r.name} (${id})`, list(r.inputsPerTick), list(r.outputsPerTick)])),
+  `**Orbital storage** is slot-limited: one resource per slot (${Object.entries(O.storage.levels).map(([l, v]) => `level ${l}: ${v.slots} slots of ${n(v.cap)}${v.cost ? ` for ${list(v.cost)}` : ''}`).join('; ')}). The largest stocks claim slots first; anything without a slot is lost. Jettisoning empties a slot, which then costs ${list(O.storage.rebuildCost)} to rebuild.`,
+  `**Orbital links** run between the Core and the station, both ways (${Object.entries(O.links.levels).map(([l, v]) => `level ${l}: ${v.count} links at ${v.rate}/tick${v.cost ? ` for ${list(v.cost)}` : ''}`).join('; ')}). Rare resources never travel by link. **Express launch:** up to ${O.express.maxQty} of one resource from the Core, ${O.express.fuelBase} + ${O.express.fuelPerUnit}/unit ${rn('fuel')}, arriving in ${O.express.travelTicks} ticks, once every ${O.express.cooldownTicks} ticks.`,
+  `**Dropships** (up to ${O.dropships.max}; build ${list(O.dropships.buildCost)}, ${O.dropships.buildTicks} ticks): ${Object.entries(O.dropships.levels).map(([l, v]) => `level ${l} power ${v.power}, hold ${v.hold}, links ${v.linkRate}/tick${v.cost ? ` (${list(v.cost)})` : ''}`).join('; ')}. Landing takes ${O.dropships.deployTicks} ticks with a kit of ${list(O.dropships.starterKit)}; the hold can be preloaded. A ship on a territory gets up to ${O.dropships.maxLinks} links to the station. Recalling brings back what the plan says (rare first) up to the hold, in ${O.dropships.returnTicks} ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at ${O.dropships.savedIntegrity}% with the cargo gone; the second loses the ship.`,
+  `**Anomalous territories** are shared by every station: at least ${O.territories.minAvailable} are open, a taken one is replaced in ${O.territories.respawnTicks.join('-')} ticks. Each has two common resources (${O.territories.common.map(rn).join(', ')}), one district resource (${O.territories.district.map(rn).join(', ')}) and one rare (${O.territories.rare.map(rn).join(', ')}). Rings ${Object.entries(OT.territory.levels[1].ringCapacities).map(([r, k]) => `${r}: ${k} × ${plot(OT.territory.ringPlotSize[r])}`).join(', ')}, storage = the hold, power = the ship's. Leaving early keeps only ${O.territories.destabilize * 100}% of its remaining time for the next visitor; still being there when it closes forces a late recall with damage.`,
+  table(['Anomaly', 'Weight', 'Lasts (ticks)', 'Late damage', 'Integrity lost / tick', 'Rare ×'], Object.values(O.territories.anomalies).map((a) => [a.name, a.weight, a.durationTicks.join('-'), `${a.lateDamage}%`, a.damagePerTick || '–', a.rareMult])),
+  table(['Territory building (id)', 'Inputs / tick', 'Outputs / tick'], ['t_rig_a', 't_rig_b', 't_drill', 't_refinery', 't_tap'].map((id) => [`${bn(id)} (${id})`, list(B[id].inputsPerTick), list(B[id].outputsPerTick)])),
+  `**Orbital market:** trade goods only, straight from orbital storage, orders signed with the station name. Market makers post ${Object.entries(O.market.makerQtyByTier).map(([t, q]) => `${q} (tier ${t})`).join(', ')} at ±${O.market.makerSpread * 100}% of the reference every ${O.market.makerRefreshTicks} ticks. Prices must stay within ${O.market.band[0]}-${O.market.band[1]}× the reference; ${O.market.feeRate * 100}% fee from sellers; lifetimes ${O.market.ttlOptions.join(', ')}; ${O.market.maxOpenOrders} open orders.`,
+  `**Global projects:** one at a time, announced ${O.projects.announceTicks} ticks ahead. Needs are per player × stations seen recently; the period is twice the time to make one player's share (${O.projects.minPeriod}-${O.projects.maxPeriod} ticks). Contributions travel by dropship (${O.dropships.contributeTicks} ticks). Completion gives every colony +${O.projects.standingReward} standing with the project's faction and a bonus for half the period.`,
+  table(['Project', 'Needs per player', 'Bonus'], O.projects.list.map((p) => [p.name, list(p.needs), p.bonus.label])));
+
 // ---- operations
-add('## **16. Operations: backups**',
+add('## **17. Operations: backups**',
   'The server backs the database up automatically (`BACKUP_INTERVAL_HOURS`, default 6, 0 = off; `BACKUP_KEEP`, default 28; `BACKUP_DIR`). To restore: stop the server, copy a backup over the database file (delete its `-wal` and `-shm` files), start the server.');
 
 fs.writeFileSync(path.join(__dirname, '..', 'prod_guide.md'), out.join('\n') + '\n');

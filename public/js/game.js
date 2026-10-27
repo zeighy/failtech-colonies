@@ -281,7 +281,7 @@
     Object.keys(RINGS).forEach(function (rs) {
       var ring = +rs, cap = RINGS[rs];
       for (var i = 0; i < cap; i++) {
-        var g = svgEl('g', { 'class': 'slot empty', tabindex: 0, role: 'button' }, slotsG);
+        var g = svgEl('g', { 'class': 'slot empty', tabindex: 0, role: 'button', 'data-slot': ring + ':' + i }, slotsG);
         var title = svgEl('title', {}, g);
         var cell = svgEl('path', { d: sectorPath(ring, i, cap), 'class': 'cell' }, g);
         var c = slotCenter(ring, i, cap);

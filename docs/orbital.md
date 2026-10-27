@@ -1,0 +1,114 @@
+# Orbit: the multiplayer endgame
+
+Orbit is where colonies stop being separate games. Every station shares the same anomalous territories, the same orbital market and the same global project. This document describes the design and where each part lives in the code. Every number is in `game_config.json` (`orbital`, `orbitalTypes`, `orbitalRecipes` and the buildings marked `hidden: "orbital"`). The generated tables are in section 16 of `prod_guide.md`.
+
+## Unlock
+
+- Orbit is invisible until the colony's standing with all factions adds up to `orbital.unlockStanding` (500). Before that, the orbital buildings are missing from the build menu and the API answers "Unknown building type." The only sign of it is a one-line hint on the Missions screen (`ui.missionsHint`).
+- `orbital.checkUnlock` sets `colonies.orbital_unlocked` once and it stays set, even if standing later drops. It runs on every view and before every orbital action, so the unlock is immediate.
+- On unlock, a second chapter of directives appears in the Brief (`objectives.js`, chapter 2, ids `o_*`). It is never shown before the unlock. The campaign's "Brief complete" ending counts chapter 1 only.
+
+## The launch chain (ground)
+
+| Building | Where | Rule |
+| --- | --- | --- |
+| Orbital Staging Platform | Core, Colossal plot only (`strictPlot`) | one only; takes one launch cycle at a time |
+| Orbital Catapult | Core, Colossal plot only | must be next to the staging platform (`requiresAdjacent`); burns a little fuel to stay warm |
+| Orbital Command Center | Free Port, Heavy plot only | must be running for a launch; it is the way into the orbit view |
+
+- A launch cycle is stored in the staging building's `recipe` column, with progress in `colonies.launch_progress`.
+- While a cycle is loaded, the platform adds the cycle's per-tick draw to its own inputs (`sim.rates`). Progress grows by the fully supplied share of each tick only, so a starved cycle stalls rather than finishing on credit.
+- When progress reaches the cycle length, the cycle sets `launch_ready` and stops drawing. The catapult panel then offers the launch.
+- Cycles:
+  - `station`: the first launch. The player names the station: 3 to 24 characters, unique, not a username, not "Market maker". It arrives with a starter kit and dropship 1.
+  - `ring2` and `ring3`: later launches that unlock the station's second and third rings. `ring3` also costs orbital goods made in orbit.
+- Abandoning a cycle resets its progress and refunds nothing that was drawn.
+
+## The station
+
+- The station is a district of type `station` (`config.orbitalTypes`).
+- Ring 1 has 4 Medium slots. Ring 2 (6 Large) and ring 3 (9 Heavy) come from the ring launches, and the radar shows the locked rings as "launched from the colony".
+- Only station buildings can be built there:
+  - **Klein Reactor:** burns power cells for power. The station has almost no base power.
+  - **Orbital Foundry:** a crewless workshop. It runs the standard trade recipes at 2.5 × power (clamped 10 to 60) plus six orbital-only recipes, each of which needs two rare resources. It gets an adjacency bonus beside a reactor.
+- **Storage is slot-limited.** Each slot holds one resource, up to the level's cap.
+  - Every tick the largest stocks claim slots first (`orbital.enforceSlots`). Anything left without a slot is lost, with a warning in the log.
+  - Jettisoning empties a slot and removes the routes that carry that resource. The slot must then be rebuilt before it can be used again.
+  - Storage upgrades add slots and raise the cap.
+- **Orbital links** are ordinary routes between the Core and the station, in either direction. There are 4 at level 1, upgradable in count and rate. Rare resources never travel by link; they only come home by dropship.
+- **Express launch** sends up to 400 of one resource from the Core for fuel. It arrives in 12 ticks and has a long cooldown, so it is for emergencies, not supply.
+
+## Dropships and anomalous territories
+
+- **Territories** are a shared world pool (`territories.advanceWorld`).
+  - At least 7 are open at any time. A taken territory is replaced after a short delay.
+  - Each territory has an anomaly that sets its lifetime, a rare-resource multiplier and its risk.
+  - Each territory has two common resources, one district resource and one rare resource. The territory buildings use placeholder roles (`$common1`, `$common2`, `$district`, `$rare`), resolved per territory.
+- **Deploying** a docked dropship to a territory:
+  - It lands after 15 ticks with a small construction kit plus anything preloaded from orbital storage.
+  - The territory becomes a district of type `territory`. Its storage is the ship's hold and its power is the ship's power.
+  - Only one station can hold a territory at a time.
+- **Territory buildings:**
+  - Two rigs for the common resources and a drill for the district resource.
+  - A refinery that makes stabiliser charges.
+  - A tap that burns the charges to draw the rare resource.
+  - None of them needs crew.
+- **Links:** up to 2 per ship, between the territory and the station, at the ship's link rate. Rare resources are excluded.
+- **Recalling** a ship:
+  - It takes cargo by the player's plan, rare first, up to the hold.
+  - The territory district is removed, and the cargo arrives in station storage 150 ticks later.
+  - Leaving early destabilises the territory, so the next visitor gets only 35% of its remaining time.
+  - Still being there when it closes forces a late recall that damages the ship.
+  - Shear and Flare anomalies also damage a parked ship every tick.
+- **Damage and loss:**
+  - Repairs cost the ship's invested value × the damage share.
+  - The first time a ship would be destroyed, it limps home at 10% integrity with its cargo lost. The second time, it is gone.
+  - Up to 3 ships can be owned, built and upgraded at the station.
+
+## Orbital market
+
+- This market is separate from the ground exchange. It trades only trade goods (`trade` or `orbitalTrade`), straight from orbital storage, and every order shows the station that posted it.
+- Market makers post a small bid and ask per good around the ground reference price every 240 ticks. They never trade with each other. They set the price band and a suggestion; they are not a shop.
+- Matching:
+  - Price first, then time, at the resting order's price.
+  - Sellers pay a 4% fee.
+  - Sells hold their goods and buys hold their credits from the moment they are posted.
+  - A buy also needs a free storage slot for the good.
+- Orbital-only resources never appear on the ground exchange or in contracts.
+
+## Global projects
+
+- One project runs at a time for the whole server (`projects.advanceWorld`). Each project goes through these states:
+  - **announced:** shows the next project and when it opens.
+  - **active:** takes contributions.
+  - **bonus:** completed. The bonus runs for half the contribution period.
+  - **failed or done:** the next project is announced.
+- Needs are per player, multiplied by the number of stations active since the previous announcement, so a small server can still finish one.
+- The contribution period is twice the time it would take one player to make their share at a reference rate.
+- Contributions travel by dropship. A ship is away for 240 ticks and delivers halfway through the trip. If the project closes first, the cargo comes back.
+- Completion gives every colony standing with the project's faction, and one of two kinds of bonus:
+  - an efficiency bonus for a set of buildings, on every colony;
+  - a drip of one rare resource into every station's storage.
+
+## Story
+
+- Story triggers can use the sticky flags in `colonies.orbital_flags`, set by `orbital.setFlag` (trigger `{ "type": "orbital", "flag": "launched" }`). The flags are:
+  - `unlocked`, `staging`, `catapult`, `command`, `cycleDone`
+  - `launched`, `ring2`, `ring3`
+  - `deployed`, `rareReturned`, `shipSaved`, `shipLost`
+  - `contributed`, `projectCompleted`
+- The Recontinuation story adds three scenes and six mails for chapter two. The basic theme has a shorter set.
+
+## Code map
+
+| File | What it owns |
+| --- | --- |
+| `src/orbital.js` | unlock, flags, launch cycles and launches, station, slots, links, express launch, the orbit view |
+| `src/territories.js` | the territory pool, dropships, deploy, recall, damage, repair, territory links |
+| `src/orbitalMarket.js` | the orbital order book and the market makers |
+| `src/projects.js` | global projects, contributions and bonuses |
+| `src/sim.js` | placeholder resolution (`resolveDef`), recipe books (`recipeBook`), district overrides (`capOverride`, `baseEnergy`, `outputMult`, `globalOut`) |
+| `public/js/orbit.js` | the Orbital Command panes (storage, territories, market, project) and the launch controls |
+| `test/orbital.test.js` | the whole chain, from unlock to projects |
+
+Once per tick, the shared world advances before any colony: territories, then projects, then the orbital market. Each colony's station then handles landings, returns, contributions, express arrivals and slot enforcement after the colony steps.
