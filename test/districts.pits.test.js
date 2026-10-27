@@ -9,6 +9,7 @@ const fs = require('fs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-pits-'));
 process.env.DB_PATH = path.join(dir, 'pits.db');
 process.env.SESSION_SECRET = 'x';
+process.env.THEME = 'basic'; // assertions use the neutral wording, whatever the default theme is
 process.env.HAZARDS = 'off';
 const store = require('../src/db');
 const engine = require('../src/engine');

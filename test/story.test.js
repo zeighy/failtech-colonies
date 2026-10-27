@@ -13,6 +13,7 @@ process.env.AUTH_RATE_LIMIT = '1000';
 process.env.BCRYPT_ROUNDS = '4';
 process.env.API_RATE_LIMIT = '100000';
 process.env.HAZARDS = 'off';
+process.env.THEME = 'basic'; // these tests assert the neutral theme's wording and script
 
 const app = require('../server');
 const store = require('../src/db');
@@ -79,7 +80,7 @@ test('THEME must be a plain folder name', () => {
   try {
     for (const bad of ['../x', 'a/b', '.hidden', 'A B', '']) {
       process.env.THEME = bad;
-      if (bad === '') assert.equal(theme.themeId(), 'default');
+      if (bad === '') assert.equal(theme.themeId(), theme.DEFAULT_THEME);
       else assert.throws(() => theme.themeId(), /not a valid folder/);
     }
   } finally { if (was === undefined) delete process.env.THEME; else process.env.THEME = was; }
@@ -213,6 +214,7 @@ test('the story and theme endpoints: story needs a login, theme is public and ca
   const t = await anon.get('/api/theme');
   assert.equal(t.status, 200);
   assert.equal(t.body.ui.brand, 'FAILTECH');
+  assert.equal(t.body.id, 'basic');
   assert.ok(!JSON.stringify(t.body).includes('Hub Steward'));
 });
 
@@ -241,7 +243,8 @@ test('restarting a colony starts its story over', async () => {
 // ---- every theme shipped in content/ ----------------------------------------------
 test('every theme in content/ applies cleanly and has a valid story', () => {
   const themes = theme.listThemes();
-  assert.ok(themes.includes('default') && themes.includes('recontinuation'));
+  assert.ok(themes.includes('basic') && themes.includes('recontinuation'));
+  assert.equal(theme.DEFAULT_THEME, 'recontinuation');
   for (const id of themes) {
     const cfg = JSON.parse(JSON.stringify(config));
     const t = theme.readJson(path.join(theme.ROOT, id, 'theme.json'));
@@ -269,11 +272,11 @@ test('new validation rules: prompt needs choices, trigger progress needs a numbe
 });
 
 // ---- the Recontinuation script, run as a whole -----------------------------------
-test('Recontinuation: 12 dialogues, 22 campaign mails and 12 open beats, delivered in the written order', () => {
+test('Recontinuation: 13 dialogues, 22 campaign mails and 12 open beats, delivered in the written order', () => {
   const s = theme.readJson(path.join(theme.ROOT, 'recontinuation', 'story.json'));
   const campaign = s.beats.filter((b) => b.phase === 'campaign');
   const open = s.beats.filter((b) => b.phase === 'open');
-  assert.equal(campaign.filter((b) => b.delivery === 'dialogue').length, 12);
+  assert.equal(campaign.filter((b) => b.delivery === 'dialogue').length, 13);
   assert.equal(campaign.filter((b) => b.delivery === 'mail').length, 22);
   assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 6);
   assert.equal(open.filter((b) => b.delivery === 'mail').length, 6);

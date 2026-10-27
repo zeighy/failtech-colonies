@@ -399,7 +399,8 @@
     var eb = $('c-energy-bar'); eb.style.width = (e.demand ? clamp(e.supply / e.demand, 0, 1) * 100 : 100) + '%';
     eb.style.background = ok ? 'var(--energy)' : e.satisfaction > 0.5 ? 'var(--warn)' : 'var(--bad)';
     var d = S.doom, dc = $('c-doom');
-    if (!d) { dc.innerHTML = '<span class="good">Stable</span>'; dc.title = 'No critical supply is draining at current rates.'; }
+    if (d && d.phase === 'shutdown') { dc.innerHTML = '<span class="warn">Shut down</span>'; dc.title = 'The colony is shut down. Non-essential buildings are parked until you restart them.'; }
+    else if (!d) { dc.innerHTML = '<span class="good">Stable</span>'; dc.title = 'No critical supply is draining at current rates.'; }
     else {
       var urgent = d.phase === 'starving' || d.ticks <= 20;
       dc.innerHTML = '<span class="' + (urgent ? 'bad' : d.ticks <= 40 ? 'warn' : '') + '">' + d.ticks + 't</span><small>' + clock(d.ticks * S.tickMs) + '</small>';
@@ -453,7 +454,8 @@
     var h = '', c = S.colony;
     if (!connected) h += '<div class="alert warn">' + icon('warn', 14) + (pending.length ? 'Offline: ' + pending.length + ' action' + (pending.length === 1 ? '' : 's') + ' waiting to be sent' : 'Connection lost. Retrying…') + '</div>';
     else if (flushing) h += '<div class="alert warn">' + icon('truck', 14) + 'Reconnected: sending ' + pending.length + ' queued action' + (pending.length === 1 ? '' : 's') + '…</div>';
-    if (c.starving.length) {
+    if (c.shutdown) h += '<div class="alert" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + 'Colony shut down' + (c.parked ? ' · ' + c.parked + ' building' + (c.parked === 1 ? '' : 's') + ' parked' : '') + '</div>';
+    if (c.starving.length && !c.shutdown) {
       var left = Math.ceil(c.morale / (100 / CFG.failureThresholdTicks));
       h += '<div class="alert">' + icon('warn', 14) + 'Shortage of ' + c.starving.map(function (r) { return CFG.resources[r].name; }).join(' & ') + ' · collapse in ' + left + ' ticks</div>';
     } else {
@@ -667,6 +669,13 @@
   function names(list) { return list.map(function (r) { return CFG.resources[r].name; }).join(', '); }
   function doomCard() {
     var d = S.doom;
+    if (d && d.phase === 'shutdown') {
+      var pk = S.colony.parked;
+      return '<div class="doom warn"><div class="label">Shutdown</div><div class="big warn">COLONY SHUT DOWN</div>' +
+        '<div>' + (pk ? pk + ' building' + (pk === 1 ? ' is' : 's are') + ' parked. Only the essentials are running.' : 'Everything is running again, but the colony is still recovering.') + ' Fix what ran short, then bring the rest back when you are ready.</div>' +
+        (pk ? '<div class="actions" style="margin-top:10px"><button class="btn primary" data-act="resumeOps">Restart parked buildings (' + pk + ')</button></div>' : '') +
+        '<div class="dim" style="margin-top:8px;font-size:11px">Rather start over? Abandon colony is in the command menu.</div></div>';
+    }
     if (!d) {
       return '<div class="doom ok"><div class="label">Collapse clock</div><div class="big good">STABLE</div>' +
         '<div class="dim">Nothing critical is draining at current rates. Growth or losses can change that.</div></div>';
@@ -1301,10 +1310,21 @@
       '<button class="btn block" data-m="logout">Sign out</button><button class="btn block" data-m="close">Close</button></div>');
   }
   MODALS.confirmReset = function () {
-    modal('<h2>Abandon this colony?</h2><p>All structures, stockpiles and credits are lost and you restart from the beginning. This cannot be undone.</p>' +
-      '<div class="actions"><button class="btn" data-m="close">Keep playing</button><button class="btn danger" data-m="reset">Abandon colony</button></div>');
+    modal('<h2>Abandon this colony?</h2><p>All structures, stockpiles and credits are lost, and your progress resets to the very beginning. Story messages you have received start over too.</p>' +
+      '<div class="actions"><button class="btn" data-m="close">Keep playing</button><button class="btn danger" data-m="confirmReset2">Continue</button></div>');
+  };
+  MODALS.confirmReset2 = function () {
+    modal('<h2>Are you sure?</h2><p><b>This erases everything and cannot be undone.</b> There is no way to get this colony back. If it is only struggling, you can keep playing and rebuild instead.</p>' +
+      '<div class="actions"><button class="btn primary" data-m="close">Keep playing</button><button class="btn danger" data-m="reset">Yes, erase it and start over</button></div>');
   };
   function checkModals() {
+    if (S.colony.shutdown && !document.querySelector('.modal') && !storeGet('shut:' + S.user + ':' + S.colony.shutdown.since)) {
+      storeSet('shut:' + S.user + ':' + S.colony.shutdown.since, '1');
+      var sh = (CFG.ui && CFG.ui.shutdown) || {};
+      modal('<h2>' + esc(sh.title || 'Colony shut down') + '</h2><p>' + esc(sh.text || 'Hope has run out. The colony has shut down instead of collapsing: only the essential buildings are running and everything else has been parked. Rebuild from here at your own pace.') + '</p>' +
+        '<p class="dim">' + esc(sh.hint || 'If you would rather begin again, Abandon colony is in the command menu.') + '</p>' +
+        '<div class="actions"><button class="btn primary" data-m="close">' + esc(sh.button || 'Understood') + '</button></div>', 'report');
+    }
     if (S.colony.status === 'failed' && !restarting && !document.querySelector('.modal.fail')) {
       var fl = (CFG.ui && CFG.ui.failed) || {};
       var cr = fmt(S.colony.restartCredits);
@@ -1335,6 +1355,7 @@
     var a = el.dataset.act;
     var sh = e.shiftKey ? 10 : 1; // hold Shift for bigger steps
     if (a === 'tab') { e.preventDefault(); tab = el.dataset.tab; renderAll(); }
+    else if (a === 'resumeOps') act('resume', {});
     else if (a === 'build' && sel && sel.ring) act('build', { ring: sel.ring, slot: sel.slot, type: el.dataset.type, district: activeId });
     else if (a === 'toggle') {
       var tb = buildingAt(+el.dataset.ring, +el.dataset.slot);
@@ -1571,6 +1592,7 @@
     if (ui.title) document.title = ui.title;
     if (ui.brand) document.querySelector('.brand').textContent = ui.brand;
     var ids = { credits: 'c-credits', population: 'c-pop', crew: 'c-crew', morale: 'c-morale', doom: 'c-doom', energy: 'c-energy', convoy: 'c-convoy', tick: 'c-tick' };
+    if (window.Terms) window.Terms.init(ui.terms);
     Object.keys(ids).forEach(function (k) { var l = ui.labels && ui.labels[k]; var el = $(ids[k]); if (l && el && el.previousElementSibling) el.previousElementSibling.textContent = l; });
   }
   window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, changed: function () { if (S) { renderTabs(); renderPanel(); } } });

@@ -2,6 +2,7 @@
 const sim = require('./sim');
 const market = require('./market');
 const story = require('./story');
+const shutdown = require('./shutdown');
 const missions = require('./missions');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
@@ -120,7 +121,7 @@ const toggle = guarded((c, { ring, slot, paused, district }) => {
   // Clients send the state they want (so a re-sent request after a dropped connection can't flip it back);
   // with no explicit state the building simply flips.
   const next = typeof paused === 'boolean' ? (paused ? 'paused' : 'active') : (b.status === 'active' ? 'paused' : 'active');
-  db.prepare('UPDATE colony_buildings SET status = ? WHERE id = ?').run(next, b.id);
+  db.prepare('UPDATE colony_buildings SET status = ?, parked = 0 WHERE id = ?').run(next, b.id);
   return OK;
 });
 
@@ -385,6 +386,9 @@ const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
   return OK;
 });
 
+// Switch every building a shutdown parked back on.
+const resumeOps = guarded((c) => (shutdown.resume(c.id) ? OK : fail('No buildings are parked.')));
+
 // Acknowledge the "while you were away" report.
 const ack = guarded((c) => {
   const row = db.prepare('SELECT MAX(id) AS id FROM colony_events WHERE colony_id = ?').get(c.id);
@@ -415,4 +419,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

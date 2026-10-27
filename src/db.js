@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -246,6 +246,10 @@ function migrate() {
       PRIMARY KEY (colony_id, beat_id)
     );
   `);
+  // v15 (additive): shutdown. A colony that would have collapsed parks its non-essential buildings and carries on.
+  for (const [table, col, ddl] of [['colonies', 'shutdown_tick', 'INTEGER'], ['colonies', 'shutdowns', 'INTEGER NOT NULL DEFAULT 0'], ['colony_buildings', 'parked', 'INTEGER NOT NULL DEFAULT 0']]) {
+    if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+  }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
 

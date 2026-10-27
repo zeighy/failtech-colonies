@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "TICK_MS=1000 node server.js",
-    "test": "node --test \"test/*.test.js\"",
-    "check-content": "node scripts/check-content.js"
+    "test": "THEME=basic node --test \"test/*.test.js\"",
+    "check-content": "node scripts/check-content.js",
+    "guide": "node scripts/gen-prod-guide.js"
   },
   "repository": {
     "type": "git",

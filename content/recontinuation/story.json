@@ -652,16 +652,8 @@
   },
   "d12_someone_heard": {
    "title": "Someone Heard",
-   "start": "n1",
+   "start": "n2",
    "nodes": {
-    "n1": {
-     "who": "signal",
-     "text": [
-      "Listener. A light in the dark. We heard."
-     ],
-     "next": "n2",
-     "mood": "happy"
-    },
     "n2": {
      "who": "seven",
      "text": [
@@ -975,6 +967,57 @@
     }
    },
    "background": "freight_road.jpg"
+  },
+  "d11b_the_message": {
+   "title": "The Message",
+   "background": "beacon_night.jpg",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "seven",
+     "mood": "surprised",
+     "text": [
+      "Commander, transmission complete. The beacon has said everything it was built to say.",
+      "This node has no instruction for what happens next. That is not a new feeling. It has never been this loud."
+     ],
+     "next": "n2"
+    },
+    "n2": {
+     "who": "signal",
+     "mood": "happy",
+     "text": [
+      "Listener. A light in the dark. We heard."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "seven",
+     "mood": "afraid",
+     "text": [
+      "Commander, an acknowledgement has been received. This node did not send it.",
+      "The Office cannot say who did."
+     ],
+     "next": "n4"
+    },
+    "n4": {
+     "who": "raf",
+     "tag": "radio",
+     "mood": "happy",
+     "text": [
+      "Boss, every dial on the road just swung toward you. I have been driving these roads for eleven years and I have never seen a needle move on its own.",
+      "Whatever you did out there, it worked. Mostly. I'd get to the harbour before somebody else does."
+     ],
+     "next": "n5"
+    },
+    "n5": {
+     "who": "seven",
+     "mood": "serious",
+     "text": [
+      "The Office notes a harbour to the east, once a sanctuary port. Its lights are reported to be on.",
+      "This node recommends you build there. It also recommends you do not expect it to be free."
+     ]
+    }
+   }
   }
  },
  "beats": [
@@ -1376,6 +1419,15 @@
      "I do not know what the word refers to. I do not know if it means anything. I am telling you because you are about to switch on a beacon, and I would feel worse if I had not."
     ]
    }
+  },
+  {
+   "id": "d11b_the_message",
+   "phase": "campaign",
+   "trigger": {
+    "type": "won"
+   },
+   "delivery": "dialogue",
+   "scene": "d11b_the_message"
   },
   {
    "id": "d12_someone_heard",

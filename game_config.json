@@ -70,6 +70,10 @@
     "mealsPerPopPerTick": 0.05,
     "emigrationEveryTicks": 2,
     "minPopulation": 5,
+    "shutdown": {
+      "morale": 35,
+      "recoverMorale": 60
+    },
     "exodus": {
       "starvingFraction": 0.06,
       "lowMoraleBelow": 45,
@@ -486,6 +490,7 @@
   },
   "buildings": {
     "solar_array": {
+      "essential": true,
       "name": "Solar Array",
       "type": "generator",
       "desc": "Collector fields feeding the colony grid. The backbone of everything else.",
@@ -503,6 +508,7 @@
       "expand": "infrastructure"
     },
     "scrap_extractor": {
+      "essential": true,
       "name": "Scrap Extractor",
       "type": "extractor",
       "desc": "Strip-mines the wreckage fields. Feeds the assemblers.",
@@ -523,6 +529,7 @@
       "expand": "industry"
     },
     "water_pump": {
+      "essential": true,
       "name": "Groundwater Pump",
       "type": "extractor",
       "desc": "Pulls toxic water from the aquifer. Undrinkable until filtered.",
@@ -543,6 +550,7 @@
       "expand": "industry"
     },
     "water_purifier": {
+      "essential": true,
       "name": "Filtration Plant",
       "type": "refinery",
       "desc": "Turns raw water into something people can actually drink.",
@@ -586,6 +594,7 @@
       "expand": "industry"
     },
     "hydroponics_bay": {
+      "essential": true,
       "name": "Hydroponics Bay",
       "type": "producer",
       "desc": "Grows rations under lamps. Needs clean water to run.",
@@ -639,6 +648,7 @@
       "expand": "industry"
     },
     "scrap_generator": {
+      "essential": true,
       "name": "Scrap Burner",
       "type": "generator",
       "desc": "Burns scrap for serious power. Wants a big plot to breathe.",
@@ -766,6 +776,7 @@
       "expand": "industry"
     },
     "warehouse": {
+      "essential": true,
       "name": "Warehouse",
       "type": "utility",
       "desc": "Extra racking: raises the storage cap of every resource.",
@@ -1063,6 +1074,7 @@
       "expand": "industry"
     },
     "fuel_generator": {
+      "essential": true,
       "name": "Fuel Generator",
       "type": "generator",
       "desc": "Burns refined fuel for serious power.",

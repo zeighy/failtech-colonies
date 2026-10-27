@@ -1,7 +1,7 @@
 # Themes and story: how the content layer works
 
 All wording and narrative live in `content/<theme>/`. The rules (`game_config.json`) never change with a theme.
-Pick a theme with the `THEME` environment variable (default `default`). Check your edits with `npm run check-content`.
+Pick a theme with the `THEME` environment variable (default `recontinuation`; `basic` is the neutral original wording). Check your edits with `npm run check-content`.
 
 ```
 content/<theme>/
@@ -122,3 +122,9 @@ needs is in the view built by `src/state.js`.
 
 A theme is a folder. To publish the game with different wording, ship another `content/<name>/` and set `THEME`.
 Portraits and backgrounds live under that theme's `assets/`, so artwork travels with the theme and nothing else.
+
+## Future work: inline images in mail (not built)
+
+The mail reading window already lets an image fit the width of the window, but the mail format has no way to include one.
+The plan is an optional `images` list on `mail` (file names in `assets/`, shown between paragraphs or after the body) with
+the same checks as portraits (plain file names, existing files only, reported by `npm run check-content`).

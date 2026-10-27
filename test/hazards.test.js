@@ -8,6 +8,7 @@ const fs = require('fs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-haz-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
 process.env.SESSION_SECRET = 'test-secret';
+process.env.THEME = 'basic'; // assertions use the neutral wording, whatever the default theme is
 process.env.AUTH_RATE_LIMIT = '1000';
 
 const engine = require('../src/engine');

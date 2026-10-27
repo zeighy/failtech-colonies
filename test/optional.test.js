@@ -8,6 +8,7 @@ const os = require('os');
 // The database must be a throwaway one before anything that touches it is loaded.
 process.env.DB_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-opt-')), 'o.db');
 process.env.SESSION_SECRET = 'x';
+process.env.THEME = 'basic'; // assertions use the neutral wording, whatever the default theme is
 process.env.HAZARDS = 'off';
 const sim = require('../src/sim');
 

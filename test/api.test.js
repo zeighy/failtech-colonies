@@ -8,6 +8,7 @@ const fs = require('fs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
 process.env.SESSION_SECRET = 'test-secret';
+process.env.THEME = 'basic'; // assertions use the neutral wording, whatever the default theme is
 process.env.AUTH_RATE_LIMIT = '1000';
 process.env.BCRYPT_ROUNDS = '4';
 process.env.API_RATE_LIMIT = '100000';
@@ -170,19 +171,29 @@ test('convoy: standing contracts execute when the convoy arrives', async () => {
   assert.deepEqual(cleared.body.state.contracts.export, {});
 });
 
-test('collapse: failed colony stops ticking, restart keeps part of the credits', async () => {
+test('collapse: the colony shuts down instead of being lost, and can still be played or abandoned', async () => {
   const c = await newPlayer();
   tick(80);
   let s = (await c.get('/api/state')).body;
-  assert.equal(s.colony.status, 'failed');
+  assert.equal(s.colony.status, 'active', 'no longer written off');
+  assert.ok(s.colony.shutdown, 'it is shut down');
+  assert.equal(s.colony.shutdowns, 1);
+  assert.equal(s.doom.phase, 'shutdown');
+  assert.equal((await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' })).status, 200, 'the player can still act');
+  assert.equal((await c.post('/api/restart')).status, 400, 'restart is only for old, already-failed colonies');
+  assert.equal((await c.post('/api/resume')).status, 400, 'nothing was parked');
+});
+
+test('an old colony already marked failed can still restart and keeps part of its credits', async () => {
+  const c = await newPlayer();
+  const cid = store.db.prepare('SELECT id FROM colonies ORDER BY id DESC LIMIT 1').get().id;
+  store.db.prepare("UPDATE colonies SET status = 'failed' WHERE id = ?").run(cid);
   assert.equal((await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' })).status, 400);
   const r = await c.post('/api/restart');
   assert.equal(r.status, 200);
-  s = r.body.state;
-  assert.equal(s.colony.status, 'active');
-  assert.equal(s.colony.failures, 1);
-  assert.equal(s.buildings.length, 0);
-  assert.equal((await c.post('/api/restart')).status, 400); // only valid after a collapse
+  assert.equal(r.body.state.colony.status, 'active');
+  assert.equal(r.body.state.colony.failures, 1);
+  assert.equal((await c.post('/api/restart')).status, 400);
 });
 
 test('manual reset wipes everything back to the start', async () => {

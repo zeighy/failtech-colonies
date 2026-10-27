@@ -77,7 +77,7 @@ test('migration: a pre-district database keeps every colony, stockpile, building
     }));
   `], { env: { ...process.env, DB_PATH: file }, encoding: 'utf8' });
   const r = JSON.parse(out.trim().split('\n').pop());
-  assert.equal(r.version, 14);
+  assert.equal(r.version, 15);
   assert.deepEqual(r.districts, [
     { colony_id: 1, type: 'core', level: 3, name: 'The Core' },
     { colony_id: 2, type: 'core', level: 1, name: 'The Core' },
@@ -100,13 +100,14 @@ test('migration is idempotent: opening an up-to-date database again changes noth
   const run = () => JSON.parse(execFileSync(process.execPath, ['-e', script.replace("'c','x'", `'c${Math.random()}','x'`)], { env: { ...process.env, DB_PATH: file }, encoding: 'utf8' }).trim().split('\n').pop());
   const first = run();
   const second = run();
-  assert.equal(first.v, 14);
+  assert.equal(first.v, 15);
   assert.equal(second.n, first.n + 1, 'only the new colony gets a district');
 });
 
 // ---- multi-district behaviour through actions and the engine ----------------------------------
 process.env.DB_PATH = path.join(dir, 'live.db');
 process.env.SESSION_SECRET = 'x';
+process.env.THEME = 'basic'; // assertions use the neutral wording, whatever the default theme is
 process.env.HAZARDS = 'off';
 const store = require('../src/db');
 const sim = require('../src/sim');

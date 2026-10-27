@@ -12,6 +12,7 @@ const fs = require('fs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-bot-'));
 process.env.DB_PATH = path.join(dir, 'bot.db');
 process.env.SESSION_SECRET = 'x';
+process.env.THEME = 'basic'; // assertions use the neutral wording, whatever the default theme is
 process.env.HAZARDS = 'off';
 const store = require('../src/db');
 const engine = require('../src/engine');
@@ -117,7 +118,7 @@ function play(maxTicks) {
   for (let t = 1; t <= maxTicks; t++) {
     engine.processTick();
     const c = db.prepare('SELECT * FROM colonies WHERE id = ?').get(id);
-    if (c.status === 'failed') return { failed: true, t, log };
+    if (c.status === 'failed' || c.shutdown_tick !== null) return { failed: true, t, log };
     if (c.won) return { won: true, t, log };
     const core = byType('core');
 

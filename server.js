@@ -12,6 +12,7 @@ const actions = require('./src/actions');
 const security = require('./src/security');
 const story = require('./src/story');
 const theme = require('./src/theme');
+const backup = require('./src/backup');
 const config = store.config;
 const { body: plainBody } = require('./src/validate');
 const { viewFor, clientConfig } = require('./src/state');
@@ -209,7 +210,7 @@ const act = (name) => (req, res) => {
 };
 for (const [route, name] of [
   ['build', 'build'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['boost', 'setBoost'], ['expand', 'expand'], ['cancel', 'cancelOrder'],
-  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['market', 'marketPost'], ['recipe', 'setRecipe'], ['shield', 'shieldHazard'], ['mission', 'missionFill'], ['market-cancel', 'marketCancel'], ['route', 'setRoute'], ['link', 'upgradeLink'], ['story-seen', 'storySeen'],
+  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['market', 'marketPost'], ['recipe', 'setRecipe'], ['shield', 'shieldHazard'], ['mission', 'missionFill'], ['market-cancel', 'marketCancel'], ['route', 'setRoute'], ['link', 'upgradeLink'], ['story-seen', 'storySeen'], ['resume', 'resumeOps'],
 ]) app.post(`/api/${route}`, requireAuth, act(name));
 
 // ---- pages ----------------------------------------------------------------------
@@ -259,7 +260,7 @@ function acquireLock() {
 // Stop ticking, end the SSE streams (they would keep the server open forever), let in-flight
 // requests finish, then close the database so the WAL is checkpointed. Missed ticks are
 // caught up on the next start, so nothing is lost by stopping early.
-function installShutdown(server) {
+function installShutdown(server, stopBackups) {
   let closing = false;
   const shutdown = (reason, code = 0) => {
     if (closing) return;
@@ -268,6 +269,7 @@ function installShutdown(server) {
     const force = setTimeout(() => { console.error('Shutdown timed out; forcing exit.'); process.exit(1); }, 8000);
     force.unref();
     engine.stop();
+    if (stopBackups) stopBackups();
     for (const set of streams.values()) for (const r of set) r.end();
     server.close(() => {
       try { store.db.close(); } catch (e) { console.error('Database close failed:', e); code = code || 1; }
@@ -286,11 +288,12 @@ if (require.main === module) {
   engine.start();
   setInterval(() => store.purgeSessions(), 3600000).unref();
   store.purgeSessions();
+  const stopBackups = backup.start();
   const server = app.listen(PORT, () => console.log(`FAILTECH command running at http://localhost:${PORT}`));
   server.requestTimeout = 30000;
   server.headersTimeout = 15000;
   server.keepAliveTimeout = 15000;
   server.maxHeadersCount = 50;
-  installShutdown(server);
+  installShutdown(server, stopBackups);
 }
 module.exports = app;

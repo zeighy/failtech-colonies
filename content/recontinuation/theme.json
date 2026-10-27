@@ -45,6 +45,186 @@
       "carry": "The Office will carry {credits} Liquid Credits to your next assignment.",
       "count": "Sites written off so far: {n}.",
       "button": "Request a new assignment"
+    },
+    "terms": [
+      [
+        "Mission accomplished",
+        "Message delivered"
+      ],
+      [
+        "Free Port",
+        "Sanctuary Port"
+      ],
+      [
+        "free port",
+        "Sanctuary Port"
+      ],
+      [
+        "power grid",
+        "Klein grid"
+      ],
+      [
+        "Power grid",
+        "Klein Grid"
+      ],
+      [
+        "POWER GRID",
+        "KLEIN GRID"
+      ],
+      [
+        "collapse clock",
+        "Net Drag clock"
+      ],
+      [
+        "Collapse clock",
+        "Net Drag clock"
+      ],
+      [
+        "COLLAPSE CLOCK",
+        "NET DRAG CLOCK"
+      ],
+      [
+        "hub",
+        "Command Hub"
+      ],
+      [
+        "Hub",
+        "Command Hub"
+      ],
+      [
+        "HUB",
+        "COMMAND HUB"
+      ],
+      [
+        "convoys",
+        "logistics runs"
+      ],
+      [
+        "Convoys",
+        "Logistics Runs"
+      ],
+      [
+        "convoy",
+        "logistics run"
+      ],
+      [
+        "Convoy",
+        "Logistics Run"
+      ],
+      [
+        "CONVOY",
+        "LOGISTICS RUN"
+      ],
+      [
+        "credits",
+        "liquid credits"
+      ],
+      [
+        "Credits",
+        "Liquid Credits"
+      ],
+      [
+        "credit",
+        "liquid credit"
+      ],
+      [
+        "morale",
+        "cohesion"
+      ],
+      [
+        "Morale",
+        "Cohesion"
+      ],
+      [
+        "MORALE",
+        "COHESION"
+      ],
+      [
+        "ticks",
+        "cycles"
+      ],
+      [
+        "Ticks",
+        "Cycles"
+      ],
+      [
+        "tick",
+        "cycle"
+      ],
+      [
+        "Tick",
+        "Cycle"
+      ],
+      [
+        "TICK",
+        "CYCLE"
+      ],
+      [
+        "Mission filled",
+        "Posting filled"
+      ],
+      [
+        "New mission",
+        "New posting"
+      ],
+      [
+        "A mission lapsed",
+        "A posting lapsed"
+      ],
+      [
+        "mission lapsed",
+        "posting lapsed"
+      ],
+      [
+        "missions",
+        "postings"
+      ],
+      [
+        "Missions",
+        "Postings"
+      ],
+      [
+        "exchange",
+        "harbour ledger"
+      ],
+      [
+        "Exchange",
+        "Harbour Ledger"
+      ],
+      [
+        "EXCHANGE",
+        "HARBOUR LEDGER"
+      ],
+      [
+        "crew",
+        "workforce"
+      ],
+      [
+        "Crew",
+        "Workforce"
+      ],
+      [
+        "CREW",
+        "WORKFORCE"
+      ],
+      [
+        "Beacon",
+        "Series-9 Beacon"
+      ]
+    ],
+    "login": {
+      "signIn": "Sign in",
+      "register": "New Commander",
+      "callsign": "Commander ID",
+      "passcode": "Passcode",
+      "enter": "Report for duty",
+      "found": "Accept assignment"
+    },
+    "shutdown": {
+      "title": "Colony shut down",
+      "text": "Net Drag has run out, but the Office has not written Site 7 off. It has put the colony into shutdown: only the essentials are running, everything else is parked, and a skeleton workforce is holding on. Rebuild from here at your own pace.",
+      "hint": "If you would rather start over, Abandon colony is in the command menu.",
+      "button": "Understood"
     }
   },
   "resources": {
@@ -410,5 +590,130 @@
     "Harbour Tender",
     "Quartermaster's Chit"
   ],
-  "directives": {}
+  "directives": {
+    "power": {
+      "title": "Power",
+      "hint": "The hub's own supply will not carry much. Everything that wants energy competes for the same grid, and a shortfall slows all of it. This node recommends a source."
+    },
+    "scrap": {
+      "title": "Reclaim",
+      "hint": "Reclaim pays for every structure, and some machines consume it. The cache only ever goes down unless something is digging."
+    },
+    "parts": {
+      "title": "Hard-Spec",
+      "hint": "The advanced structures need parts you are not holding. Nobody sells them cheaply, and they do not appear on their own."
+    },
+    "water": {
+      "title": "Filtrate",
+      "hint": "Water from the ground is poison. The colony drinks from clean tanks, and the tanks are draining."
+    },
+    "food": {
+      "title": "Nutrient Paste",
+      "hint": "Paste does not appear on its own. Growing it needs light, filtrate and components, and the beds take time to build."
+    },
+    "adjacency": {
+      "title": "Good Neighbours",
+      "hint": "Placement matters. Inspect a structure to see who sits beside it, and consider who should not."
+    },
+    "steady": {
+      "title": "Break-Even Certificate",
+      "hint": "Everything the colony consumes must be replaced. Watch the green and red rates beside your stockpiles and the grid at the top. Net Drag only pauses when the books balance."
+    },
+    "market": {
+      "title": "The Logistics Run",
+      "hint": "A run passes on a schedule, at prices that wobble with the road. It only carries what you arranged before it arrived, and it pays for surplus."
+    },
+    "hub2": {
+      "title": "Room to Grow",
+      "hint": "The first ring fills quickly. The Command Hub itself can be pushed further, at a price, and more of the map opens with it."
+    },
+    "plots": {
+      "title": "Elbow Room",
+      "hint": "Some structures want more room than the inner rings offer. A cramped plot still works, at a cost. The outer rings are bigger."
+    },
+    "housing": {
+      "title": "A Roof Overhead",
+      "hint": "The hub's own quarters only hold so many, and machines need people to run them. More homes mean more hands, and more hands mean more can run at once."
+    },
+    "meals": {
+      "title": "Heavy Meals",
+      "hint": "Paste keeps people alive, not content. A proper meal does something paste never will, and it starts with the paste you already make."
+    },
+    "quiet": {
+      "title": "A Quiet Corner",
+      "hint": "People sleep badly beside furnaces and drills. Where the homes go decides how the neighbourhood feels, and a good meal can only offset so much."
+    },
+    "storm": {
+      "title": "Weather Has Opinions",
+      "hint": "Something will eventually be headed your way. What the colony holds in reserve when it lands decides how badly it hurts."
+    },
+    "materials": {
+      "title": "Print Stock",
+      "hint": "The larger upgrades want a feedstock nobody mines. Something has to print it, and that something wants a bigger plot."
+    },
+    "hub3": {
+      "title": "Upkeep",
+      "hint": "A bigger hub is a hungrier one. From here it draws on the colony just to stand, so plan for the drain before you pay for it."
+    },
+    "alloys": {
+      "title": "Spine Alloy",
+      "hint": "Structural metals need furnaces, and furnaces need room to breathe."
+    },
+    "hub4": {
+      "title": "A Wider Circle",
+      "hint": "Another ring, another bill. The upkeep climbs, and it now includes things you had to make."
+    },
+    "district": {
+      "title": "Beyond the Walls",
+      "hint": "The Command Hub is wide enough to reach past its own rings. Somewhere out there is ground worth holding, and it will have to be paid for from your own stockpile."
+    },
+    "ore": {
+      "title": "Raw From the Ground",
+      "hint": "A territory makes its own power and keeps its own stockpile. Whatever it digs up has to be fed and powered before it is any use to the colony."
+    },
+    "route": {
+      "title": "Standing Orders",
+      "hint": "Hauling goods by hand does not scale. Some things are needed every cycle, and a standing arrangement can bring them without you. Mind how much the road can carry."
+    },
+    "exchange": {
+      "title": "Name Your Price",
+      "hint": "The Logistics Run takes what it is offered, at its own prices. Somewhere there is a board where you can say what you will pay, or what you will take, and wait for someone to agree."
+    },
+    "synth": {
+      "title": "Something Synthetic",
+      "hint": "Plastics and fine chemistry come from the old refineries, a long way from the hub. Whoever works there will need metal they cannot make."
+    },
+    "circuits": {
+      "title": "Fine Work",
+      "hint": "Precision parts need ink, polymers, patience, and a plot that gives them space."
+    },
+    "cells": {
+      "title": "Concentrated Power",
+      "hint": "Something has to combine your best alloys and your finest circuits into a compact power source. It is the most demanding thing you will build."
+    },
+    "medicine": {
+      "title": "Something to Heal With",
+      "hint": "The last materials for the transmitter are grown, not forged, in the one place that still has clean ground. It will want chemistry and polymers from elsewhere."
+    },
+    "hub5": {
+      "title": "The Far Ring",
+      "hint": "The outermost ring has plots big enough for anything. The Command Hub has to be strong enough to open it."
+    },
+    "beacon": {
+      "title": "Form 7-B: Beacon",
+      "hint": "A transmitter big enough to be heard across the ruins wants the largest plot, the finest materials and a great deal of power."
+    },
+    "transmit": {
+      "title": "Hold the Signal",
+      "hint": "It has to keep running, powered and supplied, until the message gets through. Anything that interrupts it costs you time."
+    },
+    "harbour": {
+      "title": "Someone Heard",
+      "hint": "The signal reached something. There is a harbour now that will take anything you can make, and it is not short of ways to waste your time. It will want paying for, in full."
+    },
+    "mission": {
+      "title": "A Name on the Board",
+      "hint": "People there post what they need and name what they will pay. Doing someone a favour is a kind of currency, though nobody has said what it buys."
+    }
+  }
 }

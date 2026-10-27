@@ -1,5 +1,6 @@
 'use strict';
 // The theme layer: everything a player reads that is *wording* rather than *rules* lives in content/<theme>/.
+//   (the folder named by THEME; default "recontinuation". "basic" is the neutral original wording.)
 //   theme.json  names and descriptions for resources, buildings, districts, hazards, factions, recipes and directives,
 //               plus the UI labels. Partial files are fine: anything missing keeps the name in game_config.json.
 //   story.json  characters, scenes, beats and mail (see src/story.js).
@@ -10,10 +11,11 @@ const path = require('path');
 const { DIRECTIVE_IDS } = require('./objectives');
 
 const ROOT = path.join(__dirname, '..', 'content');
+const DEFAULT_THEME = 'recontinuation';
 const THEME_ID = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 
 function themeId() {
-  const id = process.env.THEME || 'default';
+  const id = process.env.THEME || DEFAULT_THEME;
   if (!THEME_ID.test(id)) throw new Error(`THEME "${id}" is not a valid folder name.`);
   return id;
 }
@@ -51,6 +53,10 @@ function apply(config, theme) {
       }
     }
   }
+  if (theme.ui && theme.ui.terms !== undefined) {
+    const t = theme.ui.terms;
+    if (!Array.isArray(t) || !t.every((r) => Array.isArray(r) && r.length === 2 && r.every((x) => typeof x === 'string' && x.length))) problems.push('theme.ui.terms: must be a list of [from, to] text pairs');
+  }
   // Faction ranks are fiction only: [{ min, name }] in ascending order, the first at 0. They never change a rule.
   for (const [id, ranks] of Object.entries(theme.ranks || {})) {
     if (!Object.prototype.hasOwnProperty.call(config.missions.factions, id)) { problems.push(`theme.ranks.${id}: no such faction`); continue; }
@@ -82,4 +88,4 @@ function load(config) {
 // Folder names under content/ that look like themes.
 const listThemes = () => fs.readdirSync(ROOT, { withFileTypes: true }).filter((e) => e.isDirectory() && THEME_ID.test(e.name)).map((e) => e.name);
 
-module.exports = { listThemes, load, apply, dir, themeId, readJson, SECTIONS, ROOT };
+module.exports = { DEFAULT_THEME, listThemes, load, apply, dir, themeId, readJson, SECTIONS, ROOT };

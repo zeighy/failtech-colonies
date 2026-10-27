@@ -1,5 +1,5 @@
 'use strict';
-// Validates the active theme (THEME=<folder>, default "default"): theme.json against game_config.json and story.json
+// Validates the active theme (THEME=<folder>, default "recontinuation"): theme.json against game_config.json and story.json
 // against itself. Exits 1 and prints every problem, so a content edit can be checked without starting the game.
 process.env.DB_PATH = process.env.DB_PATH || require('path').join(require('os').tmpdir(), `failtech-check-${process.pid}.db`);
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'check';

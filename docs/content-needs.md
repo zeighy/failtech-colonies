@@ -1,7 +1,11 @@
 # Content needs: what I need from you for the new setting
 
+> **Status:** answered. The Recontinuation setting, glossary, cast, campaign and open phase were delivered and are in
+> `content/recontinuation/` (the default theme). This document remains as the checklist for writing another theme.
+
+
 The game is now ready to take your world. **Nothing about the rules changes**: only names, descriptions, UI wording and a
-story layered on top. Everything lives in `content/default/` (copy it to `content/<yourtheme>/` and run with
+story layered on top. Everything lives in `content/basic/` (copy it to `content/<yourtheme>/` and run with
 `THEME=<yourtheme>`). `docs/story.md` explains the file formats; `npm run check-content` validates your edits.
 
 Everything below is a request, in the order I would tackle it. You do not need to answer all of it before we start: the
