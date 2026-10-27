@@ -424,3 +424,31 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .vn-name em::before { content: '('; } .vn-name em::after { content: ')'; }
 .vn-prompt { color: var(--amber); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
 .rank { color: var(--amber); }
+
+/* ---- story: incoming call dock ---- */
+.call { position: fixed; right: 16px; bottom: 66px; z-index: 70; background: var(--panel); border: 1px solid var(--line2); border-radius: 12px; box-shadow: 0 14px 50px rgba(0,0,0,.65); animation: callin .35s ease-out; max-width: calc(100vw - 32px); }
+@keyframes callin { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
+.call.ring:not(.min) { width: 340px; display: grid; grid-template-columns: 56px 1fr; gap: 4px 12px; padding: 14px; border-color: var(--amber); }
+.call-av { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 22%, #0b0f13); border: 1px solid var(--c); color: var(--c); font-weight: 700; font-size: 18px; }
+.call-av img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.call-av span { color: var(--c); }
+.call-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.call-info b { font-size: 15px; }
+.call-info small { color: var(--dim); font-size: 11px; }
+.call-label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); display: flex; align-items: center; gap: 6px; }
+.call-btns { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 8px; }
+.call-btns .btn.primary { flex: 1; }
+.call-skip { grid-column: 1 / -1; display: flex; gap: 14px; justify-content: flex-end; }
+.link { background: none; border: 0; color: var(--faint); font: inherit; font-size: 11px; padding: 2px 0; cursor: pointer; text-decoration: underline; }
+.link:hover { color: var(--text); }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); display: inline-block; animation: ringpulse 1.4s ease-out infinite; flex: none; }
+.pulse.live { background: var(--good); animation: none; }
+@keyframes ringpulse { 0% { box-shadow: 0 0 0 0 rgba(255,159,28,.7); } 100% { box-shadow: 0 0 0 10px rgba(255,159,28,0); } }
+.call.ring.min { border-color: var(--amber); }
+.call-pill { display: flex; align-items: center; gap: 9px; background: none; border: 0; color: var(--text); font: inherit; font-size: 12px; padding: 10px 14px; cursor: pointer; }
+.call-pill em { font-style: normal; color: var(--amber); }
+.call.live { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; font-size: 12px; }
+.call-who { color: var(--dim); }
+.call-who b { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .pulse, .call { animation: none; } }
+@media (max-width: 700px) { .call { right: 8px; bottom: 58px; } .call.ring:not(.min) { width: calc(100vw - 16px); } }

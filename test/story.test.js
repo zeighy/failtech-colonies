@@ -123,22 +123,51 @@ function bareColony() {
   return store.ensureColony(id);
 }
 const delivered = (cid) => db.prepare('SELECT beat_id FROM story_beats WHERE colony_id = ? ORDER BY rowid').all(cid).map((r) => r.beat_id);
+// What a player does between ticks: answer every call and read every mail.
+const readAll = (cid) => db.prepare('UPDATE story_beats SET seen = 1 WHERE colony_id = ?').run(cid);
 
-test('campaign beats are delivered strictly in order; open beats are independent; nothing fires twice', () => {
+test('campaign beats are delivered strictly in order, one at a time; open beats are independent; nothing fires twice', () => {
   const cid = bareColony();
   story.evaluate(cid, fakeView(), [], false, 1);
   assert.deepEqual(delivered(cid), ['c01_prologue']);
+  readAll(cid);
   // a later directive is done, but the one before it (power) is not: its beat waits
   story.evaluate(cid, fakeView(), ['steady'], false, 2);
   assert.deepEqual(delivered(cid), ['c01_prologue']);
-  story.evaluate(cid, fakeView(), ['power', 'steady'], false, 3);
-  assert.deepEqual(delivered(cid), ['c01_prologue', 'c02_power', 'c03_steady'], 'a backlog is delivered in script order in one pass');
+  // three beats are now due (power, steady, market): they arrive one at a time, each only after the last was dealt with
+  const due = ['power', 'steady', 'market'];
+  story.evaluate(cid, fakeView(), due, false, 3);
+  assert.deepEqual(delivered(cid), ['c01_prologue', 'c02_power']);
+  story.evaluate(cid, fakeView(), due, false, 4);
+  assert.deepEqual(delivered(cid), ['c01_prologue', 'c02_power'], 'the unread mail holds the next one back while a backlog is waiting');
+  readAll(cid);
+  story.evaluate(cid, fakeView(), due, false, 5);
+  assert.deepEqual(delivered(cid), ['c01_prologue', 'c02_power', 'c03_steady']);
+  readAll(cid);
+  story.evaluate(cid, fakeView(), due, false, 6);
+  assert.deepEqual(delivered(cid), ['c01_prologue', 'c02_power', 'c03_steady', 'c04_market']);
+  readAll(cid);
   // an open beat does not wait for the campaign
-  story.evaluate(cid, fakeView({ missions: { standing: { cinder: 12 }, filled: 1 } }), ['power', 'steady'], false, 4);
+  const v = fakeView({ missions: { standing: { cinder: 12 }, filled: 1 } });
+  story.evaluate(cid, v, due, false, 7);
   assert.ok(delivered(cid).includes('o01_cinder'));
-  story.evaluate(cid, fakeView({ missions: { standing: { cinder: 12 }, filled: 1 } }), ['power', 'steady'], false, 5);
+  readAll(cid);
+  story.evaluate(cid, v, due, false, 8);
   assert.equal(delivered(cid).filter((b) => b === 'o01_cinder').length, 1);
-  assert.equal(delivered(cid).length, 4);
+  assert.equal(delivered(cid).length, 5);
+});
+
+test('a call is never delivered while another call is unanswered, but a lone mail is not held up by unread mail', () => {
+  const cid = bareColony();
+  story.evaluate(cid, fakeView(), [], false, 1); // c01 is a dialogue: unanswered
+  story.evaluate(cid, fakeView(), ['power', 'steady'], false, 2);
+  assert.deepEqual(delivered(cid), ['c01_prologue'], 'nothing new while the call rings');
+  readAll(cid);
+  story.evaluate(cid, fakeView(), ['power'], false, 3);
+  assert.deepEqual(delivered(cid), ['c01_prologue', 'c02_power']);
+  // a single due beat (a call, c03) arrives even though a mail (c02) is unread: only a backlog waits for mail
+  story.evaluate(cid, fakeView(), ['power', 'steady'], false, 4);
+  assert.deepEqual(delivered(cid), ['c01_prologue', 'c02_power', 'c03_steady']);
 });
 
 test('trigger types read the colony state', () => {
@@ -264,7 +293,7 @@ test('Recontinuation: 12 dialogues, 22 campaign mails and 12 open beats, deliver
   const keep = { characters: saved.characters, scenes: saved.scenes, beats: saved.beats };
   try {
     real.beatOf.clear(); s.beats.forEach((b) => real.beatOf.set(b.id, b));
-    for (let tick = 1; tick <= 8; tick++) real.evaluate(cid, view, all, true, tick);
+    for (let tick = 1; tick <= 200; tick++) { real.evaluate(cid, view, all, true, tick); readAll(cid); }
     const got = db.prepare('SELECT beat_id FROM story_beats WHERE colony_id = ? ORDER BY rowid').all(cid).map((r) => r.beat_id);
     assert.equal(got.length, s.beats.length, 'every beat is reachable');
     const campaignOrder = got.filter((id) => campaign.some((b) => b.id === id));

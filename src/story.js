@@ -149,25 +149,37 @@ function fires(t, x) {
   }
 }
 
-// Deliver every beat whose moment has come. Idempotent: a beat is stored once per colony and never fires twice.
-// `done` is the set of earned directive ids, `campaignDone` whether the Brief is complete.
+// Deliver the next beat whose moment has come, one at a time. Idempotent: a beat is stored once per colony and never
+// fires twice. `done` is the set of earned directive ids, `campaignDone` whether the Brief is complete.
+//
+// Pacing: beats are worked out in script order, but at most one is delivered per call.
+//  - A dialogue (a "call") is never delivered while another call is still unanswered.
+//  - When several beats are due at once (an existing colony catching up, or one event unlocking two beats), they come
+//    one by one: the next arrives only once everything delivered so far has been answered or read.
 function evaluate(colonyId, view, done, campaignDone, tick) {
   if (!story.beats.length) return;
-  const delivered = new Map(db.prepare('SELECT beat_id, tick FROM story_beats WHERE colony_id = ?').all(colonyId).map((r) => [r.beat_id, r]));
+  const rows = db.prepare('SELECT beat_id, tick, seen FROM story_beats WHERE colony_id = ?').all(colonyId);
+  const delivered = new Map(rows.map((r) => [r.beat_id, r]));
   const x = { view, done: new Set(done), campaignDone, delivered, tick };
-  const insert = db.prepare('INSERT OR IGNORE INTO story_beats (colony_id, beat_id, tick) VALUES (?, ?, ?)');
+  // Everything that is due now, in order. Beats are only pretend-delivered here so later beats can chain off them.
+  const queue = [];
   for (let pass = 0; pass < story.beats.length; pass++) {
     let changed = false;
     let prevCampaignOk = true;
     for (const b of story.beats) {
       const have = delivered.has(b.id);
-      if (b.phase === 'campaign') {
-        if (!have && prevCampaignOk && fires(b.trigger, x)) { insert.run(colonyId, b.id, tick); delivered.set(b.id, { beat_id: b.id, tick }); changed = true; }
-        prevCampaignOk = delivered.has(b.id);
-      } else if (!have && fires(b.trigger, x)) { insert.run(colonyId, b.id, tick); delivered.set(b.id, { beat_id: b.id, tick }); changed = true; }
+      if (!have && (b.phase !== 'campaign' || prevCampaignOk) && fires(b.trigger, x)) { delivered.set(b.id, { beat_id: b.id, tick }); queue.push(b); changed = true; }
+      if (b.phase === 'campaign') prevCampaignOk = delivered.has(b.id);
     }
     if (!changed) break;
   }
+  if (!queue.length) return;
+  const unseen = rows.filter((r) => !r.seen && beatOf.has(r.beat_id));
+  const callWaiting = unseen.some((r) => beatOf.get(r.beat_id).delivery === 'dialogue');
+  const next = queue[0];
+  if (next.delivery === 'dialogue' && callWaiting) return;
+  if (queue.length > 1 && unseen.length) return;
+  db.prepare('INSERT OR IGNORE INTO story_beats (colony_id, beat_id, tick) VALUES (?, ?, ?)').run(colonyId, next.id, tick);
 }
 
 // What the live view carries: light metadata only. The text is fetched from /api/story once it has been delivered, so

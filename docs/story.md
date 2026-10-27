@@ -57,9 +57,15 @@ Only text fields can be replaced; costs, recipes and rates cannot be touched by 
   continues to `next`, or ends the scene. Choices only choose which node comes next: they never change the game.
 - **Campaign** beats are delivered strictly in file order: a beat waits until the one before it has been delivered, so
   the story always reads in order even if the player finishes directives out of order. **Open** beats are independent.
-- A beat is delivered once per colony. A **dialogue** pops up as a full-screen overlay (the player can choose Later,
-  which keeps it in Comms, or Skip); a **mail** goes to the Comms tab with an unread badge and a toast. Played dialogues
-  stay in the Comms archive and can be replayed.
+- A beat is delivered once per colony. A **dialogue** arrives as an incoming call: a card in the bottom-right corner that
+  the player answers when convenient (it also rings on login if one was triggered while they were away). Answering opens
+  the full-screen scene, which can be **minimized** at any time (button or Esc) into a small "On call" bar in the corner and
+  resumed later. The ringing card can be collapsed to a pill, or skipped. A **mail** goes to the Comms tab with an unread
+  badge and a toast. Played dialogues stay in the Comms archive and can be replayed.
+- **Pacing.** Beats are delivered one at a time. A call is never delivered while another call is unanswered. When several
+  beats are due at once (an existing colony catching up with a new script, or one event unlocking two beats), the next
+  arrives only once everything already delivered has been answered, skipped or read, so progress can be reviewed step by
+  step. A lone due beat is not held up by unread mail.
 - Restarting a colony starts its story over.
 - If anything in `story.json` is invalid the whole story is switched off (and the problems printed) rather than played
   half-broken.
@@ -82,7 +88,7 @@ Only text fields can be replaced; costs, recipes and rates cannot be touched by 
 | `after` | `beat`, `delayTicks?` | some ticks after another beat |
 
 A trigger looks at the colony's current state, so a beat can be late but never missed. A colony that has already passed
-several triggers gets its backlog in script order, and the dialogue overlay offers "Skip all".
+several triggers gets its backlog in script order, one beat at a time (see Pacing), and the call card offers "Skip all".
 
 ## Artwork
 
