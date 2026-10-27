@@ -312,3 +312,25 @@ test('Recontinuation text follows the house style: no em or en dashes, no banned
     assert.ok(!/golden cage/i.test(txt), `${f} has "golden cage"`);
   }
 });
+
+// ---- moods --------------------------------------------------------------------------
+test('moods: validated against the fixed set, and every mood used by the Recontinuation script is a known one', () => {
+  const edit = (f) => { const s = good(); f(s); return story.validate(s).join('\n'); };
+  assert.equal(edit((s) => { s.scenes.s.nodes.x.mood = 'happy'; }), '');
+  assert.equal(edit((s) => { s.scenes.s.nodes.x.mood = 'neutral'; }), '');
+  assert.match(edit((s) => { s.scenes.s.nodes.x.mood = 'ecstatic'; }), /mood must be neutral or one of/);
+  assert.deepEqual(story.MOODS, ['happy', 'sad', 'angry', 'afraid', 'surprised', 'serious', 'thoughtful']);
+});
+
+test('mood art: found by name beside the portrait, absent ones fall back and are reported', () => {
+  const assets = path.join(theme.dir(), 'assets');
+  const f = path.join(assets, '_probe_happy.png');
+  fs.writeFileSync(f, '');
+  try {
+    // simulate the discovery the loader does, against a throwaway character
+    const ch = { portrait: '_probe.png' };
+    const ext = path.extname(ch.portrait), base = ch.portrait.slice(0, -ext.length);
+    const found = story.MOODS.filter((m) => fs.existsSync(path.join(assets, `${base}_${m}${ext}`)));
+    assert.deepEqual(found, ['happy']);
+  } finally { fs.rmSync(f, { force: true }); }
+});

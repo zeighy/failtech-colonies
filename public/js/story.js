@@ -104,19 +104,22 @@
   function cur() { return p.scene.nodes[p.node]; }
   function charOf(id) { return id && content.characters[id] ? content.characters[id] : null; }
 
-  function portrait(ch, active) {
+  function portrait(ch, active, mood) {
     if (!ch) return '';
-    var inner = ch.portrait
-      ? '<img alt="" src="/theme-assets/' + encodeURIComponent(ch.portrait) + '">'
+    var file = (mood && ch.moodArt && ch.moodArt[mood]) || ch.portrait;
+    var inner = file
+      ? '<img alt="" src="/theme-assets/' + encodeURIComponent(file) + '">'
       : '<span class="vn-ph" style="--c:' + esc(ch.color || '#888') + '">' + esc(ch.name.split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join('')) + '</span>';
     return '<div class="vn-char' + (active ? ' on' : '') + '">' + inner + '</div>';
   }
+
+  function sideHtml(l, n) { return l ? portrait(charOf(l.id), n.who === l.id, l.mood) : ''; }
 
   function draw() {
     var el = document.getElementById('vn');
     if (!el) return;
     var n = cur(), ch = charOf(n.who);
-    if (ch) p.last[ch.side === 'left' ? 'left' : 'right'] = n.who;
+    if (ch) p.last[ch.side === 'left' ? 'left' : 'right'] = { id: n.who, mood: n.mood };
     var text = n.text[p.i];
     var lastPassage = p.i >= n.text.length - 1;
     var bg = p.scene.background ? ' style="background-image:url(/theme-assets/' + encodeURIComponent(p.scene.background) + ')"' : '';
@@ -130,7 +133,7 @@
         '<button class="btn" data-story="close">' + (p.replay ? 'Close' : 'Skip') + '</button>' +
         (!p.replay && pend > 1 ? '<button class="btn" data-story="skipall">Skip all (' + pend + ')</button>' : '') +
       '</div>' +
-      '<div class="vn-stage"><div class="vn-side left">' + portrait(charOf(p.last.left), n.who === p.last.left) + '</div><div class="vn-side right">' + portrait(charOf(p.last.right), n.who === p.last.right) + '</div></div>' +
+      '<div class="vn-stage"><div class="vn-side left">' + sideHtml(p.last.left, n) + '</div><div class="vn-side right">' + sideHtml(p.last.right, n) + '</div></div>' +
       '<div class="vn-box" data-story="advance" tabindex="0">' +
         (ch ? '<div class="vn-name" style="--c:' + esc(ch.color || '#ddd') + '">' + esc(ch.name) + (n.tag ? ' <em>' + esc(n.tag) + '</em>' : '') + (ch.title ? ' <small>' + esc(ch.title) + '</small>' : '') + '</div>' : '') +
         '<div class="vn-text' + (ch ? '' : ' narr') + '" id="vn-text"></div>' +

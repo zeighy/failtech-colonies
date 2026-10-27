@@ -99,6 +99,15 @@ missing, so the story can be written before the art exists. Portraits (used in s
 centre; a character without one falls back to the portrait.
 Backgrounds: 1920 x 1080.
 
+## Moods
+
+A scene node can set `"mood"` to show the speaker with a different expression. The set is fixed so that every character can
+be drawn the same way: `neutral` (the default portrait), `happy`, `sad`, `angry`, `afraid`, `surprised`, `serious`,
+`thoughtful`. The image is the portrait's name plus the mood, beside it in `assets/`: for `mags.png`, `mags_happy.png`,
+`mags_sad.png` and so on. Draw them on the same canvas, pose position and scale as the default so the swap does not jump.
+A mood image that does not exist is replaced by the default portrait, and `npm run check-content` reports any mood a
+scene uses that has not been drawn. Mood images are found when the server starts. Avatars have no moods.
+
 ## Delivery of text
 
 The live game view carries only light metadata (id, title, sender, read state). The text itself is fetched from

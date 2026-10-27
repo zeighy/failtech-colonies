@@ -272,7 +272,8 @@
      "text": [
       "Commander. You are standing in the only valley the anomalies spared. I do not know why. I stopped asking in the first year, and I started tending."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "thoughtful"
     },
     "n2": {
      "who": "seven",
@@ -512,7 +513,8 @@
      "text": [
       "A clerical error with a complete schematic, Seven."
      ],
-     "next": "n5"
+     "next": "n5",
+     "mood": "afraid"
     },
     "n5": {
      "who": "seven",
@@ -556,7 +558,8 @@
      "who": "seven",
      "text": [
       "Commander, I do not recognise that pattern. I wish to state, for the record, that I do not recognise that pattern."
-     ]
+     ],
+     "mood": "afraid"
     },
     "n4": {
      "who": "seven",
@@ -584,7 +587,8 @@
      "text": [
       "Listener. A light in the dark. We heard."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "happy"
     },
     "n2": {
      "who": "seven",
@@ -643,7 +647,8 @@
       "Look at that. Commander. I'm not saying Clipboard any more. I'm saying Hand. A Cut Hand is someone I'd hand a tool to. Don't make it a speech.",
       "Here's the situation. Foundry Nine has been dead since the Lapse. I want it relit. I've got men. I've got coal. I haven't got frames, steel, or an idea where to start."
      ],
-     "next": "n2"
+     "next": "n2",
+     "mood": "happy"
     },
     "n2": {
      "who": "seven",
@@ -681,20 +686,23 @@
        "label": "Leave it alone.",
        "next": "n5"
       }
-     ]
+     ],
+     "mood": "serious"
     },
     "n2": {
      "who": "seven",
      "text": [
       "Commander, the Office has no record of the wall. The Office has no record of Pit Nine. This node would like to be somewhere else."
      ],
-     "next": "n3"
+     "next": "n3",
+     "mood": "afraid"
     },
     "n3": {
      "who": "mags",
      "text": [
       "Join the club, Seven."
-     ]
+     ],
+     "mood": "happy"
     },
     "n4": {
      "who": "mags",
@@ -736,7 +744,8 @@
      "who": "noor",
      "text": [
       "I know, Seven. That is what I am afraid of."
-     ]
+     ],
+     "mood": "afraid"
     }
    },
    "background": "cliffside_reserve.jpg"
@@ -764,7 +773,8 @@
      "who": "noor",
      "text": [
       "I have read them aloud, Seven. Nothing happened. That is the part I cannot explain."
-     ]
+     ],
+     "mood": "afraid"
     }
    },
    "background": "cliffside_reserve.jpg"
@@ -817,7 +827,8 @@
        "label": "Leave it sealed.",
        "next": "n5"
       }
-     ]
+     ],
+     "mood": "serious"
     },
     "n2": {
      "who": "seven",

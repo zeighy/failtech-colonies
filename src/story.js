@@ -29,12 +29,16 @@
 const store = require('./db');
 const theme = require('./theme');
 const fs = require('fs');
+const path = require('path');
 const { DIRECTIVE_IDS } = require('./objectives');
 const { own, isPlain } = require('./validate');
 const { db, config } = store;
 
 const FILE = /^[a-z0-9][a-z0-9._-]{0,63}$/i;
 const COLOR = /^#[0-9a-f]{3,8}$/i;
+// The fixed set of moods a portrait can come in. A mood image is <portrait name>_<mood>.png beside the portrait, so
+// mags.png has mags_happy.png, mags_sad.png and so on. Missing ones fall back to the default (neutral) portrait.
+const MOODS = ['happy', 'sad', 'angry', 'afraid', 'surprised', 'serious', 'thoughtful'];
 const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
 
 const TRIGGERS = {
@@ -76,6 +80,7 @@ function validate(story, cfg = config) {
       const nw = `${w}.${nid}`;
       who(nw, node.who);
       if (node.tag !== undefined && !nonEmpty(node.tag)) bad(nw, 'tag must be text');
+      if (node.mood !== undefined && node.mood !== 'neutral' && !MOODS.includes(node.mood)) bad(nw, `mood must be neutral or one of ${MOODS.join(', ')}`);
       if (node.prompt !== undefined && !nonEmpty(node.prompt)) bad(nw, 'prompt must be text');
       if (node.prompt !== undefined && !node.choices) bad(nw, 'a prompt only makes sense with choices');
       if (!Array.isArray(node.text) || !node.text.length || !node.text.every(nonEmpty)) bad(nw, '"text" must be a list of passages');
@@ -114,14 +119,24 @@ function validate(story, cfg = config) {
 // listed as a note, so the story can be written before the art exists.
 function dropMissingArt(story) {
   const notes = [];
-  const have = (f) => fs.existsSync(require('path').join(theme.dir(), 'assets', f));
+  const have = (f) => fs.existsSync(path.join(theme.dir(), 'assets', f));
   for (const [id, ch] of Object.entries(story.characters)) for (const f of ['portrait', 'avatar']) if (ch[f] && FILE.test(ch[f]) && !have(ch[f])) { notes.push(`characters.${id}: ${f} "${ch[f]}" is not in assets/ yet`); delete ch[f]; }
   for (const [id, sc] of Object.entries(story.scenes)) if (sc.background && FILE.test(sc.background) && !have(sc.background)) { notes.push(`scenes.${id}: background "${sc.background}" is not in assets/ yet`); delete sc.background; }
+  // Which mood portraits exist, and which moods the script asks for that are not drawn yet.
+  const used = {};
+  for (const sc of Object.values(story.scenes)) for (const nd of Object.values(sc.nodes)) if (nd.who && nd.mood && nd.mood !== 'neutral') (used[nd.who] = used[nd.who] || new Set()).add(nd.mood);
+  for (const [id, ch] of Object.entries(story.characters)) {
+    ch.moodArt = {};
+    if (!ch.portrait) continue;
+    const ext = path.extname(ch.portrait), base = ch.portrait.slice(0, -ext.length);
+    for (const m of MOODS) if (have(`${base}_${m}${ext}`)) ch.moodArt[m] = `${base}_${m}${ext}`;
+    for (const m of used[id] || []) if (!ch.moodArt[m]) notes.push(`characters.${id}: mood "${m}" is used in a scene but "${base}_${m}${ext}" is not in assets/ yet`);
+  }
   return notes;
 }
 
 function loadStory() {
-  const story = theme.readJson(require('path').join(theme.dir(), 'story.json'), { characters: {}, scenes: {}, beats: [] });
+  const story = theme.readJson(path.join(theme.dir(), 'story.json'), { characters: {}, scenes: {}, beats: [] });
   const problems = story.beats.length || Object.keys(story.scenes).length ? validate(story) : [];
   const notes = problems.length ? [] : dropMissingArt(story);
   for (const p of problems) console.warn(`[story ${theme.themeId()}] ${p}`);
@@ -231,4 +246,4 @@ function markSeen(colonyId, beatId, all) {
   return n;
 }
 
-module.exports = { evaluate, view, content, markSeen, validate, fires, story, problems, notes, beatOf, TRIGGERS };
+module.exports = { MOODS, evaluate, view, content, markSeen, validate, fires, story, problems, notes, beatOf, TRIGGERS };
