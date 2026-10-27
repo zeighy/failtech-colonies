@@ -27,7 +27,7 @@ function districtFor(c, id) {
   const d = n === null
     ? db.prepare("SELECT * FROM districts WHERE colony_id = ? AND type = 'core'").get(c.id)
     : Number.isNaN(n) ? null : db.prepare('SELECT * FROM districts WHERE id = ? AND colony_id = ?').get(n, c.id);
-  return d ? { ...d, level: d.type === 'core' ? c.hub_level : d.level } : null;
+  return d ? { ...d, level: d.type === 'core' ? c.hub_level : d.level, name: d.type !== 'core' && config.districtTypes[d.type] ? config.districtTypes[d.type].name : d.name } : null;
 }
 const NO_DISTRICT = 'Unknown district.';
 

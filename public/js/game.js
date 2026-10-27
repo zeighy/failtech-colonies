@@ -301,7 +301,7 @@
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R, 'class': 'hub-pulse' }, hub);
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R, 'class': 'disc' }, hub);
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R - 7, fill: 'none', stroke: 'rgba(255,159,28,.25)', 'stroke-dasharray': '2 5' }, hub);
-    var t1 = svgEl('text', { x: 0, y: -3, 'font-size': activeD().core ? 15 : 12 }, hub); t1.textContent = activeD().core ? 'HUB' : activeD().name.replace(/^The /, '').toUpperCase();
+    var t1 = svgEl('text', { x: 0, y: -3, 'font-size': activeD().core ? 15 : 12, 'class': 'no-terms' }, hub); t1.textContent = activeD().core ? ((CFG.ui && CFG.ui.hubLabel) || 'HUB') : activeD().name.replace(/^The /, '').toUpperCase();
     var t2 = svgEl('text', { x: 0, y: 15, 'font-size': 10, 'letter-spacing': '.12em' }, hub);
     hub.addEventListener('click', function () { sel = { hub: true }; tab = 'hub'; renderAll(); });
     hub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hub.dispatchEvent(new Event('click')); } });

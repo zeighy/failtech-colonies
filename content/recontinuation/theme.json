@@ -225,7 +225,8 @@
       "text": "Net Drag has run out, but the Office has not written Site 7 off. It has put the colony into shutdown: only the essentials are running, everything else is parked, and a skeleton workforce is holding on. Rebuild from here at your own pace.",
       "hint": "If you would rather start over, Abandon colony is in the command menu.",
       "button": "Understood"
-    }
+    },
+    "hubLabel": "HUB"
   },
   "resources": {
     "scrap": {
