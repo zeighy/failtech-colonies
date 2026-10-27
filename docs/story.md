@@ -61,7 +61,7 @@ Only text fields can be replaced; costs, recipes and rates cannot be touched by 
   the player answers when convenient (it also rings on login if one was triggered while they were away). Answering opens
   the full-screen scene, which can be **minimized** at any time (button or Esc) into a small "On call" bar in the corner and
   resumed later. The ringing card can be collapsed to a pill, or skipped. A **mail** goes to the Comms tab with an unread
-  badge and a toast. Played dialogues stay in the Comms archive and can be replayed.
+  badge and a toast; clicking a mail opens it in a reading window (sender portrait or initials, subject, body, and an "Open transmission" button when the mail carries a scene). Played dialogues stay in the Comms archive and can be replayed.
 - **Pacing.** Beats are delivered one at a time. A call is never delivered while another call is unanswered. When several
   beats are due at once (an existing colony catching up with a new script, or one event unlocking two beats), the next
   arrives only once everything already delivered has been answered, skipped or read, so progress can be reviewed step by

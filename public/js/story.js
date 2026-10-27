@@ -10,7 +10,6 @@
   var known = null;          // ids seen in the previous view (to announce new mail)
   var ringMin = false;       // the incoming-call card is collapsed to a pill
   var knownPending = {};     // calls already seen ringing, so a brand-new call can expand the card again
-  var mailSel = null;
   var p = null;              // the scene being played: { beat, scene, node, i, replay, timer, full, min, last: {left,right} }
 
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -213,6 +212,7 @@
   }
 
   function onKey(e) {
+    if (e.key === 'Escape' && document.getElementById('mailv')) { e.preventDefault(); e.stopImmediatePropagation(); closeMail(); return; }
     if (!p || p.min) return;
     if (e.key === ' ' || e.key === 'Enter') { if (e.target.closest && e.target.closest('.vn-tools, .vn-choice')) return; e.preventDefault(); e.stopImmediatePropagation(); advance(); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); minimize(); }
@@ -245,13 +245,34 @@
       renderDock(); host.changed();
     } else if (a === 'play') { play(el.dataset.beat, el.dataset.replay === '1'); }
     else if (a === 'scene') play(el.dataset.beat, true);
-    else if (a === 'mail') {
-      mailSel = mailSel === el.dataset.beat ? null : el.dataset.beat;
-      var it = view.items.filter(function (i) { return i.id === mailSel; })[0];
-      if (it && !it.seen) { it.seen = true; view.unreadMail = Math.max(0, view.unreadMail - 1); host.api('story-seen', { beat: it.id }).catch(function () { /* ignore */ }); }
-      host.changed();
-    }
+    else if (a === 'mail') openMail(el.dataset.beat);
+    else if (a === 'mailclose') closeMail();
+    else if (a === 'mailscene') { var sid = el.dataset.beat; closeMail(); play(sid, true); }
   }
+
+  // ---------------------------------------------------------------- reading a mail
+  function openMail(id) {
+    var it = view.items.filter(function (i) { return i.id === id; })[0];
+    var c = content && content.beats[id];
+    if (!it || !c || !c.mail) return;
+    closeMail();
+    var m = c.mail, ch = content.characters[m.from] || null;
+    var el = document.createElement('div');
+    el.id = 'mailv'; el.className = 'mailv-bg';
+    el.innerHTML = '<div class="mailv" role="dialog" aria-modal="true" aria-label="' + esc(m.subject) + '">' +
+      '<div class="mailv-head"><div class="call-av" style="--c:' + esc((ch && ch.color) || '#888') + '">' + avatar(ch) + '</div>' +
+      '<div class="mailv-from"><b>' + esc(ch ? ch.name : 'Unknown sender') + '</b>' + (ch && ch.title ? '<small>' + esc(ch.title) + '</small>' : '') + '</div>' +
+      '<button class="btn" data-story="mailclose" aria-label="Close">' + host.icon('x', 14) + '</button></div>' +
+      '<h2>' + esc(m.subject) + '</h2><div class="mailv-meta">Received at tick #' + it.tick + '</div>' +
+      '<div class="mailv-body">' + m.body.map(function (t) { return '<p>' + esc(t) + '</p>'; }).join('') + '</div>' +
+      '<div class="actions">' + (c.scene ? '<button class="btn primary" data-story="mailscene" data-beat="' + esc(id) + '">' + host.icon('play', 12) + ' Open transmission</button>' : '') +
+      '<button class="btn" data-story="mailclose">Close</button></div></div>';
+    el.addEventListener('click', function (e) { if (e.target === el) closeMail(); });
+    document.body.appendChild(el);
+    var b = el.querySelector('.btn.primary, .btn'); if (b) b.focus();
+    if (!it.seen) { it.seen = true; view.unreadMail = Math.max(0, view.unreadMail - 1); host.api('story-seen', { beat: id }).catch(function () { /* ignore */ }); host.changed(); }
+  }
+  function closeMail() { var el = document.getElementById('mailv'); if (el) el.remove(); }
 
   // ---------------------------------------------------------------- Comms tab
   function commsHtml() {
@@ -269,15 +290,9 @@
     h += '<div class="label sec">Inbox</div>';
     if (!mail.length) h += '<div class="dim" style="font-size:12px">Nothing yet.</div>';
     h += mail.map(function (i) {
-      var open = mailSel === i.id, c = content && content.beats[i.id], m = c && c.mail;
       var from = nameOf(i.from) || 'Unknown';
-      var body = '';
-      if (open && m) {
-        body = '<div class="mail-body">' + m.body.map(function (t) { return '<p>' + esc(t) + '</p>'; }).join('') +
-          (c.scene ? '<button class="btn" data-story="scene" data-beat="' + esc(i.id) + '">' + host.icon('play', 12) + ' Open transmission</button>' : '') + '</div>';
-      }
-      return '<div class="mail' + (i.seen ? '' : ' unread') + (open ? ' open' : '') + '"><button class="mail-head" data-story="mail" data-beat="' + esc(i.id) + '" aria-expanded="' + open + '">' +
-        '<span class="dot"></span><span class="mail-from">' + esc(from) + '</span><span class="mail-subj">' + esc(i.title) + '</span><small>#' + i.tick + '</small></button>' + body + '</div>';
+      return '<div class="mail' + (i.seen ? '' : ' unread') + '"><button class="mail-head" data-story="mail" data-beat="' + esc(i.id) + '">' +
+        '<span class="dot"></span><span class="mail-from">' + esc(from) + '</span><span class="mail-subj">' + esc(i.title) + '</span><small>#' + i.tick + '</small></button></div>';
     }).join('');
     if (archive.length) {
       h += '<div class="label sec">Archive</div>' + archive.map(function (i) {
