@@ -3,6 +3,10 @@ const sim = require('./sim');
 const market = require('./market');
 const story = require('./story');
 const shutdown = require('./shutdown');
+const orbital = require('./orbital');
+const territories = require('./territories');
+const projects = require('./projects');
+const orbitalMarket = require('./orbitalMarket');
 const missions = require('./missions');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
@@ -22,14 +26,18 @@ function canAfford(inv, cost) {
 
 // Which district is an action about? The Core unless one is named; a named one must belong to this colony.
 // The Core's level lives on the colony (colonies.hub_level); other districts carry their own.
-function districtFor(c, id) {
+// Orbital places (the station, territories) only answer to the actions that make sense up there (`orbitalOk`).
+function districtFor(c, id, orbitalOk = false) {
   const n = id === undefined || id === null ? null : toInt(id);
   const d = n === null
     ? db.prepare("SELECT * FROM districts WHERE colony_id = ? AND type = 'core'").get(c.id)
     : Number.isNaN(n) ? null : db.prepare('SELECT * FROM districts WHERE id = ? AND colony_id = ?').get(n, c.id);
-  return d ? { ...d, level: d.type === 'core' ? c.hub_level : d.level, name: d.type !== 'core' && config.districtTypes[d.type] ? config.districtTypes[d.type].name : d.name } : null;
+  if (d && !orbitalOk && (config.orbitalTypes || {})[d.type]) return null;
+  return d ? { ...d, level: d.type === 'core' ? c.hub_level : d.level, name: d.type !== 'core' && (config.districtTypes || {})[d.type] ? config.districtTypes[d.type].name : d.name } : null;
 }
 const NO_DISTRICT = 'Unknown district.';
+const NEIGHBOURS = {};
+const neighbours = (type) => (NEIGHBOURS[type] = NEIGHBOURS[type] || sim.buildNeighborMap(config, type));
 
 function pay(districtId, cost) {
   const up = db.prepare('UPDATE colony_inventory SET amount = amount - ? WHERE district_id = ? AND resource_id = ?');
@@ -61,13 +69,22 @@ const slotBusy = (c, d, ring, slot) => {
 };
 
 const build = guarded((c, { ring, slot, type, district }) => {
-  const d = districtFor(c, district);
+  const d = districtFor(c, district, true);
   if (!d) return fail(NO_DISTRICT);
   ring = toInt(ring); slot = toInt(slot);
   const def = own(config.buildings, type);
   if (!def) return fail('Unknown building type.');
   if (NaNish(ring, slot)) return fail('Bad slot.');
+  if (def.hidden === 'orbital' && !c.orbital_unlocked && !orbital.checkUnlock(c, tickNow())) return fail('Unknown building type.');
   if (!sim.buildableIn(def, d.type)) return fail(`${def.name} can't be built ${d.type === 'core' ? 'in the Core' : `in ${d.name}`}.`);
+  if (def.strictPlot && sim.plotSize(config, ring, d.type) < def.minPlotSize) return fail(`${def.name} needs a ${config.plotSizes[def.minPlotSize].name} plot.`);
+  if (def.requiresAdjacent) {
+    const need = config.buildings[def.requiresAdjacent];
+    const there = store.loadBuildings(c.id, d.id).filter((x) => x.type === def.requiresAdjacent);
+    if (!there.length) return fail(`Build the ${need.name} first, and let it finish.`);
+    const nbs = neighbours(d.type).get(sim.key(ring, slot)) || [];
+    if (!there.some((x) => nbs.some(([r, sl]) => r === x.ring && sl === x.slot))) return fail(`${def.name} must stand right beside the ${need.name}.`);
+  }
   if (!sim.slotUnlocked(config, d.level, ring, slot, d.type)) return fail(`That slot is locked. Upgrade the ${d.type === 'core' ? 'hub' : 'district'}.`);
   if (def.minHubLevel && c.hub_level < def.minHubLevel) return fail(`${def.name} requires hub level ${def.minHubLevel}.`);
   if (slotBusy(c, d, ring, slot)) return fail('That slot is already in use.');
@@ -91,13 +108,13 @@ const buildingAt = (d, ring, slot) => {
 };
 
 const demolish = guarded((c, { ring, slot, district }) => {
-  const d = districtFor(c, district);
+  const d = districtFor(c, district, true);
   if (!d) return fail(NO_DISTRICT);
   const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing to demolish there.');
   // Scrapping a configured workshop costs what changing its recipe would, or demolishing and rebuilding would be a free reset.
   if (config.buildings[b.building_type].recipeBuilding && b.recipe) {
-    const fee = sim.recipeResetFee(config, b.recipe, b.ring_index, d.type);
+    const fee = sim.recipeResetFee(config, b.recipe, b.ring_index, d.type, config.buildings[b.building_type]);
     if (c.credits < fee) return fail(`Scrapping a configured workshop costs ${fee} cr.`);
     db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(fee, c.id);
   }
@@ -114,7 +131,7 @@ const demolish = guarded((c, { ring, slot, district }) => {
 });
 
 const toggle = guarded((c, { ring, slot, paused, district }) => {
-  const d = districtFor(c, district);
+  const d = districtFor(c, district, true);
   if (!d) return fail(NO_DISTRICT);
   const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing there.');
@@ -232,12 +249,13 @@ const shipment = guarded((c, { from, to, resource, qty }) => {
 // The first recipe is free. Changing it costs credits (so many ticks of the old output at market value) and idles the
 // workshop for a while.
 const setRecipe = guarded((c, { ring, slot, recipe, district }) => {
-  const d = districtFor(c, district);
+  const d = districtFor(c, district, true);
   if (!d) return fail(NO_DISTRICT);
   const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing there.');
-  if (!config.buildings[b.building_type].recipeBuilding) return fail('This building does not take recipes.');
-  if (!own(config.recipes, recipe)) return fail('Unknown recipe.');
+  const bdef = config.buildings[b.building_type];
+  if (!bdef.recipeBuilding) return fail('This building does not take recipes.');
+  if (!own(sim.recipeBook(config, bdef), recipe)) return fail('Unknown recipe.');
   if (b.recipe === recipe) return OK;
   const tick = Number(store.getMeta('global_tick', 0));
   if (!b.recipe) {
@@ -245,7 +263,7 @@ const setRecipe = guarded((c, { ring, slot, recipe, district }) => {
     return OK;
   }
   if (b.recipe_ready_tick > tick) return fail('The workshop is still resetting.');
-  const fee = sim.recipeResetFee(config, b.recipe, b.ring_index, d.type);
+  const fee = sim.recipeResetFee(config, b.recipe, b.ring_index, d.type, bdef);
   if (c.credits < fee) return fail(`Changing the recipe costs ${fee} cr.`);
   db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(fee, c.id);
   db.prepare('UPDATE colony_buildings SET recipe = ?, recipe_ready_tick = ? WHERE id = ?').run(recipe, tick + config.tradeWorks.reset.delayTicks, b.id);
@@ -289,7 +307,7 @@ function linkLoad(c, districtId, ignoreRouteId) {
     .reduce((n, r) => n + r.rate, 0);
 }
 const setRoute = guarded((c, { from, to, resource, rate, reserve }) => {
-  const a = districtFor(c, from); const b = districtFor(c, to);
+  const a = districtFor(c, from, true); const b = districtFor(c, to, true);
   if (!a || !b) return fail(NO_DISTRICT);
   if (a.id === b.id) return fail('Pick two different districts.');
   if (!own(config.resources, resource)) return fail('Unknown resource.');
@@ -299,6 +317,17 @@ const setRoute = guarded((c, { from, to, resource, rate, reserve }) => {
   const existing = store.loadRoutes(c.id).find((r) => r.fromDistrict === a.id && r.toDistrict === b.id && r.resource === resource);
   if (rate === 0) {
     if (existing) db.prepare('DELETE FROM colony_routes WHERE id = ?').run(existing.id);
+    return OK;
+  }
+  const orb = (x) => !!(config.orbitalTypes || {})[x.type];
+  if (orb(a) || orb(b)) {
+    const bad = a.type === 'territory' || b.type === 'territory'
+      ? territories.checkTerritoryRoute(c, a, b, resource, rate, existing && existing.id)
+      : orbital.checkStationRoute(c, a, b, resource, rate, existing && existing.id);
+    if (bad) return fail(bad);
+    db.prepare(`INSERT INTO colony_routes (colony_id, from_district, to_district, resource_id, rate, reserve) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(from_district, to_district, resource_id) DO UPDATE SET rate = excluded.rate, reserve = excluded.reserve`)
+      .run(c.id, a.id, b.id, resource, rate, reserve);
     return OK;
   }
   if (!sim.districtsUnlocked(config, { coreLevel: c.hub_level })) return fail('Districts are not open yet.');
@@ -330,7 +359,7 @@ const upgradeLink = guarded((c, { district }) => {
 });
 
 const setContract = guarded((c, { resource, side, amount }) => {
-  if (!own(config.resources, resource)) return fail('Unknown resource.');
+  if (!own(config.resources, resource) || config.resources[resource].orbitalOnly) return fail('Unknown resource.');
   if (config.resources[resource].trade) return fail('The convoy does not carry trade goods. Use the exchange.');
   if (side !== 'export' && side !== 'import') return fail('Bad contract side.');
   amount = Math.floor(toNum(amount));
@@ -386,6 +415,25 @@ const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
   return OK;
 });
 
+// ---- orbit ---------------------------------------------------------------------------------
+const tickNow = () => Number(store.getMeta('global_tick', 0));
+const launchCycle = guarded((c, { cycle }) => orbital.loadCycle(c, { cycle }, tickNow()));
+const launch = guarded((c, { name }) => orbital.launch(c, { name }, tickNow()));
+const expressLaunch = guarded((c, args) => orbital.expressLaunch(c, args, tickNow()));
+const orbitalStorageUpgrade = guarded((c) => orbital.upgradeStorage(c));
+const orbitalLinksUpgrade = guarded((c) => orbital.upgradeLinks(c));
+const jettison = guarded((c, args) => orbital.jettison(c, args));
+const rebuildSlot = guarded((c, args) => orbital.rebuildSlot(c, args));
+const shipDeploy = guarded((c, args) => territories.deploy(c, args, tickNow()));
+const shipPlan = guarded((c, args) => territories.setPlan(c, args));
+const shipReturn = guarded((c, args) => territories.returnShip(c, args, tickNow()));
+const shipBuild = guarded((c) => territories.buildShip(c, tickNow()));
+const shipUpgrade = guarded((c, args) => territories.upgradeShip(c, args));
+const shipRepair = guarded((c, args) => territories.repairShip(c, args));
+const projectContribute = guarded((c, args) => projects.contribute(c, args, tickNow()));
+const orbitPost = guarded((c, args) => orbitalMarket.post(c, args, tickNow()));
+const orbitCancel = guarded((c, args) => orbitalMarket.cancel(c, args));
+
 // Switch every building a shutdown parked back on.
 const resumeOps = guarded((c) => (shutdown.resume(c.id) ? OK : fail('No buildings are parked.')));
 
@@ -419,4 +467,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

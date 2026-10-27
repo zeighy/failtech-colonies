@@ -21,6 +21,7 @@ const store = require('../src/db');
 let server, base;
 test.before(async () => {
   await new Promise((r) => { server = app.listen(0, r); });
+  server.keepAliveTimeout = 60000; // some tests run many ticks between requests; keep the client's sockets valid
   base = `http://127.0.0.1:${server.address().port}`;
 });
 test.after(() => { server.close(); store.db.close(); fs.rmSync(dir, { recursive: true, force: true }); });

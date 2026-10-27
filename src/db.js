@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -250,6 +250,112 @@ function migrate() {
   for (const [table, col, ddl] of [['colonies', 'shutdown_tick', 'INTEGER'], ['colonies', 'shutdowns', 'INTEGER NOT NULL DEFAULT 0'], ['colony_buildings', 'parked', 'INTEGER NOT NULL DEFAULT 0']]) {
     if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
   }
+  // v16 (additive): orbit. Launches, the station and its storage, dropships, the shared anomalous territories, the orbital
+  // market and global projects.
+  for (const [table, col, ddl] of [
+    ['colonies', 'orbital_unlocked', 'INTEGER NOT NULL DEFAULT 0'], ['colonies', 'orbital_flags', "TEXT NOT NULL DEFAULT '{}'"],
+    ['colonies', 'launch_progress', 'REAL NOT NULL DEFAULT 0'], ['colonies', 'launch_ready', 'TEXT'],
+    ['colonies', 'express_launch_ready_tick', 'INTEGER NOT NULL DEFAULT 0'], ['districts', 'territory_id', 'INTEGER'],
+  ]) {
+    if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS stations (
+      colony_id INTEGER PRIMARY KEY REFERENCES colonies(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      district_id INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+      storage_level INTEGER NOT NULL DEFAULT 1,
+      links_level INTEGER NOT NULL DEFAULT 1,
+      launched_tick INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS stations_name_nocase ON stations (name COLLATE NOCASE);
+    CREATE TABLE IF NOT EXISTS orbital_slots (
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      idx INTEGER NOT NULL,
+      resource_id TEXT,
+      state TEXT NOT NULL DEFAULT 'open',          -- open | jettisoned
+      PRIMARY KEY (colony_id, idx)
+    );
+    CREATE TABLE IF NOT EXISTS orbital_shipments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      resource_id TEXT NOT NULL,
+      qty INTEGER NOT NULL,
+      arrives_tick INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS dropships (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      num INTEGER NOT NULL,
+      level INTEGER NOT NULL DEFAULT 1,
+      integrity REAL NOT NULL DEFAULT 100,
+      state TEXT NOT NULL DEFAULT 'docked',         -- building | docked | deploying | deployed | returning | contributing
+      territory_id INTEGER,
+      district_id INTEGER,
+      project_id INTEGER,
+      until_tick INTEGER NOT NULL DEFAULT 0,
+      cargo TEXT NOT NULL DEFAULT '{}',
+      plan TEXT,                                     -- what to bring back: {resource: true}
+      invested TEXT NOT NULL DEFAULT '{}',
+      saved_once INTEGER NOT NULL DEFAULT 0,
+      late INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS territories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      anomaly TEXT NOT NULL,
+      resources TEXT NOT NULL,                       -- {common1, common2, district, rare}
+      opens_tick INTEGER NOT NULL,
+      closes_tick INTEGER NOT NULL,
+      taken_by INTEGER,
+      taken_name TEXT,
+      destabilized INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS global_projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL,
+      status TEXT NOT NULL,                          -- announced | active | bonus | done | failed
+      announced_tick INTEGER NOT NULL,
+      starts_tick INTEGER NOT NULL,
+      ends_tick INTEGER NOT NULL,
+      bonus_ends_tick INTEGER,
+      needs TEXT NOT NULL,
+      contributed TEXT NOT NULL DEFAULT '{}',
+      players INTEGER NOT NULL DEFAULT 1,
+      drip_resource TEXT,
+      closed_tick INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS global_contributions (
+      project_id INTEGER NOT NULL REFERENCES global_projects(id) ON DELETE CASCADE,
+      colony_id INTEGER NOT NULL,
+      resource_id TEXT NOT NULL,
+      qty REAL NOT NULL DEFAULT 0,
+      PRIMARY KEY (project_id, colony_id, resource_id)
+    );
+    CREATE TABLE IF NOT EXISTS orbital_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      colony_id INTEGER,                             -- NULL: a market maker
+      station_name TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      side TEXT NOT NULL,
+      price REAL NOT NULL,
+      qty INTEGER NOT NULL,
+      remaining INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',          -- open | filled | cancelled | expired
+      created_tick INTEGER NOT NULL,
+      expires_tick INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS orbital_orders_book ON orbital_orders (resource_id, side, status, price);
+    CREATE TABLE IF NOT EXISTS orbital_trades (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tick INTEGER NOT NULL,
+      resource_id TEXT NOT NULL,
+      price REAL NOT NULL,
+      qty INTEGER NOT NULL,
+      buyer TEXT NOT NULL,
+      seller TEXT NOT NULL
+    );
+  `);
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
 

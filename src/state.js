@@ -9,6 +9,10 @@ const missions = require('./missions');
 const market = require('./market');
 const story = require('./story');
 const shutdown = require('./shutdown');
+const orbital = require('./orbital');
+const territories = require('./territories');
+const projects = require('./projects');
+const orbitalMarket = require('./orbitalMarket');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -109,11 +113,13 @@ function viewFor(userId, now = Date.now()) {
   if (!c) return null;
   const user = db.prepare('SELECT username FROM users WHERE id = ?').get(userId);
   const t = engine.timing();
+  if (orbital.checkUnlock(c, t.globalTick)) Object.assign(c, db.prepare('SELECT * FROM colonies WHERE id = ?').get(c.id));
   const lvl = config.hubLevels[c.hub_level];
   const districts = store.loadDistricts(c.id).map((d) => ({
     id: d.id, type: d.type, name: d.name,
     level: d.type === 'core' ? c.hub_level : d.level,
     linkLevel: d.linkLevel, inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
+    ...orbital.districtExtras(c, d),
   }));
   const routeRows = store.loadRoutes(c.id);
   const shipmentRows = store.loadShipments(c.id);
@@ -130,7 +136,7 @@ function viewFor(userId, now = Date.now()) {
     config,
     { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
     districts,
-    { neighborMaps: engine.neighborMaps, mods: { [coreD.id]: mods }, popConsumptionMult: mods.popConsumptionMult, routes: routeRows },
+    { neighborMaps: engine.neighborMaps, mods: { [coreD.id]: mods }, popConsumptionMult: mods.popConsumptionMult, routes: routeRows, globalOut: projects.globalOut() },
   );
   const proj = sim.coreView(full);
 
@@ -163,7 +169,7 @@ function viewFor(userId, now = Date.now()) {
     const bs = isCore ? proj.buildings : r.buildings;
     const hub = isCore ? proj.hub : r.hub;
     return {
-      id: d.id, type: d.type, name: d.name, level: d.level, core: isCore,
+      id: d.id, type: d.type, name: d.name, level: d.level, core: isCore, orbital: !!(config.orbitalTypes || {})[d.type],
       resources, cap,
       hub: {
         maxStorage: cap, baseStorage: lvl.maxStorage, baseEnergy: lvl.baseEnergy, rings: lvl.ringCapacities,
@@ -180,7 +186,7 @@ function viewFor(userId, now = Date.now()) {
           level: b.level || 1, xscale: st.xscale || 1,
           xnext: config.buildings[b.type].expand && (b.level || 1) < config.expansion.maxLevel ? { level: (b.level || 1) + 1, cost: sim.expansionCost(config, config.buildings[b.type], (b.level || 1) + 1), ticks: config.expansion.ticks[(b.level || 1) + 1], scale: config.expansion.scale[(b.level || 1) + 1], crew: config.expansion.crew[(b.level || 1) + 1] } : null,
           recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
-          resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
+          resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type, config.buildings[b.type]) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
       }),
       orders: dOrders.map((o) => ({ id: o.id, kind: o.action_type, data: o.data, remaining: o.ticks_remaining, total: o.ticks_total })),
     };
@@ -221,7 +227,8 @@ function viewFor(userId, now = Date.now()) {
     districtLevelCap: sim.districtLevelCap(config, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) }),
     districtNeeds: Object.fromEntries([2, 3, 4, 5].map((l) => [l, sim.districtLevelNeeds(config, l)])),
     districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length,
-      link: d.type === 'core' ? null : {
+      orbital: !!(config.orbitalTypes || {})[d.type],
+      link: d.type === 'core' || (config.orbitalTypes || {})[d.type] ? null : {
         level: d.linkLevel, capacity: config.logistics.link.levels[d.linkLevel].capacity,
         load: routeRows.filter((r) => r.fromDistrict === d.id || r.toDistrict === d.id).reduce((n, r) => n + r.rate, 0),
         next: config.logistics.link.levels[d.linkLevel + 1] || null,
@@ -310,6 +317,12 @@ function viewFor(userId, now = Date.now()) {
   };
   view.exchange = exchangeView(c, t.globalTick);
   view.missions = missions.view(c, t.globalTick);
+  view.orbital = orbital.view(c, t.globalTick, { flows: Object.fromEntries(routeFlows.map((f) => [f.route.id, f.qty])) });
+  if (view.orbital.station) {
+    view.orbital.ships = territories.view(c, t.globalTick);
+    view.orbital.market = orbitalMarket.view(c, t.globalTick);
+    view.orbital.project = projects.view(c, t.globalTick);
+  }
   view.report = db.prepare("SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? AND tag = 'hazard' AND id > ? ORDER BY id").all(c.id, c.report_cursor);
 
   // Directives are sticky: newly earned milestones are saved as the view is

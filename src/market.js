@@ -10,7 +10,7 @@ const { own, toInt, toNum } = require('./validate');
 const { db, config } = store;
 
 const X = config.exchange;
-const resources = () => Object.keys(config.resources);
+const resources = () => Object.keys(config.resources).filter((r) => !config.resources[r].orbitalOnly); // orbit has its own market
 
 // ---- NPC market makers --------------------------------------------------------------------
 // One persisted order per (resource, side, rung), re-quoted around the reference price, with its quantity
@@ -149,7 +149,7 @@ function post(c, d, { side, resource, price, qty, ttl }, tick) {
   const fail = (error) => ({ ok: false, error });
   if (c.hub_level < X.unlockCoreLevel) return fail(`The exchange opens at hub level ${X.unlockCoreLevel}.`);
   if (side !== 'buy' && side !== 'sell') return fail('Bad order side.');
-  if (!own(config.resources, resource)) return fail('Unknown resource.');
+  if (!own(config.resources, resource) || config.resources[resource].orbitalOnly) return fail('Unknown resource.');
   qty = Math.floor(toNum(qty)); price = Math.round(toNum(price) * 100) / 100; ttl = toInt(ttl);
   if (!Number.isFinite(qty) || qty < 1) return fail('Bad quantity.');
   if (qty > X.maxQty) return fail(`At most ${X.maxQty} per order.`);
