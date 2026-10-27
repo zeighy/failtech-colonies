@@ -94,7 +94,7 @@ several triggers gets its backlog in script order, one beat at a time (see Pacin
 
 `portrait` and `avatar` (characters) and `background` (scenes) name files in `content/<theme>/assets/`. A file that is not there yet is
 simply ignored (a coloured silhouette and a plain backdrop are shown) and `npm run check-content` lists what is still
-missing, so the story can be written before the art exists. Portraits (used in scenes): transparent PNG or WebP, about
+missing, so the story can be written before the art exists. Portraits (used in scenes): transparent WebP (or PNG; WebP is about 15 times smaller), about
 800 x 1200. Avatars (used in the call card and mail window, shown in a circle): square, about 256 x 256, face at the top
 centre; a character without one falls back to the portrait.
 Backgrounds: 1920 x 1080.
@@ -103,8 +103,8 @@ Backgrounds: 1920 x 1080.
 
 A scene node can set `"mood"` to show the speaker with a different expression. The set is fixed so that every character can
 be drawn the same way: `neutral` (the default portrait), `happy`, `sad`, `angry`, `afraid`, `surprised`, `serious`,
-`thoughtful`. The image is the portrait's name plus the mood, beside it in `assets/`: for `mags.png`, `mags_happy.png`,
-`mags_sad.png` and so on. Draw them on the same canvas, pose position and scale as the default so the swap does not jump.
+`thoughtful`. The image is the portrait's name plus the mood, with the same extension, beside it in `assets/`: for `mags.webp`,
+`mags_happy.webp`, `mags_sad.webp` and so on. Draw them on the same canvas, pose position and scale as the default so the swap does not jump.
 A mood image that does not exist is replaced by the default portrait, and `npm run check-content` reports any mood a
 scene uses that has not been drawn. Mood images are found when the server starts. Avatars have no moods.
 
