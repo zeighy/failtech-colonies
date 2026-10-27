@@ -11,6 +11,7 @@ const { spawn } = require('child_process');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-sec-'));
 process.env.DB_PATH = path.join(dir, 'sec.db');
 process.env.SESSION_SECRET = 'test-secret';
+process.env.THEME = 'basic'; // assertions use the neutral wording, whatever the default theme is
 process.env.AUTH_RATE_LIMIT = '100000';
 process.env.API_RATE_LIMIT = '100000';
 process.env.BCRYPT_ROUNDS = '4';
@@ -256,7 +257,7 @@ test('sessions: httpOnly, SameSite, new id on every sign-in, destroyed on logout
 
 test('the API refuses everything without a session', async () => {
   const c = client();
-  for (const url of ['build', 'demolish', 'toggle', 'boost', 'cancel', 'upgrade', 'contract', 'reset', 'restart', 'ack', 'express', 'found', 'shipment', 'market', 'market-cancel', 'recipe', 'shield', 'mission', 'route', 'link']) {
+  for (const url of ['build', 'demolish', 'toggle', 'boost', 'cancel', 'upgrade', 'contract', 'reset', 'restart', 'ack', 'express', 'found', 'shipment', 'market', 'market-cancel', 'recipe', 'shield', 'mission', 'route', 'link', 'story-seen', 'resume']) {
     assert.equal((await c.post(`/api/${url}`, {})).status, 401, url);
   }
   for (const url of ['state', 'config', 'stream']) assert.equal((await c.get(`/api/${url}`)).status, 401, url);

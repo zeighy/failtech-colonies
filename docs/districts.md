@@ -214,3 +214,17 @@ spent on hazards, or handed to factions.
 - **Growth** no longer stops just because the surplus is thin while the store is full. `sim.canFeed`: new people are allowed if what the colony makes covers them, or, failing
   that, if the stock above 60% of the cap would carry the new shortfall for 2000 ticks (`populationGrowth.bufferFloor`, `bufferTicks`). A full store lets a colony whose production only just
   matches use keep growing a little; an empty one does not, and a real shortage is never carried. The People tab says when the colony is growing on its stockpile.
+
+## Future work: per-district hazards (not built)
+
+Hazards currently hit the colony as a whole: every effect reads the Core's reserves and defence, and building effects apply
+across all districts. The next step is to let a hazard strike one district: forecasts would name a district, requirements
+(reserves, defence) would be checked against that district's own stockpile and Sentinel Posts, and effects (output cuts,
+looting, degraded buildings) would apply there only. Open questions: whether the Core can pre-position reserves by shipment
+or route after the forecast, whether routes and links can be hit, and how the Free Port shields apply. Roadmap step 6.
+
+## Growth and routes
+
+The growth check ("can the colony feed more people?") judges the Core on its own production **plus what standing routes bring in
+or take out** of it. Before this was counted, a Core that made less food than it ate but was fed by a route from another district
+looked like a shortage to the growth check while the player's rates showed a healthy surplus, and the population stalled.

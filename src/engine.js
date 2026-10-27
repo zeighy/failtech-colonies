@@ -2,6 +2,7 @@
 const EventEmitter = require('events');
 const sim = require('./sim');
 const store = require('./db');
+const shutdown = require('./shutdown');
 const hazards = require('./hazards');
 const market = require('./market');
 const missions = require('./missions');
@@ -41,7 +42,7 @@ function tickColony(c, globalTick, tickTime) {
     config,
     { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
     districts,
-    { neighborMaps, mods: { [core.id]: hazardMods }, popConsumptionMult: hazardMods.popConsumptionMult },
+    { neighborMaps, mods: { [core.id]: hazardMods }, popConsumptionMult: hazardMods.popConsumptionMult, routes: store.loadRoutes(c.id) },
   );
   const res = sim.coreView(full);
   const ev = (kind, msg) => store.addEvent(c.id, globalTick, kind, msg);
@@ -134,10 +135,25 @@ function tickColony(c, globalTick, tickTime) {
     for (const l of out.log) ev(l.kind, l.msg);
   }
 
-  let status = c.status;
-  if (res.failed) {
-    status = 'failed';
-    ev('bad', 'The population has lost all hope. The colony is abandoned.');
+  // Hope has run out: the colony shuts down instead of collapsing (see src/shutdown.js). While shut down it cannot
+  // collapse again; it recovers once nobody is starving and morale has climbed back.
+  const status = c.status;
+  const sd = config.global.shutdown;
+  const wasShut = c.shutdown_tick !== null && c.shutdown_tick !== undefined;
+  let morale = res.morale;
+  let shutdownTick = wasShut ? c.shutdown_tick : null;
+  if (res.failed && !wasShut) {
+    const parked = shutdown.park(c.id);
+    morale = sd.morale;
+    shutdownTick = globalTick;
+    db.prepare('UPDATE colonies SET shutdowns = shutdowns + 1 WHERE id = ?').run(c.id);
+    ev('bad', `The colony has shut down. ${parked} building${parked === 1 ? ' is' : 's are'} switched off and only the essentials are running. Rebuild from here, or abandon the colony from the menu.`);
+  } else if (wasShut) {
+    morale = Math.max(1, morale);
+    if (!starving && morale >= sd.recoverMorale) {
+      shutdownTick = null;
+      ev('good', 'The colony has stabilised and is no longer shut down. Parked buildings stay off until you restart them.');
+    }
   }
 
   // Express convoy delivery
@@ -174,7 +190,8 @@ function tickColony(c, globalTick, tickTime) {
   for (const r of full.districts) if (r.id !== core.id) store.saveInventory(c.id, r.inventory, r.id);
   db.prepare(`UPDATE colonies SET hub_level = ?, credits = ?, morale = ?, population = ?, age = age + 1, status = ?,
     won = ?, progress = ?, starving = ?, brownout = ? WHERE id = ?`)
-    .run(hubLevel, Math.floor(credits), res.morale, population, status, res.won ? 1 : 0, res.progress, starving ? 1 : 0, brownout ? 1 : 0, c.id);
+    .run(hubLevel, Math.floor(credits), morale, population, status, res.won ? 1 : 0, res.progress, starving ? 1 : 0, brownout ? 1 : 0, c.id);
+  db.prepare('UPDATE colonies SET shutdown_tick = ? WHERE id = ?').run(shutdownTick, c.id);
 }
 
 const processTickTx = db.transaction((tickTime) => {

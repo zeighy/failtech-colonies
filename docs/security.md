@@ -56,3 +56,10 @@ transaction. The simulation is server-authoritative, so there is nothing for a m
 - No account recovery, email or CAPTCHA, and no per-account registration cap beyond the IP limit.
 - Rate limits are in memory, per process (the server is single-instance by design).
 - Seeded randomness (hazards, missions, prices) is deterministic per colony and therefore predictable by a determined player; it is game design, not a secret.
+
+## Backups
+
+`src/backup.js` takes SQLite online backups on a schedule (see the README for the variables). The backup folder is created
+owner-only (0700) and each file is 0600, because a backup holds password hashes. A backup is written under a temporary
+name and renamed when complete, so a half-written file never looks like a backup, and only files named `failtech-<date>-<time>.db`
+are ever deleted when old backups are pruned. Copy backups off the machine if you need protection against losing the disk.

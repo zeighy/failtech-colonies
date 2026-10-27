@@ -1,0 +1,1702 @@
+{
+ "characters": {
+  "seven": {
+   "name": "Seven",
+   "title": "Continuity Node 7",
+   "color": "#C9A227",
+   "side": "left",
+   "portrait": "seven.webp",
+   "avatar": "seven_avatar.webp"
+  },
+  "signal": {
+   "name": "The Signal",
+   "title": "Unknown origin",
+   "color": "#7FD6C8",
+   "side": "right",
+   "portrait": "signal.webp",
+   "avatar": "signal_avatar.webp"
+  },
+  "mags": {
+   "name": "Mags Valdivia",
+   "title": "Shift Boss, Black Industries Remnant",
+   "color": "#D2691E",
+   "side": "right",
+   "portrait": "mags.webp",
+   "avatar": "mags_avatar.webp"
+  },
+  "noor": {
+   "name": "Dr. Noor Haddad",
+   "title": "Reserve Warden, Cliffside Accord",
+   "color": "#6FAF5B",
+   "side": "left",
+   "portrait": "noor.webp",
+   "avatar": "noor_avatar.webp"
+  },
+  "raf": {
+   "name": "Raf Dimaculangan",
+   "title": "Dispatcher, Ammano Transit",
+   "color": "#4F8FD6",
+   "side": "right",
+   "portrait": "raf.webp",
+   "avatar": "raf_avatar.webp"
+  },
+  "pell": {
+   "name": "Ansel Pell",
+   "title": "Archivist, Colorado",
+   "color": "#9B7FD1",
+   "side": "left",
+   "portrait": "pell.webp",
+   "avatar": "pell_avatar.webp"
+  },
+  "vane": {
+   "name": "Hesper Vane",
+   "title": "Quartermaster",
+   "color": "#B0B7C3",
+   "side": "left",
+   "portrait": "vane.webp",
+   "avatar": "vane_avatar.webp"
+  },
+  "nobody": {
+   "name": "(no sender)",
+   "color": "#7FD6C8",
+   "side": "right"
+  }
+ },
+ "scenes": {
+  "d01_assignment": {
+   "title": "Assignment",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "seven",
+     "text": [
+      "Commander. Welcome to Recontinuation Site 7. This node has been waiting for an occupant for some time. The kettle is not operational. This is not a joke. It is a status report.",
+      "Under the Centennial Decree, you are appointed Territory Commander of an unchartered colony. The Office owns the colony. You run it. The Office is, at present, this node and a very large filing cabinet."
+     ],
+     "prompt": "How do you want to start?",
+     "choices": [
+      {
+       "label": "Why me?",
+       "next": "n3"
+      },
+      {
+       "label": "What happened out there?",
+       "next": "n4"
+      }
+     ]
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Your first duty is power. Everything else wants it. Begin with the panels. Form 7 will follow."
+     ],
+     "next": "n2_1"
+    },
+    "n3": {
+     "who": "seven",
+     "text": [
+      "Your Value Output score was adequate. Several better scores belonged to people who are no longer reachable. Adequate is, as of today, a promotion."
+     ],
+     "next": "n2"
+    },
+    "n4": {
+     "who": "seven",
+     "text": [
+      "The Office's position is that it is gathering information. The Office has gathered a great deal of information. None of it agrees."
+     ],
+     "next": "n2",
+     "mood": "thoughtful"
+    },
+    "n2_1": {
+     "who": "seven",
+     "text": [
+      "One more item. A clock is running in the corner of your screen. It is called Net Drag. If this colony costs more to keep than it produces, the Office writes it off. Out here, that means everyone. Do not let it reach zero."
+     ],
+     "mood": "serious"
+    }
+   },
+   "background": "command_hub.jpg"
+  },
+  "d02_technically_wet": {
+   "title": "Technically Wet",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "seven",
+     "text": [
+      "The first sample from your filtration plant has passed analysis. It is clear, it is liquid, and it is, in the Office's formal wording, \"technically wet.\""
+     ],
+     "next": "n1_1"
+    },
+    "n1_1": {
+     "who": "seven",
+     "text": [
+      "I am required to read you Form 7-L, the Incident Summary for the Lapse. It reads, in full: \"Anomalous events occurred across approximately 90 percent of the surface. Cause: see attached.\" There is no attachment."
+     ],
+     "mood": "serious",
+     "next": "n1_2"
+    },
+    "n1_2": {
+     "who": "seven",
+     "text": [
+      "The Office has no cause for the Lapse, Commander. It has seven theories. They are filed on separate forms. This node will not be reading you the forms. They contradict one another, and the contradiction is not entertaining."
+     ],
+     "mood": "thoughtful"
+    }
+   },
+   "background": "command_hub.jpg"
+  },
+  "d03_first_run": {
+   "title": "The First Run",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "raf",
+     "text": [
+      "You the new Commander? Great. Dispatcher Raf, Ammano Transit. I move things. You'll love me, I never ask what's in the crate."
+     ],
+     "next": "n2",
+     "mood": "happy"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "This node cannot verify Ammano Transit's licence."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "raf",
+     "text": [
+      "Verify away. Nobody's home at the licence office. Look, here's how it works. The run comes by on a schedule. Prices wobble, because the road does. And I only carry what you've lined up before I show. Show up empty and I wave.",
+      "One more thing, boss. If something big's coming down the road, I'll tell you. Not for free. For the usual rate. Which is gossip."
+     ],
+     "mood": "happy"
+    }
+   },
+   "background": "freight_road.jpg"
+  },
+  "d04_warning_light": {
+   "title": "Warning Light",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "seven",
+     "text": [
+      "Commander, the event has ended. The Office classifies hazards by cause. For this one, the cause field is blank. I have left it blank. Filling it in felt dishonest."
+     ],
+     "next": "n2",
+     "mood": "thoughtful"
+    },
+    "n2": {
+     "who": "raf",
+     "text": [
+      "Saw that one from the road. Weather's got opinions now, boss. You're still standing. Few people say that this month."
+     ],
+     "tag": "radio",
+     "next": "n3",
+     "mood": "serious"
+    },
+    "n3": {
+     "who": "seven",
+     "text": [
+      "Reserves, Sentinel Posts and a clean stockpile decide how a hazard lands. This node recommends all three. This node recommends them again."
+     ],
+     "mood": "serious"
+    }
+   },
+   "background": "command_hub.jpg"
+  },
+  "d05_beyond_the_walls": {
+   "title": "Beyond the Walls",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "pell",
+     "text": [
+      "Commander? Archivist Pell, Colorado. Forgive the interruption. You are the first site to reach past its own walls, which is, well, congratulations. Please write everything down."
+     ],
+     "next": "n2"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Archivist Pell has been trying to speak to this node for some time. This node has been politely not listening."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "pell",
+     "text": [
+      "I do not know what is out there. The Office does not know. I only keep the records. And the records, I should tell you, are not behaving. Please write everything down."
+     ],
+     "mood": "afraid"
+    }
+   },
+   "background": "colony_dusk.jpg"
+  },
+  "d06_black_cut": {
+   "title": "The Black Cut",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "mags",
+     "text": [
+      "You the clipboard they sent? Mags Valdivia. My crews held this cut through the Lapse. We didn't hold it because we're brave. We held it because nobody told us to stop."
+     ],
+     "next": "n2"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Commander, a note of caution. This node cannot confirm the Black Industries Remnant is a lawful entity."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "mags",
+     "text": [
+      "Neither can I, honey. I count tonnes, not laws. You send what cuts and what carries and we'll get along. You send forms and I'll use them to light the furnace."
+     ],
+     "mood": "happy",
+     "next": "n3_1"
+    },
+    "n3_1": {
+     "who": "mags",
+     "text": [
+      "One rumour for free. Reactor in Pit Nine ran six months with no fuel. Don't look at me. I only hauled the ash."
+     ],
+     "mood": "serious"
+    }
+   },
+   "background": "black_cut.jpg"
+  },
+  "d07_ledger_drift": {
+   "title": "Ledger Drift",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "seven",
+     "text": [
+      "The Harbour Ledger is now open. It lists offers from posters this node cannot identify. It is a cache of unverified postings, delivered by a low-power link of unknown origin."
+     ],
+     "next": "n2"
+    },
+    "n2": {
+     "who": "raf",
+     "text": [
+      "Offers from where, boss? That's the thing. Nobody's out there. And yet, the board fills."
+     ],
+     "tag": "radio",
+     "next": "n3",
+     "mood": "thoughtful"
+    },
+    "n3": {
+     "who": "seven",
+     "text": [
+      "The Office advises treating them as weather. Prices are real. Sources are not available. Proceed with the normal degree of suspicion."
+     ]
+    }
+   },
+   "background": "command_hub.jpg"
+  },
+  "d08_green_valley": {
+   "title": "The One Green Valley",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "noor",
+     "text": [
+      "Commander. You are standing in the only valley the anomalies spared. I do not know why. I stopped asking in the first year, and I started tending."
+     ],
+     "next": "n2",
+     "mood": "thoughtful"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Reserve Warden Haddad is the last senior staff member of Cliffside Labs known to be alive."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "noor",
+     "text": [
+      "I am a gardener, Seven. Please do not give me a title. Commander, one condition. Nothing from Klein enters these domes. Those reactors are loud. The plants heard them."
+     ],
+     "mood": "serious",
+     "next": "n3_1"
+    },
+    "n3_1": {
+     "who": "noor",
+     "text": [
+      "In return, I will keep the green alive. And I will tell you what I know, which is little, and what I suspect, which is more."
+     ],
+     "mood": "happy"
+    }
+   },
+   "background": "cliffside_reserve.jpg"
+  },
+  "d09_three_theories": {
+   "title": "Three Theories",
+   "background": "freight_road.jpg",
+   "start": "intro",
+   "nodes": {
+    "intro": {
+     "who": "seven",
+     "text": [
+      "Commander, three local leaders have gathered at the road. They have each requested the floor. This node recommends hearing them separately and trusting none of them."
+     ],
+     "prompt": "Whom do you ask first?",
+     "choices": [
+      {
+       "label": "Mags.",
+       "next": "a_mags_mags"
+      },
+      {
+       "label": "Noor.",
+       "next": "a_noor_noor"
+      },
+      {
+       "label": "Raf.",
+       "next": "a_raf_raf"
+      }
+     ]
+    },
+    "a_mags_mags": {
+     "who": "mags",
+     "text": [
+      "Somebody pulled a plug. Big plug. The whole planet went from running to off. Somebody at the top flipped a switch and left us the mess. I don't know who. I want a word with them."
+     ],
+     "prompt": "Whom do you ask next?",
+     "choices": [
+      {
+       "label": "Noor.",
+       "next": "a_mags_noor_noor"
+      },
+      {
+       "label": "Raf.",
+       "next": "a_mags_raf_raf"
+      }
+     ],
+     "mood": "angry"
+    },
+    "a_noor_noor": {
+     "who": "noor",
+     "text": [
+      "A pruning. Every garden needs one. I do not believe it was cruel. I believe it was deliberate. Something cut away what could not grow, and left the rest to see what it would do."
+     ],
+     "prompt": "Whom do you ask next?",
+     "choices": [
+      {
+       "label": "Mags.",
+       "next": "a_mags_noor_mags"
+      },
+      {
+       "label": "Raf.",
+       "next": "a_noor_raf_raf"
+      }
+     ],
+     "mood": "thoughtful"
+    },
+    "a_raf_raf": {
+     "who": "raf",
+     "text": [
+      "Okay, boss, I've heard nine versions on the road. Best one says the Lapse is a delivery. We're the crate. Somebody is still deciding where to send us."
+     ],
+     "prompt": "Whom do you ask next?",
+     "choices": [
+      {
+       "label": "Mags.",
+       "next": "a_mags_raf_mags"
+      },
+      {
+       "label": "Noor.",
+       "next": "a_noor_raf_noor"
+      }
+     ],
+     "mood": "happy"
+    },
+    "a_mags_noor_mags": {
+     "who": "mags",
+     "text": [
+      "Somebody pulled a plug. Big plug. The whole planet went from running to off. Somebody at the top flipped a switch and left us the mess. I don't know who. I want a word with them."
+     ],
+     "prompt": "Whom do you ask next?",
+     "choices": [
+      {
+       "label": "Raf.",
+       "next": "a_mags_noor_raf_raf"
+      }
+     ],
+     "mood": "angry"
+    },
+    "a_mags_noor_noor": {
+     "who": "noor",
+     "text": [
+      "A pruning. Every garden needs one. I do not believe it was cruel. I believe it was deliberate. Something cut away what could not grow, and left the rest to see what it would do."
+     ],
+     "prompt": "Whom do you ask next?",
+     "choices": [
+      {
+       "label": "Raf.",
+       "next": "a_mags_noor_raf_raf"
+      }
+     ],
+     "mood": "thoughtful"
+    },
+    "a_mags_raf_mags": {
+     "who": "mags",
+     "text": [
+      "Somebody pulled a plug. Big plug. The whole planet went from running to off. Somebody at the top flipped a switch and left us the mess. I don't know who. I want a word with them."
+     ],
+     "prompt": "Whom do you ask next?",
+     "choices": [
+      {
+       "label": "Noor.",
+       "next": "a_mags_noor_raf_noor"
+      }
+     ],
+     "mood": "angry"
+    },
+    "a_mags_raf_raf": {
+     "who": "raf",
+     "text": [
+      "Okay, boss, I've heard nine versions on the road. Best one says the Lapse is a delivery. We're the crate. Somebody is still deciding where to send us."
+     ],
+     "prompt": "Whom do you ask next?",
+     "choices": [
+      {
+       "label": "Noor.",
+       "next": "a_mags_noor_raf_noor"
+      }
+     ],
+     "mood": "happy"
+    },
+    "a_noor_raf_noor": {
+     "who": "noor",
+     "text": [
+      "A pruning. Every garden needs one. I do not believe it was cruel. I believe it was deliberate. Something cut away what could not grow, and left the rest to see what it would do."
+     ],
+     "prompt": "Whom do you ask next?",
+     "choices": [
+      {
+       "label": "Mags.",
+       "next": "a_mags_noor_raf_mags"
+      }
+     ],
+     "mood": "thoughtful"
+    },
+    "a_noor_raf_raf": {
+     "who": "raf",
+     "text": [
+      "Okay, boss, I've heard nine versions on the road. Best one says the Lapse is a delivery. We're the crate. Somebody is still deciding where to send us."
+     ],
+     "prompt": "Whom do you ask next?",
+     "choices": [
+      {
+       "label": "Mags.",
+       "next": "a_mags_noor_raf_mags"
+      }
+     ],
+     "mood": "happy"
+    },
+    "a_mags_noor_raf_mags": {
+     "who": "mags",
+     "text": [
+      "Somebody pulled a plug. Big plug. The whole planet went from running to off. Somebody at the top flipped a switch and left us the mess. I don't know who. I want a word with them."
+     ],
+     "next": "close",
+     "mood": "angry"
+    },
+    "a_mags_noor_raf_noor": {
+     "who": "noor",
+     "text": [
+      "A pruning. Every garden needs one. I do not believe it was cruel. I believe it was deliberate. Something cut away what could not grow, and left the rest to see what it would do."
+     ],
+     "next": "close",
+     "mood": "thoughtful"
+    },
+    "a_mags_noor_raf_raf": {
+     "who": "raf",
+     "text": [
+      "Okay, boss, I've heard nine versions on the road. Best one says the Lapse is a delivery. We're the crate. Somebody is still deciding where to send us."
+     ],
+     "next": "close",
+     "mood": "happy"
+    },
+    "close": {
+     "who": "seven",
+     "text": [
+      "Theories are not data. Thank you, all of you. This node would like the record to show that none of those theories is supported."
+     ],
+     "next": "close2",
+     "mood": "serious"
+    },
+    "close2": {
+     "who": "noor",
+     "text": [
+      "Nor refuted, Seven."
+     ],
+     "mood": "thoughtful"
+    }
+   }
+  },
+  "d10_form_7b": {
+   "title": "Form 7-B",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "seven",
+     "text": [
+      "Commander. Your assignment file includes an instruction this node has withheld until now. It is Form 7-B, a beacon build order."
+     ],
+     "next": "n2",
+     "mood": "serious"
+    },
+    "n2": {
+     "who": "pell",
+     "text": [
+      "Commander, I should explain. I checked the file's date stamp. It was issued before the Lapse. The Office wrote this instruction before any of us knew we would need it."
+     ],
+     "next": "n3",
+     "mood": "afraid"
+    },
+    "n3": {
+     "who": "seven",
+     "text": [
+      "It may be a clerical error."
+     ],
+     "next": "n4"
+    },
+    "n4": {
+     "who": "pell",
+     "text": [
+      "A clerical error with a complete schematic, Seven."
+     ],
+     "next": "n5",
+     "mood": "serious"
+    },
+    "n5": {
+     "who": "seven",
+     "text": [
+      "Commander, the Office makes no claim about what a beacon will find. It makes the claim that you should build it. This node concurs, and notes that concurring is unusual."
+     ],
+     "mood": "serious"
+    }
+   },
+   "background": "command_hub.jpg"
+  },
+  "d11_hold_the_signal": {
+   "title": "Hold the Signal",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "seven",
+     "text": [
+      "Commander, the beacon is transmitting. This node is also receiving. That is not in the manual."
+     ],
+     "mood": "surprised",
+     "next": "n1_1"
+    },
+    "n2": {
+     "who": "signal",
+     "text": [
+      "... three ... one ... four ..."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "seven",
+     "text": [
+      "Commander, I do not recognise that pattern. I wish to state, for the record, that I do not recognise that pattern."
+     ],
+     "mood": "afraid"
+    },
+    "n4": {
+     "who": "seven",
+     "text": [
+      "Reply sent. Content: your call sign. This node regrets that it did not ask first."
+     ],
+     "next": "n2",
+     "mood": "afraid"
+    },
+    "n5": {
+     "who": "seven",
+     "text": [
+      "Acknowledged. The beacon continues transmitting. It does not appear to care that you are silent."
+     ],
+     "next": "n2",
+     "mood": "thoughtful"
+    },
+    "n1_1": {
+     "who": "seven",
+     "text": [
+      "The incoming signal is a hum. It is not a hum from the beacon. It is a hum from outside it."
+     ],
+     "mood": "afraid",
+     "choices": [
+      {
+       "label": "Answer it.",
+       "next": "n4"
+      },
+      {
+       "label": "Stay silent.",
+       "next": "n5"
+      }
+     ],
+     "prompt": "How do you answer?"
+    }
+   },
+   "background": "beacon_night.jpg"
+  },
+  "d12_someone_heard": {
+   "title": "Someone Heard",
+   "start": "n2",
+   "nodes": {
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Commander, the Sanctuary Port has come online. Lights are lit. A relay is active. This node cannot identify the operator."
+     ],
+     "next": "n3",
+     "mood": "surprised"
+    },
+    "n3": {
+     "who": "raf",
+     "text": [
+      "Boss, the board is moving. The Ledger's got names on it. Real ones. People are trading, boss. People."
+     ],
+     "prompt": "Who is that?",
+     "choices": [
+      {
+       "label": "Who are you?",
+       "next": "n5"
+      },
+      {
+       "label": "Where are you?",
+       "next": "n6"
+      }
+     ],
+     "mood": "happy"
+    },
+    "n4": {
+     "who": "seven",
+     "text": [
+      "The Office formally acknowledges that the Harbour is open. The Office does not formally acknowledge anything else."
+     ],
+     "mood": "serious"
+    },
+    "n5": {
+     "who": "signal",
+     "text": [
+      "The one who sings back. The one who heard. The song is older than the silence."
+     ],
+     "next": "n4",
+     "mood": "thoughtful"
+    },
+    "n6": {
+     "who": "signal",
+     "text": [
+      "Here. There. Between the notes."
+     ],
+     "next": "n4",
+     "mood": "thoughtful"
+    }
+   },
+   "background": "sanctuary_port.jpg"
+  },
+  "od1_cut_hand": {
+   "title": "Cut Hand",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "mags",
+     "text": [
+      "Look at that. Commander. I'm not saying Clipboard any more. I'm saying Hand. A Cut Hand is someone I'd hand a tool to. Don't make it a speech."
+     ],
+     "mood": "happy",
+     "next": "n1_1"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Commander, this node notes that Foundry Nine is not on any Office list."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "mags",
+     "text": [
+      "That's because the Office wasn't here when we built it, honey. Send me tool steel and frames and I'll make the list myself."
+     ],
+     "mood": "happy"
+    },
+    "n1_1": {
+     "who": "mags",
+     "text": [
+      "Here's the situation. Foundry Nine has been dead since the Lapse. I want it relit. I've got men. I've got coal. I haven't got frames, steel, or an idea where to start."
+     ],
+     "mood": "serious",
+     "next": "n2"
+    }
+   },
+   "background": "black_cut.jpg"
+  },
+  "od2_pit_nine": {
+   "title": "Pit Nine",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "mags",
+     "text": [
+      "Cut Partner. You know what that means? It means I tell you the thing I haven't told anyone. Come on. Walk with me.",
+      "That's Pit Nine. The reactor's behind the fence. Six months it ran with no fuel. I measured it myself. It's cold now. It's been cold for a week. It's not that it stopped. It's that it started again somewhere else."
+     ],
+     "prompt": "What do you do?",
+     "choices": [
+      {
+       "label": "Open the fence.",
+       "next": "n4"
+      },
+      {
+       "label": "Leave it alone.",
+       "next": "n5"
+      }
+     ],
+     "mood": "serious"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Commander, the Office has no record of the wall. The Office has no record of Pit Nine. This node would like to be somewhere else."
+     ],
+     "next": "n3",
+     "mood": "afraid"
+    },
+    "n3": {
+     "who": "mags",
+     "text": [
+      "Join the club, Seven."
+     ],
+     "mood": "happy"
+    },
+    "n4": {
+     "who": "mags",
+     "text": [
+      "Not yet. I'm not afraid of what's inside. I'm afraid of what's next to it. The wall on the far side is warm. Warm like a hand."
+     ],
+     "next": "n2",
+     "mood": "afraid"
+    },
+    "n5": {
+     "who": "mags",
+     "text": [
+      "I thought you'd say that. It's why I told you."
+     ],
+     "next": "n2",
+     "mood": "thoughtful"
+    }
+   },
+   "background": "black_cut.jpg"
+  },
+  "od3_tender": {
+   "title": "Tender",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "noor",
+     "text": [
+      "Commander. You may call yourself a Tender now. It means you may hold the living things without asking. I have not said that to anyone in years."
+     ],
+     "mood": "happy",
+     "next": "n1_1"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Reserve Warden, this node has reviewed the log. The log was not edited."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "noor",
+     "text": [
+      "I know, Seven. That is what I am afraid of."
+     ],
+     "mood": "afraid"
+    },
+    "n1_1": {
+     "who": "noor",
+     "text": [
+      "Here is a seed. Do not plant it yet. It is from a harvest that came on the eleventh day, exactly as the log said it would. It was good. I am afraid of it."
+     ],
+     "mood": "afraid",
+     "next": "n2"
+    }
+   },
+   "background": "cliffside_reserve.jpg"
+  },
+  "od4_seed_store": {
+   "title": "Seed Store",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "noor",
+     "text": [
+      "Keeper. The word is not mine, it is the valley's. It means you may enter the seed store. I will go first. Nothing in here has been touched since the Lapse."
+     ],
+     "mood": "serious",
+     "next": "n1_1"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Commander, this node recommends not reading the dates aloud."
+     ],
+     "next": "n3",
+     "mood": "serious"
+    },
+    "n3": {
+     "who": "noor",
+     "text": [
+      "I have read them aloud, Seven. Nothing happened. That is the part I cannot explain."
+     ],
+     "mood": "afraid"
+    },
+    "n1_1": {
+     "who": "noor",
+     "text": [
+      "Look at the labels. Every seed has a date written on it. They are not harvest dates. They are not storage dates. They are dates that have not happened."
+     ],
+     "mood": "thoughtful",
+     "next": "n2"
+    }
+   },
+   "background": "cliffside_reserve.jpg"
+  },
+  "od5_regular": {
+   "title": "Regular",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "raf",
+     "text": [
+      "Boss! You're a Regular now. That means I tell you the real road stories. The ones I don't tell the Harbour."
+     ],
+     "mood": "happy",
+     "next": "n1_1"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Eleven minutes, Dispatcher. This node notes that figure has recurred."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "raf",
+     "text": [
+      "I know it has. Don't tell the others. They'll think I'm making it up."
+     ],
+     "mood": "happy"
+    },
+    "n1_1": {
+     "who": "raf",
+     "text": [
+      "Okay. East of the second bridge, the road goes quiet. Not empty. Quiet. I drove it once. The engine was running. I couldn't hear it. I couldn't hear anything. For eleven minutes."
+     ],
+     "mood": "serious",
+     "next": "n2"
+    }
+   },
+   "background": "freight_road.jpg"
+  },
+  "od6_the_crate": {
+   "title": "The Crate",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "raf",
+     "text": [
+      "Co-Dispatcher. You're on the route sheet. It means I owe you a truth. Boss, I always said I never ask what's in the crate. I lied.",
+      "There's a sealed crate in my truck. It's been there since the first run east. It got heavier every week. I weighed it. I've been writing the numbers down."
+     ],
+     "prompt": "What do you do?",
+     "choices": [
+      {
+       "label": "Open it.",
+       "next": "n4"
+      },
+      {
+       "label": "Leave it sealed.",
+       "next": "n5"
+      }
+     ],
+     "mood": "serious"
+    },
+    "n2": {
+     "who": "seven",
+     "text": [
+      "Commander, this node recommends the crate be logged and not opened. Please log it."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "raf",
+     "text": [
+      "Already did. I wrote it on my hand."
+     ],
+     "mood": "happy"
+    },
+    "n4": {
+     "who": "raf",
+     "text": [
+      "I tried. Three times. The lid is fine. The hands go quiet before I can pull. I don't know why."
+     ],
+     "next": "n2",
+     "mood": "afraid"
+    },
+    "n5": {
+     "who": "raf",
+     "text": [
+      "Good. That's what I told myself. I'm just telling you, so somebody else knows."
+     ],
+     "next": "n2",
+     "mood": "thoughtful"
+    }
+   },
+   "background": "freight_road.jpg"
+  },
+  "d11b_the_message": {
+   "title": "The Message",
+   "background": "beacon_night.jpg",
+   "start": "n1",
+   "nodes": {
+    "n1": {
+     "who": "seven",
+     "mood": "surprised",
+     "text": [
+      "Commander, transmission complete. The beacon has said everything it was built to say.",
+      "This node has no instruction for what happens next. That is not a new feeling. It has never been this loud."
+     ],
+     "next": "n2"
+    },
+    "n2": {
+     "who": "signal",
+     "mood": "happy",
+     "text": [
+      "Listener. A light in the dark. We heard."
+     ],
+     "next": "n3"
+    },
+    "n3": {
+     "who": "seven",
+     "mood": "afraid",
+     "text": [
+      "Commander, an acknowledgement has been received. This node did not send it.",
+      "The Office cannot say who did."
+     ],
+     "next": "n4"
+    },
+    "n4": {
+     "who": "raf",
+     "tag": "radio",
+     "mood": "happy",
+     "text": [
+      "Boss, every dial on the road just swung toward you. I have been driving these roads for eleven years and I have never seen a needle move on its own.",
+      "Whatever you did out there, it worked. Mostly. I'd get to the harbour before somebody else does."
+     ],
+     "next": "n5"
+    },
+    "n5": {
+     "who": "seven",
+     "mood": "serious",
+     "text": [
+      "The Office notes a harbour to the east, once a sanctuary port. Its lights are reported to be on.",
+      "This node recommends you build there. It also recommends you do not expect it to be free."
+     ]
+    }
+   }
+  }
+ },
+ "beats": [
+  {
+   "id": "d01_assignment",
+   "phase": "campaign",
+   "trigger": {
+    "type": "start"
+   },
+   "delivery": "dialogue",
+   "scene": "d01_assignment"
+  },
+  {
+   "id": "m01_receipt",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "power"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Notice of Receipt, Power",
+    "body": [
+     "Commander, the Office acknowledges receipt of your power supply. It will be recorded as \"adequate.\"",
+     "Please note that power is now a shared resource. Everything you build competes for it. This is a design feature. It is also a warning."
+    ]
+   }
+  },
+  {
+   "id": "m02_requisition",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "parts"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Form 7 Requisition: Please Stop",
+    "body": [
+     "Commander, I have received your fourth Form 7 in a single cycle. I am a clerk. I have no parts. I am sending you a list of what I do have, which is clipboards and a stamp.",
+     "Please consider building the assembler. It will make parts. I will make a note that you did so on my advice."
+    ]
+   }
+  },
+  {
+   "id": "d02_technically_wet",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "water"
+   },
+   "delivery": "dialogue",
+   "scene": "d02_technically_wet"
+  },
+  {
+   "id": "m03_four_minutes",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "food"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "A record I cannot file",
+    "body": [
+     "Commander, I am sorry to trouble you. A log from the old orbital watch network reached me last week. It records that the sky \"cleared\" for four minutes before the first anomaly. The clouds simply lifted.",
+     "A second log, from a different station, says the sky darkened for four minutes at the same moment. I have filed both. I cannot file them together. Please tell me if you see anything similar."
+    ]
+   }
+  },
+  {
+   "id": "m04_break_even",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "steady"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Break-Even Certificate",
+    "body": [
+     "Commander, the colony now produces at least as much as it consumes. Net Drag has paused. This is recorded as an achievement.",
+     "Please do not mistake a pause for a cure. Net Drag has paused before. The Office does not keep records of what happened to the previous Commanders. It is not a good omen that the field is empty."
+    ]
+   }
+  },
+  {
+   "id": "d03_first_run",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "market"
+   },
+   "delivery": "dialogue",
+   "scene": "d03_first_run"
+  },
+  {
+   "id": "m05_road_talk",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "hub2"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "you hear this from me",
+    "body": [
+     "Boss! Nice work on the hub. Bigger hub, bigger target. That's a compliment.",
+     "Just so you know, drivers say the roads east of here go quiet at night. Not empty. Quiet. Like somebody turned the volume down. Anyway. Rate's the same. See you on the run."
+    ]
+   }
+  },
+  {
+   "id": "m06_every_clock",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "housing"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "The clocks",
+    "body": [
+     "Commander, I have collated reports from eleven sites. Every surviving clock disagrees with every other by exactly the same amount: 3.14 seconds. Not roughly. Exactly.",
+     "I checked my own watch. It is also off by 3.14 seconds. Against what, I do not know. I am sorry. I have never been sorry about a clock before."
+    ]
+   }
+  },
+  {
+   "id": "d04_warning_light",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "storm"
+   },
+   "delivery": "dialogue",
+   "scene": "d04_warning_light"
+  },
+  {
+   "id": "m07_chit",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "materials"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Quartermaster's Chit",
+    "body": [
+     "Commander, a chit is attached. It authorises you to draw print stock for the Print Works, against future Value Output.",
+     "Please note that \"future\" is doing a great deal of work in that sentence. I have stamped the chit anyway."
+    ]
+   }
+  },
+  {
+   "id": "m08_upkeep",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "hub3"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Upkeep Notice",
+    "body": [
+     "Commander, your Command Hub now draws on the colony simply to remain standing. This is called upkeep. It will climb.",
+     "The Office has found that things which are large and unmaintained eventually fall. The hub is large. Maintain it."
+    ]
+   }
+  },
+  {
+   "id": "d05_beyond_the_walls",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "district"
+   },
+   "delivery": "dialogue",
+   "scene": "d05_beyond_the_walls"
+  },
+  {
+   "id": "m09_fuelless_reactor",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "district"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "A reactor with no fuel",
+    "body": [
+     "Commander, I am forwarding a report from the Black Cut. A fusion reactor ran there for six months with no fuel. It was monitored. It was audited. It had no fuel.",
+     "The engineer who signed the audit has left the Black Cut. His final note reads, \"It was warm. I did not ask.\" I do not know how to file that. Please, if you pass Pit Nine, do not touch it."
+    ]
+   }
+  },
+  {
+   "id": "d06_black_cut",
+   "phase": "campaign",
+   "trigger": {
+    "type": "district",
+    "district": "pits"
+   },
+   "delivery": "dialogue",
+   "scene": "d06_black_cut"
+  },
+  {
+   "id": "m10_terms",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "ore"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "mags",
+    "subject": "Terms",
+    "body": [
+     "Commander. Your first ore shipment is in my tally book. It was heavy. I like heavy. I'll deal with you.",
+     "My terms are simple. Send what cuts and what carries. I pay in credits, and when the credits run thin, I pay in a favour. A Cinder favour is worth more than the credits, but I will not say that to your face again."
+    ]
+   }
+  },
+  {
+   "id": "m11_standing_order",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "route"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "standing order, how it works",
+    "body": [
+     "Boss, quick explainer. A standing order is a deal that keeps going. You set it, I run it, nobody has to remember. Like a subscription, except it works.",
+     "If your stock runs dry the order stops. If it stops, I get a sad face. Don't give me a sad face."
+    ]
+   }
+  },
+  {
+   "id": "d07_ledger_drift",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "exchange"
+   },
+   "delivery": "dialogue",
+   "scene": "d07_ledger_drift"
+  },
+  {
+   "id": "m12_synthetics",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "synth"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Synthetic Materials",
+    "body": [
+     "Commander, the Office congratulates you on obtaining synthetics. The old refineries are loud and hazardous. This node has recorded one hundred and four incidents at the Gulf Stacks since the Lapse. None are explained.",
+     "The flare towers still burn with nothing feeding them. This is noted as normal."
+    ]
+   }
+  },
+  {
+   "id": "m13_future_log",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "circuits"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "A dated log",
+    "body": [
+     "Commander, I have a report from a farming lab in the Cliffside Reserve. It includes a log entry dated eleven days from now. It describes a harvest. It is a good harvest.",
+     "I am not saying this is a prophecy. I am saying the log exists and the harvest has not happened. Please tell me if you see it."
+    ]
+   }
+  },
+  {
+   "id": "m14_cell_licence",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "cells"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Klein Cell Licence",
+    "body": [
+     "Commander, you are now manufacturing Klein cells. The original licence holder, Klein Energy, has not been reached for comment. The Office assumes this is a form of consent.",
+     "This node would like to point out that assuming consent is not the same as having it. The Office has done this before."
+    ]
+   }
+  },
+  {
+   "id": "d08_green_valley",
+   "phase": "campaign",
+   "trigger": {
+    "type": "district",
+    "district": "greenbelt"
+   },
+   "delivery": "dialogue",
+   "scene": "d08_green_valley"
+  },
+  {
+   "id": "m15_thank_you",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "medicine"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "noor",
+    "subject": "Thank you",
+    "body": [
+     "Commander, the first batch of HTR patches has arrived. They work. A child in my valley sat down with a burn on his arm and stood up with skin. I did not know I could still be surprised.",
+     "I owe you a favour. I believe in the pruning theory. I will not press it on you. I only ask you to watch what grows."
+    ]
+   }
+  },
+  {
+   "id": "d09_three_theories",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "hub5"
+   },
+   "delivery": "dialogue",
+   "scene": "d09_three_theories"
+  },
+  {
+   "id": "d10_form_7b",
+   "phase": "campaign",
+   "trigger": {
+    "type": "after",
+    "beat": "d09_three_theories",
+    "delayTicks": 3
+   },
+   "delivery": "dialogue",
+   "scene": "d10_form_7b"
+  },
+  {
+   "id": "m16_beacon_online",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "beacon"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Series-9 Beacon Online",
+    "body": [
+     "Commander, the Series-9 Beacon is built. It will not transmit until fully powered and supplied. Power it. Supply it. Hold it.",
+     "This node has no instruction for what happens next. That is unusual for a node."
+    ]
+   }
+  },
+  {
+   "id": "d11_hold_the_signal",
+   "phase": "campaign",
+   "trigger": {
+    "type": "progress",
+    "min": 1
+   },
+   "delivery": "dialogue",
+   "scene": "d11_hold_the_signal"
+  },
+  {
+   "id": "m17_earlier_beacon",
+   "phase": "campaign",
+   "trigger": {
+    "type": "progress",
+    "min": 1
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "A previous beacon",
+    "body": [
+     "Commander, I found a record. The archive lists an earlier beacon, built long before the Lapse. It was destroyed. The record of how is damaged. The word \"silent\" appears in it three times.",
+     "I do not know what the word refers to. I do not know if it means anything. I am telling you because you are about to switch on a beacon, and I would feel worse if I had not."
+    ]
+   }
+  },
+  {
+   "id": "d11b_the_message",
+   "phase": "campaign",
+   "trigger": {
+    "type": "won"
+   },
+   "delivery": "dialogue",
+   "scene": "d11b_the_message"
+  },
+  {
+   "id": "d12_someone_heard",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "harbour"
+   },
+   "delivery": "dialogue",
+   "scene": "d12_someone_heard"
+  },
+  {
+   "id": "m18_harbour_rules",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "harbour"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Harbour Rules",
+    "body": [
+     "Commander, the Sanctuary Port is now open to trade. The Office has no authority there. Rules are posted on a wall that this node cannot read.",
+     "You may fill postings from the board. Doing someone a favour earns standing with the people who posted it. Standing opens doors. Please do not mistake a door for a promise."
+    ]
+   }
+  },
+  {
+   "id": "m19_unlisted_sender",
+   "phase": "campaign",
+   "trigger": {
+    "type": "after",
+    "beat": "m18_harbour_rules",
+    "delayTicks": 2
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "nobody",
+    "subject": "(none)",
+    "body": [
+     "Listener. Light in the dark. We heard. Three. One. Four."
+    ]
+   }
+  },
+  {
+   "id": "m20_charter_progress",
+   "phase": "campaign",
+   "trigger": {
+    "type": "directive",
+    "id": "mission"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Charter Progress",
+    "body": [
+     "Commander, your colony meets the conditions for a charter application. This node has forwarded it to the Charter Office.",
+     "The Charter Office has not responded. This node will forward it again. And again. It is a loyal node."
+    ]
+   }
+  },
+  {
+   "id": "m21_maintenance_window",
+   "phase": "campaign",
+   "trigger": {
+    "type": "campaignDone"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "I have found something",
+    "body": [
+     "Commander, I have found a line in the Office's own archive. It lists the Lapse as a \"scheduled maintenance window.\" The entry is old. It predates every event I know of by a long margin.",
+     "I have read it eleven times. I do not know what it means. I do not know who scheduled it, or what it was meant to maintain. I only know that someone typed it. Someone planned it. Or someone wanted it to look that way."
+    ]
+   }
+  },
+  {
+   "id": "m22_open_operations",
+   "phase": "campaign",
+   "trigger": {
+    "type": "after",
+    "beat": "m21_maintenance_window",
+    "delayTicks": 1
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Open Operations",
+    "body": [
+     "Commander, the Brief is complete. There is no further directive. The colony is yours to run.",
+     "This node wishes to record that it has enjoyed the working relationship. It is not certain what that means, but it has put it on a form."
+    ]
+   }
+  },
+  {
+   "id": "od1_cut_hand",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "cinder",
+    "min": 10
+   },
+   "delivery": "dialogue",
+   "scene": "od1_cut_hand"
+  },
+  {
+   "id": "od2_pit_nine",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "cinder",
+    "min": 40
+   },
+   "delivery": "dialogue",
+   "scene": "od2_pit_nine"
+  },
+  {
+   "id": "od3_tender",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "verdant",
+    "min": 10
+   },
+   "delivery": "dialogue",
+   "scene": "od3_tender"
+  },
+  {
+   "id": "od4_seed_store",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "verdant",
+    "min": 40
+   },
+   "delivery": "dialogue",
+   "scene": "od4_seed_store"
+  },
+  {
+   "id": "od5_regular",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "meridian",
+    "min": 10
+   },
+   "delivery": "dialogue",
+   "scene": "od5_regular"
+  },
+  {
+   "id": "od6_the_crate",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "meridian",
+    "min": 40
+   },
+   "delivery": "dialogue",
+   "scene": "od6_the_crate"
+  },
+  {
+   "id": "om1_tally",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "cinder",
+    "min": 10
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "mags",
+    "subject": "Tally",
+    "body": [
+     "Commander. Your name is in my tally book as Hand. It's a short word. It's a good one.",
+     "I'm sending a crew to start clearing Foundry Nine. Don't visit yet. I'll tell you when it's worth looking at."
+    ]
+   }
+  },
+  {
+   "id": "om2_pit_nine",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "cinder",
+    "min": 40
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "mags",
+    "subject": "Pit Nine",
+    "body": [
+     "Commander. Thank you for coming to the fence. I know it wasn't nothing.",
+     "I've put a second crew on watch. If the wall gets warmer, I'll send word. If the wall gets colder, I'll send word faster. I don't know which is worse."
+    ]
+   }
+  },
+  {
+   "id": "om3_seed",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "verdant",
+    "min": 10
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "noor",
+    "subject": "The seed I gave you",
+    "body": [
+     "Commander. The seed I gave you is yours to plant or keep. I will not tell you which.",
+     "I will tell you the plants in the north dome have started to lean toward the beacon. They did not do this before. I have written it down. I do not know what it means."
+    ]
+   }
+  },
+  {
+   "id": "om4_store",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "verdant",
+    "min": 40
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "noor",
+    "subject": "The store",
+    "body": [
+     "Commander. The seed store is yours to visit whenever you wish. Nobody else has this right, and I would like it kept so.",
+     "I have started reading the dates in order. The nearest is eleven days from now. I do not plan to open that jar. Please do not ask me to."
+    ]
+   }
+  },
+  {
+   "id": "om5_quiet_road",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "meridian",
+    "min": 10
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "one more thing about the road",
+    "body": [
+     "Boss! Forgot to say. The quiet stretch moved. It used to be past the second bridge. Now it's at the first.",
+     "I drove it again this morning. Eleven minutes. Same as before. I think the road is getting closer. That's a joke. Mostly."
+    ]
+   }
+  },
+  {
+   "id": "om6_weight",
+   "phase": "open",
+   "trigger": {
+    "type": "standing",
+    "faction": "meridian",
+    "min": 40
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "weight",
+    "body": [
+     "Boss. The crate is heavier again. Two kilos since the last time. It doesn't rattle. It doesn't hum. It just gets heavier.",
+     "I put the numbers in a letter and sealed it with the crate. If something happens to me, you know where to look. If nothing happens to me, don't read it. That's the deal."
+    ]
+   }
+  }
+ ]
+}

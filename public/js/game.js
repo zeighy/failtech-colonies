@@ -50,7 +50,7 @@
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
   var STEP = {}; // every stepper moves by 10 (hold Shift for 100); type a value for anything else
-  var TABS = [['brief', 'Brief', 'check'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['people', 'People', 'users'], ['districts', 'Districts', 'map'], ['logistics', 'Logistics', 'route'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'scale'], ['missions', 'Missions', 'flag'], ['log', 'Log', 'list']];
+  var TABS = [['brief', 'Brief', 'check'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['people', 'People', 'users'], ['districts', 'Districts', 'map'], ['logistics', 'Logistics', 'route'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'scale'], ['missions', 'Missions', 'flag'], ['comms', 'Comms', 'mail'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
   // A number the player can type into. The panel is not redrawn while it has focus, and the value is applied when they leave
@@ -399,7 +399,8 @@
     var eb = $('c-energy-bar'); eb.style.width = (e.demand ? clamp(e.supply / e.demand, 0, 1) * 100 : 100) + '%';
     eb.style.background = ok ? 'var(--energy)' : e.satisfaction > 0.5 ? 'var(--warn)' : 'var(--bad)';
     var d = S.doom, dc = $('c-doom');
-    if (!d) { dc.innerHTML = '<span class="good">Stable</span>'; dc.title = 'No critical supply is draining at current rates.'; }
+    if (d && d.phase === 'shutdown') { dc.innerHTML = '<span class="warn">Shut down</span>'; dc.title = 'The colony is shut down. Non-essential buildings are parked until you restart them.'; }
+    else if (!d) { dc.innerHTML = '<span class="good">Stable</span>'; dc.title = 'No critical supply is draining at current rates.'; }
     else {
       var urgent = d.phase === 'starving' || d.ticks <= 20;
       dc.innerHTML = '<span class="' + (urgent ? 'bad' : d.ticks <= 40 ? 'warn' : '') + '">' + d.ticks + 't</span><small>' + clock(d.ticks * S.tickMs) + '</small>';
@@ -453,7 +454,8 @@
     var h = '', c = S.colony;
     if (!connected) h += '<div class="alert warn">' + icon('warn', 14) + (pending.length ? 'Offline: ' + pending.length + ' action' + (pending.length === 1 ? '' : 's') + ' waiting to be sent' : 'Connection lost. Retrying…') + '</div>';
     else if (flushing) h += '<div class="alert warn">' + icon('truck', 14) + 'Reconnected: sending ' + pending.length + ' queued action' + (pending.length === 1 ? '' : 's') + '…</div>';
-    if (c.starving.length) {
+    if (c.shutdown) h += '<div class="alert" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + 'Colony shut down' + (c.parked ? ' · ' + c.parked + ' building' + (c.parked === 1 ? '' : 's') + ' parked' : '') + '</div>';
+    if (c.starving.length && !c.shutdown) {
       var left = Math.ceil(c.morale / (100 / CFG.failureThresholdTicks));
       h += '<div class="alert">' + icon('warn', 14) + 'Shortage of ' + c.starving.map(function (r) { return CFG.resources[r].name; }).join(' & ') + ' · collapse in ' + left + ' ticks</div>';
     } else {
@@ -482,9 +484,11 @@
       return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
     });
     var h = TABS.map(function (t) {
-      return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '" title="' + t[1] + '" aria-label="' + t[1] + '">' + icon(t[2], 20) + '<span>' + t[1] + '</span>' +
+      var label = esc((CFG.ui && CFG.ui.tabs && CFG.ui.tabs[t[0]]) || t[1]);
+      return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '" title="' + label + '" aria-label="' + label + '">' + icon(t[2], 20) + '<span>' + label + '</span>' +
         ((t[0] === 'hub' && dot) || (t[0] === 'districts' && ddot) ? '<span class="badge" style="background:var(--good)"></span>' : '') +
-        (t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') + '</button>';
+        (t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') +
+        (t[0] === 'comms' && window.Story.unread() ? '<span class="count">' + window.Story.unread() + '</span>' : '') + '</button>';
     }).join('');
     if ($('tabs').dataset.h !== h) { $('tabs').innerHTML = h; $('tabs').dataset.h = h; }
   }
@@ -665,6 +669,13 @@
   function names(list) { return list.map(function (r) { return CFG.resources[r].name; }).join(', '); }
   function doomCard() {
     var d = S.doom;
+    if (d && d.phase === 'shutdown') {
+      var pk = S.colony.parked;
+      return '<div class="doom warn"><div class="label">Shutdown</div><div class="big warn">COLONY SHUT DOWN</div>' +
+        '<div>' + (pk ? pk + ' building' + (pk === 1 ? ' is' : 's are') + ' parked. Only the essentials are running.' : 'Everything is running again, but the colony is still recovering.') + ' Fix what ran short, then bring the rest back when you are ready.</div>' +
+        (pk ? '<div class="actions" style="margin-top:10px"><button class="btn primary" data-act="resumeOps">Restart parked buildings (' + pk + ')</button></div>' : '') +
+        '<div class="dim" style="margin-top:8px;font-size:11px">Rather start over? Abandon colony is in the command menu.</div></div>';
+    }
     if (!d) {
       return '<div class="doom ok"><div class="label">Collapse clock</div><div class="big good">STABLE</div>' +
         '<div class="dim">Nothing critical is draining at current rates. Growth or losses can change that.</div></div>';
@@ -1037,11 +1048,12 @@
   function missionsTab() {
     if (!S.freeport) return '<div class="empty-state">' + icon('lock', 36) + '<div>Missions come from the Free Port.</div></div><div class="note">Once the Beacon is built and the Free Port founded, factions start posting requests for trade goods. Filling them pays above market and builds your standing.</div>';
     var M = S.missions, F = CFG.missions.factions;
+    function rankOf(k, pts) { var r = null; (F[k].ranks || []).forEach(function (x) { if (pts >= x.min) r = x.name; }); return r; }
     if (msrc === null || !S.views[msrc]) msrc = S.districts.filter(function (d) { return d.type === 'freeport'; })[0].id;
     var h = '<div class="standing"><div class="label">Standing</div><div class="big num">' + fmt(M.total) + '</div><div class="dim" style="font-size:11px">' + M.filled + ' mission' + (M.filled === 1 ? '' : 's') + ' filled</div><div class="facs">' +
-      Object.keys(F).map(function (k) { return '<span class="fac"><b>' + fmt(M.standing[k]) + '</b><small>' + esc(F[k].name) + '</small></span>'; }).join('') + '</div></div>' +
+      Object.keys(F).map(function (k) { var r = rankOf(k, M.standing[k]); return '<span class="fac"><b>' + fmt(M.standing[k]) + '</b><small>' + esc(F[k].name) + '</small>' + (r ? '<small class="rank">' + esc(r) + '</small>' : '') + '</span>'; }).join('') + '</div></div>' +
       '<label class="selrow" style="margin:10px 0">Supply from<select data-sel="s:src">' + S.districts.map(function (d) { return '<option value="' + d.id + '"' + (d.id === msrc ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select></label>' +
-      '<div class="note">Each mission is offered in the name of every faction, each asking for something different. Fill one and the others lapse. Standing does nothing yet except keep score.</div>';
+      '<div class="note">Each mission is offered in the name of every faction, each asking for something different. Fill one and the others lapse. Standing builds your rank with each faction and opens up what they have to tell you.</div>';
     if (!M.open.length) h += '<div class="dim">No missions open right now. New ones arrive soon.</div>';
     M.open.forEach(function (q) {
       h += '<div class="mission"><div class="rhead"><b>' + esc(q.title) + '</b><span class="dim num">' + q.ticksLeft + 't left</span></div>' +
@@ -1210,7 +1222,7 @@
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains('numin') && $('panel').contains(ae)) { panelDeferred = true; return; }
     panelDeferred = false;
-    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'people' ? peopleTab() : tab === 'districts' ? districtsTab() : tab === 'logistics' ? logisticsPage() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'missions' ? missionsTab() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
+    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'people' ? peopleTab() : tab === 'districts' ? districtsTab() : tab === 'logistics' ? logisticsPage() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'missions' ? missionsTab() : tab === 'comms' ? window.Story.commsHtml() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
     if (h === lastPanel) return;
     lastPanel = h;
     var p = $('panel'), top = p.scrollTop;
@@ -1298,14 +1310,28 @@
       '<button class="btn block" data-m="logout">Sign out</button><button class="btn block" data-m="close">Close</button></div>');
   }
   MODALS.confirmReset = function () {
-    modal('<h2>Abandon this colony?</h2><p>All structures, stockpiles and credits are lost and you restart from the beginning. This cannot be undone.</p>' +
-      '<div class="actions"><button class="btn" data-m="close">Keep playing</button><button class="btn danger" data-m="reset">Abandon colony</button></div>');
+    modal('<h2>Abandon this colony?</h2><p>All structures, stockpiles and credits are lost, and your progress resets to the very beginning. Story messages you have received start over too.</p>' +
+      '<div class="actions"><button class="btn" data-m="close">Keep playing</button><button class="btn danger" data-m="confirmReset2">Continue</button></div>');
+  };
+  MODALS.confirmReset2 = function () {
+    modal('<h2>Are you sure?</h2><p><b>This erases everything and cannot be undone.</b> There is no way to get this colony back. If it is only struggling, you can keep playing and rebuild instead.</p>' +
+      '<div class="actions"><button class="btn primary" data-m="close">Keep playing</button><button class="btn danger" data-m="reset">Yes, erase it and start over</button></div>');
   };
   function checkModals() {
+    if (S.colony.shutdown && !document.querySelector('.modal') && !storeGet('shut:' + S.user + ':' + S.colony.shutdown.since)) {
+      storeSet('shut:' + S.user + ':' + S.colony.shutdown.since, '1');
+      var sh = (CFG.ui && CFG.ui.shutdown) || {};
+      modal('<h2>' + esc(sh.title || 'Colony shut down') + '</h2><p>' + esc(sh.text || 'Hope has run out. The colony has shut down instead of collapsing: only the essential buildings are running and everything else has been parked. Rebuild from here at your own pace.') + '</p>' +
+        '<p class="dim">' + esc(sh.hint || 'If you would rather begin again, Abandon colony is in the command menu.') + '</p>' +
+        '<div class="actions"><button class="btn primary" data-m="close">' + esc(sh.button || 'Understood') + '</button></div>', 'report');
+    }
     if (S.colony.status === 'failed' && !restarting && !document.querySelector('.modal.fail')) {
-      modal('<h2>Colony abandoned</h2><p>The population lost all hope and walked into the wastes. Your structures are gone, but the convoy will carry <b>' + fmt(S.colony.restartCredits) + ' credits</b> to your next attempt.' +
-        (S.colony.failures ? ' Colonies lost so far: ' + S.colony.failures + '.' : '') + '</p>' +
-        '<div class="actions" data-lock><button class="btn primary" data-m="restart" data-lock>Found a new colony</button></div>', 'fail');
+      var fl = (CFG.ui && CFG.ui.failed) || {};
+      var cr = fmt(S.colony.restartCredits);
+      modal('<h2>' + esc(fl.title || 'Colony abandoned') + '</h2><p>' + esc(fl.text || 'The population lost all hope and walked into the wastes. Your structures are gone.') + ' ' +
+        esc((fl.carry || 'The convoy will carry {credits} credits to your next attempt.').replace('{credits}', cr)) +
+        (S.colony.failures ? ' ' + esc((fl.count || 'Colonies lost so far: {n}.').replace('{n}', S.colony.failures)) : '') + '</p>' +
+        '<div class="actions" data-lock><button class="btn primary" data-m="restart" data-lock>' + esc(fl.button || 'Found a new colony') + '</button></div>', 'fail');
     }
     if (S.report.length && !acking && !restarting && !document.querySelector('.modal.report')) {
       modal('<h2>While you were away</h2><p>The colony faced trouble and did what it could with what it had.</p><ul class="log">' +
@@ -1314,8 +1340,9 @@
     }
     if (S.colony.won && !shown.won && !storeGet('won:' + S.user)) {
       shown.won = true; storeSet('won:' + S.user, '1');
-      modal('<h2>The beacon reached the world</h2><p>Transmission complete. Somewhere out there, something heard you, Commander. You kept your people alive and built something that outlasts the wastes.</p>' +
-        '<div class="actions"><button class="btn primary" data-m="close">Keep building</button></div>', 'win');
+      var won = (CFG.ui && CFG.ui.won) || {};
+      modal('<h2>' + esc(won.title || 'The beacon reached the world') + '</h2><p>' + esc(won.text || 'Transmission complete. Somewhere out there, something heard you, Commander. You kept your people alive and built something that outlasts the wastes.') + '</p>' +
+        '<div class="actions"><button class="btn primary" data-m="close">' + esc(won.button || 'Keep building') + '</button></div>', 'win');
     }
   }
   function storeGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
@@ -1328,6 +1355,7 @@
     var a = el.dataset.act;
     var sh = e.shiftKey ? 10 : 1; // hold Shift for bigger steps
     if (a === 'tab') { e.preventDefault(); tab = el.dataset.tab; renderAll(); }
+    else if (a === 'resumeOps') act('resume', {});
     else if (a === 'build' && sel && sel.ring) act('build', { ring: sel.ring, slot: sel.slot, type: el.dataset.type, district: activeId });
     else if (a === 'toggle') {
       var tb = buildingAt(+el.dataset.ring, +el.dataset.slot);
@@ -1493,6 +1521,7 @@
     RAW = ns;
     if (activeId === null || !ns.views[activeId]) activeId = ns.districts.filter(function (d) { return d.core; })[0].id;
     S = merge(ns);
+    window.Story.setView(ns.story);
     offset = ns.serverNow - Date.now();
     // surface notable new events as toasts
     var top = ns.events.length ? ns.events[0].id : 0;
@@ -1558,8 +1587,18 @@
   window.addEventListener('offline', function () { goOffline(); });
   window.addEventListener('beforeunload', function (e) { if (pending.length) { e.preventDefault(); e.returnValue = ''; } });
 
+  function applyTheme() {
+    var ui = CFG.ui || {};
+    if (ui.title) document.title = ui.title;
+    if (ui.brand) document.querySelector('.brand').textContent = ui.brand;
+    var ids = { credits: 'c-credits', population: 'c-pop', crew: 'c-crew', morale: 'c-morale', doom: 'c-doom', energy: 'c-energy', convoy: 'c-convoy', tick: 'c-tick' };
+    if (window.Terms) window.Terms.init(ui.terms);
+    Object.keys(ids).forEach(function (k) { var l = ui.labels && ui.labels[k]; var el = $(ids[k]); if (l && el && el.previousElementSibling) el.previousElementSibling.textContent = l; });
+  }
+  window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, changed: function () { if (S) { renderTabs(); renderPanel(); } } });
   api('config').then(function (cfg) {
     CFG = cfg;
+    applyTheme();
     return api('state');
   }).then(function (st) {
     setState(st);

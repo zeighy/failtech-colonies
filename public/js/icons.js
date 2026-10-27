@@ -47,6 +47,7 @@
     scale: '<path d="M12 4v16M7 20h10M4 7h16M4 7l-2.5 6a3 3 0 0 0 5 0zM20 7l-2.5 6a3 3 0 0 0 5 0z"/>',
     flag: '<path d="M5 21V4M5 4h13l-2.5 4 2.5 4H5"/>',
     route: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H14a3 3 0 0 1 0 6h-4a3 3 0 0 0 0 6h5.5"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>'
   };
   window.ICONS = I;

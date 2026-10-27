@@ -97,13 +97,21 @@ npm start                 # http://localhost:3000
 | `BCRYPT_ROUNDS` | `12` | Password hashing cost |
 | `API_RATE_LIMIT` | `120` | API requests per player per 10 seconds |
 | `MAX_STREAMS` | `1000` | Open live connections in total (4 per player) |
+| `THEME` | `recontinuation` | Which `content/<folder>` supplies names and story (`basic` is the neutral original wording) |
+| `BACKUP_INTERVAL_HOURS` | `6` | Automatic database backups; `0` turns them off |
+| `BACKUP_KEEP` | `28` | How many backups to keep |
+| `BACKUP_DIR` | `backups/` beside the database | Where backups go (owner-only) |
+
+**Backups.** The server copies the database every few hours (a consistent snapshot taken while the game runs) into `backups/`, keeping the newest 28. To restore: stop the server, copy a backup over the database file, delete its `-wal` and `-shm` files, start the server. Backups contain password hashes, so the folder is owner-only like the database.
 
 **Upgrading:** schema v4 changed ring sizes and the economy, so existing colonies are dropped on first start (accounts are kept and colonies are re-founded at next login).
 
 ### Tests
 
 ```bash
-npm test
+npm test                 # runs with THEME=basic; the tests assert the neutral wording
+npm run check-content    # validate the active theme and story
+npm run guide            # regenerate prod_guide.md from game_config.json
 ```
 
 Covers adjacency geometry, the power grid, plot penalties, hub upkeep, fuel generators, storage/defence, the beacon, market prices, convoy trading, the whole hazard lifecycle (only-when-active, strike while away, auto-averted, prorated penalty, away report), the full HTTP API, and a **balance guard**: a scripted player has to finish the beacon in a sane number of ticks without collapsing. If you retune the economy, that test tells you whether the game is still finishable.
@@ -118,11 +126,15 @@ The colony you build today is the **Core**: a stable base. The next stage adds *
 small copy of the Core with its own rings, stockpile and power grid, producing distinct resources that other districts
 and the Core need, linked by shipments and routes and traded on a larger order-book market. The design and roadmap are
 in [`docs/districts.md`](docs/districts.md). Built so far: the Core is "district 0", three districts can be founded and upgraded, goods move by shipments and standing routes, and the Beacon needs the whole web.
-The exchange and an endgame Free Port (trade goods, shields, missions) are in. Still to come: per-district hazards.
+The exchange and an endgame Free Port (trade goods, shields, missions) are in. A colony whose hope runs out now **shuts down** instead of collapsing: non-essential buildings are parked and the player can rebuild or abandon. Still to come: per-district hazards, and inline images in mail.
 
 ## Tuning the game
 
 Everything numeric is in `game_config.json`: building costs/rates/build time/plot size, hub levels and upkeep, ring sizes, resource prices, hazards, market drift, starting state, convoy interval, morale rules. No engine changes needed.
+
+## Themes and story
+
+All wording (names, descriptions, directive text, UI labels) and the narrative (dialogue scenes with optional branching, and an in-game inbox) live in `content/<theme>/`, separate from the rules. Run another theme with `THEME=<folder>`; check your edits with `npm run check-content`. Two themes ship: `recontinuation` (the default) and `basic` (the original, neutral wording). A theme can also rename the game's own vocabulary everywhere the interface prints it (`ui.terms`). Authoring guide: [`docs/story.md`](docs/story.md). What the game still needs from the setting's author: [`docs/content-needs.md`](docs/content-needs.md).
 
 ## License
 

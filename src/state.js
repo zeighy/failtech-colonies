@@ -7,6 +7,8 @@ const hazards = require('./hazards');
 const ms = require('./marketsim');
 const missions = require('./missions');
 const market = require('./market');
+const story = require('./story');
+const shutdown = require('./shutdown');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -15,6 +17,8 @@ function clientConfig() {
   const neighbors = {};
   for (const [k, list] of engine.neighborMap) neighbors[k] = list;
   return {
+    ui: config.theme.ui,
+    themeId: config.theme.id,
     resources: config.resources,
     buildings: config.buildings,
     hubLevels: config.hubLevels,
@@ -126,7 +130,7 @@ function viewFor(userId, now = Date.now()) {
     config,
     { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
     districts,
-    { neighborMaps: engine.neighborMaps, mods: { [coreD.id]: mods }, popConsumptionMult: mods.popConsumptionMult },
+    { neighborMaps: engine.neighborMaps, mods: { [coreD.id]: mods }, popConsumptionMult: mods.popConsumptionMult, routes: routeRows },
   );
   const proj = sim.coreView(full);
 
@@ -231,7 +235,9 @@ function viewFor(userId, now = Date.now()) {
       restartCredits: Math.max(config.global.startingState.credits, Math.floor(c.credits * config.global.failureCreditKeep)),
       hubLevel: c.hub_level, credits: c.credits, population: c.population,
       maxPopulation: proj.housing.cap, housing: proj.housing, staffing: proj.staffing, moraleInfo: proj.moraleInfo,
-      morale: c.morale, failures: c.failures,
+      morale: c.morale, failures: c.failures, shutdowns: c.shutdowns,
+      shutdown: c.shutdown_tick === null || c.shutdown_tick === undefined ? null : { since: c.shutdown_tick, ticks: t.globalTick - c.shutdown_tick, parked: shutdown.parkedCount(c.id) },
+      parked: shutdown.parkedCount(c.id),
       starving: proj.starving,
     },
     hub: coreV.hub,
@@ -314,7 +320,9 @@ function viewFor(userId, now = Date.now()) {
     db.prepare('UPDATE colonies SET milestones = ? WHERE id = ?').run(JSON.stringify(brief.doneIds), c.id);
   }
   view.brief = { directives: brief.list, remaining: brief.remaining };
-  view.doom = brief.doom;
+  story.evaluate(c.id, view, brief.list.filter((d) => d.done).map((d) => d.id), brief.remaining === 0, t.globalTick);
+  view.story = story.view(c.id);
+  view.doom = view.colony.shutdown ? { phase: 'shutdown', ticks: 0 } : brief.doom;
   return view;
 }
 

@@ -205,7 +205,8 @@ function evaluate(config, v, persisted = []) {
   const list = items.map((d) => {
     const done = d.live ? d.done : (earned.has(d.id) || d.done);
     if (done && !d.live) doneIds.push(d.id);
-    return { id: d.id, title: d.title, hint: d.hint, done, live: !!d.live, progress: d.progress || null, timing: null, _t: d.timing };
+    const t = (config.theme && config.theme.directives[d.id]) || d;
+    return { id: d.id, title: t.title, hint: t.hint, done, live: !!d.live, progress: d.progress || null, timing: null, _t: d.timing };
   });
   const current = list.findIndex((d) => !d.done);
   list.forEach((d, i) => {
@@ -220,4 +221,7 @@ function evaluate(config, v, persisted = []) {
   };
 }
 
-module.exports = { evaluate, doomClock, ticksToAfford, leadTimeFor };
+// Every directive id, in Brief order. Content (themes, story triggers) is validated against this list.
+const DIRECTIVE_IDS = ['power',  'scrap',  'parts',  'water',  'food',  'adjacency',  'steady',  'market',  'hub2',  'plots',  'housing',  'meals',  'quiet',  'storm',  'materials',  'hub3',  'alloys',  'hub4',  'district',  'ore',  'route',  'exchange',  'synth',  'circuits',  'cells',  'medicine',  'hub5',  'beacon',  'transmit',  'harbour',  'mission'];
+
+module.exports = { DIRECTIVE_IDS, evaluate, doomClock, ticksToAfford, leadTimeFor };

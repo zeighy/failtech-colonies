@@ -1,0 +1,493 @@
+{
+  "meta": {
+    "id": "basic",
+    "name": "Basic",
+    "author": "",
+    "version": 1
+  },
+  "ui": {
+    "brand": "FAILTECH",
+    "subtitle": "Radial Command · Territory Uplink",
+    "title": "FAILTECH Colony Command",
+    "loginNote": "The wastes don't care about your feelings. Keep the lights on, the water clean and the people fed.",
+    "tabs": {
+      "brief": "Brief",
+      "site": "Site",
+      "hub": "Hub",
+      "people": "People",
+      "districts": "Districts",
+      "logistics": "Logistics",
+      "convoy": "Convoy",
+      "exchange": "Exchange",
+      "missions": "Missions",
+      "comms": "Comms",
+      "log": "Log"
+    },
+    "labels": {
+      "credits": "Credits",
+      "population": "Population",
+      "crew": "Crew",
+      "morale": "Morale",
+      "doom": "Collapse in",
+      "energy": "Power grid",
+      "convoy": "Convoy",
+      "tick": "Tick"
+    }
+  },
+  "resources": {
+    "scrap": {
+      "name": "Scrap"
+    },
+    "unpurified_water": {
+      "name": "Raw Water"
+    },
+    "clean_water": {
+      "name": "Clean Water"
+    },
+    "rations": {
+      "name": "Rations"
+    },
+    "machined_parts": {
+      "name": "Machined Parts"
+    },
+    "building_materials": {
+      "name": "Building Materials"
+    },
+    "raw_synthetics": {
+      "name": "Raw Synthetics"
+    },
+    "alloys": {
+      "name": "Alloys"
+    },
+    "circuits": {
+      "name": "Circuits"
+    },
+    "power_cells": {
+      "name": "Power Cells"
+    },
+    "meals": {
+      "name": "Prepared Meals"
+    },
+    "ore": {
+      "name": "Ore"
+    },
+    "ingots": {
+      "name": "Ingots"
+    },
+    "reagents": {
+      "name": "Reagents"
+    },
+    "crude": {
+      "name": "Crude"
+    },
+    "fuel": {
+      "name": "Fuel"
+    },
+    "polymers": {
+      "name": "Polymers"
+    },
+    "biomass": {
+      "name": "Biomass"
+    },
+    "fertiliser": {
+      "name": "Fertiliser"
+    },
+    "medicine": {
+      "name": "Medicine"
+    },
+    "curios": {
+      "name": "Salvage Curios"
+    },
+    "tool_steel": {
+      "name": "Tool Steel"
+    },
+    "preserves": {
+      "name": "Preserved Goods"
+    },
+    "plastics": {
+      "name": "Moulded Plastics"
+    },
+    "tinctures": {
+      "name": "Tinctures"
+    },
+    "precision_tools": {
+      "name": "Precision Tools"
+    },
+    "field_kits": {
+      "name": "Field Kits"
+    },
+    "grow_stims": {
+      "name": "Growth Stimulants"
+    },
+    "luxuries": {
+      "name": "Luxury Goods"
+    },
+    "masterworks": {
+      "name": "Masterworks"
+    },
+    "frames": {
+      "name": "Structural Frames"
+    },
+    "fittings": {
+      "name": "Process Fittings"
+    },
+    "modules": {
+      "name": "Habitat Modules"
+    }
+  },
+  "buildings": {
+    "solar_array": {
+      "name": "Solar Array",
+      "desc": "Collector fields feeding the colony grid. The backbone of everything else."
+    },
+    "scrap_extractor": {
+      "name": "Scrap Extractor",
+      "desc": "Strip-mines the wreckage fields. Feeds the assemblers."
+    },
+    "water_pump": {
+      "name": "Groundwater Pump",
+      "desc": "Pulls toxic water from the aquifer. Undrinkable until filtered."
+    },
+    "water_purifier": {
+      "name": "Filtration Plant",
+      "desc": "Turns raw water into something people can actually drink."
+    },
+    "parts_assembler": {
+      "name": "Parts Assembler",
+      "desc": "Presses scrap into machined parts. The first real bottleneck."
+    },
+    "hydroponics_bay": {
+      "name": "Hydroponics Bay",
+      "desc": "Grows rations under lamps. Needs clean water to run."
+    },
+    "fabrication_works": {
+      "name": "Fabrication Works",
+      "desc": "Forges building materials for the largest structures. Hub upgrades need them."
+    },
+    "scrap_generator": {
+      "name": "Scrap Burner",
+      "desc": "Burns scrap for serious power. Wants a big plot to breathe."
+    },
+    "synth_reclaimer": {
+      "name": "Synthetics Reclaimer",
+      "desc": "Turns surplus raw synthetics into polymers, two to one. The polymer plant makes more synthetics than the circuit line needs; this puts the rest to work."
+    },
+    "foundry": {
+      "name": "Foundry",
+      "desc": "Smelts scrap and parts into structural alloys. Big furnaces need big plots."
+    },
+    "circuit_fab": {
+      "name": "Circuit Fabricator",
+      "desc": "Prints circuitry from synthetics and polymers. Needs the Stacks."
+    },
+    "cell_forge": {
+      "name": "Cell Forge",
+      "desc": "Assembles power cells from alloys and circuits. The most demanding build in the colony."
+    },
+    "warehouse": {
+      "name": "Warehouse",
+      "desc": "Extra racking: raises the storage cap of every resource."
+    },
+    "watch_post": {
+      "name": "Watch Post",
+      "desc": "Armed lookouts. Their combined strength decides how badly raiders hurt you."
+    },
+    "beacon_array": {
+      "name": "Beacon Array",
+      "desc": "A transmitter that can reach what is left of the world. Only one can be built."
+    },
+    "kitchen": {
+      "name": "Kitchen",
+      "desc": "Turns plain rations into proper meals. Hungry people survive on rations; people who eat well are happier and work harder."
+    },
+    "dormitory": {
+      "name": "Dormitory",
+      "desc": "Bunks for a few more colonists. Noise and fumes from neighbours make for poor sleep."
+    },
+    "habitat": {
+      "name": "Habitat Block",
+      "desc": "A proper residential block. Big, and worth placing carefully: homes next to heavy industry are miserable."
+    },
+    "ore_drill": {
+      "name": "Ore Drill",
+      "desc": "Bores into the old strata for raw ore. Only the Pits have the seams."
+    },
+    "smelter": {
+      "name": "Smelter",
+      "desc": "Runs ore down into ingots. Wants a wide plot and a lot of heat."
+    },
+    "alloy_works": {
+      "name": "Alloy Works",
+      "desc": "Bulk alloys from ingots: the heavy end of the Pits. Give it a Large plot and it outproduces the Core foundry."
+    },
+    "crude_pump": {
+      "name": "Crude Pump",
+      "desc": "Taps the old pipelines and tar seeps for crude."
+    },
+    "cracking_tower": {
+      "name": "Cracking Tower",
+      "desc": "Splits crude into fuel and the reagents everything else is hungry for."
+    },
+    "polymer_plant": {
+      "name": "Polymer Plant",
+      "desc": "Cooks crude into polymers, with synthetics as a by-product. The pipework needs ingots, and the Stacks make none."
+    },
+    "fuel_generator": {
+      "name": "Fuel Generator",
+      "desc": "Burns refined fuel for serious power."
+    },
+    "bio_dome": {
+      "name": "Bio Dome",
+      "desc": "Sealed greenery under glass, watered straight from the valley springs. Grows biomass and makes the neighbours feel better."
+    },
+    "agri_lab": {
+      "name": "Agri Lab",
+      "desc": "Cultures soil enhancers out of biomass and reagents."
+    },
+    "pharma_lab": {
+      "name": "Pharma Lab",
+      "desc": "Medicine from biomass, reagents and a little polymer packaging. Slow, and worth a lot."
+    },
+    "trade_workshop": {
+      "name": "Trade Workshop",
+      "desc": "Turns colony goods into trade goods. Choose one recipe and it is locked in: changing it costs credits and idles the shop. A bigger plot runs a bigger batch (more in, more out), not a better one."
+    }
+  },
+  "districts": {
+    "pits": {
+      "name": "The Pits",
+      "desc": "Strip-mined strata and collapsed foundries. Ore comes out of the ground here, then ingots and bulk alloys."
+    },
+    "stacks": {
+      "name": "The Stacks",
+      "desc": "Flare towers and pipe-forests over the old refineries. Crude, fuel, reagents and polymers, plus the synthetics and circuits built from them."
+    },
+    "greenbelt": {
+      "name": "The Greenbelt",
+      "desc": "Sealed bio-domes in the one clean valley left. Biomass, fertiliser and medicine, if you can bring it what it lacks."
+    },
+    "freeport": {
+      "name": "The Free Port",
+      "desc": "A tax-free harbour on the far side of the wastes. Anything can be built here except the base-resource extractors of the other districts, and its workshops turn what you make into what the world pays for."
+    }
+  },
+  "hazards": {
+    "dust_storm": {
+      "name": "Dust Storm",
+      "desc": "A wall of grit is rolling in. Solar output will collapse while it lasts."
+    },
+    "equipment_fault": {
+      "name": "Equipment Fault",
+      "desc": "Worn machinery is about to fail. Several structures will lose efficiency until repaired."
+    },
+    "blight": {
+      "name": "Crop Blight",
+      "desc": "Spores are spreading through the growing beds. Food output will crash."
+    },
+    "raid": {
+      "name": "Raid",
+      "desc": "Raiders have spotted the colony. Unguarded stockpiles will be looted and outer buildings damaged."
+    },
+    "toxic_spill": {
+      "name": "Toxic Spill",
+      "desc": "The aquifer is fouling. Water extraction and filtration will crawl."
+    },
+    "cold_snap": {
+      "name": "Cold Snap",
+      "desc": "A killing cold is coming. The colony will burn through water and rations far faster."
+    },
+    "signal_storm": {
+      "name": "Signal Storm",
+      "desc": "Interference is building across the bands. The beacon will struggle to transmit."
+    }
+  },
+  "factions": {
+    "cinder": {
+      "name": "Cinder Syndicate",
+      "desc": "Foundry bosses who pay well for anything that cuts or carries a load."
+    },
+    "verdant": {
+      "name": "Verdant Accord",
+      "desc": "Valley growers who want medicine, comfort and anything that keeps the green alive."
+    },
+    "meridian": {
+      "name": "Meridian Transit",
+      "desc": "A road-and-rail company that buys finished goods by the crate."
+    }
+  },
+  "recipes": {
+    "curios": {
+      "name": "Salvage Curios"
+    },
+    "tool_steel": {
+      "name": "Tool Steel"
+    },
+    "preserves": {
+      "name": "Preserved Goods"
+    },
+    "plastics": {
+      "name": "Moulded Plastics"
+    },
+    "tinctures": {
+      "name": "Tinctures"
+    },
+    "precision_tools": {
+      "name": "Precision Tools"
+    },
+    "field_kits": {
+      "name": "Field Kits"
+    },
+    "grow_stims": {
+      "name": "Growth Stimulants"
+    },
+    "luxuries": {
+      "name": "Luxury Goods"
+    },
+    "masterworks": {
+      "name": "Masterworks"
+    },
+    "frames": {
+      "name": "Structural Frames"
+    },
+    "fittings": {
+      "name": "Process Fittings"
+    },
+    "modules": {
+      "name": "Habitat Modules"
+    }
+  },
+  "missionTitles": [
+    "Supply requisition",
+    "Standing order",
+    "Urgent shortfall",
+    "Caravan manifest",
+    "Harbour tender",
+    "Quartermaster's request"
+  ],
+  "directives": {
+    "power": {
+      "title": "Lights out",
+      "hint": "The hub's own supply won't carry much. Everything that wants energy competes for the same grid, and a shortfall slows all of it."
+    },
+    "scrap": {
+      "title": "Running on fumes",
+      "hint": "Scrap pays for every structure and some machines eat it. The cache only ever goes down unless something is digging."
+    },
+    "parts": {
+      "title": "Components",
+      "hint": "The advanced structures need parts you aren't holding. Nobody sells them cheaply, and they don't appear on their own."
+    },
+    "water": {
+      "title": "Something drinkable",
+      "hint": "Water from the ground is poison. The colony drinks from clean tanks, and the tanks are draining."
+    },
+    "food": {
+      "title": "Something edible",
+      "hint": "Rations don't appear on their own. Growing food needs light, clean water and components, and it takes time to build."
+    },
+    "adjacency": {
+      "title": "Good neighbours",
+      "hint": "Placement matters. Inspect a structure to see who sits beside it, and think about who shouldn't."
+    },
+    "steady": {
+      "title": "Break even",
+      "hint": "Everything the colony consumes must be replaced. Watch the green and red rates beside your stockpiles and the grid at the top."
+    },
+    "market": {
+      "title": "Open the market",
+      "hint": "A convoy passes on a schedule, at prices that move. It only trades what you arranged before it arrived, and it pays for surplus."
+    },
+    "hub2": {
+      "title": "Room to grow",
+      "hint": "The first ring fills quickly. The hub itself can be pushed further, at a price, and more of the map opens up with it."
+    },
+    "plots": {
+      "title": "Elbow room",
+      "hint": "Some structures want more room than the inner rings offer. A cramped plot still works, at a cost. The outer rings are bigger."
+    },
+    "housing": {
+      "title": "A roof overhead",
+      "hint": "The hub's own quarters only hold so many, and machines need people to run them. More homes mean more hands, and more hands mean more can run at once."
+    },
+    "meals": {
+      "title": "Something worth eating",
+      "hint": "Bare rations keep people alive, not happy. A proper meal does something rations never will, and it starts with the rations you already make."
+    },
+    "quiet": {
+      "title": "A quiet corner",
+      "hint": "People sleep badly beside furnaces and diggers. Where the homes go decides how the neighbourhood feels, and a good meal can only offset so much."
+    },
+    "storm": {
+      "title": "Trouble comes with a warning",
+      "hint": "Something will eventually be headed your way. What the colony has in reserve when it lands decides how badly it hurts."
+    },
+    "materials": {
+      "title": "Heavy lifting",
+      "hint": "The larger upgrades want a material nobody mines. Something has to forge it, and that something wants a bigger plot."
+    },
+    "hub3": {
+      "title": "The crown's price",
+      "hint": "A bigger hub is a hungrier one. From here it draws on the colony just to stay standing, so plan for the drain before you pay for it."
+    },
+    "alloys": {
+      "title": "Hard metal",
+      "hint": "Structural metals need furnaces, and furnaces need room to breathe."
+    },
+    "hub4": {
+      "title": "A wider circle",
+      "hint": "Another ring, another bill. The upkeep climbs, and it now includes things you had to make."
+    },
+    "district": {
+      "title": "Beyond the walls",
+      "hint": "The hub is wide enough to reach past its own rings. Somewhere out there is ground worth holding, and it will need to be paid for from your own stockpile."
+    },
+    "ore": {
+      "title": "Raw from the ground",
+      "hint": "A satellite makes its own power and keeps its own stockpile. Whatever it digs up has to be fed and powered before it is any use to the colony."
+    },
+    "route": {
+      "title": "Keep it flowing",
+      "hint": "Hauling goods by hand does not scale. Some things are needed every tick, and a standing arrangement can bring them without you. Mind how much the road can carry."
+    },
+    "exchange": {
+      "title": "Name your price",
+      "hint": "The convoy takes what it is offered at its own prices. Somewhere there is a place where you can say what you will pay, or what you will take, and wait for someone to agree."
+    },
+    "synth": {
+      "title": "Something synthetic",
+      "hint": "Plastics and fine chemistry come from the old refineries, a long way from the hub. Whoever works there will need metal they cannot make."
+    },
+    "circuits": {
+      "title": "Fine work",
+      "hint": "Precision parts need synthetics, a chemical ingredient, patience, and a plot that gives them space."
+    },
+    "cells": {
+      "title": "Concentrated power",
+      "hint": "Something has to combine your best metals and your finest circuits into a compact power source. It is the most demanding thing you will build."
+    },
+    "medicine": {
+      "title": "Something to heal with",
+      "hint": "The last materials for the transmitter are grown, not forged, in the one place that still has clean ground. It will want chemistry and plastics from elsewhere."
+    },
+    "hub5": {
+      "title": "The far ring",
+      "hint": "The outermost ring has plots big enough for anything. The hub has to be strong enough to open it."
+    },
+    "beacon": {
+      "title": "Reach out",
+      "hint": "A transmitter big enough to be heard across the wastes wants the largest plot, the finest materials, and a great deal of power."
+    },
+    "transmit": {
+      "title": "Hold the signal",
+      "hint": "It has to keep running, powered and supplied, until the message gets through. Anything that interrupts it costs you time."
+    },
+    "harbour": {
+      "title": "Someone heard",
+      "hint": "The signal reached something. There is a place now that will take anything you can make, and it is not short of ways to waste your time. It will want paying for, in full."
+    },
+    "mission": {
+      "title": "A name in the harbour",
+      "hint": "People there post what they need and name what they will pay. Doing someone a favour is a kind of currency, though nobody has said what it buys."
+    }
+  }
+}
