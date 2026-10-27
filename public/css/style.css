@@ -391,11 +391,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .vn-tools { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 8px; align-items: center; padding: 14px 16px; z-index: 2; }
 .vn-tools .sp { flex: 1; }
 .vn-title { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
-.vn-stage { position: relative; flex: 1; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 6vw; min-height: 0; z-index: 1; }
-.vn-side { width: min(34vw, 340px); display: flex; justify-content: center; }
+.vn-stage { position: relative; flex: 1; display: flex; justify-content: space-between; align-items: flex-end; width: min(1040px, 100%); margin: 0 auto; padding: 0 8px; box-sizing: border-box; min-height: 0; z-index: 1; }
+.vn-side { width: min(34%, 340px); display: flex; justify-content: center; }
 .vn-char { opacity: .45; filter: saturate(.6); transition: opacity .25s, filter .25s, transform .25s; transform: translateY(8px); }
 .vn-char.on { opacity: 1; filter: none; transform: none; }
-.vn-char img { display: block; max-width: 100%; max-height: 62vh; object-fit: contain; }
+.vn-char img { display: block; max-width: 100%; max-height: min(62vh, 640px); object-fit: contain; }
 .vn-ph { display: grid; place-items: center; width: min(26vw, 220px); aspect-ratio: 3 / 4; border-radius: 120px 120px 12px 12px; background: linear-gradient(to top, color-mix(in srgb, var(--c) 35%, #0b0f13), color-mix(in srgb, var(--c) 10%, #0b0f13)); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); color: var(--c); font-size: 44px; font-weight: 700; letter-spacing: .05em; }
 .vn-box { position: relative; z-index: 2; margin: 0 auto 4vh; width: min(920px, calc(100% - 32px)); min-height: 150px; background: rgba(10,14,18,.94); border: 1px solid var(--line2); border-radius: 10px; padding: 18px 22px 14px; box-shadow: 0 20px 70px rgba(0,0,0,.7); cursor: pointer; outline: none; }
 .vn-name { position: absolute; top: -15px; left: 18px; padding: 3px 12px; background: var(--panel2); border: 1px solid var(--c); border-radius: 6px; color: var(--c); font-weight: 600; font-size: 13px; }
