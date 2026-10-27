@@ -373,7 +373,9 @@ function coreId(colonyId) {
   return r ? r.id : null;
 }
 function loadDistricts(colonyId) {
-  return db.prepare('SELECT id, type, level, name, link_level AS linkLevel, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId);
+  // A district's name is wording, so it always comes from the active theme (not from what was stored when it was founded).
+  return db.prepare('SELECT id, type, level, name, link_level AS linkLevel, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId)
+    .map((d) => ({ ...d, name: d.type !== 'core' && config.districtTypes[d.type] ? config.districtTypes[d.type].name : d.name }));
 }
 
 function loadInventory(colonyId, districtId = coreId(colonyId)) {

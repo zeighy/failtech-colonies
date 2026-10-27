@@ -337,3 +337,10 @@ test('mood art: found by name beside the portrait, absent ones fall back and are
     assert.deepEqual(found, ['happy']);
   } finally { fs.rmSync(f, { force: true }); }
 });
+
+test('district names come from the active theme, not from what was stored when the district was founded', () => {
+  const cid = bareColony();
+  db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'pits', 1, 'An Old Name', 0)").run(cid);
+  const d = store.loadDistricts(cid).find((x) => x.type === 'pits');
+  assert.equal(d.name, config.districtTypes.pits.name);
+});
