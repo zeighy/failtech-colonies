@@ -1085,13 +1085,14 @@
     var pf = function (n) { return n >= 10 ? String(Math.round(n)) : n.toFixed(1); };
     var o = P.outlook, why = {
       growing: 'Room, food and good spirits: new people move in every ' + gr.everyTicks + ' ticks.',
+      buffer: 'Production only just matches use, but the stockpile is full enough to carry a small shortfall, so people keep moving in. Watch the runway below.',
       housing: 'The homes are full. Build or expand homes to let the colony grow.',
       morale: 'Morale is below ' + gr.minMorale + ', so nobody moves in until it recovers.',
       food: 'The food and water surplus is too small to feed another person, so nobody moves in.',
       hunger: 'There is not enough food or water, so people are leaving (about ' + Math.max(1, Math.ceil(c.population * ex.starvingFraction)) + ' a tick) until the colony can feed those who are left.',
       despair: 'Morale is below ' + ex.lowMoraleBelow + ', so people are slowly leaving.'
     };
-    var line = o.state === 'shrinking' ? (o.why === 'housing' ? 'There are more people than homes, so some are leaving.' : why[o.why]) : o.state === 'growing' ? why.growing : why[o.why];
+    var line = o.state === 'shrinking' ? (o.why === 'housing' ? 'There are more people than homes, so some are leaving.' : why[o.why]) : o.state === 'growing' ? (o.why ? why[o.why] : why.growing) : why[o.why];
     var h = '<div class="p-title">' + icon('users', 22) + '<h3>People</h3></div>' +
       '<div class="popbig"><span class="big num">' + c.population + '</span><span class="dim"> / ' + P.housingCap + ' homes</span><span class="trend ' + (o.state === 'shrinking' ? 'bad' : o.state === 'growing' ? 'good' : 'dim') + '">' + (o.state === 'shrinking' ? '▼ leaving' : o.state === 'growing' ? '▲ growing' : '■ steady') + '</span></div>' +
       '<div class="meter" style="margin:6px 0"><i style="width:' + clamp(c.population / Math.max(1, P.housingCap) * 100, 0, 100).toFixed(0) + '%;background:' + (c.population >= P.housingCap ? 'var(--warn)' : 'var(--good)') + '"></i></div>' +
