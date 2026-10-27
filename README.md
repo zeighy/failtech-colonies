@@ -1,16 +1,22 @@
-# FAILTECH - Radial Command (MVP)
+# FAILTECH - Radial Command
 
-A browser-based colony management game set in a gritty, post-2200 survival-industrial world. You are the Territory Commander of a central Hub. Build outward through five concentric rings, keep a power grid running, turn scrap and bad water into food and parts, climb a four-tier production chain, weather hazards, trade with the convoy, and build a **Beacon** that can reach what is left of the world.
+A browser-based colony management game with a server-authoritative simulation. You are the Territory Commander of a central **Core**. Build outward through five concentric rings, keep a power grid running, turn scrap and bad water into food and parts, climb a production chain, found satellite **districts** and link them with shipments and routes, weather hazards, trade with the convoy and on an order-book exchange, and build a **Beacon** that can reach what is left of the world. After the Beacon an endgame harbour opens, with trade goods, missions and factions.
+
+The game ships with a story and a full theme: **Recontinuation** (Earth after the Lapse, run by the surviving Continuity Office) is the default. The rules are separate from the wording and narrative, so the same game can be re-themed by dropping in another folder (see [Themes and story](#themes-and-story)).
 
 ## How to play
 
-1. **Register** a callsign. You start with a Hub (level 1), 20 colonists and a stockpile.
-2. **Click an empty slot** on the radar to see what you can build. The menu shows costs, inputs/outputs, the adjacency bonus *for that exact slot*, and whether the **plot is big enough**.
-3. **Click a structure** to inspect it: efficiency, what is limiting it, neighbours, plot fit. You can pause it (saves power) or demolish it (50% refund).
-4. Your people drink and eat every tick. If clean water or rations run out, morale falls; at 0 morale the colony is abandoned.
-5. **Goal:** build the Beacon Array and keep it running until the transmission completes (25 signal). Everything else in the game exists to make that possible.
+1. **Register** a Commander ID. You start with a Core (level 1), 20 colonists and a stockpile.
+2. **Click an empty slot** on the radar to see what you can build. The menu shows costs, inputs and outputs, the adjacency bonus *for that exact slot*, and whether the **plot is big enough**.
+3. **Click a structure** to inspect it: efficiency, what is limiting it, neighbours, plot fit. You can pause it (saves power), switch on an optional input, expand it, or demolish it (50% refund).
+4. Your people drink and eat every tick. If clean water or rations run out, morale falls and people leave. If hope runs out the colony **shuts down** instead of collapsing: non-essential buildings are parked and you decide whether to rebuild or start over (see Systems).
+5. **Goal:** build the Beacon Array and keep it running until the transmission completes (25 signal). Everything else exists to make that possible. Then the harbour opens, and the game turns open-ended.
 
-The **Brief** tab is your guide. Hazards mark the structures they touch on the map (red **!** = being hurt, amber ring = paying a maintenance cost, dashed ring = in the forecast's path). It shows a **collapse clock** (ticks until collapse at current rates, also in the top bar), any **incoming hazard** with how prepared you are, and a roadmap of **directives** that hint at what is missing without telling you what to build. Directives stay ticked once earned. The survival ones tell you whether you are on track, tight, behind schedule or blocked, by comparing how long your stock lasts with the earliest you could finish the fix.
+The **Brief** tab is your guide. It shows a **collapse clock** (ticks until collapse at current rates, also in the top bar), any **incoming hazard** with how prepared you are, and a roadmap of **directives** that hint at what is missing without telling you what to build. Directives stay ticked once earned. The survival ones tell you whether you are on track, tight, behind schedule or blocked, by comparing how long your stock lasts with the earliest you could finish the fix. Hazards also mark the structures they touch on the map (red **!** = being hurt, amber ring = paying a maintenance cost, dashed ring = in the forecast's path).
+
+Messages from the story arrive as **calls** (a card at the bottom right of the map that you answer when convenient) and as **mail** in the Comms tab (called Signal in the default theme). See [Story delivery](#story-delivery).
+
+The right-hand pane has a vertical rail of tabs: Brief, Site, Hub, People, Districts, Logistics, Convoy, Exchange, Missions, Comms and Log (names depend on the theme). A row of chips on the map switches between the Core and your districts.
 
 ### Systems
 
@@ -19,7 +25,7 @@ The **Brief** tab is your guide. Hazards mark the structures they touch on the m
 | **Rings, slots and plots** | Rings 1-5 have 6/8/10/12/14 slots, unlocked by Hub level. **Plots get bigger outward** (Small, Medium, Large, Heavy, Colossal). |
 | **Minimum plot size** | Big buildings (Foundry, Cell Forge, Beacon, ...) want big plots. You may build them on smaller ones, but their output is multiplied by 0.6 for each missing size step. This ties advanced buildings to the outer rings, and so to Hub level, without locking them. |
 | **Adjacency** | A building's output is multiplied for each neighbour that pairs well (or badly). Neighbours = the two beside it in its ring plus touching slots in the rings above and below. Rings 2 and 4 of the Core are turned 15 degrees (`ringRotation` in the config) so slots straddle the seams of the rings beside them. |
-| **Power** | A grid, not a stockpile. Shortfalls throttle everything proportionally (a brownout). Scrap Burners are big generators that burn scrap. |
+| **Power** | A grid, not a stockpile. Shortfalls throttle everything proportionally (a brownout). Scrap Burners are big generators that burn scrap. Every district has its own grid. |
 | **Housing and crew** | The hub only houses a few colonists. **Dormitories and Habitat Blocks** raise the population cap, and most buildings need **workers**: with fewer hands than posts, every staffed building slows in proportion. Growth stops at the housing cap. |
 | **Morale and comfort** | Morale heads for a target set by **where homes are** (industry next door lowers comfort; greenery and guards raise it) and by **Prepared Meals** from a Kitchen (a second food tier). Low morale slows production; high morale gives a small bonus. |
 | **Production tiers** | Raw (scrap, water, synthetics) → clean water, rations, parts → building materials → alloys, circuits → power cells. Buildings run at fractional efficiency limited by power and by their scarcest input. |
@@ -28,14 +34,15 @@ The **Brief** tab is your guide. Hazards mark the structures they touch on the m
 | **Hazards** | Forecast ahead of time, strike on a fixed tick and then linger. The colony spends reserves automatically; unprepared means a prorated penalty, prepared still means a running cost. See below. |
 | **Convoy** | Every 40 ticks (plus on-demand express trips). Standing export/import orders execute at that convoy's prices, which drift from convoy to convoy and are shown in advance with their change. The per-resource trade limit grows with Hub level (×1 at level 1 up to ×4 at level 5). |
 | **Exchange** | From hub level 4 an order book separate from the convoy: post buy and sell orders at your own price against a book of NPC traders (and later other players). Sells are held, buys escrow credits, a 4% fee on proceeds. Prices drift on a seeded walk with shortage and glut events, and the book gets thin when you eat it. Goods are delivered to, and sold from, any district. |
-| **The Free Port** | After the Beacon, a harbour district that can build anything except other districts' raw extractors. Its **Trade Workshops** each lock in one recipe (changing costs credits and idle time) and turn colony goods into **trade goods**; a bigger plot runs a bigger batch. Sell them on the exchange, deploy them as **shields** that make a hazard harmless, or fill **missions** for the three factions to build standing. |
+| **The Free Port** | After the Beacon, a harbour district (the Sanctuary Port in the default theme) that can build anything except other districts' raw extractors. Its **Trade Workshops** each lock in one recipe (changing costs credits and idle time) and turn colony goods into **trade goods**; a bigger plot runs a bigger batch. Sell them on the exchange, deploy them as **shields** that make a hazard harmless, or fill **missions** for the three factions to build standing and rank. Standing also unlocks what each faction has to tell you. |
 | **Work orders** | Construction and upgrades take ticks. Costs are charged up front; cancelling refunds in full. |
-| **Failure** | Critical shortages drain morale; at zero the colony collapses. You keep half your credits for the next attempt. "Abandon colony" does a full reset. |
-| **Districts** | From hub level 4 the **Districts** tab lets you found satellite bases (**The Pits**: ore, ingots, alloys; **The Stacks**: crude, fuel, reagents, polymers, circuits, power cells; **The Greenbelt**: biomass, fertiliser, medicine). Each has its own stockpile, power grid and 3-5-7-9-11 rings; people, crew and morale stay colony-wide. Founding is paid from the Core, upgrades from the district itself, so goods are moved by **shipments** (take ticks by distance; stock leaves at dispatch) and by standing **routes** (units per tick moved straight between stockpiles, with a reserve the source keeps) over each district's **link**, whose capacity you can widen. Route flows show in every district's per-tick rates. District level 2 opens at hub 4, levels 3-4 at hub 5, level 5 once the Beacon is built. Switch between districts with the chips on the map. |
+| **Shutdown** | Critical shortages drain morale and people leave rather than starve. When morale reaches zero the colony does not collapse: it **shuts down**. Every building that is not essential is **parked** (housing and the Core's essential buildings stay on; everything in other districts is parked), the colony cannot collapse again, and it recovers on its own once nobody is starving and morale is back. Parked buildings stay parked until you restart them, all at once or one by one. You can keep rebuilding, or choose **Abandon colony** from the menu (two confirmations; progress resets, and the story starts over). |
+| **Districts** | From hub level 4 the **Districts** tab lets you found satellite bases (**The Pits**: ore, ingots, alloys; **The Stacks**: crude, fuel, reagents, polymers, circuits, power cells; **The Greenbelt**: biomass, fertiliser, medicine (names are the neutral theme's)). Each has its own stockpile, power grid and 3-5-7-9-11 rings; people, crew and morale stay colony-wide. Founding is paid from the Core, upgrades from the district itself, so goods are moved by **shipments** (take ticks by distance; stock leaves at dispatch) and by standing **routes** (units per tick moved straight between stockpiles, with a reserve the source keeps) over each district's **link**, whose capacity you can widen. Route flows show in every district's per-tick rates. District level 2 opens at hub 4, levels 3-4 at hub 5, level 5 once the Beacon is built. Switch between districts with the chips on the map. |
 | **Optional inputs** | Some buildings can take an extra input that is **off by default**. Switch it on from the Site pane and, while it is in stock, the building spends a fixed amount per tick for a bonus: fertiliser makes Hydroponics Bays grow x1.35, medicine makes homes happier. |
 | **Expansions** | Any production, housing or infrastructure building can be built "upward" in its plot, to level 5: the whole line scales (x1.4 up to x2.6, with a little less extra crew), paid with trade goods made at the Free Port. It is size, not efficiency. Links between districts can be widened up to 440 per tick the same way. |
-| **People** | The People tab shows what the population eats, what the colony can still feed, and where it is heading. When food or water runs short people leave instead of the colony collapsing (down to 5), and a colony will not grow itself into a shortage. |
+| **People** | The People tab shows what the population eats, what the colony can still feed, and where it is heading. When food or water runs short people leave instead of the colony collapsing (down to 5). Growth is judged on the Core's own production **plus what standing routes bring in or take out**, and a colony with a full stockpile can lean on it for a small shortfall, but it will not grow itself into a real shortage. Everyone eats from the Core stockpile; homes in other districts only add capacity and comfort. |
 | **Going offline** | If your connection drops, clicks to build, demolish, pause, switch optional inputs, upgrade or change convoy orders are **queued on screen** (a banner, a dashed marker on the map and a chip in the bottom bar) and sent in order when you reconnect. You can discard any of them first. Express trips, founding, shipments and resets need a live connection. |
+| **Synthetics Reclaimer** | Turns surplus raw synthetics into polymers, two to one (Stacks). Raw synthetics are priced to follow polymers on the exchange, so buying synthetics to convert never beats selling polymers. |
 | **Offline progress** | The server owns the clock. Production, consumption, convoys and already-forecast hazards continue while you are logged out (capped at 1,200 ticks of catch-up after downtime). |
 
 ### Hazards
@@ -55,24 +62,33 @@ The full numbers (costs, rates, plots, hazards, prices) are in [`prod_guide.md`]
 
 ## Tech stack
 
-- **Server:** Node.js 18+, Express 5, `better-sqlite3` (SQLite, WAL), `bcrypt`, `express-session` with a SQLite session store (sessions survive restarts).
-- **Client:** dependency-free HTML/CSS/JS served from `public/`. The radar is SVG built once and patched in place (and auto-zooms as rings unlock); there is no build step and no CDN dependency. Live updates arrive over **Server-Sent Events**; numbers and progress bars are interpolated between ticks.
+- **Server:** Node.js 22, Express 5, `better-sqlite3` (SQLite, WAL), `bcrypt`, `express-session` with a SQLite session store (sessions survive restarts).
+- **Client:** dependency-free HTML/CSS/JS served from `public/` (`game.js` the game, `story.js` calls and mail, `terms.js` the vocabulary layer, `icons.js`, `login.js`). The radar is SVG built once and patched in place (and auto-zooms as rings unlock); there is no build step and no CDN dependency. Live updates arrive over **Server-Sent Events**; numbers and progress bars are interpolated between ticks.
 
 ## Architecture
 
 ```
-server.js          Express app: auth, JSON API, SSE stream, activity tracking, static pages
-src/sim.js         Pure simulation (no DB, no clock): stepDistrict(), stepColony(), step(), runConvoy(), adjacency, plots, market
-src/hazards.js     Hazard forecast / strike / preparedness / away report
+server.js          Express app: auth, JSON API, SSE stream, security, graceful shutdown, static pages, /theme-assets
+src/sim.js         Pure simulation (no DB, no clock): stepDistrict(), stepColony(), step(), runConvoy(), routes, adjacency, plots
 src/engine.js      Tick loop + offline catch-up; applies sim and hazards to the database
-src/actions.js     Validated player actions (build, demolish, pause, upgrade, contracts, reset, ack); building actions take an optional `district` (default: the Core)
-src/state.js       Builds the view the client renders (dry-run tick for live rates, market forecast)
+src/actions.js     Validated, transactional player actions (build, upgrade, expand, found, ship, route, trade, shields, missions, ...)
+src/state.js       Builds the view the client renders (dry-run tick for live rates, market forecast, story state)
+src/hazards.js     Hazard forecast / strike / preparedness / shields / away report
+src/market.js      Order-book exchange (lazy NPC rungs, matching, escrow, fees)    src/marketsim.js  Seeded price walk, events, price links
+src/missions.js    Free Port missions, factions and standing
 src/objectives.js  Onboarding directives and the collapse clock
-src/db.js          Schema, migrations, session store, colony helpers
-game_config.json   All balance data
+src/shutdown.js    Shutdown: parking and restarting buildings
+src/story.js       Story beats, triggers, delivery pacing and validation
+src/theme.js       Loads content/<theme>/theme.json onto the config
+src/backup.js      Scheduled SQLite backups
+src/security.js    Headers, same-origin check, rate limits, login throttle      src/validate.js  Input validation helpers
+src/db.js          Schema (v15) and migrations, session store, colony helpers
+game_config.json   All balance data (no wording that a theme replaces matters here; ids are stable)
+content/           One folder per theme: theme.json (wording), story.json (narrative), assets/ (portraits, backgrounds)
+scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md)
 public/            index.html (login), game.html, css/, js/
-docs/              Design notes (docs/districts.md: the district system and its roadmap)
-test/              node:test suites: simulation (incl. multi-district), balance, hazards, express convoy, districts and migration, exchange, Free Port, security, HTTP API
+docs/              districts.md (district system, exchange, Free Port, roadmap), story.md (theme and story format), security.md, content-needs.md
+test/              node:test suites: simulation, balance guard, hazards, express convoy, districts and migration, exchange, Free Port, expansion and growth, shutdown, backups, story and themes, security, HTTP API
 ```
 
 The client is purely presentational. It sends intents (`POST /api/build`, ...) and the server validates ownership, slots, plot, limits and resources before accepting them.
@@ -114,7 +130,7 @@ npm run check-content    # validate the active theme and story
 npm run guide            # regenerate prod_guide.md from game_config.json
 ```
 
-Covers adjacency geometry, the power grid, plot penalties, hub upkeep, fuel generators, storage/defence, the beacon, market prices, convoy trading, the whole hazard lifecycle (only-when-active, strike while away, auto-averted, prorated penalty, away report), the full HTTP API, and a **balance guard**: a scripted player has to finish the beacon in a sane number of ticks without collapsing. If you retune the economy, that test tells you whether the game is still finishable.
+About 200 tests cover adjacency geometry, the power grid, plot penalties, hub upkeep, fuel generators, storage/defence, the beacon, market prices, convoy trading, the whole hazard lifecycle (only-when-active, strike while away, auto-averted, prorated penalty, away report), the exchange, districts and routes, expansions, shutdown and recovery, backups, themes and the story engine (including the full Recontinuation script), the security rules, the full HTTP API, and a **balance guard**: a scripted player has to finish the beacon in a sane number of ticks without collapsing. If you retune the economy, that test tells you whether the game is still finishable.
 
 ## Security
 
@@ -122,11 +138,14 @@ The server is the only authority: the client sends intents and every rule is enf
 
 ## Where it is going
 
-The colony you build today is the **Core**: a stable base. The next stage adds **districts**: satellite bases, each a
-small copy of the Core with its own rings, stockpile and power grid, producing distinct resources that other districts
-and the Core need, linked by shipments and routes and traded on a larger order-book market. The design and roadmap are
-in [`docs/districts.md`](docs/districts.md). Built so far: the Core is "district 0", three districts can be founded and upgraded, goods move by shipments and standing routes, and the Beacon needs the whole web.
-The exchange and an endgame Free Port (trade goods, shields, missions) are in. A colony whose hope runs out now **shuts down** instead of collapsing: non-essential buildings are parked and the player can rebuild or abandon. Still to come: per-district hazards, and inline images in mail.
+Built so far: the Core and three founding districts (each with its own rings, stockpile and grid), shipments and standing routes over upgradable links, the exchange, the endgame Free Port (trade goods, shields, missions, factions, rank), building expansions, optional inputs, the People tab, shutdown instead of collapse, backups, themes, and the story with calls, mail, branching scenes, moods and portraits. The design history and decisions are in [`docs/districts.md`](docs/districts.md).
+
+Not built yet (noted for later):
+
+- **Per-district hazards:** hazards currently hit the colony as a whole. The plan is in `docs/districts.md`.
+- **Inline images in mail:** the reading window can show them, the mail format has no field yet (`docs/story.md`).
+- **Playtest telemetry** (which buildings, recipes and routes get used, where players stall).
+- Balance numbers (expansion costs, exodus rates, link levels, recipes, missions, shutdown thresholds) are placeholders for playtesting.
 
 ## Tuning the game
 
@@ -134,7 +153,20 @@ Everything numeric is in `game_config.json`: building costs/rates/build time/plo
 
 ## Themes and story
 
-All wording (names, descriptions, directive text, UI labels) and the narrative (dialogue scenes with optional branching, and an in-game inbox) live in `content/<theme>/`, separate from the rules. Run another theme with `THEME=<folder>`; check your edits with `npm run check-content`. Two themes ship: `recontinuation` (the default) and `basic` (the original, neutral wording). A theme can also rename the game's own vocabulary everywhere the interface prints it (`ui.terms`). Authoring guide: [`docs/story.md`](docs/story.md). What the game still needs from the setting's author: [`docs/content-needs.md`](docs/content-needs.md).
+All wording and the whole narrative live in `content/<theme>/`, separate from the rules. Ids never change; only what is shown. Pick a theme with `THEME=<folder>` (default `recontinuation`; `basic` is the original, neutral wording). Validate edits with `npm run check-content`.
+
+- **`theme.json`:** names and descriptions for resources, buildings, districts, hazards, factions and recipes; mission titles; the Brief directives' titles and hints; faction ranks; the login, tab and top-bar labels; the win, shutdown and failure text; and `ui.terms`, a list of word replacements that renames the game's own vocabulary (hub, convoy, credits, tick...) everywhere the interface prints it, including server messages. Story text is left alone.
+- **`story.json`:** characters, scenes (nodes with passages, optional branching choices, speaker moods) and beats. A beat is triggered by colony progress (a directive, Core level, a district, faction standing, missions, hazards, the Beacon, the Brief being complete, or N ticks after another beat) and delivered as a call (dialogue) or as mail. Campaign beats arrive strictly in order; open-phase beats are independent. Nothing in the story affects the simulation, not even a branching choice.
+- **`assets/`:** portraits (800 x 1200 transparent), square avatars (256 x 256) and 7 mood variants per portrait (`name_mood.webp`), and 1920 x 1080 backgrounds. Anything not drawn yet is simply replaced by a silhouette or plain backdrop, and `check-content` lists what is missing.
+
+### Story delivery
+
+- **Calls.** A dialogue arrives as an incoming call in a card at the bottom right of the map (it also rings on login if a trigger was met while you were away). Answer when convenient; the card can be collapsed to a pill. Answering opens a full-screen scene that can be **minimized** into an "on call" bar and resumed. Played scenes stay in the Comms archive and can be replayed.
+- **Mail.** Mail goes to the Comms tab with an unread badge and a toast. Clicking it opens a reading window with the sender's avatar.
+- **Pacing.** Beats are delivered one at a time. When several are due at once (an existing colony catching up with a new script), the next arrives only once the previous ones were answered, skipped or read. A call never arrives while another call is unanswered.
+- The script is not sent ahead of time: the client only receives text that has already been delivered to that colony.
+
+Authoring guide and file formats: [`docs/story.md`](docs/story.md). The checklist for writing another theme: [`docs/content-needs.md`](docs/content-needs.md).
 
 ## License
 
