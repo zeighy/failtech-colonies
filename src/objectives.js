@@ -221,4 +221,7 @@ function evaluate(config, v, persisted = []) {
   };
 }
 
-module.exports = { evaluate, doomClock, ticksToAfford, leadTimeFor };
+// Every directive id, in Brief order. Content (themes, story triggers) is validated against this list.
+const DIRECTIVE_IDS = ['power',  'scrap',  'parts',  'water',  'food',  'adjacency',  'steady',  'market',  'hub2',  'plots',  'housing',  'meals',  'quiet',  'storm',  'materials',  'hub3',  'alloys',  'hub4',  'district',  'ore',  'route',  'exchange',  'synth',  'circuits',  'cells',  'medicine',  'hub5',  'beacon',  'transmit',  'harbour',  'mission'];
+
+module.exports = { DIRECTIVE_IDS, evaluate, doomClock, ticksToAfford, leadTimeFor };

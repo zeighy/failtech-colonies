@@ -126,7 +126,7 @@ Everything numeric is in `game_config.json`: building costs/rates/build time/plo
 
 ## Themes and story
 
-All wording (names, descriptions, directive text, UI labels) and the narrative (dialogue scenes with optional branching, and an in-game inbox) live in `content/<theme>/`, separate from the rules. Run another theme with `THEME=<folder>`; check your edits with `npm run check-content`. Authoring guide: [`docs/story.md`](docs/story.md). What the game still needs from the setting's author: [`docs/content-needs.md`](docs/content-needs.md).
+All wording (names, descriptions, directive text, UI labels) and the narrative (dialogue scenes with optional branching, and an in-game inbox) live in `content/<theme>/`, separate from the rules. Run another theme with `THEME=<folder>`; check your edits with `npm run check-content`. Two themes ship: `default` (the original, neutral wording) and `recontinuation`. Authoring guide: [`docs/story.md`](docs/story.md). What the game still needs from the setting's author: [`docs/content-needs.md`](docs/content-needs.md).
 
 ## License
 

@@ -7,6 +7,7 @@
 // Ids (polymer_plant, pits, rations...) never change; only what is shown. Pick a theme with THEME=<folder>.
 const fs = require('fs');
 const path = require('path');
+const { DIRECTIVE_IDS } = require('./objectives');
 
 const ROOT = path.join(__dirname, '..', 'content');
 const THEME_ID = /^[a-z0-9][a-z0-9_-]{0,39}$/;
@@ -50,11 +51,18 @@ function apply(config, theme) {
       }
     }
   }
+  // Faction ranks are fiction only: [{ min, name }] in ascending order, the first at 0. They never change a rule.
+  for (const [id, ranks] of Object.entries(theme.ranks || {})) {
+    if (!Object.prototype.hasOwnProperty.call(config.missions.factions, id)) { problems.push(`theme.ranks.${id}: no such faction`); continue; }
+    const ok = Array.isArray(ranks) && ranks.length && ranks[0].min === 0 && ranks.every((r, i) => r && typeof r.name === 'string' && r.name.trim() && Number.isFinite(r.min) && (i === 0 || r.min > ranks[i - 1].min));
+    if (ok) config.missions.factions[id].ranks = ranks; else problems.push(`theme.ranks.${id}: needs a list of { min, name } starting at min 0 and rising`);
+  }
   if (Array.isArray(theme.missionTitles) && theme.missionTitles.length) {
     if (theme.missionTitles.every((t) => typeof t === 'string' && t.trim())) config.missions.titles = theme.missionTitles;
     else problems.push('theme.missionTitles: must be a list of non-empty text');
   }
   for (const [id, text] of Object.entries(theme.directives || {})) {
+    if (!DIRECTIVE_IDS.includes(id)) { problems.push(`theme.directives.${id}: no such directive`); continue; }
     if (!text || typeof text.title !== 'string' || typeof text.hint !== 'string') problems.push(`theme.directives.${id}: needs title and hint text`);
   }
   return problems;
@@ -66,9 +74,12 @@ function load(config) {
   const theme = readJson(path.join(dir(id), 'theme.json'), {});
   const problems = apply(config, theme);
   for (const p of problems) console.warn(`[theme ${id}] ${p}`);
-  const ui = { brand: 'FAILTECH', subtitle: '', title: 'FAILTECH', tabs: {}, labels: {}, loginNote: '', ...(theme.ui || {}) };
+  const ui = { brand: 'FAILTECH', subtitle: '', title: 'FAILTECH', tabs: {}, labels: {}, loginNote: '', won: null, failed: null, ...(theme.ui || {}) };
   config.theme = { id, meta: theme.meta || {}, ui, directives: theme.directives || {}, problems };
   return config.theme;
 }
 
-module.exports = { load, apply, dir, themeId, readJson, SECTIONS, ROOT };
+// Folder names under content/ that look like themes.
+const listThemes = () => fs.readdirSync(ROOT, { withFileTypes: true }).filter((e) => e.isDirectory() && THEME_ID.test(e.name)).map((e) => e.name);
+
+module.exports = { listThemes, load, apply, dir, themeId, readJson, SECTIONS, ROOT };

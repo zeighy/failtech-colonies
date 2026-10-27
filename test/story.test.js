@@ -208,3 +208,78 @@ test('restarting a colony starts its story over', async () => {
   const s = (await a.get('/api/state')).body;
   assert.ok(s.story.pending.includes('c01_prologue'));
 });
+
+// ---- every theme shipped in content/ ----------------------------------------------
+test('every theme in content/ applies cleanly and has a valid story', () => {
+  const themes = theme.listThemes();
+  assert.ok(themes.includes('default') && themes.includes('recontinuation'));
+  for (const id of themes) {
+    const cfg = JSON.parse(JSON.stringify(config));
+    const t = theme.readJson(path.join(theme.ROOT, id, 'theme.json'));
+    assert.deepEqual(theme.apply(cfg, t), [], `${id}: theme.json`);
+    const s = theme.readJson(path.join(theme.ROOT, id, 'story.json'), { characters: {}, scenes: {}, beats: [] });
+    assert.deepEqual(story.validate(s, cfg), [], `${id}: story.json`);
+  }
+});
+
+test('directive ids used by content match the real Brief', () => {
+  const ids = objectives.evaluate(config, fakeView(), []).list.map((d) => d.id);
+  assert.deepEqual(objectives.DIRECTIVE_IDS, ids);
+});
+
+test('new validation rules: prompt needs choices, trigger progress needs a number, ranks need to rise', () => {
+  const edit = (f) => { const s = good(); f(s); return story.validate(s).join('\n'); };
+  assert.match(edit((s) => { s.scenes.s.nodes.x.prompt = 'hmm'; }), /prompt only makes sense/);
+  assert.match(edit((s) => { s.beats[0].trigger = { type: 'progress' }; }), /numeric min/);
+  const cfg = JSON.parse(JSON.stringify(config));
+  assert.equal(theme.apply(cfg, { ranks: { cinder: [{ min: 0, name: 'A' }, { min: 10, name: 'B' }] } }).length, 0);
+  assert.deepEqual(cfg.missions.factions.cinder.ranks.map((r) => r.name), ['A', 'B']);
+  assert.equal(theme.apply(cfg, { ranks: { cinder: [{ min: 5, name: 'A' }] } }).length, 1);
+  assert.equal(theme.apply(cfg, { ranks: { cinder: [{ min: 0, name: 'A' }, { min: 0, name: 'B' }] } }).length, 1);
+  assert.equal(theme.apply(cfg, { ranks: { nobody: [{ min: 0, name: 'A' }] } }).length, 1);
+});
+
+// ---- the Recontinuation script, run as a whole -----------------------------------
+test('Recontinuation: 12 dialogues, 22 campaign mails and 12 open beats, delivered in the written order', () => {
+  const s = theme.readJson(path.join(theme.ROOT, 'recontinuation', 'story.json'));
+  const campaign = s.beats.filter((b) => b.phase === 'campaign');
+  const open = s.beats.filter((b) => b.phase === 'open');
+  assert.equal(campaign.filter((b) => b.delivery === 'dialogue').length, 12);
+  assert.equal(campaign.filter((b) => b.delivery === 'mail').length, 22);
+  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 6);
+  assert.equal(open.filter((b) => b.delivery === 'mail').length, 6);
+  // Run the real evaluator over this script with every condition satisfied and the clock moving.
+  const all = objectives.DIRECTIVE_IDS;
+  const view = fakeView({
+    colony: { hubLevel: 5, hazardsSurvived: 3, population: 200, won: true, progress: 25, morale: 90, starving: [] },
+    districts: [{ type: 'pits' }, { type: 'greenbelt' }], missions: { standing: { cinder: 40, verdant: 40, meridian: 40 }, filled: 12 },
+  });
+  const delivered = new Map();
+  for (const b of s.beats) if (b.phase === 'campaign') delivered.set(b.id, null);
+  // evaluate against a fresh sandbox colony using the real tables
+  const cid = bareColony();
+  const real = require('../src/story');
+  const saved = real.story;
+  Object.assign(saved, s); // the loaded story is replaced for this colony only, then restored below
+  const keep = { characters: saved.characters, scenes: saved.scenes, beats: saved.beats };
+  try {
+    real.beatOf.clear(); s.beats.forEach((b) => real.beatOf.set(b.id, b));
+    for (let tick = 1; tick <= 8; tick++) real.evaluate(cid, view, all, true, tick);
+    const got = db.prepare('SELECT beat_id FROM story_beats WHERE colony_id = ? ORDER BY rowid').all(cid).map((r) => r.beat_id);
+    assert.equal(got.length, s.beats.length, 'every beat is reachable');
+    const campaignOrder = got.filter((id) => campaign.some((b) => b.id === id));
+    assert.deepEqual(campaignOrder, campaign.map((b) => b.id), 'campaign beats arrive in script order');
+    const before = (a, b) => got.indexOf(a) < got.indexOf(b);
+    assert.ok(before('d09_three_theories', 'd10_form_7b') && before('m21_maintenance_window', 'm22_open_operations'));
+  } finally {
+    Object.assign(saved, keep); real.beatOf.clear(); keep.beats.forEach((b) => real.beatOf.set(b.id, b));
+  }
+});
+
+test('Recontinuation text follows the house style: no em or en dashes, no banned phrases', () => {
+  for (const f of ['theme.json', 'story.json']) {
+    const txt = fs.readFileSync(path.join(theme.ROOT, 'recontinuation', f), 'utf8');
+    assert.ok(!/[–—]/.test(txt), `${f} has a dash`);
+    assert.ok(!/golden cage/i.test(txt), `${f} has "golden cage"`);
+  }
+});

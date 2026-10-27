@@ -21,11 +21,14 @@
 //   { type: 'missions', min }                missions filled
 //   { type: 'hazards', min }                 hazards survived
 //   { type: 'population', min }              people in the colony
+//   { type: 'progress', min }                the Beacon has been transmitting for min ticks
 //   { type: 'won' }                          the Beacon message got through
 //   { type: 'campaignDone' }                 every Brief directive is done (the open-ended phase)
 //   { type: 'after', beat, delayTicks? }     some ticks after another beat was delivered
 const store = require('./db');
 const theme = require('./theme');
+const fs = require('fs');
+const { DIRECTIVE_IDS } = require('./objectives');
 const { own, isPlain } = require('./validate');
 const { db, config } = store;
 
@@ -35,7 +38,8 @@ const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
 
 const TRIGGERS = {
   start: () => [],
-  directive: (t) => (own(config.theme.directives, t.id) ? [] : [`unknown directive "${t.id}"`]),
+  directive: (t) => (DIRECTIVE_IDS.includes(t.id) ? [] : [`unknown directive "${t.id}"`]),
+  progress: (t) => (Number.isFinite(t.min) ? [] : ['needs a numeric min']),
   hubLevel: (t) => (Number.isInteger(t.min) && t.min >= 1 ? [] : ['needs an integer min >= 1']),
   district: (t) => (own(config.districtTypes, t.district) ? [] : [`unknown district "${t.district}"`]),
   standing: (t) => [...(own(config.missions.factions, t.faction) ? [] : [`unknown faction "${t.faction}"`]), ...(Number.isFinite(t.min) ? [] : ['needs a numeric min'])],
@@ -70,6 +74,9 @@ function validate(story, cfg = config) {
     for (const [nid, node] of Object.entries(sc.nodes)) {
       const nw = `${w}.${nid}`;
       who(nw, node.who);
+      if (node.tag !== undefined && !nonEmpty(node.tag)) bad(nw, 'tag must be text');
+      if (node.prompt !== undefined && !nonEmpty(node.prompt)) bad(nw, 'prompt must be text');
+      if (node.prompt !== undefined && !node.choices) bad(nw, 'a prompt only makes sense with choices');
       if (!Array.isArray(node.text) || !node.text.length || !node.text.every(nonEmpty)) bad(nw, '"text" must be a list of passages');
       if (node.next && !own(sc.nodes, node.next)) bad(nw, `next "${node.next}" is not a node`);
       if (node.choices !== undefined) {
@@ -102,14 +109,25 @@ function validate(story, cfg = config) {
   return out;
 }
 
+// Artwork named in story.json that is not in assets/ yet is dropped (the game shows a silhouette or a plain backdrop) and
+// listed as a note, so the story can be written before the art exists.
+function dropMissingArt(story) {
+  const notes = [];
+  const have = (f) => fs.existsSync(require('path').join(theme.dir(), 'assets', f));
+  for (const [id, ch] of Object.entries(story.characters)) if (ch.portrait && FILE.test(ch.portrait) && !have(ch.portrait)) { notes.push(`characters.${id}: portrait "${ch.portrait}" is not in assets/ yet`); delete ch.portrait; }
+  for (const [id, sc] of Object.entries(story.scenes)) if (sc.background && FILE.test(sc.background) && !have(sc.background)) { notes.push(`scenes.${id}: background "${sc.background}" is not in assets/ yet`); delete sc.background; }
+  return notes;
+}
+
 function loadStory() {
   const story = theme.readJson(require('path').join(theme.dir(), 'story.json'), { characters: {}, scenes: {}, beats: [] });
   const problems = story.beats.length || Object.keys(story.scenes).length ? validate(story) : [];
+  const notes = problems.length ? [] : dropMissingArt(story);
   for (const p of problems) console.warn(`[story ${theme.themeId()}] ${p}`);
   // A broken story is switched off rather than half-played.
-  return problems.length ? { story: { characters: {}, scenes: {}, beats: [] }, problems } : { story, problems };
+  return problems.length ? { story: { characters: {}, scenes: {}, beats: [] }, problems, notes } : { story, problems, notes };
 }
-const { story, problems } = loadStory();
+const { story, problems, notes } = loadStory();
 const beatOf = new Map(story.beats.map((b) => [b.id, b]));
 
 // ---- triggers --------------------------------------------------------------------
@@ -123,6 +141,7 @@ function fires(t, x) {
     case 'missions': return ((x.view.missions && x.view.missions.filled) || 0) >= t.min;
     case 'hazards': return x.view.colony.hazardsSurvived >= t.min;
     case 'population': return x.view.colony.population >= t.min;
+    case 'progress': return (x.view.colony.progress || 0) >= t.min;
     case 'won': return !!x.view.colony.won;
     case 'campaignDone': return x.campaignDone;
     case 'after': { const d = x.delivered.get(t.beat); return !!d && x.tick - d.tick >= (t.delayTicks || 0); }
@@ -199,4 +218,4 @@ function markSeen(colonyId, beatId, all) {
   return n;
 }
 
-module.exports = { evaluate, view, content, markSeen, validate, fires, story, problems, beatOf, TRIGGERS };
+module.exports = { evaluate, view, content, markSeen, validate, fires, story, problems, notes, beatOf, TRIGGERS };

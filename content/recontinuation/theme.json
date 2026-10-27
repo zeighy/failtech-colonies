@@ -1,0 +1,414 @@
+{
+  "meta": {
+    "id": "recontinuation",
+    "name": "Recontinuation",
+    "author": "",
+    "version": 1,
+    "status": "draft"
+  },
+  "ui": {
+    "brand": "RECONTINUATION",
+    "subtitle": "Territory Command Terminal",
+    "title": "Recontinuation",
+    "loginNote": "Continuity Office. Authorized Commanders only. Progress Above All. Even now.",
+    "tabs": {
+      "brief": "Charter Brief",
+      "site": "Site",
+      "hub": "Command Hub",
+      "people": "Stakeholders",
+      "districts": "Territories",
+      "logistics": "Logistics",
+      "convoy": "Logistics Run",
+      "exchange": "Harbour Ledger",
+      "missions": "Postings",
+      "comms": "Signal",
+      "log": "Incident Log"
+    },
+    "labels": {
+      "credits": "Liquid Credits",
+      "population": "Stakeholders",
+      "crew": "Workforce",
+      "morale": "Cohesion",
+      "doom": "Net Drag",
+      "energy": "Klein Grid",
+      "convoy": "Logistics Run",
+      "tick": "Cycle"
+    },
+    "won": {
+      "title": "The Beacon is transmitting",
+      "text": "The Series-9 Beacon has finished its message. Something out there heard it, Commander. The Office has no form for this.",
+      "button": "Keep building"
+    },
+    "failed": {
+      "title": "Colony written off",
+      "text": "Output fell below the cost of keeping the colony, and the Office has closed the file. The people have left, and Site 7 is empty.",
+      "carry": "The Office will carry {credits} Liquid Credits to your next assignment.",
+      "count": "Sites written off so far: {n}.",
+      "button": "Request a new assignment"
+    }
+  },
+  "resources": {
+    "scrap": {
+      "name": "Reclaim"
+    },
+    "unpurified_water": {
+      "name": "Aquifer Draw"
+    },
+    "clean_water": {
+      "name": "Filtrate"
+    },
+    "rations": {
+      "name": "Nutrient Paste"
+    },
+    "machined_parts": {
+      "name": "Hard-Spec Parts"
+    },
+    "building_materials": {
+      "name": "Print Stock"
+    },
+    "raw_synthetics": {
+      "name": "Raw Ink"
+    },
+    "alloys": {
+      "name": "Spine Alloy"
+    },
+    "circuits": {
+      "name": "Phononic Circuits"
+    },
+    "power_cells": {
+      "name": "Klein Cells"
+    },
+    "meals": {
+      "name": "Heavy Meals"
+    },
+    "ore": {
+      "name": "Raw Ore"
+    },
+    "reagents": {
+      "name": "Reagent Stock"
+    },
+    "fuel": {
+      "name": "Refined Fuel"
+    },
+    "polymers": {
+      "name": "Polymer Stock"
+    },
+    "biomass": {
+      "name": "Mycelial Biomass"
+    },
+    "fertiliser": {
+      "name": "Soil Primer"
+    },
+    "medicine": {
+      "name": "HTR Patches"
+    },
+    "curios": {
+      "name": "Vintage Curios"
+    },
+    "preserves": {
+      "name": "Heritage Preserves"
+    },
+    "plastics": {
+      "name": "Cast Plastics"
+    },
+    "tinctures": {
+      "name": "Cliffside Tinctures"
+    },
+    "precision_tools": {
+      "name": "Hard-Spec Instruments"
+    },
+    "field_kits": {
+      "name": "Apex Field Kits"
+    },
+    "grow_stims": {
+      "name": "Mycelial Stimulants"
+    },
+    "luxuries": {
+      "name": "Artisanal Goods"
+    },
+    "masterworks": {
+      "name": "Heritage Masterworks"
+    },
+    "frames": {
+      "name": "Spine Frames"
+    },
+    "fittings": {
+      "name": "Dampener Fittings"
+    },
+    "modules": {
+      "name": "Donstand-Pattern Modules"
+    }
+  },
+  "buildings": {
+    "solar_array": {
+      "name": "Heliostat Array",
+      "desc": "Salvaged solar panels, re-aimed by hand. The old grid is gone, so this is the grid. Nothing else here runs without it."
+    },
+    "scrap_extractor": {
+      "name": "Reclaim Rig",
+      "desc": "Strips the wreckage fields to the rivets. Feeds the assemblers."
+    },
+    "water_pump": {
+      "name": "Aquifer Pump",
+      "desc": "Pulls toxic water from the aquifer. Undrinkable until filtered."
+    },
+    "water_purifier": {
+      "name": "Cliffside Filtration Plant",
+      "desc": "A filtration design from Cliffside Labs, the old medical and farming company. Turns aquifer draw into water a person can drink."
+    },
+    "parts_assembler": {
+      "name": "LMAO Parts Press",
+      "desc": "Uses an LMAO printer (a matter printer that builds objects from molecular ink) to press reclaim into machined parts. The first real bottleneck."
+    },
+    "hydroponics_bay": {
+      "name": "Nutrient Bay",
+      "desc": "Grows paste feedstock under lamps. Needs filtrate to run."
+    },
+    "fabrication_works": {
+      "name": "LMAO Print Works",
+      "desc": "Runs the last working matter printers to make print stock for the largest structures. Hub upgrades need it."
+    },
+    "scrap_generator": {
+      "name": "Reclaim Burner",
+      "desc": "Burns reclaim for serious power. The smoke shows from the next district. Wants a big plot to breathe."
+    },
+    "synth_reclaimer": {
+      "name": "Ink Reclaimer",
+      "desc": "Turns surplus raw ink into polymers, two to one. The polymer plant makes more ink than the circuit line needs, and this puts the rest to work."
+    },
+    "foundry": {
+      "name": "Black Foundry",
+      "desc": "Smelts reclaim and parts into spine alloy, the strong structural metal Black Industries, the old mining company, once made for hulls and beams. Big furnaces need big plots."
+    },
+    "circuit_fab": {
+      "name": "Phononic Fab",
+      "desc": "Prints circuitry that runs on sound waves instead of electricity, a FAILTECH design, from synthetics and polymers. Dust is the enemy. Needs the Gulf Stacks."
+    },
+    "cell_forge": {
+      "name": "Klein Cell Forge",
+      "desc": "Assembles Klein cells, compact fusion power packs, from alloys and circuits. Klein Energy would call it theft, but nobody is left to file. The most demanding build in the colony."
+    },
+    "warehouse": {
+      "name": "Logistics Depot",
+      "desc": "Extra racking, tarps and padlocks. Raises the storage cap of every resource."
+    },
+    "watch_post": {
+      "name": "Sentinel Post",
+      "desc": "Armed lookouts on the old Sentinel pattern, FAILTECH's watch-station network. Their combined strength decides how badly the Unaffiliated hurt you when they come."
+    },
+    "beacon_array": {
+      "name": "Series-9 Beacon",
+      "desc": "A rebuilt communication node of the kind FAILTECH once strung between stars. Set to speak, it can reach whatever is left of the world, if anything is. Only one can be built."
+    },
+    "kitchen": {
+      "name": "Best Food Kitchen",
+      "desc": "Run under Best Food, the Office's ration label. Turns plain paste into heavy meals: real, cooked food. Hungry people survive on paste. People who eat well are happier and work harder."
+    },
+    "dormitory": {
+      "name": "Class-C Dormitory",
+      "desc": "Communal bunks, the Office's lowest housing tier, for a few more colonists. Noise and fumes from neighbours make for poor sleep."
+    },
+    "habitat": {
+      "name": "Class-B Habitat Block",
+      "desc": "Private quarters, the Office's middle housing tier. Big, and worth placing carefully, because homes next to heavy industry are miserable."
+    },
+    "ore_drill": {
+      "name": "Strata Drill",
+      "desc": "Bores into the old strata for raw ore. Only the Black Cut has the seams."
+    },
+    "smelter": {
+      "name": "Black Smelter",
+      "desc": "Runs ore down into ingots. Wants a wide plot and a lot of heat."
+    },
+    "alloy_works": {
+      "name": "Spine Alloy Works",
+      "desc": "Bulk spine alloy from ingots: the heavy end of the Black Cut. Give it a Large plot and it outproduces the Core foundry."
+    },
+    "crude_pump": {
+      "name": "Pipeline Tap",
+      "desc": "Taps the old pipelines and tar seeps for crude oil."
+    },
+    "cracking_tower": {
+      "desc": "Splits crude into fuel and the reagents everything else is hungry for."
+    },
+    "polymer_plant": {
+      "desc": "Cooks crude into polymers, with raw ink as a by-product. The pipework needs ingots, and the Gulf Stacks make none."
+    },
+    "fuel_generator": {
+      "name": "Fuel Turbine",
+      "desc": "Burns refined fuel for serious power."
+    },
+    "bio_dome": {
+      "name": "Cliffside Bio Dome",
+      "desc": "Sealed greenery under glass, watered straight from the valley springs. Grows biomass and makes the neighbours feel better."
+    },
+    "agri_lab": {
+      "name": "Cliffside Agri Lab",
+      "desc": "Cultures soil primer out of biomass and reagents."
+    },
+    "pharma_lab": {
+      "name": "HTR Lab",
+      "desc": "Cooks HTR patches, the near-instant wound healers FAILTECH was famous for, from biomass, reagents and a little polymer packaging. Slow, and worth a lot."
+    },
+    "trade_workshop": {
+      "name": "Licensed Workshop",
+      "desc": "FAILTECH licensed everything, and the habit survives. Turns colony goods into trade goods. Choose one recipe and it is locked in: changing it costs credits and idles the shop. A bigger plot runs a bigger batch (more in, more out), not a better one."
+    }
+  },
+  "districts": {
+    "pits": {
+      "name": "The Black Cut",
+      "desc": "Strip mines and collapsed foundries of Black Industries, the old mining company, half swallowed by the Lapse. Ore comes out of the ground here, then ingots and bulk spine alloy."
+    },
+    "stacks": {
+      "name": "The Gulf Stacks",
+      "desc": "Flare towers and pipe-forests over the old Gulf Coast refineries. Crude, fuel, reagents and polymers, plus the raw ink and circuits built from them. Some towers still burn with nothing feeding them."
+    },
+    "greenbelt": {
+      "name": "The Cliffside Reserve",
+      "desc": "Sealed bio-domes in the one valley the anomalies spared, kept by Cliffside Labs, the old medical and farming company. Biomass, soil primer and HTR patches, if you can bring it what it lacks."
+    },
+    "freeport": {
+      "name": "The Sanctuary Port",
+      "desc": "A tax-free harbour on the far side of the wastes, from the years when corporations bought their own sovereign ports. Anything can be built here except the base-resource extractors of the other districts, and its workshops turn what you make into what anyone out there will pay for."
+    }
+  },
+  "hazards": {
+    "dust_storm": {
+      "name": "Ashfall Front",
+      "desc": "A wall of ash and grit is rolling in off the dead ground. Solar output will collapse while it lasts."
+    },
+    "equipment_fault": {
+      "name": "Phantom Drag",
+      "desc": "Machinery is wearing out faster than it should, for no reason any sensor can name. Several structures will lose efficiency until repaired."
+    },
+    "blight": {
+      "name": "Chirality Blight",
+      "desc": "The growing beds are flipping to mirror-image chemistry. The crops look healthy and feed nobody. Food output will crash."
+    },
+    "raid": {
+      "name": "Unaffiliated Raid",
+      "desc": "Survivors with no colony and no charter have spotted yours. Unguarded stockpiles will be looted and outer buildings damaged."
+    },
+    "toxic_spill": {
+      "name": "Aquifer Bleed",
+      "desc": "Something is bleeding into the aquifer from below. Water extraction and filtration will crawl."
+    },
+    "cold_snap": {
+      "name": "Thermal Wall",
+      "desc": "The temperature is falling toward a limit nobody can explain. A killing cold is coming. The colony will burn through water and paste far faster."
+    },
+    "signal_storm": {
+      "name": "Orpheus Cascade",
+      "desc": "A harmonic feedback loop, named for an old FAILTECH drive accident, is building across the radio bands. The beacon will struggle to transmit."
+    }
+  },
+  "factions": {
+    "cinder": {
+      "name": "Black Industries Remnant",
+      "desc": "What is left of the foundry crews of Black Industries, the old mining and materials company. They pay well for anything that cuts or carries a load."
+    },
+    "verdant": {
+      "name": "Cliffside Accord",
+      "desc": "Cliffside Labs' surviving growers and wardens. Cliffside was the old medical and farming company. They want medicine, comfort and anything that keeps the green alive."
+    },
+    "meridian": {
+      "name": "Ammano Transit",
+      "desc": "Road-and-rail crews of Ammano, the old manufacturing and freight company, still moving cargo through the ruins. They buy finished goods by the crate."
+    }
+  },
+  "ranks": {
+    "cinder": [
+      {
+        "min": 0,
+        "name": "Clipboard"
+      },
+      {
+        "min": 10,
+        "name": "Cut Hand"
+      },
+      {
+        "min": 40,
+        "name": "Cut Partner"
+      }
+    ],
+    "verdant": [
+      {
+        "min": 0,
+        "name": "Visitor"
+      },
+      {
+        "min": 10,
+        "name": "Tender"
+      },
+      {
+        "min": 40,
+        "name": "Keeper"
+      }
+    ],
+    "meridian": [
+      {
+        "min": 0,
+        "name": "Customer"
+      },
+      {
+        "min": 10,
+        "name": "Regular"
+      },
+      {
+        "min": 40,
+        "name": "Co-Dispatcher"
+      }
+    ]
+  },
+  "recipes": {
+    "curios": {
+      "name": "Vintage Curios"
+    },
+    "tool_steel": {
+      "name": "Tool Steel"
+    },
+    "preserves": {
+      "name": "Heritage Preserves"
+    },
+    "plastics": {
+      "name": "Cast Plastics"
+    },
+    "tinctures": {
+      "name": "Cliffside Tinctures"
+    },
+    "precision_tools": {
+      "name": "Hard-Spec Instruments"
+    },
+    "field_kits": {
+      "name": "Apex Field Kits"
+    },
+    "grow_stims": {
+      "name": "Mycelial Stimulants"
+    },
+    "luxuries": {
+      "name": "Artisanal Goods"
+    },
+    "masterworks": {
+      "name": "Heritage Masterworks"
+    },
+    "frames": {
+      "name": "Spine Frames"
+    },
+    "fittings": {
+      "name": "Dampener Fittings"
+    },
+    "modules": {
+      "name": "Donstand-Pattern Modules"
+    }
+  },
+  "missionTitles": [
+    "Form 7 Requisition",
+    "Standing Directive",
+    "Shortfall Notice",
+    "Logistics Manifest",
+    "Harbour Tender",
+    "Quartermaster's Chit"
+  ],
+  "directives": {}
+}

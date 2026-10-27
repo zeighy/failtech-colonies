@@ -317,7 +317,7 @@ function viewFor(userId, now = Date.now()) {
     db.prepare('UPDATE colonies SET milestones = ? WHERE id = ?').run(JSON.stringify(brief.doneIds), c.id);
   }
   view.brief = { directives: brief.list, remaining: brief.remaining };
-  story.evaluate(c.id, view, brief.doneIds, brief.remaining === 0, t.globalTick);
+  story.evaluate(c.id, view, brief.list.filter((d) => d.done).map((d) => d.id), brief.remaining === 0, t.globalTick);
   view.story = story.view(c.id);
   view.doom = brief.doom;
   return view;

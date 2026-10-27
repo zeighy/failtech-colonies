@@ -1039,11 +1039,12 @@
   function missionsTab() {
     if (!S.freeport) return '<div class="empty-state">' + icon('lock', 36) + '<div>Missions come from the Free Port.</div></div><div class="note">Once the Beacon is built and the Free Port founded, factions start posting requests for trade goods. Filling them pays above market and builds your standing.</div>';
     var M = S.missions, F = CFG.missions.factions;
+    function rankOf(k, pts) { var r = null; (F[k].ranks || []).forEach(function (x) { if (pts >= x.min) r = x.name; }); return r; }
     if (msrc === null || !S.views[msrc]) msrc = S.districts.filter(function (d) { return d.type === 'freeport'; })[0].id;
     var h = '<div class="standing"><div class="label">Standing</div><div class="big num">' + fmt(M.total) + '</div><div class="dim" style="font-size:11px">' + M.filled + ' mission' + (M.filled === 1 ? '' : 's') + ' filled</div><div class="facs">' +
-      Object.keys(F).map(function (k) { return '<span class="fac"><b>' + fmt(M.standing[k]) + '</b><small>' + esc(F[k].name) + '</small></span>'; }).join('') + '</div></div>' +
+      Object.keys(F).map(function (k) { var r = rankOf(k, M.standing[k]); return '<span class="fac"><b>' + fmt(M.standing[k]) + '</b><small>' + esc(F[k].name) + '</small>' + (r ? '<small class="rank">' + esc(r) + '</small>' : '') + '</span>'; }).join('') + '</div></div>' +
       '<label class="selrow" style="margin:10px 0">Supply from<select data-sel="s:src">' + S.districts.map(function (d) { return '<option value="' + d.id + '"' + (d.id === msrc ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select></label>' +
-      '<div class="note">Each mission is offered in the name of every faction, each asking for something different. Fill one and the others lapse. Standing does nothing yet except keep score.</div>';
+      '<div class="note">Each mission is offered in the name of every faction, each asking for something different. Fill one and the others lapse. Standing builds your rank with each faction and opens up what they have to tell you.</div>';
     if (!M.open.length) h += '<div class="dim">No missions open right now. New ones arrive soon.</div>';
     M.open.forEach(function (q) {
       h += '<div class="mission"><div class="rhead"><b>' + esc(q.title) + '</b><span class="dim num">' + q.ticksLeft + 't left</span></div>' +
@@ -1305,9 +1306,12 @@
   };
   function checkModals() {
     if (S.colony.status === 'failed' && !restarting && !document.querySelector('.modal.fail')) {
-      modal('<h2>Colony abandoned</h2><p>The population lost all hope and walked into the wastes. Your structures are gone, but the convoy will carry <b>' + fmt(S.colony.restartCredits) + ' credits</b> to your next attempt.' +
-        (S.colony.failures ? ' Colonies lost so far: ' + S.colony.failures + '.' : '') + '</p>' +
-        '<div class="actions" data-lock><button class="btn primary" data-m="restart" data-lock>Found a new colony</button></div>', 'fail');
+      var fl = (CFG.ui && CFG.ui.failed) || {};
+      var cr = fmt(S.colony.restartCredits);
+      modal('<h2>' + esc(fl.title || 'Colony abandoned') + '</h2><p>' + esc(fl.text || 'The population lost all hope and walked into the wastes. Your structures are gone.') + ' ' +
+        esc((fl.carry || 'The convoy will carry {credits} credits to your next attempt.').replace('{credits}', cr)) +
+        (S.colony.failures ? ' ' + esc((fl.count || 'Colonies lost so far: {n}.').replace('{n}', S.colony.failures)) : '') + '</p>' +
+        '<div class="actions" data-lock><button class="btn primary" data-m="restart" data-lock>' + esc(fl.button || 'Found a new colony') + '</button></div>', 'fail');
     }
     if (S.report.length && !acking && !restarting && !document.querySelector('.modal.report')) {
       modal('<h2>While you were away</h2><p>The colony faced trouble and did what it could with what it had.</p><ul class="log">' +
@@ -1316,8 +1320,9 @@
     }
     if (S.colony.won && !shown.won && !storeGet('won:' + S.user)) {
       shown.won = true; storeSet('won:' + S.user, '1');
-      modal('<h2>The beacon reached the world</h2><p>Transmission complete. Somewhere out there, something heard you, Commander. You kept your people alive and built something that outlasts the wastes.</p>' +
-        '<div class="actions"><button class="btn primary" data-m="close">Keep building</button></div>', 'win');
+      var won = (CFG.ui && CFG.ui.won) || {};
+      modal('<h2>' + esc(won.title || 'The beacon reached the world') + '</h2><p>' + esc(won.text || 'Transmission complete. Somewhere out there, something heard you, Commander. You kept your people alive and built something that outlasts the wastes.') + '</p>' +
+        '<div class="actions"><button class="btn primary" data-m="close">' + esc(won.button || 'Keep building') + '</button></div>', 'win');
     }
   }
   function storeGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }

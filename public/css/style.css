@@ -135,10 +135,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .hub-pulse { fill: none; stroke: var(--amber); stroke-width: 1; opacity: 0; transform-origin: 0 0; animation: ping 3s ease-out infinite; }
 
 /* right panel */
-.tabs { display: flex; flex-direction: column; width: 62px; flex: none; border-right: 1px solid var(--line); background: var(--bg2); overflow-y: auto; scrollbar-width: none; }
+.tabs { display: flex; flex-direction: column; width: 66px; flex: none; border-right: 1px solid var(--line); background: var(--bg2); overflow-y: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
-.tab { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; border-left: 2px solid transparent; padding: 11px 2px 9px; color: var(--dim); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; position: relative; width: 100%; }
+.tab { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; border-left: 2px solid transparent; padding: 11px 2px 9px; color: var(--dim); font-size: 8px; letter-spacing: .03em; text-transform: uppercase; position: relative; width: 100%; }
 .tab svg { display: block; }
+.tab span { max-width: 100%; text-align: center; line-height: 1.15; letter-spacing: 0; overflow-wrap: normal; }
 .tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
 .tab[aria-selected="true"] { color: var(--amber); border-left-color: var(--amber); background: var(--panel); }
 .tab .badge { position: absolute; top: 7px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); }
@@ -419,3 +420,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .mail-head small { color: var(--faint); }
 .mail-body { padding: 4px 14px 14px 30px; color: var(--text); font-size: 13px; line-height: 1.55; }
 .mail-body p { margin: 0 0 10px; }
+.vn-name em { color: var(--dim); font-style: normal; font-weight: 400; margin-left: 4px; }
+.vn-name em::before { content: '('; } .vn-name em::after { content: ')'; }
+.vn-prompt { color: var(--amber); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
+.rank { color: var(--amber); }

@@ -93,7 +93,7 @@
       '</div>' +
       '<div class="vn-stage"><div class="vn-side left">' + portrait(charOf(p.last.left), n.who === p.last.left) + '</div><div class="vn-side right">' + portrait(charOf(p.last.right), n.who === p.last.right) + '</div></div>' +
       '<div class="vn-box" data-story="advance" tabindex="0">' +
-        (ch ? '<div class="vn-name" style="--c:' + esc(ch.color || '#ddd') + '">' + esc(ch.name) + (ch.title ? ' <small>' + esc(ch.title) + '</small>' : '') + '</div>' : '') +
+        (ch ? '<div class="vn-name" style="--c:' + esc(ch.color || '#ddd') + '">' + esc(ch.name) + (n.tag ? ' <em>' + esc(n.tag) + '</em>' : '') + (ch.title ? ' <small>' + esc(ch.title) + '</small>' : '') + '</div>' : '') +
         '<div class="vn-text' + (ch ? '' : ' narr') + '" id="vn-text"></div>' +
         '<div class="vn-choices" id="vn-choices"></div>' +
         '<div class="vn-hint" id="vn-hint">Click or press Space to continue</div>' +
@@ -114,7 +114,7 @@
       var ch = document.getElementById('vn-choices'), hint = document.getElementById('vn-hint');
       if (lastPassage && n.choices) {
         hint.style.visibility = 'hidden';
-        ch.innerHTML = n.choices.map(function (c, i) { return '<button class="btn vn-choice" data-story="choose" data-i="' + i + '"><kbd>' + (i + 1) + '</kbd> ' + esc(c.label) + '</button>'; }).join('');
+        ch.innerHTML = (n.prompt ? '<div class="vn-prompt">' + esc(n.prompt) + '</div>' : '') + n.choices.map(function (c, i) { return '<button class="btn vn-choice" data-story="choose" data-i="' + i + '"><kbd>' + (i + 1) + '</kbd> ' + esc(c.label) + '</button>'; }).join('');
       } else {
         hint.style.visibility = 'visible';
         hint.textContent = lastPassage && !n.next ? 'Click to end' : 'Click or press Space to continue';

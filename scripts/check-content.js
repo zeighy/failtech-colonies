@@ -10,4 +10,9 @@ const problems = [...store.config.theme.problems.map((p) => `theme: ${p}`), ...s
 store.db.close();
 for (const f of [process.env.DB_PATH, `${process.env.DB_PATH}-wal`, `${process.env.DB_PATH}-shm`]) { try { fs.rmSync(f); } catch (e) { /* none */ } }
 if (problems.length) { console.error(problems.join('\n')); process.exit(1); }
+if (story.notes.length) {
+  const files = {};
+  for (const n of story.notes) { const f = /"([^"]+)"/.exec(n)[1]; files[f] = (files[f] || 0) + 1; }
+  console.log(`note: ${Object.keys(files).length} art files are named in story.json but not in assets/ yet (the game shows silhouettes and plain backdrops): ${Object.keys(files).sort().join(', ')}`);
+}
 console.log(`OK: theme "${store.config.theme.id}", ${story.story.beats.length} beats, ${Object.keys(story.story.scenes).length} scenes, ${Object.keys(story.story.characters).length} characters.`);

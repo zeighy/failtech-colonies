@@ -25,7 +25,8 @@ config; unknown ids are reported (and ignored), never fatal.
 | `recipes` | Trade Workshop recipes | `name` |
 | `missionTitles` | | list of titles |
 | `directives` | Brief directive ids | `title`, `hint` |
-| `ui` | | `brand`, `subtitle`, `title` (browser tab), `loginNote`, `tabs{}`, `labels{}` |
+| `ranks` | faction ids | `[{ "min": 0, "name": "..." }, ...]`, ascending, first at 0. Shown beside the faction's standing on the Missions tab. Fiction only |
+| `ui` | | `brand`, `subtitle`, `title` (browser tab), `loginNote`, `tabs{}`, `labels{}`, `won{title,text,button}`, `failed{title,text,carry,count,button}` (`{credits}` and `{n}` are filled in) |
 
 Only text fields can be replaced; costs, recipes and rates cannot be touched by a theme.
 
@@ -52,7 +53,7 @@ Only text fields can be replaced; costs, recipes and rates cannot be touched by 
 }
 ```
 
-- A **node** shows its `text` passages one click at a time (`who: null` is narration). It then either shows `choices`,
+- A **node** shows its `text` passages one click at a time (`who: null` is narration; `tag: "radio"` adds a small note beside the speaker's name; `prompt` is a line shown above the choices). It then either shows `choices`,
   continues to `next`, or ends the scene. Choices only choose which node comes next: they never change the game.
 - **Campaign** beats are delivered strictly in file order: a beat waits until the one before it has been delivered, so
   the story always reads in order even if the player finishes directives out of order. **Open** beats are independent.
@@ -75,12 +76,20 @@ Only text fields can be replaced; costs, recipes and rates cannot be touched by 
 | `missions` | `min` | missions filled |
 | `hazards` | `min` | hazards survived |
 | `population` | `min` | people in the colony |
+| `progress` | `min` | the Beacon has been transmitting for `min` ticks |
 | `won` | | the Beacon message got through |
 | `campaignDone` | | every Brief directive is done |
 | `after` | `beat`, `delayTicks?` | some ticks after another beat |
 
 A trigger looks at the colony's current state, so a beat can be late but never missed. A colony that has already passed
 several triggers gets its backlog in script order, and the dialogue overlay offers "Skip all".
+
+## Artwork
+
+`portrait` (characters) and `background` (scenes) name files in `content/<theme>/assets/`. A file that is not there yet is
+simply ignored (a coloured silhouette and a plain backdrop are shown) and `npm run check-content` lists what is still
+missing, so the story can be written before the art exists. Portraits: transparent PNG or WebP, about 800 x 1200.
+Backgrounds: 1920 x 1080.
 
 ## Delivery of text
 
