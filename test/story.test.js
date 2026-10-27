@@ -281,14 +281,14 @@ test('Recontinuation: 13 campaign dialogues, 22 campaign mails and the open beat
   const open = s.beats.filter((b) => b.phase === 'open');
   assert.equal(campaign.filter((b) => b.delivery === 'dialogue').length, 13);
   assert.equal(campaign.filter((b) => b.delivery === 'mail').length, 22);
-  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 9, 'six faction scenes and three for orbit');
-  assert.equal(open.filter((b) => b.delivery === 'mail').length, 12, 'six faction mails and six for orbit');
+  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 10, 'six faction scenes and four for orbit');
+  assert.equal(open.filter((b) => b.delivery === 'mail').length, 14, 'six faction mails and eight for orbit');
   // Run the real evaluator over this script with every condition satisfied and the clock moving.
   const all = objectives.DIRECTIVE_IDS;
   const view = fakeView({
     colony: { hubLevel: 5, hazardsSurvived: 3, population: 200, won: true, progress: 25, morale: 90, starving: [] },
     districts: [{ type: 'pits' }, { type: 'greenbelt' }], missions: { standing: { cinder: 40, verdant: 40, meridian: 40 }, filled: 12 },
-    orbital: { unlocked: true, site: { staging: true, catapult: true, command: true }, flags: Object.fromEntries(['cycleDone', 'launched', 'deployed', 'rareReturned', 'shipSaved', 'contributed', 'projectCompleted'].map((f) => [f, 1])) },
+    orbital: { unlocked: true, site: { staging: true, catapult: true, command: true }, flags: Object.fromEntries(['cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted'].map((f) => [f, 1])) },
   });
   const delivered = new Map();
   for (const b of s.beats) if (b.phase === 'campaign') delivered.set(b.id, null);

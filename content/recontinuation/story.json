@@ -1154,6 +1154,45 @@
      "mood": "serious"
     }
    }
+  },
+  "x11_third_ring": {
+   "title": "The Whole Circle",
+   "background": "orbital_command.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "seven",
+     "text": [
+      "The third ring is locked. The station is now the shape the form drew.",
+      "This node has checked. There is no Form 7-P. This node finds that more unsettling than a Form 7-P would have been."
+     ],
+     "mood": "thoughtful",
+     "next": "b"
+    },
+    "b": {
+     "who": "signal",
+     "text": [
+      "Listener. You closed the circle. Others are closing theirs."
+     ],
+     "mood": "happy",
+     "next": "c"
+    },
+    "c": {
+     "who": "pell",
+     "text": [
+      "Commander, I counted the stations on the relay tonight. I counted three times and got three numbers, and each one was larger than the last."
+     ],
+     "mood": "thoughtful",
+     "next": "d"
+    },
+    "d": {
+     "who": "seven",
+     "text": [
+      "The Office calls a crowded sky a market. This node calls it company."
+     ],
+     "mood": "serious"
+    }
+   }
   }
  },
  "beats": [
@@ -1963,6 +2002,50 @@
     "body": [
      "Commander, a project you contributed to has been completed by stations across the relay. The Office acknowledges the result.",
      "It does not know who to send the certificate to. It has sent it to itself, for safekeeping."
+    ]
+   }
+  },
+  {
+   "id": "x10_second_ring",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "ring2"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Second Ring",
+    "body": [
+     "Commander, the second ring is up, and the requisition ledger is lighter by a figure I have decided not to read aloud.",
+     "Seven tells me the station can be seen from the harbour on a clear night, if you know where to look. Half the port now knows where to look. Nobody is working. I have stamped it as a scheduled break."
+    ]
+   }
+  },
+  {
+   "id": "x11_third_ring",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "ring3"
+   },
+   "delivery": "dialogue",
+   "scene": "x11_third_ring"
+  },
+  {
+   "id": "x12_ship_lost",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "shipLost"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "about the ship",
+    "body": [
+     "Boss, heard the dropship did not come back this time. Station chatter says the territory just closed over it, like water over a stone.",
+     "The convoy is flying a strip of red on the lead truck tonight. Nobody told them to. Build another when you can. We will keep watching the sky."
     ]
    }
   }

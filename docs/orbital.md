@@ -97,7 +97,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
   - `launched`, `ring2`, `ring3`
   - `deployed`, `rareReturned`, `shipSaved`, `shipLost`
   - `contributed`, `projectCompleted`
-- The Recontinuation story adds three scenes and six mails for chapter two. The basic theme has a shorter set.
+- The Recontinuation story adds four scenes and eight mails for chapter two (the ring launches and a lost dropship are flavour beats with no directive). The basic theme has a shorter set.
 
 ## Code map
 
