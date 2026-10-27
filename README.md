@@ -124,6 +124,10 @@ The exchange and an endgame Free Port (trade goods, shields, missions) are in. S
 
 Everything numeric is in `game_config.json`: building costs/rates/build time/plot size, hub levels and upkeep, ring sizes, resource prices, hazards, market drift, starting state, convoy interval, morale rules. No engine changes needed.
 
+## Themes and story
+
+All wording (names, descriptions, directive text, UI labels) and the narrative (dialogue scenes with optional branching, and an in-game inbox) live in `content/<theme>/`, separate from the rules. Run another theme with `THEME=<folder>`; check your edits with `npm run check-content`. Authoring guide: [`docs/story.md`](docs/story.md). What the game still needs from the setting's author: [`docs/content-needs.md`](docs/content-needs.md).
+
 ## License
 
 ISC

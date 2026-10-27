@@ -5,6 +5,7 @@ const path = require('path');
 const session = require('express-session');
 
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'game_config.json'), 'utf8'));
+require('./theme').load(config); // names and wording come from content/<theme>/theme.json
 const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'failtech.db');
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
@@ -13,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -235,6 +236,16 @@ function migrate() {
     WHEN NEW.district_id IS NULL BEGIN
       UPDATE colony_buildings SET district_id = (SELECT id FROM districts WHERE colony_id = NEW.colony_id AND type = 'core') WHERE id = NEW.id;
     END`);
+  // v14 (additive): story beats delivered to a colony. `seen` is "played" for a dialogue and "read" for a mail.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS story_beats (
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      beat_id TEXT NOT NULL,
+      tick INTEGER NOT NULL,
+      seen INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (colony_id, beat_id)
+    );
+  `);
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
 

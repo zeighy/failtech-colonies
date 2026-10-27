@@ -10,6 +10,9 @@ const store = require('./src/db');
 const engine = require('./src/engine');
 const actions = require('./src/actions');
 const security = require('./src/security');
+const story = require('./src/story');
+const theme = require('./src/theme');
+const config = store.config;
 const { body: plainBody } = require('./src/validate');
 const { viewFor, clientConfig } = require('./src/state');
 const { db } = store;
@@ -149,6 +152,13 @@ app.post('/api/logout', (req, res) => {
 // ---- game api -----------------------------------------------------------------
 const cfgJson = JSON.stringify(clientConfig());
 app.get('/api/config', requireAuth, (req, res) => res.type('json').send(cfgJson));
+// Public: just the wording the login page needs. Nothing about any colony.
+app.get('/api/theme', (req, res) => res.json({ ok: true, id: config.theme.id, ui: config.theme.ui }));
+// The text of every message this colony has been sent so far (never the rest of the script).
+app.get('/api/story', requireAuth, (req, res) => {
+  const c = actions.colonyOf(req.session.userId);
+  res.json(c ? story.content(c.id) : { characters: {}, beats: {}, scenes: {} });
+});
 app.get('/api/state', requireAuth, (req, res) => res.json(viewFor(req.session.userId)));
 
 // Live updates: the server pushes a fresh view to each connected player every tick.
@@ -199,7 +209,7 @@ const act = (name) => (req, res) => {
 };
 for (const [route, name] of [
   ['build', 'build'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['boost', 'setBoost'], ['expand', 'expand'], ['cancel', 'cancelOrder'],
-  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['market', 'marketPost'], ['recipe', 'setRecipe'], ['shield', 'shieldHazard'], ['mission', 'missionFill'], ['market-cancel', 'marketCancel'], ['route', 'setRoute'], ['link', 'upgradeLink'],
+  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['market', 'marketPost'], ['recipe', 'setRecipe'], ['shield', 'shieldHazard'], ['mission', 'missionFill'], ['market-cancel', 'marketCancel'], ['route', 'setRoute'], ['link', 'upgradeLink'], ['story-seen', 'storySeen'],
 ]) app.post(`/api/${route}`, requireAuth, act(name));
 
 // ---- pages ----------------------------------------------------------------------
@@ -207,6 +217,8 @@ app.get('/', (req, res) => (req.session.userId ? res.redirect('/game') : res.sen
 app.get('/game', (req, res) => (req.session.userId ? res.sendFile(path.join(PUBLIC, 'game.html')) : res.redirect('/')));
 // Only the public/ folder is served: dotfiles are never sent, there are no directory listings, and path traversal is
 // refused by the static handler. The database, config and source live outside it.
+// Theme artwork (portraits, backgrounds): only the active theme's assets/ folder, nothing else under content/.
+app.use('/theme-assets', express.static(path.join(theme.dir(), 'assets'), { index: false, maxAge: 0, dotfiles: 'deny', redirect: false, fallthrough: false }));
 app.use(express.static(PUBLIC, { index: false, maxAge: 0, dotfiles: 'deny', redirect: false }));
 
 app.use('/api', (req, res) => res.status(404).json({ ok: false, error: 'Not found.' }));

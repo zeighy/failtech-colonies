@@ -205,7 +205,8 @@ function evaluate(config, v, persisted = []) {
   const list = items.map((d) => {
     const done = d.live ? d.done : (earned.has(d.id) || d.done);
     if (done && !d.live) doneIds.push(d.id);
-    return { id: d.id, title: d.title, hint: d.hint, done, live: !!d.live, progress: d.progress || null, timing: null, _t: d.timing };
+    const t = (config.theme && config.theme.directives[d.id]) || d;
+    return { id: d.id, title: t.title, hint: t.hint, done, live: !!d.live, progress: d.progress || null, timing: null, _t: d.timing };
   });
   const current = list.findIndex((d) => !d.done);
   list.forEach((d, i) => {

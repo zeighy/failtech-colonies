@@ -9,6 +9,13 @@
     $('password').autocomplete = m === 'login' ? 'current-password' : 'new-password';
     $('error').textContent = '';
   }
+  fetch('/api/theme').then(function (r) { return r.json(); }).then(function (d) {
+    var ui = d.ui || {};
+    if (ui.brand) document.querySelector('.brand').textContent = ui.brand;
+    if (ui.subtitle) document.querySelector('.brand-sub').textContent = ui.subtitle;
+    if (ui.loginNote) document.querySelector('.login-foot').textContent = ui.loginNote;
+    if (ui.title) document.title = ui.title;
+  }).catch(function () { /* keep the built-in wording */ });
   $('t-login').onclick = function () { setMode('login'); };
   $('t-reg').onclick = function () { setMode('register'); };
   $('form').addEventListener('submit', function (e) {

@@ -50,7 +50,7 @@
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
   var STEP = {}; // every stepper moves by 10 (hold Shift for 100); type a value for anything else
-  var TABS = [['brief', 'Brief', 'check'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['people', 'People', 'users'], ['districts', 'Districts', 'map'], ['logistics', 'Logistics', 'route'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'scale'], ['missions', 'Missions', 'flag'], ['log', 'Log', 'list']];
+  var TABS = [['brief', 'Brief', 'check'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['people', 'People', 'users'], ['districts', 'Districts', 'map'], ['logistics', 'Logistics', 'route'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'scale'], ['missions', 'Missions', 'flag'], ['comms', 'Comms', 'mail'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
   // A number the player can type into. The panel is not redrawn while it has focus, and the value is applied when they leave
@@ -482,9 +482,11 @@
       return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
     });
     var h = TABS.map(function (t) {
-      return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '" title="' + t[1] + '" aria-label="' + t[1] + '">' + icon(t[2], 20) + '<span>' + t[1] + '</span>' +
+      var label = esc((CFG.ui && CFG.ui.tabs && CFG.ui.tabs[t[0]]) || t[1]);
+      return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '" title="' + label + '" aria-label="' + label + '">' + icon(t[2], 20) + '<span>' + label + '</span>' +
         ((t[0] === 'hub' && dot) || (t[0] === 'districts' && ddot) ? '<span class="badge" style="background:var(--good)"></span>' : '') +
-        (t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') + '</button>';
+        (t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') +
+        (t[0] === 'comms' && window.Story.unread() ? '<span class="count">' + window.Story.unread() + '</span>' : '') + '</button>';
     }).join('');
     if ($('tabs').dataset.h !== h) { $('tabs').innerHTML = h; $('tabs').dataset.h = h; }
   }
@@ -1210,7 +1212,7 @@
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains('numin') && $('panel').contains(ae)) { panelDeferred = true; return; }
     panelDeferred = false;
-    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'people' ? peopleTab() : tab === 'districts' ? districtsTab() : tab === 'logistics' ? logisticsPage() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'missions' ? missionsTab() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
+    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'people' ? peopleTab() : tab === 'districts' ? districtsTab() : tab === 'logistics' ? logisticsPage() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'missions' ? missionsTab() : tab === 'comms' ? window.Story.commsHtml() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
     if (h === lastPanel) return;
     lastPanel = h;
     var p = $('panel'), top = p.scrollTop;
@@ -1493,6 +1495,7 @@
     RAW = ns;
     if (activeId === null || !ns.views[activeId]) activeId = ns.districts.filter(function (d) { return d.core; })[0].id;
     S = merge(ns);
+    window.Story.setView(ns.story);
     offset = ns.serverNow - Date.now();
     // surface notable new events as toasts
     var top = ns.events.length ? ns.events[0].id : 0;
@@ -1558,8 +1561,17 @@
   window.addEventListener('offline', function () { goOffline(); });
   window.addEventListener('beforeunload', function (e) { if (pending.length) { e.preventDefault(); e.returnValue = ''; } });
 
+  function applyTheme() {
+    var ui = CFG.ui || {};
+    if (ui.title) document.title = ui.title;
+    if (ui.brand) document.querySelector('.brand').textContent = ui.brand;
+    var ids = { credits: 'c-credits', population: 'c-pop', crew: 'c-crew', morale: 'c-morale', doom: 'c-doom', energy: 'c-energy', convoy: 'c-convoy', tick: 'c-tick' };
+    Object.keys(ids).forEach(function (k) { var l = ui.labels && ui.labels[k]; var el = $(ids[k]); if (l && el && el.previousElementSibling) el.previousElementSibling.textContent = l; });
+  }
+  window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, changed: function () { if (S) { renderTabs(); renderPanel(); } } });
   api('config').then(function (cfg) {
     CFG = cfg;
+    applyTheme();
     return api('state');
   }).then(function (st) {
     setState(st);

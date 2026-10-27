@@ -7,6 +7,7 @@ const hazards = require('./hazards');
 const ms = require('./marketsim');
 const missions = require('./missions');
 const market = require('./market');
+const story = require('./story');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -15,6 +16,8 @@ function clientConfig() {
   const neighbors = {};
   for (const [k, list] of engine.neighborMap) neighbors[k] = list;
   return {
+    ui: config.theme.ui,
+    themeId: config.theme.id,
     resources: config.resources,
     buildings: config.buildings,
     hubLevels: config.hubLevels,
@@ -314,6 +317,8 @@ function viewFor(userId, now = Date.now()) {
     db.prepare('UPDATE colonies SET milestones = ? WHERE id = ?').run(JSON.stringify(brief.doneIds), c.id);
   }
   view.brief = { directives: brief.list, remaining: brief.remaining };
+  story.evaluate(c.id, view, brief.doneIds, brief.remaining === 0, t.globalTick);
+  view.story = story.view(c.id);
   view.doom = brief.doom;
   return view;
 }

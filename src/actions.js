@@ -1,6 +1,7 @@
 'use strict';
 const sim = require('./sim');
 const market = require('./market');
+const story = require('./story');
 const missions = require('./missions');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
@@ -407,4 +408,11 @@ const restart = guarded((c) => {
   return OK;
 }, { allowFailed: true });
 
-module.exports = { build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+// Story: the player has played a dialogue or read a mail. Cosmetic: nothing in the simulation depends on it.
+const storySeen = guarded((c, { beat, all }) => {
+  if (all === true) { story.markSeen(c.id, null, true); return OK; }
+  if (typeof beat !== 'string' || !story.beatOf.has(beat)) return fail('Unknown message.');
+  return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
+}, { allowFailed: true });
+
+module.exports = { storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
