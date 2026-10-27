@@ -130,7 +130,7 @@ function viewFor(userId, now = Date.now()) {
     config,
     { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
     districts,
-    { neighborMaps: engine.neighborMaps, mods: { [coreD.id]: mods }, popConsumptionMult: mods.popConsumptionMult },
+    { neighborMaps: engine.neighborMaps, mods: { [coreD.id]: mods }, popConsumptionMult: mods.popConsumptionMult, routes: routeRows },
   );
   const proj = sim.coreView(full);
 

@@ -42,7 +42,7 @@ function tickColony(c, globalTick, tickTime) {
     config,
     { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
     districts,
-    { neighborMaps, mods: { [core.id]: hazardMods }, popConsumptionMult: hazardMods.popConsumptionMult },
+    { neighborMaps, mods: { [core.id]: hazardMods }, popConsumptionMult: hazardMods.popConsumptionMult, routes: store.loadRoutes(c.id) },
   );
   const res = sim.coreView(full);
   const ev = (kind, msg) => store.addEvent(c.id, globalTick, kind, msg);

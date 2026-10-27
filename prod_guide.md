@@ -55,7 +55,7 @@ A building with partial inputs runs at partial efficiency (limited by its scarce
 
 ## **4b. People, housing, crew, morale and shutdown**
 * **Housing.** The population cap is the Core's own quarters (30, 35, 40, 45, 50 at Core levels 1-5) plus homes in any district. Homes in other districts add capacity and comfort only: **everyone eats from the Core stockpile.** If homes are lost, people leave.
-* **Growth.** One more person every 3 ticks (two at morale 90+) while morale is 60+, there is room, and the colony can feed them: the surplus must cover the new people, or the stockpile above 60% of capacity must cover the shortfall for 2,000 ticks.
+* **Growth.** One more person every 3 ticks (two at morale 90+) while morale is 60+, there is room, and the colony can feed them (counting what standing routes bring into or take out of the Core): the surplus must cover the new people, or the stockpile above 60% of capacity must cover the shortfall for 2,000 ticks.
 * **Crew.** The workforce is 80% of the population. If there are fewer hands than posts, every staffed building runs at the same reduced efficiency.
 * **Meals** are optional: people eat 0.05 per head per tick; the share fed adds up to **+15** to the morale target.
 * **Comfort.** Every building has a comfort effect on adjacent homes, clamped to -15..+8.

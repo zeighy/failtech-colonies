@@ -155,3 +155,22 @@ test('district progression: the level cap follows the Core and the Beacon', () =
   assert.equal(sim.districtLevelNeeds(config, 5), 'the Core reaches level 5 and the Beacon is built');
   assert.equal(sim.districtLevelNeeds(config, 6), null);
 });
+
+test('growth counts what standing routes bring into the Core, not only what the Core makes itself', () => {
+  // The Core makes no food or water of its own and holds a modest stock, so on its own production it looks like a shortage.
+  // An outpost sends both by route, which is what actually feeds the colony.
+  const core = () => coreD({ inventory: stock({ clean_water: 300, rations: 300 }) });
+  const out = () => outD({ inventory: stock({ scrap: 0, clean_water: 1000, rations: 1000 }) });
+  const routes = [
+    { resource: 'rations', fromDistrict: 2, toDistrict: 1, rate: 5, reserve: 0 },
+    { resource: 'clean_water', fromDistrict: 2, toDistrict: 1, rate: 5, reserve: 0 },
+  ];
+  const c = colony({ population: 20, morale: 90, age: 2 }); // (age + 1) % 3 === 0 is a growth tick
+  const without = run(c, [core(), out()]);
+  assert.equal(without.population, 20, 'without the routes it looks like a shortage, so it does not grow');
+  const withRoutes = run(c, [core(), out()], { routes });
+  assert.ok(withRoutes.population > 20, `with the routes it is fed, so it grows (${withRoutes.population})`);
+  // a route that takes food out of the Core counts against it
+  const leaving = [{ resource: 'rations', fromDistrict: 1, toDistrict: 2, rate: 50, reserve: 0 }];
+  assert.equal(run(c, [core(), out()], { routes: leaving }).population, 20);
+});

@@ -475,7 +475,19 @@ function stepColony(config, colony, districts, opts = {}) {
   const comfortAvg = comfortWeighted / (baseHousing + housingBuilt);
 
   // Morale drifts toward a target set by food variety and where people live.
-  const net = (res) => flows[res].produced - flows[res].consumed;
+  // Standing routes move goods between stockpiles right after the tick. The Core lives on its own production plus whatever routes bring
+  // in or take out, so growth is judged on that (a colony fed by a route is not a colony running short).
+  const routeNet = {};
+  if (opts.routes && opts.routes.length) {
+    const coreId = districts[coreIdx].id;
+    const bags = new Map(results.map((r, i) => [districts[i].id, { inv: { ...r.inventory }, cap: r.cap }]));
+    for (const f of applyRoutes(config, opts.routes, bags)) {
+      if (f.qty <= 0) continue;
+      if (f.route.toDistrict === coreId) routeNet[f.route.resource] = (routeNet[f.route.resource] || 0) + f.qty;
+      if (f.route.fromDistrict === coreId) routeNet[f.route.resource] = (routeNet[f.route.resource] || 0) - f.qty;
+    }
+  }
+  const net = (res) => flows[res].produced - flows[res].consumed + (routeNet[res] || 0);
   const mc = g.morale;
   const target = Math.max(0, Math.min(g.moraleMax, mc.base + comfortAvg + mealCoverage * mc.mealBonus));
   let morale = colony.morale;

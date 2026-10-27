@@ -222,3 +222,9 @@ across all districts. The next step is to let a hazard strike one district: fore
 (reserves, defence) would be checked against that district's own stockpile and Sentinel Posts, and effects (output cuts,
 looting, degraded buildings) would apply there only. Open questions: whether the Core can pre-position reserves by shipment
 or route after the forecast, whether routes and links can be hit, and how the Free Port shields apply. Roadmap step 6.
+
+## Growth and routes
+
+The growth check ("can the colony feed more people?") judges the Core on its own production **plus what standing routes bring in
+or take out** of it. Before this was counted, a Core that made less food than it ate but was fed by a route from another district
+looked like a shortage to the growth check while the player's rates showed a healthy surplus, and the population stalled.
