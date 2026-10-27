@@ -1021,7 +1021,7 @@
   },
   "x01_form_7o": {
    "title": "Form 7-O",
-   "background": "command_hub.jpg",
+   "background": "orbital_command.jpg",
    "start": "a",
    "nodes": {
     "a": {
@@ -1086,7 +1086,7 @@
   },
   "x04_launch": {
    "title": "Up",
-   "background": "beacon_night.jpg",
+   "background": "catapult_launch.jpg",
    "start": "a",
    "nodes": {
     "a": {
@@ -1127,7 +1127,7 @@
   },
   "x05_landing": {
    "title": "Unmapped",
-   "background": "freight_road.jpg",
+   "background": "territory_landing.jpg",
    "start": "a",
    "nodes": {
     "a": {

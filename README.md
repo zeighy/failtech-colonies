@@ -166,7 +166,6 @@ Not built yet (noted for later):
 - **Per-district hazards:** hazards currently hit the colony as a whole. The plan is in `docs/districts.md`.
 - **Inline images in mail:** the reading window can show them, the mail format has no field yet (`docs/story.md`).
 - **Playtest telemetry** (which buildings, recipes and routes get used, where players stall).
-- **Orbit art:** the chapter-two scenes borrow existing backgrounds; their own (Orbital Command interior, the catapult launch, a dropship landing) are planned.
 - Balance numbers (orbit launch cycles, dropship damage, project sizes, expansion costs, exodus rates, link levels, recipes, missions, shutdown thresholds) are placeholders for playtesting.
 
 ## Tuning the game
