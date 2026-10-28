@@ -15,9 +15,15 @@ The game ships with a story and a full theme: **Recontinuation** (Earth after th
 
 The **Brief** tab is your guide. It shows a **collapse clock** (ticks until collapse at current rates, also in the top bar), any **incoming hazard** with how prepared you are, and a roadmap of **directives** that hint at what is missing without telling you what to build. Directives stay ticked once earned. The survival ones tell you whether you are on track, tight, behind schedule or blocked, by comparing how long your stock lasts with the earliest you could finish the fix. Hazards also mark the structures they touch on the map (red **!** = being hurt, amber ring = paying a maintenance cost, dashed ring = in the forecast's path).
 
-Messages from the story arrive as **calls** (a card at the bottom right of the map that you answer when convenient) and as **mail** in the Comms tab (called Signal in the default theme). See [Story delivery](#story-delivery).
+Messages from the story arrive as **calls** (a card at the bottom right of the map that you answer when convenient) and as **mail** in the Messages window (the envelope in the top right). See [Story delivery](#story-delivery).
 
-The right-hand pane has a vertical rail of tabs: Brief, Site, Hub, People, Districts, Logistics, Convoy, Exchange, Missions, Comms and Log (names depend on the theme). A row of chips on the map switches between the Core and your districts.
+The screen has three kinds of information, each in its own place:
+
+- **Always on screen (the top bar).** The colony's vitals (credits, people and homes, cohesion, collapse clock, hazard countdown with how prepared you are) and a second group for the place you are looking at: power and next convoy on the surface; station power, storage slots, the express slot and the project timer on the station; ship power, hold, time left and hull in a territory. Numbers turn amber or red when something needs you, so there is no separate alert row. The bell (incoming calls and what just happened, with a link to the full history), the envelope (Messages: Mail, Calls, History) and your name (command menu) sit at the right.
+- **Follows what you select (the right pane).** With nothing selected it is an overview: the next step from the Brief, what needs attention, and the stock that matters. Select a free slot for the build menu, or a building to see why it runs at the number it does, upgrade, pause or demolish it. In orbit it shows the station or territory overview.
+- **Waits until you ask (the dock).** Colony (Brief, People, Hub, Districts) and Economy (Stockpile, Logistics, Convoy, Exchange, Missions) open full-size workspaces over the map; on the station the groups are Station (Storage with links and express, Market) and Expeditions (Territories, Project). Esc or the close button returns to the map. The work queue sits at the right of the dock.
+
+A rail on the left of the map switches place: Surface (the Core and your districts, plus Found) and Orbit (the station, any territory you are in, and Deploy). Mail, calls and the log live in the Messages window and the bell, not in the right pane. Names depend on the theme.
 
 ### Systems
 
@@ -183,8 +189,8 @@ All wording and the whole narrative live in `content/<theme>/`, separate from th
 
 ### Story delivery
 
-- **Calls.** A dialogue arrives as an incoming call in a card at the bottom right of the map (it also rings on login if a trigger was met while you were away). Answer when convenient; the card can be collapsed to a pill. Answering opens a full-screen scene that can be **minimized** into an "on call" bar and resumed. Played scenes stay in the Comms archive and can be replayed.
-- **Mail.** Mail goes to the Comms tab with an unread badge and a toast. Clicking it opens a reading window with the sender's avatar.
+- **Calls.** A dialogue arrives as an incoming call in a card at the bottom right of the map (it also rings on login if a trigger was met while you were away). Answer when convenient; the card can be collapsed to a pill. Answering opens a full-screen scene that can be **minimized** into an "on call" bar and resumed. Played scenes stay in the Calls list of the Messages window and can be replayed.
+- **Mail.** Mail goes to the Messages window (envelope, top right) with an unread badge and a toast. Clicking it opens a reading window with the sender's avatar.
 - **Pacing.** Beats are delivered one at a time. When several are due at once (an existing colony catching up with a new script), the next arrives only once the previous ones were answered, skipped or read. A call never arrives while another call is unanswered.
 - The script is not sent ahead of time: the client only receives text that has already been delivered to that colony.
 

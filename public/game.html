@@ -11,38 +11,42 @@
 <div id="app">
   <header id="topbar">
     <div class="brand">FAILTECH</div>
-    <div class="chip"><span class="label">Credits</span><span class="v num" id="c-credits">–</span></div>
-    <div class="chip"><span class="label">Population</span><span class="v num" id="c-pop">–</span></div>
-    <div class="chip"><span class="label">Crew</span><span class="v num" id="c-crew">–</span></div>
-    <div class="chip"><span class="label">Morale</span><span class="v num" id="c-morale">–</span><div class="meter"><i id="c-morale-bar"></i></div></div>
-    <div class="chip"><span class="label">Collapse in</span><span class="v num" id="c-doom">–</span></div>
-    <div class="chip"><span class="label">Power grid</span><span class="v num" id="c-energy">–</span><div class="meter"><i id="c-energy-bar"></i></div></div>
-    <div class="chip"><span class="label">Convoy</span><span class="v num" id="c-convoy">–</span></div>
-    <div class="chip"><span class="label">Tick</span><span class="v num" id="c-tick">–</span></div>
+    <div class="vitals" id="v-colony">
+      <div class="chip"><span class="label">Credits</span><span class="v num" id="c-credits">–</span></div>
+      <div class="chip"><span class="label">People</span><span class="v num" id="c-pop">–</span></div>
+      <div class="chip"><span class="label">Cohesion</span><span class="v num" id="c-morale">–</span><div class="meter"><i id="c-morale-bar"></i></div></div>
+      <div class="chip"><span class="label">Collapse in</span><span class="v num" id="c-doom">–</span></div>
+      <div class="chip"><span class="label">Hazard in</span><span class="v num" id="c-hazard">–</span><div class="meter"><i id="c-hazard-bar"></i></div></div>
+    </div>
+    <div class="vsep" aria-hidden="true"></div>
+    <div class="vitals" id="v-place"></div>
     <div class="spacer"></div>
-    <span class="dim" id="c-user"></span>
-    <button class="icon-btn" id="menu-btn" title="Settings" aria-label="Settings"></button>
+    <div id="net"></div>
+    <button class="icon-btn" id="bell-btn" title="Notifications" aria-label="Notifications"></button>
+    <button class="icon-btn" id="mail-btn" title="Messages" aria-label="Messages"></button>
+    <button class="user-btn" id="menu-btn" title="Command menu" aria-label="Command menu"><span id="c-user"></span></button>
   </header>
   <div id="layout">
-    <aside id="left" class="side">
-      <h2 class="label" id="res-title">Resource cache</h2>
-      <div id="resources"></div>
-      <div id="oside" style="display:none"></div>
-    </aside>
+    <nav id="rail" aria-label="Places"><div class="dswitch" id="dswitch"></div></nav>
     <main id="map">
       <svg id="radar" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="application" aria-label="Colony radar map"></svg>
-      <div class="dswitch" id="dswitch"></div>
-      <div class="map-alert" id="alerts"></div>
-      <div class="map-hint">Click a slot to build &middot; click a structure to inspect &middot; Esc to deselect</div>
       <div class="legend" id="legend"></div>
     </main>
-    <aside id="right" class="side">
-      <div class="tabs" role="tablist" id="tabs"></div>
-      <div id="panel"></div>
-    </aside>
+    <aside id="right"><div id="panel"></div></aside>
+    <section id="sheet" hidden aria-label="Workspace">
+      <div class="sheet-head">
+        <div class="sheet-tabs" id="sheet-tabs" role="tablist"></div>
+        <button class="icon-btn" id="sheet-close" title="Close (Esc)" aria-label="Close workspace">&times;</button>
+      </div>
+      <div class="sheet-body" id="sheet-body"></div>
+    </section>
   </div>
-  <footer id="queue"></footer>
+  <footer id="dock">
+    <div class="dock-groups" id="dock-groups"></div>
+    <div id="queue"></div>
+  </footer>
 </div>
+<div id="pop" hidden></div>
 <div id="toasts" aria-live="polite"></div>
 <script src="/js/icons.js"></script>
 <script src="/js/terms.js"></script>
