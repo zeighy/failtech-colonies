@@ -44,7 +44,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
 
 - **Territories** are a shared world pool (`territories.advanceWorld`).
   - At least 7 are open at any time. A taken territory is replaced after a short delay.
-  - Each territory has an anomaly that sets its lifetime, a rare-resource multiplier and its risk.
+  - Each territory has an anomaly that sets its lifetime, a rare-resource multiplier and its risk. Two of them are the gentle ones for someone learning the ropes: **Lull** stays open 2 to 5 days at the cost of a ×0.6 rare yield, and **Gloam** stays open 1.5 to 3.5 days at the cost of ×0.7 ship power (`powerMult`). Both do little damage if the ship is late.
   - Each territory has two common resources (of Reclaim, Aquifer Draw and Raw Ink), one district resource (Raw Ore or Crude) and one rare resource. That makes 6 combinations of what the ground gives, and which rare resources can be extracted from them varies (see the Anomaly Tap below).
   - A territory has three rings (3 Small, 5 Medium and 7 Large plots), all open from the start. Power is what limits how much of it a player can use, until the dropship is upgraded. A fourth ring is a planned expansion.
 - **Deploying** a docked dropship to a territory:

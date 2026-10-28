@@ -499,3 +499,22 @@ test('tap recipes: every rare has alternatives built from ground chains, and rou
   assert.ok(good / total > 0.4 && good / total < 0.65, `${Math.round(good / total * 100)}% of territories work`);
   for (const p of pairs) assert.ok(T.rare.filter((rare) => { const have = reach(p); return Object.values(config.tapRecipes).some((r) => r.rare === rare && Object.keys(r.inputsPerTick).filter((k) => k !== 'energy').every((k) => have.has(k))); }).length >= 3, 'no territory is a dead end for nearly everything');
 });
+
+test('the gentle anomalies last longer than any other and pay for it, in extraction or in ship power', () => {
+  const an = O.territories.anomalies;
+  const longest = Math.max(...Object.entries(an).filter(([k]) => k !== 'lull' && k !== 'gloam').map(([, a]) => a.durationTicks[1]));
+  for (const k of ['lull', 'gloam']) {
+    assert.ok(an[k].durationTicks[0] > 5760 && an[k].durationTicks[1] > longest, `${k} outlasts the others`);
+    assert.ok(an[k].rareMult < 1 || an[k].powerMult < 1, `${k} has a penalty`);
+    assert.ok(an[k].lateDamage < 25 && !an[k].damagePerTick, `${k} is forgiving`);
+  }
+  const c = launched('Slow Start');
+  const ship = territories.shipsOf(c.id)[0];
+  const t = db.prepare('SELECT id FROM territories WHERE taken_by IS NULL AND closes_tick > ? ORDER BY closes_tick DESC LIMIT 1').get(now() + 400);
+  db.prepare("UPDATE territories SET anomaly = 'gloam' WHERE id = ?").run(t.id);
+  assert.deepEqual(actions.shipDeploy(c.uid, { ship: ship.id, territory: t.id }), { ok: true });
+  tick(O.dropships.deployTicks);
+  const land = db.prepare("SELECT * FROM districts WHERE colony_id = ? AND type = 'territory'").get(c.id);
+  const power = viewFor(c.uid).views[land.id].energy.supply;
+  assert.equal(power, Math.round(O.dropships.levels[1].power * an.gloam.powerMult), 'Gloam thins the ship\'s power');
+});

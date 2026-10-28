@@ -882,6 +882,14 @@
     "flare": {
       "name": "Flare",
       "desc": "A short, violent opening. The richest pickings, and the ship will feel every tick of it."
+    },
+    "lull": {
+      "name": "Lull",
+      "desc": "Nothing happens here, slowly. The Office would call it a good place to learn. The material comes out of it reluctantly."
+    },
+    "gloam": {
+      "name": "Gloam",
+      "desc": "A long, dim opening. The ship's power runs thin and nobody minds the wait."
     }
   },
   "projects": {

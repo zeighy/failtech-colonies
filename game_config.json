@@ -3444,6 +3444,31 @@
         "Salt Lantern"
       ],
       "anomalies": {
+        "lull": {
+          "name": "Lull",
+          "desc": "Nothing happens here, slowly. It stays open for days, and it gives up the rare resource reluctantly.",
+          "weight": 2,
+          "durationTicks": [
+            11520,
+            28800
+          ],
+          "lateDamage": 15,
+          "damagePerTick": 0,
+          "rareMult": 0.6
+        },
+        "gloam": {
+          "name": "Gloam",
+          "desc": "A long, dim opening. The ship's power runs thin, but nothing here is in a hurry.",
+          "weight": 2,
+          "durationTicks": [
+            8640,
+            20160
+          ],
+          "lateDamage": 20,
+          "damagePerTick": 0,
+          "rareMult": 1,
+          "powerMult": 0.7
+        },
         "drift": {
           "name": "Slow Drift",
           "desc": "The ground is moving, gently. It will close eventually.",

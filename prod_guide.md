@@ -278,14 +278,16 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 **Orbital links** run between the Core and the station, both ways (level 1: 4 links at 25/tick; level 2: 6 links at 40/tick for 200 Dampener Fittings, 100 Donstand-Pattern Modules; level 3: 8 links at 60/tick for 300 Dampener Fittings, 30 Sirius Cell). Rare resources never travel by link. **Express launch:** up to 400 of one resource from the Core, 150 + 0.5/unit Refined Fuel, arriving in 12 ticks, once every 480 ticks. **Express drop:** the other way, from orbital storage to the Core, for a capsule of 10 Dampener Fittings from orbital storage, landing in 12 ticks; it shares the cooldown.
 **Dropships** (up to 3; build 600 Spine Frames, 400 Dampener Fittings, 300 Donstand-Pattern Modules, 200 Klein Cells, 120 ticks): level 1 power 40, hold 600, links 15/tick; level 2 power 70, hold 1000, links 25/tick (200 Spine Frames, 150 Dampener Fittings, 80 Klein Cells); level 3 power 100, hold 1600, links 40/tick (350 Spine Frames, 250 Dampener Fittings, 120 Donstand-Pattern Modules). Landing takes 15 ticks with a kit of 140 Hard-Spec Parts, 110 Print Stock, 10 Spine Alloy; the hold can be preloaded. A ship on a territory gets up to 2 links to the station. Recalling brings back what the plan says (rare first) up to the hold, in 150 ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at 10% with the cargo gone; the second loses the ship.
 **Anomalous territories** are shared by every station: at least 7 are open, a taken one is replaced in 10-30 ticks. Each has two common resources (Reclaim, Aquifer Draw, Raw Ink), one district resource (Raw Ore, Crude) and one rare (Anfang Glass, Icarus Compound, Mobiulic Ore, Windsor Crystal, Mycolian Spores, Orphic Silt, Phononic Substrate, Graviton Metaloid). Rings 1: 3 × Small, 2: 5 × Medium, 3: 7 × Large, storage = the hold, power = the ship's. Leaving early keeps only 35% of its remaining time for the next visitor; still being there when it closes forces a late recall with damage.
-| Anomaly | Weight | Lasts (ticks) | Late damage | Integrity lost / tick | Rare × |
-| --- | --- | --- | --- | --- | --- |
-| Slow Drift | 3 | 1440-11520 | 25% | – | 1 |
-| Bloom | 3 | 960-5760 | 30% | – | 1.15 |
-| Hush | 2 | 960-4320 | 30% | – | 1.2 |
-| Fold | 2 | 720-2880 | 35% | – | 1.3 |
-| Shear | 1 | 480-1440 | 45% | 0.02 | 1.6 |
-| Flare | 1 | 480-960 | 50% | 0.04 | 2 |
+| Anomaly | Weight | Lasts (ticks) | Late damage | Integrity lost / tick | Rare × | Ship power × |
+| --- | --- | --- | --- | --- | --- | --- |
+| Lull | 2 | 11520-28800 | 15% | – | 0.6 | 1 |
+| Gloam | 2 | 8640-20160 | 20% | – | 1 | 0.7 |
+| Slow Drift | 3 | 1440-11520 | 25% | – | 1 | 1 |
+| Bloom | 3 | 960-5760 | 30% | – | 1.15 | 1 |
+| Hush | 2 | 960-4320 | 30% | – | 1.2 | 1 |
+| Fold | 2 | 720-2880 | 35% | – | 1.3 | 1 |
+| Shear | 1 | 480-1440 | 45% | 0.02 | 1.6 | 1 |
+| Flare | 1 | 480-960 | 50% | 0.04 | 2 | 1 |
 **Building in a territory.** The dropship supplies all the power (upgrade the ship for more). Nothing needs a crew. A few ground buildings can be built there as field versions paid from the hold, and only where the territory holds what they work on. The Ink Reclaimer pulls Raw Ink out of the ground there, and the Polymer Plant needs no ingots.
 | Building (id) | Needs in the territory | Inputs / tick | Outputs / tick | Field cost |
 | --- | --- | --- | --- | --- |

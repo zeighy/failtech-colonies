@@ -103,7 +103,7 @@ function districtExtras(c, d) {
     if (t) {
       out.territory = JSON.parse(t.resources);
       const an = O.territories.anomalies[t.anomaly];
-      if (an) out.outputMult = { t_tap: an.rareMult };
+      if (an) { out.outputMult = { t_tap: an.rareMult }; out.baseEnergy = Math.round(lv.power * (an.powerMult || 1)); } // some anomalies thin the ship's power
     }
     return out;
   }
