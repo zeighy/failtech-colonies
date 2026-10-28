@@ -286,28 +286,40 @@
         '<button class="btn primary" data-story="answer" data-beat="' + esc(i.id) + '">' + host.icon('play', 12) + ' Answer</button></div>';
     }).join('');
   }
-  function mailHtml() {
-    var mail = view ? view.items.filter(function (i) { return i.kind === 'mail'; }).reverse() : [];
-    if (!mail.length) return '<div class="empty-state">' + host.icon('mail', 36) + '<div>No mail yet.</div></div>';
-    return mail.map(function (i) {
-      var from = nameOf(i.from) || 'Unknown';
-      return '<div class="mail' + (i.seen ? '' : ' unread') + '"><button class="mail-head" data-story="mail" data-beat="' + esc(i.id) + '">' +
-        '<span class="dot"></span><span class="mail-from">' + esc(from) + '</span><span class="mail-subj">' + esc(i.title) + '</span><small>#' + i.tick + '</small></button></div>';
-    }).join('');
+  function mailHtml() { return ''; }
+  function callsHtml() { return ''; }
+  // The Messages window: a list on the left, the chosen item on the right.
+  function items(kind) {
+    if (!view) return [];
+    if (kind === 'mail') return view.items.filter(function (i) { return i.kind === 'mail'; }).reverse();
+    var d = view.items.filter(function (i) { return i.kind === 'dialogue'; }).reverse();
+    return d.filter(function (i) { return !i.seen; }).concat(d.filter(function (i) { return i.seen; }));
   }
-  function callsHtml() {
-    var archive = view ? view.items.filter(function (i) { return i.kind === 'dialogue' && i.seen; }).reverse() : [];
-    var h = waitingHtml();
-    if (h) h = '<div class="label sec">Waiting calls</div>' + h;
-    if (archive.length) {
-      h += '<div class="label sec">Past calls</div>' + archive.map(function (i) {
-        return '<div class="vn-card"><div><b>' + esc(i.title) + '</b><div class="dim" style="font-size:11px">tick #' + i.tick + '</div></div>' +
-          '<button class="btn" data-story="play" data-beat="' + esc(i.id) + '" data-replay="1">Replay</button></div>';
-      }).join('');
+  function row(kind, i, on) {
+    var ch = kind === 'mail' ? (content && content.characters[i.from]) : callerOf(i.id), b = content && content.beats[i.id];
+    var prev = kind === 'mail' ? (b && b.mail && b.mail.body[0]) || '' : (i.seen ? 'Played' : 'Waiting for you');
+    return '<button class="m' + (on ? ' on' : '') + (i.seen ? '' : ' un') + '" data-act="msel" data-id="' + esc(i.id) + '"><div class="call-av" style="--c:' + esc((ch && ch.color) || '#888') + '">' + avatar(ch) + '</div>' +
+      '<div class="mt"><div class="mh"><b>' + esc(ch ? ch.name : 'Unknown') + '</b><small>#' + i.tick + '</small></div><div class="ms">' + esc(i.title) + '</div><div class="mp">' + esc(prev) + '</div></div></button>';
+  }
+  function reader(kind, i) {
+    if (!i) return '<div class="empty-state">' + host.icon(kind === 'mail' ? 'mail' : 'play', 36) + '<div>Nothing selected.</div></div>';
+    var b = content && content.beats[i.id], ch = kind === 'mail' ? (content && content.characters[i.from]) : callerOf(i.id);
+    var head = '<div class="mailv-head"><div class="call-av" style="--c:' + esc((ch && ch.color) || '#888') + '">' + avatar(ch) + '</div><div class="mailv-from"><b>' + esc(ch ? ch.name : 'Unknown sender') + '</b>' + (ch && ch.title ? '<small>' + esc(ch.title) + '</small>' : '') + '</div></div>';
+    if (kind === 'mail') {
+      if (!b || !b.mail) return head + '<h2>' + esc(i.title) + '</h2>';
+      return head + '<h2>' + esc(b.mail.subject) + '</h2><div class="mailv-meta">Received at tick #' + i.tick + '</div><div class="mailv-body">' + b.mail.body.map(function (t) { return '<p>' + esc(t) + '</p>'; }).join('') + '</div>' +
+        (b.scene ? '<div class="actions"><button class="btn primary" data-story="mailscene" data-beat="' + esc(i.id) + '">' + host.icon('play', 12) + ' Open transmission</button></div>' : '');
     }
-    return h || '<div class="empty-state">' + host.icon('mail', 36) + '<div>No calls yet.</div></div>';
+    return head + '<h2>' + esc(i.title) + '</h2><div class="mailv-meta">' + (i.seen ? 'Played at tick #' + i.tick : 'Waiting for you since tick #' + i.tick) + '</div>' +
+      '<div class="actions">' + (i.seen ? '<button class="btn" data-story="play" data-beat="' + esc(i.id) + '" data-replay="1">Replay</button>' : '<button class="btn primary" data-story="answer" data-beat="' + esc(i.id) + '">' + host.icon('play', 12) + ' Answer</button>') + '</div>';
   }
+  function msgView(kind, selId) {
+    var list = items(kind), cur = list.filter(function (i) { return i.id === selId; })[0] || list[0] || null;
+    if (cur && kind === 'mail' && !cur.seen) { cur.seen = true; view.unreadMail = Math.max(0, view.unreadMail - 1); host.api('story-seen', { beat: cur.id }).catch(function () { /* ignore */ }); }
+    return { n: list.length, sel: cur ? cur.id : null, list: list.map(function (i) { return row(kind, i, cur && i.id === cur.id); }).join('') || '<div class="dim" style="padding:16px;font-size:12px">' + (kind === 'mail' ? 'No mail yet.' : 'No calls yet.') + '</div>', reader: reader(kind, cur) };
+  }
+
   function counts() { return view ? { mail: view.unreadMail, calls: view.pending.length } : { mail: 0, calls: 0 }; }
 
-  window.Story = { init: init, setView: setView, waitingHtml: waitingHtml, mailHtml: mailHtml, callsHtml: callsHtml, counts: counts, unread: unread };
+  window.Story = { init: init, setView: setView, waitingHtml: waitingHtml, msgView: msgView, counts: counts, unread: unread };
 })();
