@@ -545,9 +545,18 @@
     return '<tr data-sr="' + k + '" class="' + (def.critical && r.amount < 0.5 && r.net < 0 ? 'crit' : '') + '" title="Tier ' + def.tier + '"><td><i class="dot" style="background:' + def.color + '"></i>' + esc(def.name) + '<span class="tier">T' + def.tier + '</span></td>' +
       '<td class="num"><b>' + amt + '</b></td><td>' + net + '</td><td><span class="fillbar"><i data-sr-bar style="width:' + (r.amount / r.cap * 100).toFixed(1) + '%;background:' + def.color + '"></i></span></td><td class="' + n[1] + '" style="text-align:left">' + esc(n[0]) + '</td><td><button class="pinbtn' + (pinned ? ' on' : '') + '" data-act="pin" data-res="' + k + '" aria-pressed="' + pinned + '" title="' + (pinned ? 'Unpin from the overview' : 'Pin to the overview') + '">' + (pinned ? '★' : '☆') + '</button></td></tr>';
   }
+  // Switch district without leaving the workspace (the rail's 'enter' closes it).
+  function stockSwitch() {
+    var ground = S.districts.filter(function (d) { return !d.orbital; });
+    if (ground.length < 2) return '';
+    return '<div class="sd-tabs" role="tablist" aria-label="District">' + ground.map(function (d) {
+      var t = d.core ? null : CFG.districtTypes[d.type];
+      return '<button class="sd-tab" role="tab" data-act="sdist" data-id="' + d.id + '" aria-selected="' + (d.id === activeId) + '" style="--c:' + (t ? t.color : 'var(--amber)') + '"><i></i>' + esc(d.core ? 'Core' : d.name.replace(/^The /, '')) + '<small>L' + d.level + '</small></button>';
+    }).join('') + '</div>';
+  }
   function stockpileTab() {
     var keys = stockKeys();
-    return '<div class="wide"><div class="p-title"><h3>Stockpile</h3><span class="dim" style="margin-left:auto">' + esc(activeD().core ? 'The colony' : activeD().name) + ' · ' + keys.length + ' kinds</span></div>' +
+    return '<div class="wide">' + stockSwitch() + '<div class="p-title"><h3>Stockpile</h3><span class="dim" style="margin-left:auto">' + esc(activeD().core ? 'The colony' : activeD().name) + ' · ' + keys.length + ' kinds</span></div>' +
       '<table class="stock"><thead><tr><th>Resource</th><th>On hand</th><th>Net</th><th>Fill</th><th style="text-align:left">Status</th><th>Pin</th></tr></thead><tbody>' + keys.map(function (k) { return stockRow(k, true); }).join('') + '</tbody></table></div>';
   }
   // construction/stock numbers interpolate between ticks
@@ -1674,6 +1683,7 @@
     else if (a === 'rdraft') { route[el.dataset.f] = Math.max(el.dataset.f === 'rate' ? 1 : 0, route[el.dataset.f] + (+el.dataset.delta * sh)); renderPanel(); }
     else if (a === 'rsave') act('route', { from: route.from, to: route.to, resource: route.res, rate: route.rate, reserve: route.reserve }, 'Route set.');
     else if (a === 'enter') { e.preventDefault(); enter(+el.dataset.id); }
+    else if (a === 'sdist') { var sid = +el.dataset.id; if (RAW.views[sid] && sid !== activeId) { activeId = sid; sel = null; confirmKey = null; S = merge(RAW); renderAll(); } }
     else if (a === 'orbit') { e.preventDefault(); enterOrbit(); }
     else if (a === 'found') act('found', { type: el.dataset.type }, 'Founding started.');
     else if (a === 'sstep') {
