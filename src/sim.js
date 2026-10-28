@@ -143,7 +143,8 @@ function districtType(config, type) {
 const levelDef = (config, type, level) => districtType(config, type).levels[level];
 // May this building be built in this kind of district? Buildings without a `districts` list go anywhere.
 const buildableIn = (def, type) => {
-  if (type === 'station' || type === 'territory') return !!(def.districts && def.districts.includes(type)); // orbit builds only its own
+  if (type === 'territory') return !!(def.territory || (def.districts && def.districts.includes('territory'))); // field versions of a few ground buildings, and its own
+  if (type === 'station') return !!(def.districts && def.districts.includes(type)); // orbit builds only its own
   if (!def.districts || def.districts.includes(type)) return true;
   // The Free Port builds anything except the other districts' base-resource extractors and Core-only structures.
   return type === 'freeport' && !def.rawExtractor && !['core', 'station', 'territory'].some((t) => def.districts.includes(t));
@@ -153,6 +154,7 @@ const buildableIn = (def, type) => {
 // standard ones (which need more power up there, because nobody is working the line). Built once per config and cached.
 const BOOKS = new WeakMap();
 function recipeBook(config, def) {
+  if (def && def.recipeSet === 'tap') return config.tapRecipes;
   if (!def || def.recipeSet !== 'orbital') return config.recipes;
   let book = BOOKS.get(config);
   if (!book) {
@@ -168,12 +170,12 @@ function recipeBook(config, def) {
   return book;
 }
 
-// Territory buildings name their resources by role ($common1, $common2, $district, $rare); a territory says which real
-// resources those are. Returns the definition with the roles filled in (or unchanged when there is nothing to fill).
-function resolveDef(def, map) {
-  if (!def || !map) return def;
-  const fill = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k.startsWith('$') ? map[k.slice(1)] || k : k, v]));
-  return { ...def, inputsPerTick: fill(def.inputsPerTick), outputsPerTick: fill(def.outputsPerTick) };
+// Some ground buildings can also be built in a territory, where they work with their `territory` block laid over their
+// definition: no crew, a cheaper field build, and for a couple of them different inputs and outputs (the Ink Reclaimer pulls Raw
+// Ink out of the ground there instead of converting it). `needs` is the resource the territory has to hold for the building to
+// make sense. Returns the definition as it stands in this kind of district.
+function territoryDef(def, type) {
+  return def && type === 'territory' && def.territory ? { ...def, ...def.territory } : def;
 }
 
 // What a building consumes, makes and needs in crew. Ordinary buildings use their definition; a Trade Workshop
@@ -227,6 +229,7 @@ function expansionCost(config, def, level) {
 
 // What it costs to abandon a recipe: so many ticks of the old recipe's output, at market value. Scales with batch size.
 function recipeResetFee(config, recipeId, ring, type, def) {
+  if (def && def.freeReset) return 0; // the Anomaly Tap: trying recipes to find what a rare resource needs should not cost credits
   const rec = recipeBook(config, def)[recipeId];
   if (!rec) return 0;
   const batch = config.tradeWorks.batchByPlot[plotSize(config, ring, type)] || 1;
@@ -268,7 +271,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
 
   const infos = [];
   for (const b of d.buildings) {
-    const def = resolveDef(config.buildings[b.type], d.resolve);
+    const def = territoryDef(config.buildings[b.type], d.type);
     if (!def) continue;
     const nbs = (neighborMap.get(key(b.ring, b.slot)) || [])
       .map(([r, s]) => grid.get(key(r, s)))
@@ -481,7 +484,7 @@ function stepColony(config, colony, districts, opts = {}) {
   for (const d of districts) {
     const disabled = modsOf(d).disabled || new Set();
     for (const b of d.buildings) {
-      const def = config.buildings[b.type];
+      const def = territoryDef(config.buildings[b.type], d.type);
       if (def && b.status === 'active' && !disabled.has(b.id)) posts += rates(config, def, b, b.ring, d.type).workers;
     }
   }
@@ -697,6 +700,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, canFeed, recipeBook, resolveDef, districtFoundable, expansionCost, expansionMax, expansionTop, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, canFeed, recipeBook, territoryDef, districtFoundable, expansionCost, expansionMax, expansionTop, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

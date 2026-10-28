@@ -58,7 +58,7 @@ The multiplayer endgame, hidden until the colony's standing with all factions ad
   - **Market:** the orbital market.
   - **Project:** the current global project.
 - **Anomalous territories** are shared by every player:
-  - Deploy a dropship, build rigs, a refinery and an anomaly tap with no crew, and draw a rare resource. Rare resources come home only by dropship.
+  - Deploy a dropship, build field versions of ground buildings (the dropship supplies all the power and nothing needs a crew) and an anomaly tap, and draw a rare resource. Which ground goods a rare resource needs, and whether a territory can give them, is something to find out. Rare resources come home only by dropship.
   - Each anomaly sets how long the territory lasts and how dangerous it is.
   - Leaving early shortens it for the next visitor. Staying too long damages the ship, and a ship can be lost.
 - **Back down:** the orbital goods (made from two rare resources each) pay for expansion levels 6 to 10 on the ground, so links and express drops bring them down to the Core.

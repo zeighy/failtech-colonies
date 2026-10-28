@@ -158,9 +158,6 @@
     "still_metal": {
       "name": "Still Metal"
     },
-    "stabilizer": {
-      "name": "Stabiliser Charge"
-    },
     "lattice_cores": {
       "name": "Lattice Cores"
     },
@@ -317,25 +314,9 @@
       "name": "Orbital Foundry",
       "desc": "An automated workshop. Choose one recipe and it is locked in, like a trade workshop, but it needs no crew: it draws more power instead. A bigger plot runs a bigger batch."
     },
-    "t_rig_a": {
-      "name": "Field Rig A",
-      "desc": "Pulls the territory's first common resource out of the ground."
-    },
-    "t_rig_b": {
-      "name": "Field Rig B",
-      "desc": "Pulls the territory's second common resource out of the ground."
-    },
-    "t_drill": {
-      "name": "Deep Drill",
-      "desc": "Bores for the territory's district resource."
-    },
-    "t_refinery": {
-      "name": "Field Refinery",
-      "desc": "Refines the district resource and a common one into stabiliser charges, which the anomaly tap needs."
-    },
     "t_tap": {
       "name": "Anomaly Tap",
-      "desc": "Draws the territory's rare resource out of the anomaly, burning stabiliser charges to keep it open."
+      "desc": "Draws the territory's rare resource out of the anomaly. Choose one recipe and it is locked in; what it needs depends on the rare resource, so expect to try a few. A bigger plot runs a bigger batch."
     }
   },
   "districts": {
@@ -627,6 +608,14 @@
     "flare": {
       "name": "Flare",
       "desc": "A short, violent opening. The richest pickings, and the ship will feel every tick of it."
+    },
+    "lull": {
+      "name": "Lull",
+      "desc": "Nothing happens here, slowly. It stays open for days, and the rare resource comes out reluctantly."
+    },
+    "gloam": {
+      "name": "Gloam",
+      "desc": "A long, dim opening. The ship's power runs thin, but nothing here is in a hurry."
     }
   },
   "projects": {
@@ -676,5 +665,55 @@
     "Burnt Choir",
     "Long Fold",
     "Salt Lantern"
-  ]
+  ],
+  "tapRecipes": {
+    "void_glass_a": {
+      "name": "Void Glass, route A"
+    },
+    "void_glass_b": {
+      "name": "Void Glass, route B"
+    },
+    "chiral_salts_a": {
+      "name": "Chiral Salts, route A"
+    },
+    "chiral_salts_b": {
+      "name": "Chiral Salts, route B"
+    },
+    "null_ore_a": {
+      "name": "Null Ore, route A"
+    },
+    "null_ore_b": {
+      "name": "Null Ore, route B"
+    },
+    "drift_spores_a": {
+      "name": "Drift Spores, route A"
+    },
+    "drift_spores_b": {
+      "name": "Drift Spores, route B"
+    },
+    "echo_quartz_a": {
+      "name": "Echo Quartz, route A"
+    },
+    "echo_quartz_b": {
+      "name": "Echo Quartz, route B"
+    },
+    "phase_silt_a": {
+      "name": "Phase Silt, route A"
+    },
+    "phase_silt_b": {
+      "name": "Phase Silt, route B"
+    },
+    "hum_resin_a": {
+      "name": "Hum Resin, route A"
+    },
+    "hum_resin_b": {
+      "name": "Hum Resin, route B"
+    },
+    "still_metal_a": {
+      "name": "Still Metal, route A"
+    },
+    "still_metal_b": {
+      "name": "Still Metal, route B"
+    }
+  }
 }

@@ -262,6 +262,26 @@ function repairShip(c, { ship }) {
   return OK;
 }
 
+// ---- building in a territory -------------------------------------------------------------------
+// What a territory holds: its two common resources, its district resource and its rare one (null outside a territory).
+function fieldOf(districtId) {
+  const row = db.prepare('SELECT t.resources FROM districts d JOIN territories t ON t.id = d.territory_id WHERE d.id = ?').get(districtId);
+  return row ? JSON.parse(row.resources) : null;
+}
+// A field version of a ground building only makes sense where the territory holds what it works on.
+function checkBuild(d, def) {
+  const need = def.territory && def.territory.needs;
+  if (!need) return null;
+  const f = fieldOf(d.id);
+  return f && [f.common1, f.common2, f.district].includes(need) ? null : `${def.name} has nothing to work on in ${d.name}.`;
+}
+// The Anomaly Tap only draws this territory's own rare resource.
+function checkRecipe(d, recipeId) {
+  const f = fieldOf(d.id);
+  const rec = config.tapRecipes[recipeId];
+  return f && rec && rec.rare === f.rare ? null : 'That recipe does not draw anything from this anomaly.';
+}
+
 // ---- links between a territory and the station ------------------------------------------------
 function checkTerritoryRoute(c, a, b, resource, rate, existingId) {
   const terr = a.type === 'territory' ? a : b;
@@ -302,4 +322,4 @@ function view(c, tick) {
   };
 }
 
-module.exports = { advanceWorld, advanceColony, spawn, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, view, shipsOf };
+module.exports = { advanceWorld, advanceColony, spawn, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, checkBuild, checkRecipe, view, shipsOf };

@@ -193,7 +193,7 @@
     return '<div class="terr' + (t.taken ? ' taken' : '') + '"><div class="top"><b>' + esc(t.name) + '</b><span class="' + (t.ticksLeft < 300 ? 'warn' : 'dim') + '">' + ticks(t.ticksLeft) + (t.destabilized ? ' · destabilised' : '') + '</span></div>' +
       '<div class="dim" style="font-size:11px"><b>' + esc(a.name) + '</b>: ' + esc(a.desc) + '</div>' +
       '<div class="io" style="margin-top:4px">' + H.pill(r.common1, 'common') + H.pill(r.common2, 'common') + H.pill(r.district, 'district') + H.pill(r.rare, 'rare', 'out') + '</div>' +
-      '<div class="dim" style="font-size:11px;margin-top:4px">Rare yield ×' + a.rareMult + ' · leaving late ' + a.lateDamage + '% damage' + (a.damagePerTick ? ' · ' + a.damagePerTick + '% damage every tick on the ground' : '') + '</div>' +
+      '<div class="dim" style="font-size:11px;margin-top:4px">Rare yield ×' + a.rareMult + (a.powerMult && a.powerMult < 1 ? ' · ship power ×' + a.powerMult : '') + ' · leaving late ' + a.lateDamage + '% damage' + (a.damagePerTick ? ' · ' + a.damagePerTick + '% damage every tick on the ground' : '') + '</div>' +
       (t.taken ? '<div class="' + (t.taken.mine ? 'good' : 'warn') + '" style="font-size:12px;margin-top:4px">' + (t.taken.mine ? 'Your dropship is here' : esc(t.taken.station) + ' is down there') + '</div>' : '') + '</div>';
   }
 
