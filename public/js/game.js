@@ -934,7 +934,7 @@
         '<label>From<select data-sel="from">' + opt(ship.from) + '</select></label><label>To<select data-sel="to">' + opt(ship.to) + '</select></label>' +
         '<label class="wide">Goods<select data-sel="res">' + Object.keys(CFG.resources).map(function (r) {
           var amt = Math.floor(from.resources[r].amount);
-          if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1 && amt < 1) return '';
+          if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1 && amt < 1 && !(CFG.resources[r].trade && S.freeport)) return '';
           return '<option value="' + r + '"' + (r === ship.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + ' (' + amt + ')</option>';
         }).join('') + '</select></label></div>' +
         '<div class="stepper" style="margin-top:8px"><span class="lab">Qty</span><button data-act="sstep" data-delta="-' + st + '" aria-label="Less">−</button>' + numIn('ship', ship.qty, '') + '<button data-act="sstep" data-delta="' + st + '" aria-label="More">+</button><button data-act="sstep" data-delta="max" style="width:auto;padding:0 8px;font-size:10px">MAX</button></div>' +
@@ -985,7 +985,7 @@
     h += '<div class="label sec">New route</div><div class="shipform"><label>From<select data-sel="r:from">' + opt(route.from) + '</select></label><label>To<select data-sel="r:to">' + opt(route.to) + '</select></label>' +
       '<label class="wide">Goods<select data-sel="r:res">' + Object.keys(CFG.resources).map(function (r) {
         var rfrom = ds.filter(function (d) { return d.id === route.from; })[0], held = rfrom && rfrom.resources && rfrom.resources[r] && rfrom.resources[r].amount >= 1;
-        if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1 && !held && r !== route.res) return '';
+        if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1 && !held && r !== route.res && !(CFG.resources[r].trade && S.freeport)) return '';
         return '<option value="' + r + '"' + (r === route.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + '</option>';
       }).join('') + '</select></label></div>' +
       '<div class="stepper" style="margin-top:8px"><span class="lab">Rate</span><button data-act="rdraft" data-f="rate" data-delta="-' + rst + '">−</button>' + numIn('rdraft', route.rate, 'data-f="rate"') + '<span class="unit">/t</span><button data-act="rdraft" data-f="rate" data-delta="' + rst + '">+</button></div>' +
