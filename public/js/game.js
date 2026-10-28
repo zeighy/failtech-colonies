@@ -585,11 +585,23 @@
     if (t === 'districts' && f.found) return '<span class="dotb good" title="A district can be founded"></span>';
     return '';
   }
+  // The dock shows one button per group. Clicking a group opens its workspaces inline, and they fold away again after a few seconds.
+  var dockOpen = null, dockTimer = null;
+  function armDock(ms) { clearTimeout(dockTimer); if (dockOpen) dockTimer = setTimeout(function () { dockOpen = null; if (S) renderDock(); }, ms || 4000); }
+  function groupBadge(g) {
+    var n = 0, good = false;
+    g.tabs.forEach(function (t) { var b = tabBadge(t[0]); if (/<em/.test(b)) n += +(b.match(/>(\d+)</) || [0, 0])[1]; else if (b) good = true; });
+    return n ? '<em>' + n + '</em>' : good ? '<span class="dotb good"></span>' : '';
+  }
   function renderDock() {
-    var h = groupsNow().map(function (g) {
-      return '<div class="dg"><span class="label">' + esc(g.name) + '</span>' + g.tabs.map(function (t) {
-        return '<button class="dbtn" data-act="tab" data-tab="' + t[0] + '" aria-pressed="' + (ws === t[0]) + '">' + icon(t[2], 16) + '<span>' + esc(tabLabel(t)) + '</span>' + tabBadge(t[0]) + '</button>';
-      }).join('') + '</div>';
+    var gs = groupsNow();
+    if (dockOpen && !gs.some(function (g) { return g.id === dockOpen; })) dockOpen = null;
+    var h = gs.map(function (g) {
+      var open = dockOpen === g.id, here = g.tabs.some(function (t) { return t[0] === ws; });
+      return '<div class="dg' + (open ? ' open' : '') + '"><button class="dbtn grp" data-act="dock" data-g="' + g.id + '" aria-expanded="' + open + '" aria-pressed="' + (here && !open) + '">' + icon(g.icon, 16) + '<span>' + esc(g.name) + '</span>' + (open ? '' : groupBadge(g)) + '</button>' +
+        (open ? g.tabs.map(function (t) {
+          return '<button class="dbtn" data-act="tab" data-tab="' + t[0] + '" aria-pressed="' + (ws === t[0]) + '">' + icon(t[2], 16) + '<span>' + esc(tabLabel(t)) + '</span>' + tabBadge(t[0]) + '</button>';
+        }).join('') : '') + '</div>';
     }).join('');
     var ds = S.brief.directives, cur = ds.filter(function (x) { return x.current; })[0] || ds.filter(function (x) { return !x.done; })[0];
     var dh = '';
@@ -1627,7 +1639,8 @@
     if (!el || el.disabled) return;
     var a = el.dataset.act;
     var sh = e.shiftKey ? 10 : 1; // hold Shift for bigger steps
-    if (a === 'tab') { e.preventDefault(); if (el.dataset.tab === ws && el.classList.contains('dbtn')) { ws = null; renderAll(); } else go(el.dataset.tab); }
+    if (a === 'tab') { e.preventDefault(); if (dockOpen && el.classList.contains('dbtn')) armDock(6000); if (el.dataset.tab === ws && el.classList.contains('dbtn')) { ws = null; renderAll(); } else go(el.dataset.tab); }
+    else if (a === 'dock') { dockOpen = dockOpen === el.dataset.g ? null : el.dataset.g; armDock(); renderDock(); }
     else if (a === 'desel') { sel = null; renderAll(); }
     else if (a === 'pin') togglePin(el.dataset.res)
     else if (a === 'msel') { msgSel[msgTab] = el.dataset.id; renderMessages(); }
@@ -1778,6 +1791,8 @@
   $('bell-btn').addEventListener('click', togglePop);
   $('mail-btn').addEventListener('click', function () { messages(); });
   $('menu-btn').addEventListener('click', menu);
+  $('dock').addEventListener('mouseenter', function () { clearTimeout(dockTimer); });
+  $('dock').addEventListener('mouseleave', function () { armDock(1800); });
   $('sheet-close').addEventListener('click', function () { ws = null; renderAll(); });
   [['c-pop', 'people'], ['c-morale', 'people'], ['c-doom', 'brief'], ['c-hazard', 'brief']].forEach(function (x) {
     var c = $(x[0]).closest('.chip'); c.classList.add('click'); c.dataset.act = 'tab'; c.dataset.tab = x[1];
