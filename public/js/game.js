@@ -50,6 +50,12 @@
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
   var STEP = {}; // every stepper moves by 10 (hold Shift for 100); type a value for anything else
+  // In orbit (the station or a territory is being viewed) the rail shows Orbital Command's own panes.
+  var ORBIT_TABS = [['oplace', 'Station', 'orbit'], ['site', 'Site', 'site'], ['ostore', 'Storage', 'box'], ['oterr', 'Territories', 'ship'], ['omarket', 'Market', 'scale'], ['oproject', 'Project', 'globe'], ['comms', 'Comms', 'mail'], ['log', 'Log', 'list']];
+  function inOrbit() { return !!(RAW && activeD().orbital); }
+  function tabsNow() { return inOrbit() ? ORBIT_TABS : TABS; }
+  function stationId() { return RAW && RAW.orbital && RAW.orbital.station ? RAW.orbital.station.districtId : null; }
+  function enterOrbit() { var id = stationId(); if (id === null) return; tab = 'oplace'; enter(id); }
   var TABS = [['brief', 'Brief', 'check'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['people', 'People', 'users'], ['districts', 'Districts', 'map'], ['logistics', 'Logistics', 'route'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'scale'], ['missions', 'Missions', 'flag'], ['comms', 'Comms', 'mail'], ['log', 'Log', 'list']];
 
   // ------------------------------------------------------------------ api
@@ -182,9 +188,17 @@
   function GEO() {
     var d = activeD();
     if (d.core) return { rings: CFG.rings, ringPlotSize: CFG.ringPlotSize, neighbors: CFG.neighbors, levels: CFG.hubLevels, rotation: CFG.ringRotation };
-    var t = CFG.districtTypes[d.type];
+    var t = CFG.districtTypes[d.type] || CFG.orbitalTypes[d.type];
     return { rings: t.rings, ringPlotSize: t.ringPlotSize, neighbors: t.neighbors, levels: t.levels, rotation: t.ringRotation };
   }
+  // Territory buildings name their resources by role ($common1, $district...); the territory says which resources they are.
+  function bdef(k) {
+    var d = CFG.buildings[k], map = activeD() && S && S.views && S.views[activeId] ? S.views[activeId].resolve : null;
+    if (!d || !map) return d;
+    var fill = function (o) { var out = {}; Object.keys(o || {}).forEach(function (x) { out[x.charAt(0) === '$' ? (map[x.slice(1)] || x) : x] = o[x]; }); return out; };
+    return Object.assign({}, d, { inputsPerTick: fill(d.inputsPerTick), outputsPerTick: fill(d.outputsPerTick) });
+  }
+  function bookFor(d) { return d && d.recipeSet === 'orbital' ? CFG.orbitalRecipeBook : CFG.recipes; }
   function plotName(ring) { return CFG.plotSizes[GEO().ringPlotSize[ring]].name; }
   function plotMultFor(def, ring) {
     var deficit = Math.max(0, def.minPlotSize - GEO().ringPlotSize[ring]);
@@ -267,7 +281,7 @@
     Object.keys(RINGS).forEach(function (rs) {
       var ring = +rs, cap = RINGS[rs];
       for (var i = 0; i < cap; i++) {
-        var g = svgEl('g', { 'class': 'slot empty', tabindex: 0, role: 'button' }, slotsG);
+        var g = svgEl('g', { 'class': 'slot empty', tabindex: 0, role: 'button', 'data-slot': ring + ':' + i }, slotsG);
         var title = svgEl('title', {}, g);
         var cell = svgEl('path', { d: sectorPath(ring, i, cap), 'class': 'cell' }, g);
         var c = slotCenter(ring, i, cap);
@@ -363,7 +377,7 @@
     });
     Object.keys(ringLabels).forEach(function (r) {
       var open = !!S.hub.rings[r];
-      ringLabels[r].textContent = open ? plotName(r).toUpperCase() + ' PLOTS' : 'RING ' + r + ' · ' + plotName(r).toUpperCase() + ' PLOTS · LOCKED · ' + (activeD().core ? 'HUB' : 'DISTRICT') + ' LV ' + r;
+      ringLabels[r].textContent = open ? plotName(r).toUpperCase() + ' PLOTS' : 'RING ' + r + ' · ' + plotName(r).toUpperCase() + ' PLOTS · LOCKED · ' + (activeD().type === 'station' ? 'LAUNCHED FROM THE COLONY' : (activeD().core ? 'HUB' : 'DISTRICT') + ' LV ' + r);
       ringLabels[r].setAttribute('class', 'ring-label' + (open ? ' open' : ''));
     });
     targetR = zoomTarget();
@@ -479,12 +493,12 @@
   // ------------------------------------------------------------------ right panel
   function renderTabs() {
     var next = GEO().levels[activeD().level + 1];
-    var dot = next && !S.hub.upgrading && canAfford(next.upgradeCost) && (activeD().core || activeD().level + 1 <= S.districtLevelCap);
+    var dot = next && next.upgradeCost && !S.hub.upgrading && canAfford(next.upgradeCost) && (activeD().core || activeD().level + 1 <= S.districtLevelCap);
     var ddot = S.districtsUnlocked && Object.keys(CFG.districtTypes).some(function (k) {
       return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
     });
-    var h = TABS.map(function (t) {
-      var label = esc((CFG.ui && CFG.ui.tabs && CFG.ui.tabs[t[0]]) || t[1]);
+    var h = tabsNow().map(function (t) {
+      var label = esc((CFG.ui && CFG.ui.tabs && CFG.ui.tabs[t[0]]) || (t[0] === 'oplace' && activeD().type === 'territory' ? 'Territory' : t[1]));
       return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '" title="' + label + '" aria-label="' + label + '">' + icon(t[2], 20) + '<span>' + label + '</span>' +
         ((t[0] === 'hub' && dot) || (t[0] === 'districts' && ddot) ? '<span class="badge" style="background:var(--good)"></span>' : '') +
         (t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') +
@@ -530,7 +544,7 @@
   };
   function plotName2(size) { return CFG.plotSizes[size].name; }
   function builtPanel(b, head) {
-    var d = CFG.buildings[b.type], st = STATUS[b.paused ? 'paused' : b.status] || STATUS.running;
+    var d = bdef(b.type), st = STATUS[b.paused ? 'paused' : b.status] || STATUS.running;
     var why = (!b.paused && b.limiting) ? ' <span class="dim">(' + esc(CFG.resources[b.limiting].name) + ')</span>' : '';
     var h = '<div class="p-title" style="--c:' + d.color + '">' + icon(b.type, 22) + '<h3>' + esc(d.name) + '</h3></div>' +
       '<div class="label">' + head + '</div><p class="p-desc">' + esc(d.desc) + '</p>' +
@@ -547,6 +561,7 @@
       (d.transmit ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:#fff"></i>Signal ' + (b.eff * b.mult).toFixed(2) + ' / tick</span></div>' : '');
     if (d.expand) h += expansionCard(b, d);
     if (d.recipeBuilding) h += recipeCard(b);
+    if (d.launchPad || d.catapult || d.commandCenter) h += window.Orbit.launchCard(b, d);
     if (d.optional) h += optionalCard(d, b);
     var nts = neighborTypes(b.ring, b.slot);
     h += '<div class="label sec">Neighbours</div>';
@@ -579,10 +594,11 @@
     return { batch: batch, html: '<div class="io">' + io(rec.inputsPerTick) + '</div><div class="io" style="margin-top:4px">' + out + '</div>' };
   }
   function recipeCard(b) {
-    var rec = b.recipe ? CFG.recipes[b.recipe] : null, batch = CFG.tradeWorks.batchByPlot[GEO().ringPlotSize[b.ring]] || 1;
+    var BOOK = bookFor(CFG.buildings[b.type]);
+    var rec = b.recipe ? BOOK[b.recipe] : null, batch = CFG.tradeWorks.batchByPlot[GEO().ringPlotSize[b.ring]] || 1;
     var h = '<div class="label sec">Recipe</div>';
     if (rec) {
-      var adjn = Object.keys(rec.adjacent || {}).map(function (r) { return CFG.recipes[r] ? esc(CFG.recipes[r].name) + ' ×' + rec.adjacent[r] : ''; }).filter(Boolean);
+      var adjn = Object.keys(rec.adjacent || {}).map(function (r) { return BOOK[r] ? esc(BOOK[r].name) + ' ×' + rec.adjacent[r] : ''; }).filter(Boolean);
       h += '<div class="optcard on"><div class="top"><b>' + esc(rec.name) + '</b><span class="dim">Tier ' + rec.tier + '</span></div>' + recipeLines(rec, b).html +
         '<div class="dim" style="font-size:11px;margin-top:6px">Batch ×' + batch + ' on a ' + plotName(b.ring) + ' plot: more goes in and more comes out, at the same ratio. Crew and power scale with it.</div>' +
         (adjn.length ? '<div class="dim" style="font-size:11px;margin-top:4px">Runs better beside: ' + adjn.join(', ') + '</div>' : '') + '</div>';
@@ -591,8 +607,8 @@
     var changing = !!rec;
     if (!b.resetting) {
       h += '<div class="dim" style="font-size:11px;margin:8px 0 4px">' + (changing ? 'Change recipe · costs <b>' + fmt(b.resetFee) + ' cr</b> and ' + CFG.tradeWorks.reset.delayTicks + ' idle ticks' : 'Choose a recipe') + '</div>' +
-        Object.keys(CFG.recipes).filter(function (k) { return k !== b.recipe; }).map(function (k) {
-          var r = CFG.recipes[k], on = recipePick === k;
+        Object.keys(BOOK).filter(function (k) { return k !== b.recipe; }).map(function (k) {
+          var r = BOOK[k], on = recipePick === k;
           return '<div class="recipe' + (on ? ' sel' : '') + '"><button class="rname" data-act="recpick" data-rec="' + k + '"><b>' + esc(r.name) + '</b><small>T' + r.tier + ' · ' + Object.keys(r.outputsPerTick).map(function (o) { return mp(r.outputsPerTick[o] * batch) + ' ' + esc(CFG.resources[o].name); }).join(', ') + '/t</small></button>' +
             (on ? recipeLines(r, b).html + '<div class="actions"><button class="btn primary" data-act="recset" data-ring="' + b.ring + '" data-slot="' + b.slot + '" data-rec="' + k + '"' + (changing && S.colony.credits < b.resetFee ? ' disabled' : '') + '>' + (changing ? 'Change for ' + fmt(b.resetFee) + ' cr' : 'Lock in this recipe') + '</button></div>' : '') + '</div>';
         }).join('');
@@ -625,9 +641,17 @@
     var h = '<div class="label">' + head + ' · empty</div><h3 style="margin:4px 0 12px;font-size:15px">Construct</h3><div class="stack">';
     var dtype = activeD().type;
     Object.keys(CFG.buildings).forEach(function (k) {
-      var d = CFG.buildings[k];
+      var d = bdef(k);
       if ((CFG.buildableIn[dtype] || []).indexOf(k) < 0) return;
+      if (d.hidden === 'orbital' && !(S.orbital && S.orbital.unlocked)) return; // unknown until the colony is recognised
       var afford = canAfford(d.cost);
+      var blocked = null;
+      if (d.strictPlot && GEO().ringPlotSize[r] < d.minPlotSize) blocked = 'Needs a ' + plotName2(d.minPlotSize) + ' plot';
+      else if (d.requiresAdjacent) {
+        var near = neighborsOf(r, s).some(function (n) { var nb = buildingAt(n[0], n[1]); return nb && nb.type === d.requiresAdjacent; });
+        if (!S.buildings.some(function (x) { return x.type === d.requiresAdjacent; })) blocked = 'Build the ' + CFG.buildings[d.requiresAdjacent].name + ' first, and let it finish';
+        else if (!near) blocked = 'Must stand right beside the ' + CFG.buildings[d.requiresAdjacent].name;
+      }
       var owned = S.buildings.filter(function (b) { return b.type === k; }).length + S.orders.filter(function (o) { return o.kind === 'build' && o.data.type === k; }).length;
       var capped = d.maxCount && owned >= d.maxCount;
       var pv = previewMult(k, r, s);
@@ -650,7 +674,8 @@
         var hm = adjacentHomes(r, s);
         if (hm) notes += '<div class="bonus ' + (d.comfort < 0 ? 'bad' : 'good') + '">' + hm + ' adjacent home' + (hm === 1 ? '' : 's') + ' would feel ' + (d.comfort > 0 ? '+' : '−') + Math.abs(d.comfort) + ' comfort</div>';
       }
-      h += '<button class="opt" data-act="build" data-type="' + k + '"' + (capped || !afford ? ' disabled' : '') + ' style="--c:' + d.color + '">' +
+      if (blocked) notes = '<div class="bonus bad">' + esc(blocked) + '</div>' + notes;
+      h += '<button class="opt" data-act="build" data-type="' + k + '"' + (capped || !afford || blocked ? ' disabled' : '') + ' style="--c:' + d.color + '">' +
         '<div class="top">' + icon(k, 20) + '<b>' + esc(d.name) + '</b><small>' + d.constructionTicks + ' ticks</small></div>' +
         (capped ? '<div class="warn" style="font-size:11px">Already built: only ' + d.maxCount + ' allowed</div>' :
           '<div class="io">' + Object.keys(d.cost).map(function (c) { return pill(c, d.cost[c], S.resources[c].amount < d.cost[c] ? 'no' : ''); }).join('') + '</div>') +
@@ -753,7 +778,9 @@
     if (!S.brief.remaining) return threatCard() + doomCard() + '<div class="note good" style="margin-top:16px">All ' + ds.length + ' directives complete. Nothing left to hint at: the rest is yours.</div>';
     var h = threatCard() + doomCard() + '<div class="p-title" style="margin-top:16px"><h3>Directives</h3><span class="dim num" style="margin-left:auto">' + done + ' / ' + ds.length + '</span></div>' +
       '<div class="meter" style="margin:4px 0 10px"><i style="width:' + (done / ds.length * 100).toFixed(0) + '%;background:var(--amber)"></i></div>';
+    var chapterShown = false;
     ds.forEach(function (d) {
+      if (d.chapter === 2 && !chapterShown) { chapterShown = true; h += '<div class="label sec" style="color:#90e0ef">' + esc((CFG.ui && CFG.ui.chapterTwo) || 'Chapter two: orbit') + '</div>'; }
       h += '<div class="dir' + (d.done ? ' done' : '') + (d.current ? ' current' : '') + '"><span class="tick">' + icon('check', 11) + '</span><div class="body"><b>' + esc(d.title) + '</b>';
       if (!d.done) {
         h += '<div class="hint">' + esc(d.hint) + '</div>' + timingLine(d.timing);
@@ -834,10 +861,21 @@
       var canFound = Object.keys(CFG.districtTypes).some(function (k) {
         return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
       });
-      h = S.districts.map(function (d) {
+      var ground = S.districts.filter(function (d) { return !d.orbital; });
+      if (inOrbit()) {
+        h = '<button class="dchip" data-act="enter" data-id="' + ground[0].id + '" style="--c:var(--amber)"><i></i><span>← Colony</span></button>' +
+          S.districts.filter(function (d) { return d.orbital; }).map(function (d) {
+            var t = CFG.orbitalTypes[d.type];
+            return '<button class="dchip' + (d.id === activeId ? ' on' : '') + '" data-act="enter" data-id="' + d.id + '" style="--c:' + t.color + '"><i></i><span>' + esc(d.name) + '</span><small>' + (d.type === 'station' ? 'L' + d.level : 'territory') + '</small></button>';
+          }).join('');
+        if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
+        return;
+      }
+      h = ground.map(function (d) {
         var t = d.core ? null : CFG.districtTypes[d.type], fresh = !d.core && !visited[d.id];
         return '<button class="dchip' + (d.id === activeId ? ' on' : '') + (fresh ? ' new' : '') + '" data-act="enter" data-id="' + d.id + '" style="--c:' + (t ? t.color : 'var(--amber)') + '"><i></i><span>' + esc(d.core ? 'Core' : d.name) + '</span><small>L' + d.level + '</small>' + (fresh ? '<em>NEW</em>' : '') + '</button>';
-      }).join('') + '<button class="dchip add' + (canFound ? ' pulse' : '') + '" data-act="tab" data-tab="districts" style="--c:var(--good)"><i></i><span>' + (S.districts.length > 1 ? 'Districts' : 'Found a district') + '</span>' + (canFound ? '<em>READY</em>' : '') + '</button>';
+      }).join('') + '<button class="dchip add' + (canFound ? ' pulse' : '') + '" data-act="tab" data-tab="districts" style="--c:var(--good)"><i></i><span>' + (ground.length > 1 ? 'Districts' : 'Found a district') + '</span>' + (canFound ? '<em>READY</em>' : '') + '</button>' +
+        (stationId() !== null ? '<button class="dchip orbit" data-act="orbit" style="--c:#90e0ef"><i></i><span>Orbital Command</span></button>' : '');
     }
     if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
   }
@@ -946,7 +984,8 @@
     var rst = 5;
     h += '<div class="label sec">New route</div><div class="shipform"><label>From<select data-sel="r:from">' + opt(route.from) + '</select></label><label>To<select data-sel="r:to">' + opt(route.to) + '</select></label>' +
       '<label class="wide">Goods<select data-sel="r:res">' + Object.keys(CFG.resources).map(function (r) {
-        if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1) return '';
+        var rfrom = ds.filter(function (d) { return d.id === route.from; })[0], held = rfrom && rfrom.resources && rfrom.resources[r] && rfrom.resources[r].amount >= 1;
+        if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1 && !held && r !== route.res) return '';
         return '<option value="' + r + '"' + (r === route.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + '</option>';
       }).join('') + '</select></label></div>' +
       '<div class="stepper" style="margin-top:8px"><span class="lab">Rate</span><button data-act="rdraft" data-f="rate" data-delta="-' + rst + '">−</button>' + numIn('rdraft', route.rate, 'data-f="rate"') + '<span class="unit">/t</span><button data-act="rdraft" data-f="rate" data-delta="' + rst + '">+</button></div>' +
@@ -1050,7 +1089,8 @@
     var M = S.missions, F = CFG.missions.factions;
     function rankOf(k, pts) { var r = null; (F[k].ranks || []).forEach(function (x) { if (pts >= x.min) r = x.name; }); return r; }
     if (msrc === null || !S.views[msrc]) msrc = S.districts.filter(function (d) { return d.type === 'freeport'; })[0].id;
-    var h = '<div class="standing"><div class="label">Standing</div><div class="big num">' + fmt(M.total) + '</div><div class="dim" style="font-size:11px">' + M.filled + ' mission' + (M.filled === 1 ? '' : 's') + ' filled</div><div class="facs">' +
+    var recog = S.orbital && !S.orbital.unlocked ? '<div class="note" style="margin-bottom:10px">' + esc((CFG.ui && CFG.ui.missionsHint) || ('Reach a total standing of ' + S.orbital.unlockStanding + ' across all factions and your name will be known across the lands.')) + ' <span class="dim">(' + fmt(S.orbital.standing) + ' / ' + S.orbital.unlockStanding + ')</span></div>' : '';
+    var h = recog + '<div class="standing"><div class="label">Standing</div><div class="big num">' + fmt(M.total) + '</div><div class="dim" style="font-size:11px">' + M.filled + ' mission' + (M.filled === 1 ? '' : 's') + ' filled</div><div class="facs">' +
       Object.keys(F).map(function (k) { var r = rankOf(k, M.standing[k]); return '<span class="fac"><b>' + fmt(M.standing[k]) + '</b><small>' + esc(F[k].name) + '</small>' + (r ? '<small class="rank">' + esc(r) + '</small>' : '') + '</span>'; }).join('') + '</div></div>' +
       '<label class="selrow" style="margin:10px 0">Supply from<select data-sel="s:src">' + S.districts.map(function (d) { return '<option value="' + d.id + '"' + (d.id === msrc ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select></label>' +
       '<div class="note">Each mission is offered in the name of every faction, each asking for something different. Fill one and the others lapse. Standing builds your rank with each faction and opens up what they have to tell you.</div>';
@@ -1070,22 +1110,22 @@
 
   // ---- expansion: building upward ---------------------------------------------------
   function expansionCard(b, d) {
-    var E = CFG.expansion, lv = b.level || 1, pend = S.orders.filter(function (o) { return o.kind === 'expand' && o.data.ring === b.ring && o.data.slot === b.slot; })[0];
+    var E = CFG.expansion, top = S.colony.expandMax || E.maxLevel, lv = b.level || 1, pend = S.orders.filter(function (o) { return o.kind === 'expand' && o.data.ring === b.ring && o.data.slot === b.slot; })[0];
     var dots = '';
-    for (var i = 1; i <= E.maxLevel; i++) dots += '<i class="' + (i <= lv ? 'on' : '') + '"></i>';
+    for (var i = 1; i <= top; i++) dots += '<i class="' + (i <= lv ? 'on' : '') + (i > E.maxLevel ? ' orb' : '') + '"></i>';
     var effect = function (k, crew) {
       var what = d.housing ? '+' + (Math.floor(d.housing * plotMultFor(d, b.ring) * k) - Math.floor(d.housing * plotMultFor(d, b.ring) * E.scale[lv])) + ' more homes'
         : d.storageBonus ? 'Storage ×' + k : d.defense ? 'Defence ×' + k : 'Output, inputs and power ×' + k;
       return what + (d.workers ? ' · crew ×' + crew : '');
     };
-    var h = '<div class="label sec">Expansion</div><div class="optcard' + (lv > 1 ? ' on' : '') + '"><div class="top"><b>Level ' + lv + ' / ' + E.maxLevel + '</b><span class="dim">' + (lv > 1 ? 'output ×' + E.scale[lv] : 'as built') + '</span></div><div class="lvdots">' + dots + '</div>';
+    var h = '<div class="label sec">Expansion</div><div class="optcard' + (lv > 1 ? ' on' : '') + '"><div class="top"><b>Level ' + lv + ' / ' + top + '</b><span class="dim">' + (lv > 1 ? 'output ×' + E.scale[lv] : 'as built') + '</span></div><div class="lvdots">' + dots + '</div>';
     if (pend) {
       h += '<div class="note" style="margin:8px 0 0">Expanding to level ' + pend.data.level + ': ' + pend.remaining + ' tick' + (pend.remaining === 1 ? '' : 's') + ' left.</div>';
     } else if (b.xnext) {
       var nx = b.xnext, short = Object.keys(nx.cost).filter(function (r) { return S.resources[r].amount < nx.cost[r]; });
       h += '<div class="dim" style="font-size:12px;margin:6px 0">Build it upward in the same plot: the whole line gets bigger, not better. ' + esc(effect(nx.scale, nx.crew)) + '.</div>' +
         '<div class="label" style="margin-top:4px">Level ' + nx.level + ' · ' + nx.ticks + ' ticks</div><div class="io">' + costPills(nx.cost, S.resources) + '</div>' +
-        (short.length ? '<div class="note" style="margin:8px 0 0">Paid from <b>' + esc(activeD().name) + '</b>\'s stockpile. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': these are made by Trade Workshops at the Free Port, so route or ship them here.</div>' : '') +
+        (short.length ? '<div class="note" style="margin:8px 0 0">Paid from <b>' + esc(activeD().name) + '</b>\'s stockpile. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': ' + (short.some(function (r) { return CFG.resources[r].orbitalTrade; }) ? 'some of these are made in orbit, so bring them down to the Core by orbital link or express drop, then route or ship them here.' : 'these are made by Trade Workshops at the Free Port, so route or ship them here.') + '</div>' : '') +
         '<div class="actions"><button class="btn primary" data-act="expand" data-ring="' + b.ring + '" data-slot="' + b.slot + '"' + (short.length ? ' disabled' : '') + '>Expand to level ' + nx.level + '</button></div>';
     } else h += '<div class="dim" style="font-size:12px;margin-top:6px">Fully expanded.</div>';
     return h + '</div>';
@@ -1222,7 +1262,10 @@
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains('numin') && $('panel').contains(ae)) { panelDeferred = true; return; }
     panelDeferred = false;
-    var h = tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'people' ? peopleTab() : tab === 'districts' ? districtsTab() : tab === 'logistics' ? logisticsPage() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'missions' ? missionsTab() : tab === 'comms' ? window.Story.commsHtml() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
+    var orbitTab = ORBIT_TABS.some(function (x) { return x[0] === tab && tab !== 'site' && tab !== 'comms' && tab !== 'log'; });
+    if (inOrbit() && !ORBIT_TABS.some(function (x) { return x[0] === tab; })) tab = 'oplace';
+    if (!inOrbit() && orbitTab) { tab = 'brief'; orbitTab = false; }
+    var h = orbitTab ? window.Orbit.panes[tab]() : tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'people' ? peopleTab() : tab === 'districts' ? districtsTab() : tab === 'logistics' ? logisticsPage() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'missions' ? missionsTab() : tab === 'comms' ? window.Story.commsHtml() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
     if (h === lastPanel) return;
     lastPanel = h;
     var p = $('panel'), top = p.scrollTop;
@@ -1382,6 +1425,7 @@
     else if (a === 'rdraft') { route[el.dataset.f] = Math.max(el.dataset.f === 'rate' ? 1 : 0, route[el.dataset.f] + (+el.dataset.delta * sh)); renderPanel(); }
     else if (a === 'rsave') act('route', { from: route.from, to: route.to, resource: route.res, rate: route.rate, reserve: route.reserve }, 'Route set.');
     else if (a === 'enter') { e.preventDefault(); enter(+el.dataset.id); }
+    else if (a === 'orbit') { e.preventDefault(); enterOrbit(); }
     else if (a === 'found') act('found', { type: el.dataset.type }, 'Founding started.');
     else if (a === 'sstep') {
       var have = Math.floor(S.views[ship.from].resources[ship.res].amount), cap = Math.max(1, Math.min(CFG.logistics.shipmentMax, have));
@@ -1474,6 +1518,7 @@
     renderPanel();
   }
   document.addEventListener('change', function (e) {
+    if (e.target.classList && e.target.classList.contains('onum')) return; // orbit.js handles its own fields
     if (e.target.classList && e.target.classList.contains('numin')) { commitNum(e.target); return; }
     var el = e.target.closest('[data-sel]');
     if (!el) return;
@@ -1498,6 +1543,12 @@
     if (!S) return;
     if (radarFor !== activeId) { radarFor = activeId; viewR = 0; buildRadar(); }
     renderSwitch();
+    var orb = inOrbit();
+    document.body.classList.toggle('orbit-mode', orb);
+    $('resources').style.display = orb ? 'none' : '';
+    $('res-title').style.display = orb ? 'none' : '';
+    $('oside').style.display = orb ? '' : 'none';
+    if (orb) { var oh = window.Orbit.sideHtml(); if ($('oside').dataset.h !== oh) { $('oside').innerHTML = oh; $('oside').dataset.h = oh; } }
     renderTop(); renderRadar(); renderTabs(); renderPanel(); renderQueue(); renderAlerts(); checkModals();
   }
 
@@ -1595,6 +1646,10 @@
     if (window.Terms) window.Terms.init(ui.terms);
     Object.keys(ids).forEach(function (k) { var l = ui.labels && ui.labels[k]; var el = $(ids[k]); if (l && el && el.previousElementSibling) el.previousElementSibling.textContent = l; });
   }
+  window.Orbit.init({
+    S: function () { return S; }, CFG: function () { return CFG; }, act: act, esc: esc, fmt: fmt, icon: icon, pill: pill, toast: toast,
+    enter: function (id) { enter(id); }, enterOrbit: enterOrbit, activeD: activeD, redraw: function () { if (S) { lastPanel = ''; renderPanel(); } }
+  });
   window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, changed: function () { if (S) { renderTabs(); renderPanel(); } } });
   api('config').then(function (cfg) {
     CFG = cfg;

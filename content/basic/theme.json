@@ -133,6 +133,51 @@
     },
     "modules": {
       "name": "Habitat Modules"
+    },
+    "void_glass": {
+      "name": "Void Glass"
+    },
+    "chiral_salts": {
+      "name": "Chiral Salts"
+    },
+    "null_ore": {
+      "name": "Null Ore"
+    },
+    "echo_quartz": {
+      "name": "Echo Quartz"
+    },
+    "drift_spores": {
+      "name": "Drift Spores"
+    },
+    "phase_silt": {
+      "name": "Phase Silt"
+    },
+    "hum_resin": {
+      "name": "Hum Resin"
+    },
+    "still_metal": {
+      "name": "Still Metal"
+    },
+    "stabilizer": {
+      "name": "Stabiliser Charge"
+    },
+    "lattice_cores": {
+      "name": "Lattice Cores"
+    },
+    "null_alloy": {
+      "name": "Null Alloy"
+    },
+    "chiral_serum": {
+      "name": "Chiral Serum"
+    },
+    "phase_cells": {
+      "name": "Phase Cells"
+    },
+    "resonators": {
+      "name": "Resonators"
+    },
+    "still_frames": {
+      "name": "Still Frames"
     }
   },
   "buildings": {
@@ -251,6 +296,46 @@
     "trade_workshop": {
       "name": "Trade Workshop",
       "desc": "Turns colony goods into trade goods. Choose one recipe and it is locked in: changing it costs credits and idles the shop. A bigger plot runs a bigger batch (more in, more out), not a better one."
+    },
+    "orbital_staging": {
+      "name": "Orbital Staging Platform",
+      "desc": "A gantry and fuel farm that assembles a payload for orbit. Load a launch cycle and it draws frames, fittings and modules every tick until the payload is complete, then waits for the catapult."
+    },
+    "orbital_catapult": {
+      "name": "Orbital Catapult",
+      "desc": "A mass driver that throws a finished payload into orbit. It must stand beside the staging platform, and it burns a little fuel just to stay warm."
+    },
+    "orbital_command": {
+      "name": "Orbital Command Center",
+      "desc": "The ground station for everything in orbit: tracking, telemetry and the people who read it. It must be running before anything can be launched."
+    },
+    "klein_reactor": {
+      "name": "Klein Reactor",
+      "desc": "Burns power cells for the station grid. Nothing in orbit runs without it."
+    },
+    "orbital_foundry": {
+      "name": "Orbital Foundry",
+      "desc": "An automated workshop. Choose one recipe and it is locked in, like a trade workshop, but it needs no crew: it draws more power instead. A bigger plot runs a bigger batch."
+    },
+    "t_rig_a": {
+      "name": "Field Rig A",
+      "desc": "Pulls the territory's first common resource out of the ground."
+    },
+    "t_rig_b": {
+      "name": "Field Rig B",
+      "desc": "Pulls the territory's second common resource out of the ground."
+    },
+    "t_drill": {
+      "name": "Deep Drill",
+      "desc": "Bores for the territory's district resource."
+    },
+    "t_refinery": {
+      "name": "Field Refinery",
+      "desc": "Refines the district resource and a common one into stabiliser charges, which the anomaly tap needs."
+    },
+    "t_tap": {
+      "name": "Anomaly Tap",
+      "desc": "Draws the territory's rare resource out of the anomaly, burning stabiliser charges to keep it open."
     }
   },
   "districts": {
@@ -489,5 +574,107 @@
       "title": "A name in the harbour",
       "hint": "People there post what they need and name what they will pay. Doing someone a favour is a kind of currency, though nobody has said what it buys."
     }
-  }
+  },
+  "orbitalRecipes": {
+    "lattice_cores": {
+      "name": "Lattice Cores"
+    },
+    "null_alloy": {
+      "name": "Null Alloy"
+    },
+    "chiral_serum": {
+      "name": "Chiral Serum"
+    },
+    "phase_cells": {
+      "name": "Phase Cells"
+    },
+    "resonators": {
+      "name": "Resonators"
+    },
+    "still_frames": {
+      "name": "Still Frames"
+    }
+  },
+  "places": {
+    "station": {
+      "name": "Orbital Station"
+    },
+    "territory": {
+      "name": "Anomalous Territory"
+    }
+  },
+  "anomalies": {
+    "drift": {
+      "name": "Slow Drift",
+      "desc": "The ground is moving, gently. It will close eventually."
+    },
+    "bloom": {
+      "name": "Bloom",
+      "desc": "Something is growing over the edges of the territory."
+    },
+    "hush": {
+      "name": "Hush",
+      "desc": "Sound stops at the boundary. Nobody likes working here."
+    },
+    "fold": {
+      "name": "Fold",
+      "desc": "Distances are wrong. The territory is folding shut."
+    },
+    "shear": {
+      "name": "Shear",
+      "desc": "The anomaly grinds at anything parked inside it. Rich, and dangerous."
+    },
+    "flare": {
+      "name": "Flare",
+      "desc": "A short, violent opening. The richest pickings, and the ship will feel every tick of it."
+    }
+  },
+  "projects": {
+    "lattice_survey": {
+      "name": "Lattice Survey",
+      "desc": "Map the anomalies from orbit with a lattice of sensors."
+    },
+    "seed_vault": {
+      "name": "Seed Vault",
+      "desc": "A vault in orbit for every seed line that survived the Lapse."
+    },
+    "deep_bore": {
+      "name": "Deep Bore",
+      "desc": "Drive a shaft deep enough to find out what is under the anomalies."
+    },
+    "quiet_array": {
+      "name": "Quiet Array",
+      "desc": "Listen to the hum with something built to hear it."
+    },
+    "relay_spire": {
+      "name": "Relay Spire",
+      "desc": "A mast in orbit that every station can talk through."
+    },
+    "commons": {
+      "name": "Mycelium Commons",
+      "desc": "A shared garden in orbit, grown from what the anomalies left behind."
+    },
+    "gravity_well": {
+      "name": "Gravity Well",
+      "desc": "Anchor the relay with a mass heavy enough to hold everything else in place."
+    }
+  },
+  "territoryNames": [
+    "Glass Flats",
+    "Silent Basin",
+    "Folded Mile",
+    "Static Reach",
+    "The Weir",
+    "Ash Hollow",
+    "Mirror Field",
+    "Low Hum",
+    "Grey Sound",
+    "Pale Ridge",
+    "Undertow",
+    "The Seam",
+    "Quiet Shelf",
+    "Burnt Choir",
+    "Long Fold",
+    "Salt Lantern"
+  ]
 }

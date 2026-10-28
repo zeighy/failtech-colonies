@@ -1,6 +1,6 @@
 # FAILTECH - Radial Command
 
-A browser-based colony management game with a server-authoritative simulation. You are the Territory Commander of a central **Core**. Build outward through five concentric rings, keep a power grid running, turn scrap and bad water into food and parts, climb a production chain, found satellite **districts** and link them with shipments and routes, weather hazards, trade with the convoy and on an order-book exchange, and build a **Beacon** that can reach what is left of the world. After the Beacon an endgame harbour opens, with trade goods, missions and factions.
+A browser-based colony management game with a server-authoritative simulation. You are the Territory Commander of a central **Core**. Build outward through five concentric rings, keep a power grid running, turn scrap and bad water into food and parts, climb a production chain, found satellite **districts** and link them with shipments and routes, weather hazards, trade with the convoy and on an order-book exchange, and build a **Beacon** that can reach what is left of the world. After the Beacon an endgame harbour opens, with trade goods, missions and factions. Earn enough standing and the game goes to **orbit**, where every player's station shares the same anomalous territories, orbital market and global projects.
 
 The game ships with a story and a full theme: **Recontinuation** (Earth after the Lapse, run by the surviving Continuity Office) is the default. The rules are separate from the wording and narrative, so the same game can be re-themed by dropping in another folder (see [Themes and story](#themes-and-story)).
 
@@ -11,6 +11,7 @@ The game ships with a story and a full theme: **Recontinuation** (Earth after th
 3. **Click a structure** to inspect it: efficiency, what is limiting it, neighbours, plot fit. You can pause it (saves power), switch on an optional input, expand it, or demolish it (50% refund).
 4. Your people drink and eat every tick. If clean water or rations run out, morale falls and people leave. If hope runs out the colony **shuts down** instead of collapsing: non-essential buildings are parked and you decide whether to rebuild or start over (see Systems).
 5. **Goal:** build the Beacon Array and keep it running until the transmission completes (25 signal). Everything else exists to make that possible. Then the harbour opens, and the game turns open-ended.
+6. **Orbit:** with 500 standing across the factions, a second chapter opens (it stays hidden until then). Launch a station, then send dropships to the anomalies (see [Orbit](#orbit)).
 
 The **Brief** tab is your guide. It shows a **collapse clock** (ticks until collapse at current rates, also in the top bar), any **incoming hazard** with how prepared you are, and a roadmap of **directives** that hint at what is missing without telling you what to build. Directives stay ticked once earned. The survival ones tell you whether you are on track, tight, behind schedule or blocked, by comparing how long your stock lasts with the earliest you could finish the fix. Hazards also mark the structures they touch on the map (red **!** = being hurt, amber ring = paying a maintenance cost, dashed ring = in the forecast's path).
 
@@ -39,11 +40,30 @@ The right-hand pane has a vertical rail of tabs: Brief, Site, Hub, People, Distr
 | **Shutdown** | Critical shortages drain morale and people leave rather than starve. When morale reaches zero the colony does not collapse: it **shuts down**. Every building that is not essential is **parked** (housing and the Core's essential buildings stay on; everything in other districts is parked), the colony cannot collapse again, and it recovers on its own once nobody is starving and morale is back. Parked buildings stay parked until you restart them, all at once or one by one. You can keep rebuilding, or choose **Abandon colony** from the menu (two confirmations; progress resets, and the story starts over). |
 | **Districts** | From hub level 4 the **Districts** tab lets you found satellite bases (**The Pits**: ore, ingots, alloys; **The Stacks**: crude, fuel, reagents, polymers, circuits, power cells; **The Greenbelt**: biomass, fertiliser, medicine (names are the neutral theme's)). Each has its own stockpile, power grid and 3-5-7-9-11 rings; people, crew and morale stay colony-wide. Founding is paid from the Core, upgrades from the district itself, so goods are moved by **shipments** (take ticks by distance; stock leaves at dispatch) and by standing **routes** (units per tick moved straight between stockpiles, with a reserve the source keeps) over each district's **link**, whose capacity you can widen. Route flows show in every district's per-tick rates. District level 2 opens at hub 4, levels 3-4 at hub 5, level 5 once the Beacon is built. Switch between districts with the chips on the map. |
 | **Optional inputs** | Some buildings can take an extra input that is **off by default**. Switch it on from the Site pane and, while it is in stock, the building spends a fixed amount per tick for a bonus: fertiliser makes Hydroponics Bays grow x1.35, medicine makes homes happier. |
-| **Expansions** | Any production, housing or infrastructure building can be built "upward" in its plot, to level 5: the whole line scales (x1.4 up to x2.6, with a little less extra crew), paid with trade goods made at the Free Port. It is size, not efficiency. Links between districts can be widened up to 440 per tick the same way. |
+| **Expansions** | Any production, housing or infrastructure building can be built "upward" in its plot, to level 5: the whole line scales (x1.4 up to x2.6, with a little less extra crew), paid with trade goods made at the Free Port. It is size, not efficiency. Levels 6 to 10 (up to x4.6) appear once the first rare resource has come home to the station, and also cost goods made in orbit, at an escalating rate. Links between districts can be widened up to 440 per tick the same way. |
 | **People** | The People tab shows what the population eats, what the colony can still feed, and where it is heading. When food or water runs short people leave instead of the colony collapsing (down to 5). Growth is judged on the Core's own production **plus what standing routes bring in or take out**, and a colony with a full stockpile can lean on it for a small shortfall, but it will not grow itself into a real shortage. Everyone eats from the Core stockpile; homes in other districts only add capacity and comfort. |
 | **Going offline** | If your connection drops, clicks to build, demolish, pause, switch optional inputs, upgrade or change convoy orders are **queued on screen** (a banner, a dashed marker on the map and a chip in the bottom bar) and sent in order when you reconnect. You can discard any of them first. Express trips, founding, shipments and resets need a live connection. |
 | **Synthetics Reclaimer** | Turns surplus raw synthetics into polymers, two to one (Stacks). Raw synthetics are priced to follow polymers on the exchange, so buying synthetics to convert never beats selling polymers. |
 | **Offline progress** | The server owns the clock. Production, consumption, convoys and already-forecast hazards continue while you are logged out (capped at 1,200 ticks of catch-up after downtime). |
+
+### Orbit
+
+The multiplayer endgame, hidden until the colony's standing with all factions adds up to 500 (the Missions screen only hints at it). Full design in [`docs/orbital.md`](docs/orbital.md), numbers in section 16 of [`prod_guide.md`](prod_guide.md).
+
+- **Launch:** build the Orbital Staging Platform and the Orbital Catapult side by side on Colossal plots in the Core, and the Orbital Command Center on a Heavy plot in the Free Port. Load a launch cycle (it draws frames, fittings and modules every tick), then name your station and launch. Later cycles open the station's second and third rings.
+- **Orbital Command:** the Command Center chip on the map switches to the orbit view, which has its own panes:
+  - **Station:** Klein Reactors for power; Orbital Foundries that run trade recipes and six orbital-only recipes without crew.
+  - **Storage:** slot-limited, one resource per slot, with jettison, rebuild and upgrades. It also manages the orbital links to the Core (both ways), the fuel-hungry express launch up and the cheap express drop down.
+  - **Territories:** dropships and anomalous territories.
+  - **Market:** the orbital market.
+  - **Project:** the current global project.
+- **Anomalous territories** are shared by every player:
+  - Deploy a dropship, build rigs, a refinery and an anomaly tap with no crew, and draw a rare resource. Rare resources come home only by dropship.
+  - Each anomaly sets how long the territory lasts and how dangerous it is.
+  - Leaving early shortens it for the next visitor. Staying too long damages the ship, and a ship can be lost.
+- **Back down:** the orbital goods (made from two rare resources each) pay for expansion levels 6 to 10 on the ground, so links and express drops bring them down to the Core.
+- **Orbital market:** trade goods only, traded from orbital storage. Every order shows the station that posted it, and thin market makers set the band.
+- **Global projects:** one at a time for the whole server, sized by the number of active stations. Players contribute by dropship. A completed project gives everyone standing and a temporary bonus (faster production lines, or a trickle of a rare resource).
 
 ### Hazards
 
@@ -76,19 +96,21 @@ src/state.js       Builds the view the client renders (dry-run tick for live rat
 src/hazards.js     Hazard forecast / strike / preparedness / shields / away report
 src/market.js      Order-book exchange (lazy NPC rungs, matching, escrow, fees)    src/marketsim.js  Seeded price walk, events, price links
 src/missions.js    Free Port missions, factions and standing
+src/orbital.js     Orbit: unlock, launch chain, station, slot storage, links, express launch
+src/territories.js Shared anomalous territories and dropships   src/orbitalMarket.js  Orbital order book   src/projects.js  Global projects
 src/objectives.js  Onboarding directives and the collapse clock
 src/shutdown.js    Shutdown: parking and restarting buildings
 src/story.js       Story beats, triggers, delivery pacing and validation
 src/theme.js       Loads content/<theme>/theme.json onto the config
 src/backup.js      Scheduled SQLite backups
 src/security.js    Headers, same-origin check, rate limits, login throttle      src/validate.js  Input validation helpers
-src/db.js          Schema (v15) and migrations, session store, colony helpers
+src/db.js          Schema (v16) and migrations, session store, colony helpers
 game_config.json   All balance data (no wording that a theme replaces matters here; ids are stable)
 content/           One folder per theme: theme.json (wording), story.json (narrative), assets/ (portraits, backgrounds)
 scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md)
-public/            index.html (login), game.html, css/, js/
-docs/              districts.md (district system, exchange, Free Port, roadmap), story.md (theme and story format), security.md, content-needs.md
-test/              node:test suites: simulation, balance guard, hazards, express convoy, districts and migration, exchange, Free Port, expansion and growth, shutdown, backups, story and themes, security, HTTP API
+public/            index.html (login), game.html, css/, js/ (game.js, orbit.js for the Orbital Command view)
+docs/              districts.md (district system, exchange, Free Port, roadmap), orbital.md (orbit endgame), story.md (theme and story format), security.md, content-needs.md
+test/              node:test suites: simulation, balance guard, hazards, express convoy, districts and migration, exchange, Free Port, orbit, expansion and growth, shutdown, backups, story and themes, security, HTTP API
 ```
 
 The client is purely presentational. It sends intents (`POST /api/build`, ...) and the server validates ownership, slots, plot, limits and resources before accepting them.
@@ -138,14 +160,14 @@ The server is the only authority: the client sends intents and every rule is enf
 
 ## Where it is going
 
-Built so far: the Core and three founding districts (each with its own rings, stockpile and grid), shipments and standing routes over upgradable links, the exchange, the endgame Free Port (trade goods, shields, missions, factions, rank), building expansions, optional inputs, the People tab, shutdown instead of collapse, backups, themes, and the story with calls, mail, branching scenes, moods and portraits. The design history and decisions are in [`docs/districts.md`](docs/districts.md).
+Built so far: the Core and three founding districts (each with its own rings, stockpile and grid), shipments and standing routes over upgradable links, the exchange, the endgame Free Port (trade goods, shields, missions, factions, rank), building expansions, optional inputs, the People tab, shutdown instead of collapse, backups, themes, the story with calls, mail, branching scenes, moods and portraits, and the orbit endgame (launch chain, station, slot storage and links, dropships on shared anomalous territories, the orbital market and global projects, with a second chapter of directives and story). The design history and decisions are in [`docs/districts.md`](docs/districts.md).
 
 Not built yet (noted for later):
 
 - **Per-district hazards:** hazards currently hit the colony as a whole. The plan is in `docs/districts.md`.
 - **Inline images in mail:** the reading window can show them, the mail format has no field yet (`docs/story.md`).
 - **Playtest telemetry** (which buildings, recipes and routes get used, where players stall).
-- Balance numbers (expansion costs, exodus rates, link levels, recipes, missions, shutdown thresholds) are placeholders for playtesting.
+- Balance numbers (orbit launch cycles, dropship damage, project sizes, expansion costs, exodus rates, link levels, recipes, missions, shutdown thresholds) are placeholders for playtesting.
 
 ## Tuning the game
 

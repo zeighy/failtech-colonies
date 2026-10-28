@@ -48,6 +48,20 @@
     flag: '<path d="M5 21V4M5 4h13l-2.5 4 2.5 4H5"/>',
     route: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H14a3 3 0 0 1 0 6h-4a3 3 0 0 0 0 6h5.5"/>',
     mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    orbital_staging: '<path d="M6 21V8h4v13M14 21V4h4v17M4 21h16M6 12h4M14 9h4M14 14h4"/>',
+    orbital_catapult: '<path d="M4 20L18 6M15 4l5 0 0 5M6 21h7M8 15l3 3"/>',
+    orbital_command: '<circle cx="12" cy="13" r="3"/><path d="M5 21a9 9 0 0 1 14 0M4 9a11 11 0 0 1 16 0M7.5 11.5a6 6 0 0 1 9 0"/>',
+    klein_reactor: '<circle cx="12" cy="12" r="7"/><path d="M12 5v14M5.9 8.5l12.2 7M18.1 8.5l-12.2 7"/>',
+    orbital_foundry: '<path d="M4 20h16M6 20V10l6-5 6 5v10"/><path d="M9 20v-5h6v5M12 5V2"/>',
+    t_rig_a: '<path d="M12 3v12M8 11l4 4 4-4M5 19h14"/>',
+    t_rig_b: '<path d="M12 3s5 6 5 10a5 5 0 0 1-10 0c0-4 5-10 5-10z"/>',
+    t_drill: '<path d="M12 3v13M9 16l3 5 3-5M7 7h10"/>',
+    t_refinery: '<path d="M8 21V9l4-5 4 5v12M8 13h8M8 17h8"/>',
+    t_tap: '<path d="M12 2l3 6 6 1-4.5 4 1 6.5L12 16l-5.5 3.5 1-6.5L3 9l6-1z"/>',
+    orbit: '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-25 12 12)"/>',
+    ship: '<path d="M12 2l4 8v8l-4 3-4-3v-8z"/><path d="M8 14l-3 3M16 14l3 3"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    box: '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>'
   };
   window.ICONS = I;

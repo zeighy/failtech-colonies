@@ -15,8 +15,9 @@ Energy is not stockpiled. Each tick, supply (the Core's own power plus generator
 | 0 | Reclaim (scrap), Aquifer Draw (unpurified_water), Raw Ink (raw_synthetics) |
 | 1 | Filtrate (clean_water), Nutrient Paste (rations), Hard-Spec Parts (machined_parts), Raw Ore (ore), Crude (crude), Mycelial Biomass (biomass) |
 | 2 | Print Stock (building_materials), Heavy Meals (meals), Ingots (ingots), Reagent Stock (reagents), Refined Fuel (fuel), Polymer Stock (polymers), Soil Primer (fertiliser), Vintage Curios (curios), Tool Steel (tool_steel), Heritage Preserves (preserves), Cast Plastics (plastics), Cliffside Tinctures (tinctures) |
-| 3 | Spine Alloy (alloys), Phononic Circuits (circuits), HTR Patches (medicine), Hard-Spec Instruments (precision_tools), Apex Field Kits (field_kits), Mycelial Stimulants (grow_stims), Artisanal Goods (luxuries), Spine Frames (frames) |
+| 3 | Spine Alloy (alloys), Phononic Circuits (circuits), HTR Patches (medicine), Hard-Spec Instruments (precision_tools), Apex Field Kits (field_kits), Mycelial Stimulants (grow_stims), Artisanal Goods (luxuries), Spine Frames (frames), Stabiliser Charge (stabilizer) |
 | 4 | Klein Cells (power_cells), Heritage Masterworks (masterworks), Dampener Fittings (fittings), Donstand-Pattern Modules (modules) |
+| 5 | Anfang Glass (void_glass), Icarus Compound (chiral_salts), Mobiulic Ore (null_ore), Windsor Crystal (echo_quartz), Mycolian Spores (drift_spores), Orphic Silt (phase_silt), Phononic Substrate (hum_resin), Graviton Metaloid (still_metal), Sirius Core (lattice_cores), Dense Metal (null_alloy), Cliffside Rejuvenator (chiral_serum), Sirius Cell (phase_cells), Phononic Amplifier (resonators), Stabilized Alloy (still_frames) |
 Chains resolve in this building order, so output made this tick can be consumed this tick: extractor, refinery, assembler, producer, beacon.
 
 ## **4. Buildings**
@@ -51,6 +52,16 @@ Chains resolve in this building order, so output made this tick can be consumed 
 | Cliffside Agri Lab (agri_lab) | refinery | The Cliffside Reserve | Small | 450 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 12 power, 12 Mycelial Biomass, 2 Reagent Stock | 5 Soil Primer | 3 | -2 | 6 | industry |
 | HTR Lab (pharma_lab) | refinery | The Cliffside Reserve | Medium | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | 14 power, 8 Mycelial Biomass, 3 Reagent Stock, 1 Polymer Stock | 3 HTR Patches | 4 | -2 | 8 | industry |
 | Licensed Workshop (trade_workshop) | workshop | The Sanctuary Port | Small | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | – | – | 3 | -4 | 8 | – |
+| Orbital Staging Platform (orbital_staging) | launch | core | Colossal | 450 Spine Frames, 300 Dampener Fittings, 250 Donstand-Pattern Modules, 400 Print Stock, 200 Spine Alloy | 20 power | – | 6 | -5 | 90 | – |
+| Orbital Catapult (orbital_catapult) | launch | core | Colossal | 300 Spine Frames, 450 Dampener Fittings, 250 Donstand-Pattern Modules, 300 Spine Alloy, 100 Klein Cells | 15 power, 1 Refined Fuel | – | 4 | -6 | 90 | – |
+| Orbital Command Center (orbital_command) | command | The Sanctuary Port | Heavy | 350 Spine Frames, 300 Dampener Fittings, 350 Donstand-Pattern Modules, 150 Phononic Circuits | 15 power, 3 Nutrient Paste, 3 Filtrate | – | 10 | -2 | 90 | – |
+| Klein Reactor (klein_reactor) | generator | station | Medium | 60 Spine Frames, 40 Dampener Fittings | 1 Klein Cells | 90 power | – | – | 20 | – |
+| Orbital Foundry (orbital_foundry) | workshop | station | Medium | 80 Spine Frames, 60 Dampener Fittings | – | – | – | – | 25 | – |
+| Field Rig A (t_rig_a) | extractor | territory | Small | 20 Hard-Spec Parts, 15 Print Stock | 6 power | 10 territory's common A | – | – | 6 | – |
+| Field Rig B (t_rig_b) | extractor | territory | Small | 20 Hard-Spec Parts, 15 Print Stock | 6 power | 10 territory's common B | – | – | 6 | – |
+| Deep Drill (t_drill) | extractor | territory | Small | 30 Hard-Spec Parts, 25 Print Stock | 10 power | 5 territory's district resource | – | – | 8 | – |
+| Field Refinery (t_refinery) | refinery | territory | Medium | 40 Hard-Spec Parts, 30 Print Stock | 4 territory's district resource, 4 territory's common A, 12 power | 2 Stabiliser Charge | – | – | 10 | – |
+| Anomaly Tap (t_tap) | assembler | territory | Medium | 50 Hard-Spec Parts, 40 Print Stock, 10 Spine Alloy | 1 Stabiliser Charge, 15 power | 1 territory's rare | – | – | 12 | – |
 A building with partial inputs runs at partial efficiency (limited by its scarcest input). Buildings marked `optional` take an extra input that boosts output when switched on. Some buildings (`essential`) stay on during a shutdown (section 4b).
 
 ## **4b. People, housing, crew, morale and shutdown**
@@ -102,6 +113,7 @@ Neighbours are the two slots beside a building in its ring plus every touching s
 * HTR Lab next to Cliffside Bio Dome: ×1.1
 * Cliffside Bio Dome next to Cliffside Bio Dome: ×0.95
 * Ink Reclaimer next to Polymer Plant: ×1.1
+* Orbital Foundry next to Klein Reactor: ×1.05
 
 ## **7. Core levels**
 | Level | Upgrade cost | Time | Storage | Quarters | Base power | Ring slots | Upkeep / tick | Convoy limit |
@@ -139,7 +151,7 @@ Districts unlock at Core level 4. Each has its own stockpile, power grid and rin
 | 10 | 500 | 200 Print Stock, 120 Hard-Spec Parts, 60 Spine Alloy, 24 Spine Frames, 12 Dampener Fittings |
 
 ## **10. Building expansion**
-A building can be expanded in place up to level 5; its whole line scales and its crew grows. Cost is the class base cost × (level - 1), paid from the district's own stockpile.
+A building can be expanded in place up to level 5; its whole line scales and its crew grows. Cost is the class base cost × (level - 1), paid from the district's own stockpile. Levels 6-10 stay hidden until the colony's first rare resource has come home to its station (section 16); they also cost the class's orbital goods × 1 (level 6), 2 (level 7), 3 (level 8), 5 (level 9), 8 (level 10), which have to come down from orbit by link or express drop.
 | Level | Output scale | Crew scale | Ticks |
 | --- | --- | --- | --- |
 | 1 | ×1 | ×1 | – |
@@ -147,11 +159,16 @@ A building can be expanded in place up to level 5; its whole line scales and its
 | 3 | ×1.8 | ×1.4 | 8 |
 | 4 | ×2.2 | ×1.6 | 10 |
 | 5 | ×2.6 | ×1.8 | 12 |
-| Class | Base cost |
-| --- | --- |
-| housing | 2 Donstand-Pattern Modules, 3 Spine Frames |
-| infrastructure | 4 Spine Frames |
-| industry | 3 Spine Frames, 2 Dampener Fittings |
+| 6 | ×3 | ×2 | 14 |
+| 7 | ×3.4 | ×2.2 | 16 |
+| 8 | ×3.8 | ×2.4 | 18 |
+| 9 | ×4.2 | ×2.6 | 20 |
+| 10 | ×4.6 | ×2.8 | 24 |
+| Class | Base cost | Orbital goods (levels 6+) |
+| --- | --- | --- |
+| housing | 2 Donstand-Pattern Modules, 3 Spine Frames | 2 Cliffside Rejuvenator, 2 Stabilized Alloy |
+| infrastructure | 4 Spine Frames | 2 Sirius Cell, 2 Phononic Amplifier |
+| industry | 3 Spine Frames, 2 Dampener Fittings | 2 Dense Metal, 2 Sirius Core |
 
 ## **11. Hazards**
 Hazards are forecast, then strike on a fixed tick, then last for a while whatever the outcome. A new hazard is only started while the player is active; once forecast it strikes whether or not they are logged in. At the strike the colony spends its reserves automatically; that gives a preparedness fraction (**prep**), the failure effect applies at severity = 1 - prep, and a maintenance cost applies in proportion to prep. Requirements scale with Core level (+60% per level above 1). The first hazard can come at colony age 45, then every 32-52 ticks, shrinking by 7% per Core level (floor 60%).
@@ -203,6 +220,21 @@ Every 40 ticks. Standing export and import orders execute on arrival at **that c
 | Spine Frames (frames) | 3 | 213.14 | 122.32 |
 | Dampener Fittings (fittings) | 4 | 234.77 | 134.74 |
 | Donstand-Pattern Modules (modules) | 4 | 679.64 | 390.06 |
+| Anfang Glass (void_glass) | 5 | 260 | 150 |
+| Icarus Compound (chiral_salts) | 5 | 260 | 150 |
+| Mobiulic Ore (null_ore) | 5 | 260 | 150 |
+| Windsor Crystal (echo_quartz) | 5 | 260 | 150 |
+| Mycolian Spores (drift_spores) | 5 | 260 | 150 |
+| Orphic Silt (phase_silt) | 5 | 260 | 150 |
+| Phononic Substrate (hum_resin) | 5 | 260 | 150 |
+| Graviton Metaloid (still_metal) | 5 | 260 | 150 |
+| Stabiliser Charge (stabilizer) | 3 | 60 | 30 |
+| Sirius Core (lattice_cores) | 5 | 1400 | 800 |
+| Dense Metal (null_alloy) | 5 | 1400 | 800 |
+| Cliffside Rejuvenator (chiral_serum) | 5 | 1400 | 800 |
+| Sirius Cell (phase_cells) | 5 | 1400 | 800 |
+| Phononic Amplifier (resonators) | 5 | 1400 | 800 |
+| Stabilized Alloy (still_frames) | 5 | 1400 | 800 |
 **Express convoy:** fee 100 + 50 per Core level, arrives in 3 ticks, then 10 ticks of rest. Charges ×1.5 when selling to you and pays ×0.6 when buying from you; carries at most 40% of the scheduled limit. Goods and credits are held at dispatch.
 
 ## **13. The exchange (order book)**
@@ -230,6 +262,54 @@ Anything can be built here except the extractors of the other districts. License
 ## **15. The Beacon**
 Build the Series-9 Beacon (only one; it wants a Colossal plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **25 signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes The Sanctuary Port available.
 
-## **16. Operations: backups**
+## **16. Orbit (endgame)**
+Hidden until the colony's standing with all factions adds up to **500** (the Brief only hints at it before then). Then three buildings appear: the Orbital Staging Platform and the Orbital Catapult in the Core, each on its own Colossal plot and side by side, and the Orbital Command Center in The Sanctuary Port on a Heavy plot.
+**Launch cycles.** The staging platform takes one cycle at a time and draws its inputs every tick until the progress is complete (only the fully supplied share of a tick counts), then waits. The catapult launches it while the command center is running.
+| Cycle | Draws / tick | Ticks | Also costs | Result |
+| --- | --- | --- | --- | --- |
+| station | 10 Spine Frames, 10 Dampener Fittings, 10 Donstand-Pattern Modules | 450 | – | the station (named by the player) with 150 Spine Frames, 110 Dampener Fittings, 120 Klein Cells and one dropship |
+| ring2 | 12 Spine Frames, 12 Dampener Fittings, 12 Donstand-Pattern Modules | 450 | – | station level 2 |
+| ring3 | 15 Spine Frames, 15 Dampener Fittings, 15 Donstand-Pattern Modules | 450 | 60 Sirius Core, 60 Dense Metal | station level 3 |
+**Station.** Rings 1: 4 slots of Medium, 2: 6 slots of Large, 3: 9 slots of Heavy; ring 1 at level 1, the others from the ring launches. Base power 10. Klein Reactor: 1 Klein Cells → 90 power. Orbital Foundry: any standard trade recipe at power × 2.5 (clamped 10-60) plus the orbital recipes, no crew.
+| Orbital recipe (id) | Inputs / tick | Outputs / tick |
+| --- | --- | --- |
+| Sirius Core (lattice_cores) | 2 Anfang Glass, 1 Windsor Crystal, 1 Phononic Circuits, 40 power | 0.25 Sirius Core |
+| Dense Metal (null_alloy) | 2 Mobiulic Ore, 1 Graviton Metaloid, 2 Spine Alloy, 45 power | 0.25 Dense Metal |
+| Cliffside Rejuvenator (chiral_serum) | 2 Mycolian Spores, 1 Phononic Substrate, 1 HTR Patches, 30 power | 0.25 Cliffside Rejuvenator |
+| Sirius Cell (phase_cells) | 2 Icarus Compound, 1 Orphic Silt, 2 Klein Cells, 55 power | 0.25 Sirius Cell |
+| Phononic Amplifier (resonators) | 1 Windsor Crystal, 1 Phononic Substrate, 1 Hard-Spec Instruments, 35 power | 0.25 Phononic Amplifier |
+| Stabilized Alloy (still_frames) | 1 Graviton Metaloid, 1 Orphic Silt, 2 Spine Frames, 50 power | 0.25 Stabilized Alloy |
+**Orbital storage** is slot-limited: one resource per slot (level 1: 6 slots of 2,000; level 2: 8 slots of 4,000 for 200 Spine Frames, 120 Dampener Fittings; level 3: 10 slots of 8,000 for 300 Spine Frames, 200 Dampener Fittings, 30 Stabilized Alloy). The largest stocks claim slots first; anything without a slot is lost. Jettisoning empties a slot, which then costs 20 Spine Frames, 10 Dampener Fittings to rebuild.
+**Orbital links** run between the Core and the station, both ways (level 1: 4 links at 25/tick; level 2: 6 links at 40/tick for 200 Dampener Fittings, 100 Donstand-Pattern Modules; level 3: 8 links at 60/tick for 300 Dampener Fittings, 30 Sirius Cell). Rare resources never travel by link. **Express launch:** up to 400 of one resource from the Core, 150 + 0.5/unit Refined Fuel, arriving in 12 ticks, once every 480 ticks. **Express drop:** the other way, from orbital storage to the Core, for a capsule of 10 Dampener Fittings from orbital storage, landing in 12 ticks; it shares the cooldown.
+**Dropships** (up to 3; build 600 Spine Frames, 400 Dampener Fittings, 300 Donstand-Pattern Modules, 200 Klein Cells, 120 ticks): level 1 power 40, hold 600, links 15/tick; level 2 power 70, hold 1000, links 25/tick (200 Spine Frames, 150 Dampener Fittings, 80 Klein Cells); level 3 power 100, hold 1600, links 40/tick (350 Spine Frames, 250 Dampener Fittings, 120 Donstand-Pattern Modules). Landing takes 15 ticks with a kit of 140 Hard-Spec Parts, 110 Print Stock, 10 Spine Alloy; the hold can be preloaded. A ship on a territory gets up to 2 links to the station. Recalling brings back what the plan says (rare first) up to the hold, in 150 ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at 10% with the cargo gone; the second loses the ship.
+**Anomalous territories** are shared by every station: at least 7 are open, a taken one is replaced in 10-30 ticks. Each has two common resources (Reclaim, Aquifer Draw, Raw Ink), one district resource (Raw Ore, Crude) and one rare (Anfang Glass, Icarus Compound, Mobiulic Ore, Windsor Crystal, Mycolian Spores, Orphic Silt, Phononic Substrate, Graviton Metaloid). Rings 1: 3 × Small, 2: 5 × Medium, storage = the hold, power = the ship's. Leaving early keeps only 35% of its remaining time for the next visitor; still being there when it closes forces a late recall with damage.
+| Anomaly | Weight | Lasts (ticks) | Late damage | Integrity lost / tick | Rare × |
+| --- | --- | --- | --- | --- | --- |
+| Slow Drift | 3 | 1440-11520 | 25% | – | 1 |
+| Bloom | 3 | 960-5760 | 30% | – | 1.15 |
+| Hush | 2 | 960-4320 | 30% | – | 1.2 |
+| Fold | 2 | 720-2880 | 35% | – | 1.3 |
+| Shear | 1 | 480-1440 | 45% | 0.02 | 1.6 |
+| Flare | 1 | 480-960 | 50% | 0.04 | 2 |
+| Territory building (id) | Inputs / tick | Outputs / tick |
+| --- | --- | --- |
+| Field Rig A (t_rig_a) | 6 power | 10 territory's common A |
+| Field Rig B (t_rig_b) | 6 power | 10 territory's common B |
+| Deep Drill (t_drill) | 10 power | 5 territory's district resource |
+| Field Refinery (t_refinery) | 4 territory's district resource, 4 territory's common A, 12 power | 2 Stabiliser Charge |
+| Anomaly Tap (t_tap) | 1 Stabiliser Charge, 15 power | 1 territory's rare |
+**Orbital market:** trade goods only, straight from orbital storage, orders signed with the station name. Market makers post 20 (tier 2), 12 (tier 3), 6 (tier 4), 4 (tier 5) at ±8% of the reference every 240 ticks. Prices must stay within 0.5-2× the reference; 4% fee from sellers; lifetimes 100, 300, 1000; 10 open orders.
+**Global projects:** one at a time, announced 480 ticks ahead. Needs are per player × stations seen recently; the period is twice the time to make one player's share (2880-11520 ticks). Contributions travel by dropship (240 ticks). Completion gives every colony +40 standing with the project's faction and a bonus for half the period.
+| Project | Needs per player | Bonus |
+| --- | --- | --- |
+| Lattice Survey | 20 Sirius Core, 15 Phononic Amplifier | Workshops and foundries +10% |
+| Seed Vault | 20 Cliffside Rejuvenator, 120 Heritage Preserves | Growing lines +15% |
+| Deep Bore | 20 Dense Metal, 150 Tool Steel | Metal lines +10% |
+| Quiet Array | 15 Sirius Cell, 15 Stabilized Alloy | A trickle of one rare resource to every station |
+| Relay Spire | 20 Phononic Amplifier, 15 Sirius Cell | Power plants +10% |
+| Mycelium Commons | 20 Cliffside Rejuvenator, 15 Stabilized Alloy | Kitchens and pharma labs +15% |
+| Gravity Well | 20 Dense Metal, 15 Sirius Core | Fabrication lines +10% |
+
+## **17. Operations: backups**
 The server backs the database up automatically (`BACKUP_INTERVAL_HOURS`, default 6, 0 = off; `BACKUP_KEEP`, default 28; `BACKUP_DIR`). To restore: stop the server, copy a backup over the database file (delete its `-wal` and `-shm` files), start the server.
 

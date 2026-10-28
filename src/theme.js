@@ -36,6 +36,10 @@ const SECTIONS = {
   hazards: [(c) => c.hazards.types, ['name', 'desc']],
   factions: [(c) => c.missions.factions, ['name', 'desc']],
   recipes: [(c) => c.recipes, ['name']],
+  orbitalRecipes: [(c) => c.orbitalRecipes || {}, ['name']],
+  places: [(c) => c.orbitalTypes || {}, ['name']],
+  anomalies: [(c) => (c.orbital ? c.orbital.territories.anomalies : {}), ['name', 'desc']],
+  projects: [(c) => (c.orbital ? Object.fromEntries(c.orbital.projects.list.map((p) => [p.key, p])) : {}), ['name', 'desc']],
 };
 
 // Problems found while applying a theme (unknown ids, non-string text). Returned, never thrown, so one typo does not
@@ -62,6 +66,10 @@ function apply(config, theme) {
     if (!Object.prototype.hasOwnProperty.call(config.missions.factions, id)) { problems.push(`theme.ranks.${id}: no such faction`); continue; }
     const ok = Array.isArray(ranks) && ranks.length && ranks[0].min === 0 && ranks.every((r, i) => r && typeof r.name === 'string' && r.name.trim() && Number.isFinite(r.min) && (i === 0 || r.min > ranks[i - 1].min));
     if (ok) config.missions.factions[id].ranks = ranks; else problems.push(`theme.ranks.${id}: needs a list of { min, name } starting at min 0 and rising`);
+  }
+  if (Array.isArray(theme.territoryNames) && theme.territoryNames.length && config.orbital) {
+    if (theme.territoryNames.every((t) => typeof t === 'string' && t.trim())) config.orbital.territories.names = theme.territoryNames;
+    else problems.push('theme.territoryNames: must be a list of non-empty text');
   }
   if (Array.isArray(theme.missionTitles) && theme.missionTitles.length) {
     if (theme.missionTitles.every((t) => typeof t === 'string' && t.trim())) config.missions.titles = theme.missionTitles;

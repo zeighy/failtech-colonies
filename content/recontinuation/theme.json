@@ -22,7 +22,12 @@
       "exchange": "Harbour Ledger",
       "missions": "Postings",
       "comms": "Signal",
-      "log": "Incident Log"
+      "log": "Incident Log",
+      "oplace": "Station",
+      "ostore": "Orbital Storage",
+      "oterr": "Territories",
+      "omarket": "Orbital Market",
+      "oproject": "Global Project"
     },
     "labels": {
       "credits": "Liquid Credits",
@@ -226,7 +231,9 @@
       "hint": "If you would rather start over, Abandon colony is in the command menu.",
       "button": "Understood"
     },
-    "hubLabel": "HUB"
+    "hubLabel": "HUB",
+    "missionsHint": "Earn a combined standing of 500 with the factions and your name will be known across the lands.",
+    "chapterTwo": "Form 7-O: Orbital Recontinuation"
   },
   "resources": {
     "scrap": {
@@ -318,6 +325,51 @@
     },
     "modules": {
       "name": "Donstand-Pattern Modules"
+    },
+    "void_glass": {
+      "name": "Anfang Glass"
+    },
+    "chiral_salts": {
+      "name": "Icarus Compound"
+    },
+    "null_ore": {
+      "name": "Mobiulic Ore"
+    },
+    "echo_quartz": {
+      "name": "Windsor Crystal"
+    },
+    "drift_spores": {
+      "name": "Mycolian Spores"
+    },
+    "phase_silt": {
+      "name": "Orphic Silt"
+    },
+    "hum_resin": {
+      "name": "Phononic Substrate"
+    },
+    "still_metal": {
+      "name": "Graviton Metaloid"
+    },
+    "stabilizer": {
+      "name": "Stabiliser Charge"
+    },
+    "lattice_cores": {
+      "name": "Sirius Core"
+    },
+    "null_alloy": {
+      "name": "Dense Metal"
+    },
+    "chiral_serum": {
+      "name": "Cliffside Rejuvenator"
+    },
+    "phase_cells": {
+      "name": "Sirius Cell"
+    },
+    "resonators": {
+      "name": "Phononic Amplifier"
+    },
+    "still_frames": {
+      "name": "Stabilized Alloy"
     }
   },
   "buildings": {
@@ -434,6 +486,46 @@
     "trade_workshop": {
       "name": "Licensed Workshop",
       "desc": "FAILTECH licensed everything, and the habit survives. Turns colony goods into trade goods. Choose one recipe and it is locked in: changing it costs credits and idles the shop. A bigger plot runs a bigger batch (more in, more out), not a better one."
+    },
+    "orbital_staging": {
+      "name": "Orbital Staging Platform",
+      "desc": "A gantry and fuel farm that assembles a payload for orbit. Load a launch cycle and it draws frames, fittings and modules every tick until the payload is complete, then waits for the catapult."
+    },
+    "orbital_catapult": {
+      "name": "Orbital Catapult",
+      "desc": "A mass driver that throws a finished payload into orbit. It must stand beside the staging platform, and it burns a little fuel just to stay warm."
+    },
+    "orbital_command": {
+      "name": "Orbital Command Center",
+      "desc": "The ground station for everything in orbit: tracking, telemetry and the people who read it. It must be running before anything can be launched."
+    },
+    "klein_reactor": {
+      "name": "Klein Reactor",
+      "desc": "Burns power cells for the station grid. Nothing in orbit runs without it."
+    },
+    "orbital_foundry": {
+      "name": "Orbital Foundry",
+      "desc": "An automated workshop. Choose one recipe and it is locked in, like a trade workshop, but it needs no crew: it draws more power instead. A bigger plot runs a bigger batch."
+    },
+    "t_rig_a": {
+      "name": "Field Rig A",
+      "desc": "Pulls the territory's first common resource out of the ground."
+    },
+    "t_rig_b": {
+      "name": "Field Rig B",
+      "desc": "Pulls the territory's second common resource out of the ground."
+    },
+    "t_drill": {
+      "name": "Deep Drill",
+      "desc": "Bores for the territory's district resource."
+    },
+    "t_refinery": {
+      "name": "Field Refinery",
+      "desc": "Refines the district resource and a common one into stabiliser charges, which the anomaly tap needs."
+    },
+    "t_tap": {
+      "name": "Anomaly Tap",
+      "desc": "Draws the territory's rare resource out of the anomaly, burning stabiliser charges to keep it open."
     }
   },
   "districts": {
@@ -715,6 +807,148 @@
     "mission": {
       "title": "A Name on the Board",
       "hint": "People there post what they need and name what they will pay. Doing someone a favour is a kind of currency, though nobody has said what it buys."
+    },
+    "o_staging": {
+      "title": "Form 7-O: Staging",
+      "hint": "A payload has to be assembled before anything leaves the ground. The plans want the outermost ring of the Command Hub, and they are not cheap."
+    },
+    "o_catapult": {
+      "title": "Form 7-O: Catapult",
+      "hint": "A payload needs a push. Whatever pushes it has to stand right beside the platform that builds it."
+    },
+    "o_command": {
+      "title": "Form 7-O: Command",
+      "hint": "Nothing goes up without someone on the ground tracking it. The Sanctuary Port has room on its biggest plots."
+    },
+    "o_cycle": {
+      "title": "Capital Investment",
+      "hint": "The payload is built a little every cycle, for a long time, out of the harbour's best goods. Keep them coming until it is complete."
+    },
+    "o_launch": {
+      "title": "Up",
+      "hint": "A finished payload is only cargo until it leaves. It will need a name that survives a radio."
+    },
+    "o_reactor": {
+      "title": "Klein Grid, Orbital",
+      "hint": "Nothing up there runs on sunlight or workforce. Something has to burn the colony's most concentrated power."
+    },
+    "o_foundry": {
+      "title": "Automated Hands",
+      "hint": "The station can make things, one recipe at a time, if it has the power to replace the people."
+    },
+    "o_deploy": {
+      "title": "Down Again",
+      "hint": "The anomalies have opened ground nobody has mapped, and it will not stay open. The station has a ship for that."
+    },
+    "o_rare": {
+      "title": "Samples",
+      "hint": "What grows in an anomaly grows nowhere else. Getting it out takes a chain on the ground and a ship that leaves in time."
+    },
+    "o_project": {
+      "title": "The Relay",
+      "hint": "Every station on the relay is building the same thing, one project at a time. A dropship can carry your share."
     }
-  }
+  },
+  "orbitalRecipes": {
+    "lattice_cores": {
+      "name": "Sirius Core"
+    },
+    "null_alloy": {
+      "name": "Dense Metal"
+    },
+    "chiral_serum": {
+      "name": "Cliffside Rejuvenator"
+    },
+    "phase_cells": {
+      "name": "Sirius Cell"
+    },
+    "resonators": {
+      "name": "Phononic Amplifier"
+    },
+    "still_frames": {
+      "name": "Stabilized Alloy"
+    }
+  },
+  "places": {
+    "station": {
+      "name": "Orbital Station"
+    },
+    "territory": {
+      "name": "Anomalous Territory"
+    }
+  },
+  "anomalies": {
+    "drift": {
+      "name": "Slow Drift",
+      "desc": "The ground is moving, gently. It will close eventually."
+    },
+    "bloom": {
+      "name": "Bloom",
+      "desc": "Something is growing over the edges of the territory."
+    },
+    "hush": {
+      "name": "Hush",
+      "desc": "Sound stops at the boundary. Nobody likes working here."
+    },
+    "fold": {
+      "name": "Fold",
+      "desc": "Distances are wrong. The territory is folding shut."
+    },
+    "shear": {
+      "name": "Shear",
+      "desc": "The anomaly grinds at anything parked inside it. Rich, and dangerous."
+    },
+    "flare": {
+      "name": "Flare",
+      "desc": "A short, violent opening. The richest pickings, and the ship will feel every tick of it."
+    }
+  },
+  "projects": {
+    "lattice_survey": {
+      "name": "Lattice Survey",
+      "desc": "Map the anomalies from orbit with a lattice of sensors."
+    },
+    "seed_vault": {
+      "name": "Seed Vault",
+      "desc": "A vault in orbit for every seed line that survived the Lapse."
+    },
+    "deep_bore": {
+      "name": "Deep Bore",
+      "desc": "Drive a shaft deep enough to find out what is under the anomalies."
+    },
+    "quiet_array": {
+      "name": "Quiet Array",
+      "desc": "Listen to the hum with something built to hear it."
+    },
+    "relay_spire": {
+      "name": "Relay Spire",
+      "desc": "A mast in orbit that every station can talk through."
+    },
+    "commons": {
+      "name": "Mycelium Commons",
+      "desc": "A shared garden in orbit, grown from what the anomalies left behind."
+    },
+    "gravity_well": {
+      "name": "Gravity Well",
+      "desc": "Anchor the relay with a mass heavy enough to hold everything else in place."
+    }
+  },
+  "territoryNames": [
+    "Glass Flats",
+    "Silent Basin",
+    "Folded Mile",
+    "Static Reach",
+    "The Weir",
+    "Ash Hollow",
+    "Mirror Field",
+    "Low Hum",
+    "Grey Sound",
+    "Pale Ridge",
+    "Undertow",
+    "The Seam",
+    "Quiet Shelf",
+    "Burnt Choir",
+    "Long Fold",
+    "Salt Lantern"
+  ]
 }

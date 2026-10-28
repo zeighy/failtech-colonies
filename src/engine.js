@@ -3,6 +3,10 @@ const EventEmitter = require('events');
 const sim = require('./sim');
 const store = require('./db');
 const shutdown = require('./shutdown');
+const orbital = require('./orbital');
+const territories = require('./territories');
+const projects = require('./projects');
+const orbitalMarket = require('./orbitalMarket');
 const hazards = require('./hazards');
 const market = require('./market');
 const missions = require('./missions');
@@ -11,7 +15,7 @@ const { db, config } = store;
 const neighborMap = sim.buildNeighborMap(config);
 // One neighbour map per district type (the Core plus anything defined under config.districtTypes).
 const neighborMaps = { core: neighborMap };
-for (const type of Object.keys(config.districtTypes || {})) neighborMaps[type] = sim.buildNeighborMap(config, type);
+for (const type of [...Object.keys(config.districtTypes || {}), ...Object.keys(config.orbitalTypes || {})]) neighborMaps[type] = sim.buildNeighborMap(config, type);
 const events = new EventEmitter();
 const TICK_MS = Number(process.env.TICK_MS) || config.global.tickRateMs;
 
@@ -29,6 +33,7 @@ function loadDistricts(c) {
     id: d.id, type: d.type, name: d.name,
     level: d.type === 'core' ? c.hub_level : d.level,
     inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
+    ...orbital.districtExtras(c, d),
   }));
 }
 
@@ -42,7 +47,7 @@ function tickColony(c, globalTick, tickTime) {
     config,
     { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
     districts,
-    { neighborMaps, mods: { [core.id]: hazardMods }, popConsumptionMult: hazardMods.popConsumptionMult, routes: store.loadRoutes(c.id) },
+    { neighborMaps, mods: { [core.id]: hazardMods }, popConsumptionMult: hazardMods.popConsumptionMult, routes: store.loadRoutes(c.id), globalOut: projects.globalOut() },
   );
   const res = sim.coreView(full);
   const ev = (kind, msg) => store.addEvent(c.id, globalTick, kind, msg);
@@ -186,6 +191,19 @@ function tickColony(c, globalTick, tickTime) {
     credits = out.credits;
   }
 
+  // Orbit: recognition, the launch cycle, express launches arriving, and the station's storage slots.
+  orbital.checkUnlock(c, globalTick);
+  orbital.advanceLaunch(c, full.launchGain, globalTick);
+  const stationR = full.districts.find((r) => r.type === 'station');
+  if (stationR) {
+    territories.advanceColony(c, stationR.inventory, globalTick);
+    projects.advanceColony(c, stationR.inventory, globalTick);
+    orbital.arrivals(c, stationR.inventory, globalTick, inventory);
+    for (const l of orbital.enforceSlots(c.id, stationR.inventory, stationR.cap)) {
+      if (!l.full && l.qty >= 1) ev('warn', `No storage slot in orbit for ${config.resources[l.resource].name}: ${Math.floor(l.qty)} lost.`);
+    }
+  }
+
   store.saveInventory(c.id, inventory, core.id);
   for (const r of full.districts) if (r.id !== core.id) store.saveInventory(c.id, r.inventory, r.id);
   db.prepare(`UPDATE colonies SET hub_level = ?, credits = ?, morale = ?, population = ?, age = age + 1, status = ?,
@@ -197,6 +215,10 @@ function tickColony(c, globalTick, tickTime) {
 const processTickTx = db.transaction((tickTime) => {
   const globalTick = Number(store.getMeta('global_tick', 0)) + 1;
   market.advance(globalTick); // quotes, matching and expiry happen before any colony ticks, so settlements are in its stock
+  // the shared orbital world: territories open and close, the global project moves on, the orbital market makers refresh
+  territories.advanceWorld(globalTick);
+  projects.advanceWorld(globalTick, tickTime, TICK_MS);
+  orbitalMarket.advance(globalTick);
   for (const c of db.prepare("SELECT * FROM colonies WHERE status = 'active'").all()) tickColony(c, globalTick, tickTime);
   store.setMeta('global_tick', globalTick);
   return globalTick;

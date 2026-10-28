@@ -380,6 +380,170 @@
       "showFromHub": 9,
       "convoyMax": 0,
       "trade": true
+    },
+    "void_glass": {
+      "name": "Void Glass",
+      "color": "#9fd8ff",
+      "buy": 260,
+      "sell": 150,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "rare": true
+    },
+    "chiral_salts": {
+      "name": "Chiral Salts",
+      "color": "#f2a7ff",
+      "buy": 260,
+      "sell": 150,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "rare": true
+    },
+    "null_ore": {
+      "name": "Null Ore",
+      "color": "#6b6f80",
+      "buy": 260,
+      "sell": 150,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "rare": true
+    },
+    "echo_quartz": {
+      "name": "Echo Quartz",
+      "color": "#c8f7e1",
+      "buy": 260,
+      "sell": 150,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "rare": true
+    },
+    "drift_spores": {
+      "name": "Drift Spores",
+      "color": "#b6e07a",
+      "buy": 260,
+      "sell": 150,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "rare": true
+    },
+    "phase_silt": {
+      "name": "Phase Silt",
+      "color": "#d9c08a",
+      "buy": 260,
+      "sell": 150,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "rare": true
+    },
+    "hum_resin": {
+      "name": "Hum Resin",
+      "color": "#ffb36b",
+      "buy": 260,
+      "sell": 150,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "rare": true
+    },
+    "still_metal": {
+      "name": "Still Metal",
+      "color": "#a7b4c9",
+      "buy": 260,
+      "sell": 150,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "rare": true
+    },
+    "stabilizer": {
+      "name": "Stabiliser Charge",
+      "color": "#7fe0d0",
+      "buy": 60,
+      "sell": 30,
+      "tier": 3,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true
+    },
+    "lattice_cores": {
+      "name": "Lattice Cores",
+      "color": "#8fd3ff",
+      "buy": 1400,
+      "sell": 800,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "orbitalTrade": true
+    },
+    "null_alloy": {
+      "name": "Null Alloy",
+      "color": "#8a8fa6",
+      "buy": 1400,
+      "sell": 800,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "orbitalTrade": true
+    },
+    "chiral_serum": {
+      "name": "Chiral Serum",
+      "color": "#e59cff",
+      "buy": 1400,
+      "sell": 800,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "orbitalTrade": true
+    },
+    "phase_cells": {
+      "name": "Phase Cells",
+      "color": "#ffe08a",
+      "buy": 1400,
+      "sell": 800,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "orbitalTrade": true
+    },
+    "resonators": {
+      "name": "Resonators",
+      "color": "#9ff0d0",
+      "buy": 1400,
+      "sell": 800,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "orbitalTrade": true
+    },
+    "still_frames": {
+      "name": "Still Frames",
+      "color": "#b9c4d6",
+      "buy": 1400,
+      "sell": 800,
+      "tier": 5,
+      "showFromHub": 99,
+      "convoyMax": 0,
+      "orbitalOnly": true,
+      "orbitalTrade": true
     }
   },
   "tierOrder": [
@@ -1198,6 +1362,256 @@
         "freeport"
       ],
       "recipeBuilding": true
+    },
+    "orbital_staging": {
+      "name": "Orbital Staging Platform",
+      "type": "launch",
+      "desc": "A gantry and fuel farm that assembles a payload for orbit. Load a launch cycle and it draws frames, fittings and modules every tick until the payload is complete, then waits for the catapult.",
+      "constructionTicks": 90,
+      "cost": {
+        "frames": 450,
+        "fittings": 300,
+        "modules": 250,
+        "building_materials": 400,
+        "alloys": 200
+      },
+      "inputsPerTick": {
+        "energy": 20
+      },
+      "outputsPerTick": {},
+      "minPlotSize": 5,
+      "strictPlot": true,
+      "color": "#e9c46a",
+      "workers": 6,
+      "comfort": -5,
+      "districts": [
+        "core"
+      ],
+      "maxCount": 1,
+      "hidden": "orbital",
+      "launchPad": true
+    },
+    "orbital_catapult": {
+      "name": "Orbital Catapult",
+      "type": "launch",
+      "desc": "A mass driver that throws a finished payload into orbit. It must stand beside the staging platform, and it burns a little fuel just to stay warm.",
+      "constructionTicks": 90,
+      "cost": {
+        "frames": 300,
+        "fittings": 450,
+        "modules": 250,
+        "alloys": 300,
+        "power_cells": 100
+      },
+      "inputsPerTick": {
+        "energy": 15,
+        "fuel": 1
+      },
+      "outputsPerTick": {},
+      "minPlotSize": 5,
+      "strictPlot": true,
+      "color": "#f4a261",
+      "workers": 4,
+      "comfort": -6,
+      "districts": [
+        "core"
+      ],
+      "maxCount": 1,
+      "hidden": "orbital",
+      "requiresAdjacent": "orbital_staging",
+      "catapult": true
+    },
+    "orbital_command": {
+      "name": "Orbital Command Center",
+      "type": "command",
+      "desc": "The ground station for everything in orbit: tracking, telemetry and the people who read it. It must be running before anything can be launched.",
+      "constructionTicks": 90,
+      "cost": {
+        "frames": 350,
+        "fittings": 300,
+        "modules": 350,
+        "circuits": 150
+      },
+      "inputsPerTick": {
+        "energy": 15,
+        "rations": 3,
+        "clean_water": 3
+      },
+      "outputsPerTick": {},
+      "minPlotSize": 4,
+      "strictPlot": true,
+      "color": "#4cc9f0",
+      "workers": 10,
+      "comfort": -2,
+      "districts": [
+        "freeport"
+      ],
+      "maxCount": 1,
+      "hidden": "orbital",
+      "commandCenter": true
+    },
+    "klein_reactor": {
+      "name": "Klein Reactor",
+      "type": "generator",
+      "desc": "Burns power cells for the station grid. Nothing in orbit runs without it.",
+      "constructionTicks": 20,
+      "cost": {
+        "frames": 60,
+        "fittings": 40
+      },
+      "inputsPerTick": {
+        "power_cells": 1
+      },
+      "outputsPerTick": {
+        "energy": 90
+      },
+      "minPlotSize": 2,
+      "color": "#f9e07f",
+      "workers": 0,
+      "districts": [
+        "station"
+      ],
+      "hidden": "orbital"
+    },
+    "orbital_foundry": {
+      "name": "Orbital Foundry",
+      "type": "workshop",
+      "desc": "An automated workshop. Choose one recipe and it is locked in, like a trade workshop, but it needs no crew: it draws more power instead. A bigger plot runs a bigger batch.",
+      "constructionTicks": 25,
+      "cost": {
+        "frames": 80,
+        "fittings": 60
+      },
+      "inputsPerTick": {},
+      "outputsPerTick": {},
+      "minPlotSize": 2,
+      "color": "#90e0ef",
+      "workers": 0,
+      "districts": [
+        "station"
+      ],
+      "recipeBuilding": true,
+      "recipeSet": "orbital",
+      "hidden": "orbital"
+    },
+    "t_rig_a": {
+      "name": "Field Rig A",
+      "type": "extractor",
+      "desc": "Pulls the territory's first common resource out of the ground.",
+      "constructionTicks": 6,
+      "cost": {
+        "machined_parts": 20,
+        "building_materials": 15
+      },
+      "inputsPerTick": {
+        "energy": 6
+      },
+      "outputsPerTick": {
+        "$common1": 10
+      },
+      "minPlotSize": 1,
+      "color": "#c08552",
+      "workers": 0,
+      "districts": [
+        "territory"
+      ],
+      "hidden": "orbital"
+    },
+    "t_rig_b": {
+      "name": "Field Rig B",
+      "type": "extractor",
+      "desc": "Pulls the territory's second common resource out of the ground.",
+      "constructionTicks": 6,
+      "cost": {
+        "machined_parts": 20,
+        "building_materials": 15
+      },
+      "inputsPerTick": {
+        "energy": 6
+      },
+      "outputsPerTick": {
+        "$common2": 10
+      },
+      "minPlotSize": 1,
+      "color": "#6f9a8d",
+      "workers": 0,
+      "districts": [
+        "territory"
+      ],
+      "hidden": "orbital"
+    },
+    "t_drill": {
+      "name": "Deep Drill",
+      "type": "extractor",
+      "desc": "Bores for the territory's district resource.",
+      "constructionTicks": 8,
+      "cost": {
+        "machined_parts": 30,
+        "building_materials": 25
+      },
+      "inputsPerTick": {
+        "energy": 10
+      },
+      "outputsPerTick": {
+        "$district": 5
+      },
+      "minPlotSize": 1,
+      "color": "#a98467",
+      "workers": 0,
+      "districts": [
+        "territory"
+      ],
+      "hidden": "orbital"
+    },
+    "t_refinery": {
+      "name": "Field Refinery",
+      "type": "refinery",
+      "desc": "Refines the district resource and a common one into stabiliser charges, which the anomaly tap needs.",
+      "constructionTicks": 10,
+      "cost": {
+        "machined_parts": 40,
+        "building_materials": 30
+      },
+      "inputsPerTick": {
+        "$district": 4,
+        "$common1": 4,
+        "energy": 12
+      },
+      "outputsPerTick": {
+        "stabilizer": 2
+      },
+      "minPlotSize": 2,
+      "color": "#7fe0d0",
+      "workers": 0,
+      "districts": [
+        "territory"
+      ],
+      "hidden": "orbital"
+    },
+    "t_tap": {
+      "name": "Anomaly Tap",
+      "type": "assembler",
+      "desc": "Draws the territory's rare resource out of the anomaly, burning stabiliser charges to keep it open.",
+      "constructionTicks": 12,
+      "cost": {
+        "machined_parts": 50,
+        "building_materials": 40,
+        "alloys": 10
+      },
+      "inputsPerTick": {
+        "stabilizer": 1,
+        "energy": 15
+      },
+      "outputsPerTick": {
+        "$rare": 1
+      },
+      "minPlotSize": 2,
+      "color": "#f2a7ff",
+      "workers": 0,
+      "districts": [
+        "territory"
+      ],
+      "hidden": "orbital"
     }
   },
   "adjacencyModifiers": {
@@ -1337,6 +1751,11 @@
         "targetBuilding": "synth_reclaimer",
         "adjacentBuilding": "polymer_plant",
         "outputMultiplier": 1.1
+      },
+      {
+        "targetBuilding": "orbital_foundry",
+        "adjacentBuilding": "klein_reactor",
+        "outputMultiplier": 1.05
       }
     ]
   },
@@ -2592,20 +3011,35 @@
       "2": 1.4,
       "3": 1.8,
       "4": 2.2,
-      "5": 2.6
+      "5": 2.6,
+      "6": 3.0,
+      "7": 3.4,
+      "8": 3.8,
+      "9": 4.2,
+      "10": 4.6
     },
     "crew": {
       "1": 1,
       "2": 1.2,
       "3": 1.4,
       "4": 1.6,
-      "5": 1.8
+      "5": 1.8,
+      "6": 2.0,
+      "7": 2.2,
+      "8": 2.4,
+      "9": 2.6,
+      "10": 2.8
     },
     "ticks": {
       "2": 6,
       "3": 8,
       "4": 10,
-      "5": 12
+      "5": 12,
+      "6": 14,
+      "7": 16,
+      "8": 18,
+      "9": 20,
+      "10": 24
     },
     "classes": {
       "housing": {
@@ -2613,12 +3047,20 @@
         "baseCost": {
           "modules": 2,
           "frames": 3
+        },
+        "orbitalCost": {
+          "chiral_serum": 2,
+          "still_frames": 2
         }
       },
       "infrastructure": {
         "label": "Infrastructure",
         "baseCost": {
           "frames": 4
+        },
+        "orbitalCost": {
+          "phase_cells": 2,
+          "resonators": 2
         }
       },
       "industry": {
@@ -2626,8 +3068,637 @@
         "baseCost": {
           "frames": 3,
           "fittings": 2
+        },
+        "orbitalCost": {
+          "null_alloy": 2,
+          "lattice_cores": 2
         }
       }
+    },
+    "orbitalMaxLevel": 10,
+    "orbitalUnlockFlag": "rareReturned",
+    "orbitalCostMult": {
+      "6": 1,
+      "7": 2,
+      "8": 3,
+      "9": 5,
+      "10": 8
+    }
+  },
+  "orbitalTypes": {
+    "station": {
+      "name": "Orbital Station",
+      "color": "#90e0ef",
+      "ringPlotSize": {
+        "1": 2,
+        "2": 3,
+        "3": 4
+      },
+      "levels": {
+        "1": {
+          "maxStorage": 2000,
+          "baseEnergy": 10,
+          "ringCapacities": {
+            "1": 4
+          },
+          "upgradeCost": null,
+          "upgradeTicks": 0,
+          "baseHousing": 0
+        },
+        "2": {
+          "maxStorage": 2000,
+          "baseEnergy": 10,
+          "ringCapacities": {
+            "1": 4,
+            "2": 6
+          },
+          "upgradeCost": null,
+          "upgradeTicks": 0,
+          "baseHousing": 0
+        },
+        "3": {
+          "maxStorage": 2000,
+          "baseEnergy": 10,
+          "ringCapacities": {
+            "1": 4,
+            "2": 6,
+            "3": 9
+          },
+          "upgradeCost": null,
+          "upgradeTicks": 0,
+          "baseHousing": 0
+        }
+      },
+      "ringRotation": {
+        "2": 20
+      }
+    },
+    "territory": {
+      "name": "Anomalous Territory",
+      "color": "#f2a7ff",
+      "ringPlotSize": {
+        "1": 1,
+        "2": 2
+      },
+      "levels": {
+        "1": {
+          "maxStorage": 600,
+          "baseEnergy": 40,
+          "ringCapacities": {
+            "1": 3,
+            "2": 5
+          },
+          "upgradeCost": null,
+          "upgradeTicks": 0,
+          "baseHousing": 0
+        }
+      }
+    }
+  },
+  "orbitalRecipes": {
+    "lattice_cores": {
+      "name": "Lattice Cores",
+      "tier": 5,
+      "inputsPerTick": {
+        "void_glass": 2,
+        "echo_quartz": 1,
+        "circuits": 1,
+        "energy": 40
+      },
+      "outputsPerTick": {
+        "lattice_cores": 0.25
+      },
+      "adjacent": {}
+    },
+    "null_alloy": {
+      "name": "Null Alloy",
+      "tier": 5,
+      "inputsPerTick": {
+        "null_ore": 2,
+        "still_metal": 1,
+        "alloys": 2,
+        "energy": 45
+      },
+      "outputsPerTick": {
+        "null_alloy": 0.25
+      },
+      "adjacent": {}
+    },
+    "chiral_serum": {
+      "name": "Chiral Serum",
+      "tier": 5,
+      "inputsPerTick": {
+        "drift_spores": 2,
+        "hum_resin": 1,
+        "medicine": 1,
+        "energy": 30
+      },
+      "outputsPerTick": {
+        "chiral_serum": 0.25
+      },
+      "adjacent": {}
+    },
+    "phase_cells": {
+      "name": "Phase Cells",
+      "tier": 5,
+      "inputsPerTick": {
+        "chiral_salts": 2,
+        "phase_silt": 1,
+        "power_cells": 2,
+        "energy": 55
+      },
+      "outputsPerTick": {
+        "phase_cells": 0.25
+      },
+      "adjacent": {}
+    },
+    "resonators": {
+      "name": "Resonators",
+      "tier": 5,
+      "inputsPerTick": {
+        "echo_quartz": 1,
+        "hum_resin": 1,
+        "precision_tools": 1,
+        "energy": 35
+      },
+      "outputsPerTick": {
+        "resonators": 0.25
+      },
+      "adjacent": {}
+    },
+    "still_frames": {
+      "name": "Still Frames",
+      "tier": 5,
+      "inputsPerTick": {
+        "still_metal": 1,
+        "phase_silt": 1,
+        "frames": 2,
+        "energy": 50
+      },
+      "outputsPerTick": {
+        "still_frames": 0.25
+      },
+      "adjacent": {}
+    }
+  },
+  "orbital": {
+    "unlockStanding": 500,
+    "standardRecipeEnergy": {
+      "mult": 2.5,
+      "min": 10,
+      "max": 60
+    },
+    "launch": {
+      "cycles": {
+        "station": {
+          "perTick": {
+            "frames": 10,
+            "fittings": 10,
+            "modules": 10
+          },
+          "ticks": 450
+        },
+        "ring2": {
+          "perTick": {
+            "frames": 12,
+            "fittings": 12,
+            "modules": 12
+          },
+          "ticks": 450,
+          "stationLevel": 2
+        },
+        "ring3": {
+          "perTick": {
+            "frames": 15,
+            "fittings": 15,
+            "modules": 15
+          },
+          "ticks": 450,
+          "stationLevel": 3,
+          "orbitalCost": {
+            "lattice_cores": 60,
+            "null_alloy": 60
+          }
+        }
+      },
+      "starterKit": {
+        "frames": 150,
+        "fittings": 110,
+        "power_cells": 120
+      }
+    },
+    "stationName": {
+      "min": 3,
+      "max": 24
+    },
+    "storage": {
+      "levels": {
+        "1": {
+          "slots": 6,
+          "cap": 2000
+        },
+        "2": {
+          "slots": 8,
+          "cap": 4000,
+          "cost": {
+            "frames": 200,
+            "fittings": 120
+          }
+        },
+        "3": {
+          "slots": 10,
+          "cap": 8000,
+          "cost": {
+            "frames": 300,
+            "fittings": 200,
+            "still_frames": 30
+          }
+        }
+      },
+      "rebuildCost": {
+        "frames": 20,
+        "fittings": 10
+      }
+    },
+    "links": {
+      "levels": {
+        "1": {
+          "count": 4,
+          "rate": 25
+        },
+        "2": {
+          "count": 6,
+          "rate": 40,
+          "cost": {
+            "fittings": 200,
+            "modules": 100
+          }
+        },
+        "3": {
+          "count": 8,
+          "rate": 60,
+          "cost": {
+            "fittings": 300,
+            "phase_cells": 30
+          }
+        }
+      }
+    },
+    "express": {
+      "maxQty": 400,
+      "fuelBase": 150,
+      "fuelPerUnit": 0.5,
+      "travelTicks": 12,
+      "cooldownTicks": 480,
+      "drop": {
+        "cost": {
+          "fittings": 10
+        },
+        "travelTicks": 12
+      }
+    },
+    "dropships": {
+      "max": 3,
+      "buildCost": {
+        "frames": 600,
+        "fittings": 400,
+        "modules": 300,
+        "power_cells": 200
+      },
+      "buildTicks": 120,
+      "levels": {
+        "1": {
+          "power": 40,
+          "hold": 600,
+          "linkRate": 15
+        },
+        "2": {
+          "power": 70,
+          "hold": 1000,
+          "linkRate": 25,
+          "cost": {
+            "frames": 200,
+            "fittings": 150,
+            "power_cells": 80
+          }
+        },
+        "3": {
+          "power": 100,
+          "hold": 1600,
+          "linkRate": 40,
+          "cost": {
+            "frames": 350,
+            "fittings": 250,
+            "modules": 120
+          }
+        }
+      },
+      "deployTicks": 15,
+      "returnTicks": 150,
+      "contributeTicks": 240,
+      "maxLinks": 2,
+      "savedIntegrity": 10,
+      "starterKit": {
+        "machined_parts": 140,
+        "building_materials": 110,
+        "alloys": 10
+      },
+      "freeValue": {
+        "frames": 600,
+        "fittings": 400,
+        "modules": 300,
+        "power_cells": 200
+      }
+    },
+    "territories": {
+      "minAvailable": 7,
+      "respawnTicks": [
+        10,
+        30
+      ],
+      "destabilize": 0.35,
+      "common": [
+        "scrap",
+        "unpurified_water",
+        "raw_synthetics"
+      ],
+      "district": [
+        "ore",
+        "crude"
+      ],
+      "rare": [
+        "void_glass",
+        "chiral_salts",
+        "null_ore",
+        "echo_quartz",
+        "drift_spores",
+        "phase_silt",
+        "hum_resin",
+        "still_metal"
+      ],
+      "names": [
+        "Glass Flats",
+        "Silent Basin",
+        "Folded Mile",
+        "Static Reach",
+        "The Weir",
+        "Ash Hollow",
+        "Mirror Field",
+        "Low Hum",
+        "Grey Sound",
+        "Pale Ridge",
+        "Undertow",
+        "The Seam",
+        "Quiet Shelf",
+        "Burnt Choir",
+        "Long Fold",
+        "Salt Lantern"
+      ],
+      "anomalies": {
+        "drift": {
+          "name": "Slow Drift",
+          "desc": "The ground is moving, gently. It will close eventually.",
+          "weight": 3,
+          "durationTicks": [
+            1440,
+            11520
+          ],
+          "lateDamage": 25,
+          "damagePerTick": 0,
+          "rareMult": 1.0
+        },
+        "bloom": {
+          "name": "Bloom",
+          "desc": "Something is growing over the edges of the territory.",
+          "weight": 3,
+          "durationTicks": [
+            960,
+            5760
+          ],
+          "lateDamage": 30,
+          "damagePerTick": 0,
+          "rareMult": 1.15
+        },
+        "hush": {
+          "name": "Hush",
+          "desc": "Sound stops at the boundary. Nobody likes working here.",
+          "weight": 2,
+          "durationTicks": [
+            960,
+            4320
+          ],
+          "lateDamage": 30,
+          "damagePerTick": 0,
+          "rareMult": 1.2
+        },
+        "fold": {
+          "name": "Fold",
+          "desc": "Distances are wrong. The territory is folding shut.",
+          "weight": 2,
+          "durationTicks": [
+            720,
+            2880
+          ],
+          "lateDamage": 35,
+          "damagePerTick": 0,
+          "rareMult": 1.3
+        },
+        "shear": {
+          "name": "Shear",
+          "desc": "The anomaly grinds at anything parked inside it. Rich, and dangerous.",
+          "weight": 1,
+          "durationTicks": [
+            480,
+            1440
+          ],
+          "lateDamage": 45,
+          "damagePerTick": 0.02,
+          "rareMult": 1.6
+        },
+        "flare": {
+          "name": "Flare",
+          "desc": "A short, violent opening. The richest pickings, and the ship will feel every tick of it.",
+          "weight": 1,
+          "durationTicks": [
+            480,
+            960
+          ],
+          "lateDamage": 50,
+          "damagePerTick": 0.04,
+          "rareMult": 2.0
+        }
+      }
+    },
+    "market": {
+      "makerRefreshTicks": 240,
+      "makerQtyByTier": {
+        "2": 20,
+        "3": 12,
+        "4": 6,
+        "5": 4
+      },
+      "makerSpread": 0.08,
+      "band": [
+        0.5,
+        2.0
+      ],
+      "feeRate": 0.04,
+      "ttlOptions": [
+        100,
+        300,
+        1000
+      ],
+      "maxOpenOrders": 10,
+      "maxQty": 1000
+    },
+    "projects": {
+      "announceTicks": 480,
+      "minPeriod": 2880,
+      "maxPeriod": 11520,
+      "standingReward": 40,
+      "refRate": {
+        "orbital": 0.1,
+        "trade": 1.0,
+        "rare": 0.8
+      },
+      "list": [
+        {
+          "key": "lattice_survey",
+          "name": "Lattice Survey",
+          "desc": "Map the anomalies from orbit with a lattice of sensors.",
+          "faction": "meridian",
+          "needs": {
+            "lattice_cores": 20,
+            "resonators": 15
+          },
+          "bonus": {
+            "kind": "efficiency",
+            "label": "Workshops and foundries +10%",
+            "buildings": [
+              "trade_workshop",
+              "orbital_foundry"
+            ],
+            "mult": 1.1
+          }
+        },
+        {
+          "key": "seed_vault",
+          "name": "Seed Vault",
+          "desc": "A vault in orbit for every seed line that survived the Lapse.",
+          "faction": "verdant",
+          "needs": {
+            "chiral_serum": 20,
+            "preserves": 120
+          },
+          "bonus": {
+            "kind": "efficiency",
+            "label": "Growing lines +15%",
+            "buildings": [
+              "hydroponics_bay",
+              "bio_dome",
+              "agri_lab"
+            ],
+            "mult": 1.15
+          }
+        },
+        {
+          "key": "deep_bore",
+          "name": "Deep Bore",
+          "desc": "Drive a shaft deep enough to find out what is under the anomalies.",
+          "faction": "cinder",
+          "needs": {
+            "null_alloy": 20,
+            "tool_steel": 150
+          },
+          "bonus": {
+            "kind": "efficiency",
+            "label": "Metal lines +10%",
+            "buildings": [
+              "ore_drill",
+              "smelter",
+              "alloy_works",
+              "foundry"
+            ],
+            "mult": 1.1
+          }
+        },
+        {
+          "key": "quiet_array",
+          "name": "Quiet Array",
+          "desc": "Listen to the hum with something built to hear it.",
+          "faction": null,
+          "needs": {
+            "phase_cells": 15,
+            "still_frames": 15
+          },
+          "bonus": {
+            "kind": "drip",
+            "label": "A trickle of one rare resource to every station",
+            "perTick": 0.2
+          }
+        },
+        {
+          "key": "relay_spire",
+          "name": "Relay Spire",
+          "desc": "A mast in orbit that every station can talk through.",
+          "faction": "meridian",
+          "needs": {
+            "resonators": 20,
+            "phase_cells": 15
+          },
+          "bonus": {
+            "kind": "efficiency",
+            "label": "Power plants +10%",
+            "buildings": [
+              "solar_array",
+              "scrap_generator",
+              "fuel_generator",
+              "klein_reactor"
+            ],
+            "mult": 1.1
+          }
+        },
+        {
+          "key": "commons",
+          "name": "Mycelium Commons",
+          "desc": "A shared garden in orbit, grown from what the anomalies left behind.",
+          "faction": "verdant",
+          "needs": {
+            "chiral_serum": 20,
+            "still_frames": 15
+          },
+          "bonus": {
+            "kind": "efficiency",
+            "label": "Kitchens and pharma labs +15%",
+            "buildings": [
+              "kitchen",
+              "pharma_lab"
+            ],
+            "mult": 1.15
+          }
+        },
+        {
+          "key": "gravity_well",
+          "name": "Gravity Well",
+          "desc": "Anchor the relay with a mass heavy enough to hold everything else in place.",
+          "faction": "cinder",
+          "needs": {
+            "null_alloy": 20,
+            "lattice_cores": 15
+          },
+          "bonus": {
+            "kind": "efficiency",
+            "label": "Fabrication lines +10%",
+            "buildings": [
+              "parts_assembler",
+              "fabrication_works",
+              "circuit_fab",
+              "cell_forge"
+            ],
+            "mult": 1.1
+          }
+        }
+      ]
     }
   }
 }

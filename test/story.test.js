@@ -255,8 +255,11 @@ test('every theme in content/ applies cleanly and has a valid story', () => {
 });
 
 test('directive ids used by content match the real Brief', () => {
-  const ids = objectives.evaluate(config, fakeView(), []).list.map((d) => d.id);
+  const orbitalOpen = { unlocked: true, site: { staging: false, catapult: false, command: false }, flags: {}, launch: {}, station: null };
+  const ids = objectives.evaluate(config, fakeView({ orbital: orbitalOpen }), []).list.map((d) => d.id);
   assert.deepEqual(objectives.DIRECTIVE_IDS, ids);
+  const hidden = objectives.evaluate(config, fakeView({ orbital: { ...orbitalOpen, unlocked: false } }), []).list.map((d) => d.id);
+  assert.ok(!hidden.some((id) => id.startsWith('o_')), 'chapter two stays hidden until the colony is recognised');
 });
 
 test('new validation rules: prompt needs choices, trigger progress needs a number, ranks need to rise', () => {
@@ -272,19 +275,20 @@ test('new validation rules: prompt needs choices, trigger progress needs a numbe
 });
 
 // ---- the Recontinuation script, run as a whole -----------------------------------
-test('Recontinuation: 13 dialogues, 22 campaign mails and 12 open beats, delivered in the written order', () => {
+test('Recontinuation: 13 campaign dialogues, 22 campaign mails and the open beats, delivered in the written order', () => {
   const s = theme.readJson(path.join(theme.ROOT, 'recontinuation', 'story.json'));
   const campaign = s.beats.filter((b) => b.phase === 'campaign');
   const open = s.beats.filter((b) => b.phase === 'open');
   assert.equal(campaign.filter((b) => b.delivery === 'dialogue').length, 13);
   assert.equal(campaign.filter((b) => b.delivery === 'mail').length, 22);
-  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 6);
-  assert.equal(open.filter((b) => b.delivery === 'mail').length, 6);
+  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 11, 'six faction scenes and five for orbit');
+  assert.equal(open.filter((b) => b.delivery === 'mail').length, 14, 'six faction mails and eight for orbit');
   // Run the real evaluator over this script with every condition satisfied and the clock moving.
   const all = objectives.DIRECTIVE_IDS;
   const view = fakeView({
     colony: { hubLevel: 5, hazardsSurvived: 3, population: 200, won: true, progress: 25, morale: 90, starving: [] },
     districts: [{ type: 'pits' }, { type: 'greenbelt' }], missions: { standing: { cinder: 40, verdant: 40, meridian: 40 }, filled: 12 },
+    orbital: { unlocked: true, site: { staging: true, catapult: true, command: true }, flags: Object.fromEntries(['cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted'].map((f) => [f, 1])) },
   });
   const delivered = new Map();
   for (const b of s.beats) if (b.phase === 'campaign') delivered.set(b.id, null);

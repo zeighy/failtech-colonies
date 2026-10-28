@@ -64,7 +64,7 @@ test('an expanded Habitat Block houses more people; a Solar Array makes more pow
   assert.ok(cap(3) > cap(1));
   const def = (l) => run([...solars(), bld(2, 0, 'watch_post', l)]).defense;
   assert.ok(Math.abs(def(2) / def(1) - config.expansion.scale[2]) < 1e-9);
-  assert.equal(run([...solars(), bld(2, 0, 'hydroponics_bay', 99)]).flows.rations.produced, run([...solars(), bld(2, 0, 'hydroponics_bay', config.expansion.maxLevel)]).flows.rations.produced, 'levels are capped');
+  assert.equal(run([...solars(), bld(2, 0, 'hydroponics_bay', 99)]).flows.rations.produced, run([...solars(), bld(2, 0, 'hydroponics_bay', sim.expansionTop(config))]).flows.rations.produced, 'levels are capped');
 });
 
 test('expanding: paid from the district stock, a work order, level goes up one step at a time, cost grows in a straight line', () => {

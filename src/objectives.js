@@ -102,6 +102,8 @@ const DIRECTIVES = (config, v) => {
   const need = config.global.beacon.transmitTicks;
   const beacon = config.buildings.beacon_array;
   const hasBuilding = (type) => v.buildings.some((b) => b.type === type);
+  const orb = v.orbital;
+  const stationHas = (type) => !!(orb && orb.station && v.views && v.views[orb.station.districtId] && v.views[orb.station.districtId].buildings.some((b) => b.type === type));
   return [
     { id: 'power', title: 'Lights out',
       hint: "The hub's own supply won't carry much. Everything that wants energy competes for the same grid, and a shortfall slows all of it.",
@@ -193,6 +195,40 @@ const DIRECTIVES = (config, v) => {
     { id: 'mission', title: 'A name in the harbour',
       hint: 'People there post what they need and name what they will pay. Doing someone a favour is a kind of currency, though nobody has said what it buys.',
       done: !!(v.missions && v.missions.filled > 0) },
+  
+    // Chapter two: orbit. None of this appears until the colony is recognised (enough total faction standing).
+    ...(orb && orb.unlocked ? [
+      { id: 'o_staging', chapter: 2, title: 'A way up',
+        hint: 'Something has to assemble a payload before anything can leave the ground. It wants the outermost ring of the hub, and it is not cheap.',
+        done: orb.site.staging },
+      { id: 'o_catapult', chapter: 2, title: 'Something to throw it',
+        hint: 'A payload needs a push. Whatever does the pushing has to stand right beside the thing that builds the payload.',
+        done: orb.site.catapult },
+      { id: 'o_command', chapter: 2, title: 'Someone to watch it',
+        hint: 'Nothing goes up without someone on the ground tracking it. The harbour has room for that, on its biggest plots.',
+        done: orb.site.command },
+      { id: 'o_cycle', chapter: 2, title: 'Capital investment', live: false,
+        hint: 'The payload is built a little every tick, for a long time, out of the harbour\'s best goods. Keep them coming until it is complete.',
+        done: !!(orb.flags.cycleDone !== undefined || orb.launch.ready || orb.station) },
+      { id: 'o_launch', chapter: 2, title: 'Up',
+        hint: 'A finished payload is only cargo until it leaves. It will need a name.',
+        done: orb.flags.launched !== undefined },
+      { id: 'o_reactor', chapter: 2, title: 'Power in the dark',
+        hint: 'Nothing up there runs on sunlight or crew. Something has to burn the colony\'s most concentrated power.',
+        done: stationHas('klein_reactor') },
+      { id: 'o_foundry', chapter: 2, title: 'Automated hands',
+        hint: 'The station can make things, one recipe at a time, if it has the power to replace the people.',
+        done: stationHas('orbital_foundry') },
+      { id: 'o_deploy', chapter: 2, title: 'Down again',
+        hint: 'The anomalies have opened ground nobody has seen before, and it will not stay open. The station has a ship for that.',
+        done: orb.flags.deployed !== undefined },
+      { id: 'o_rare', chapter: 2, title: 'Something new',
+        hint: 'What grows in an anomaly does not grow anywhere else. Getting it out takes a chain on the ground and a ship that leaves in time.',
+        done: orb.flags.rareReturned !== undefined },
+      { id: 'o_project', chapter: 2, title: 'Together',
+        hint: 'Every station on the relay is building the same thing, one at a time. A ship can carry your share.',
+        done: orb.flags.contributed !== undefined },
+    ] : []),
   ];
 };
 
@@ -206,7 +242,7 @@ function evaluate(config, v, persisted = []) {
     const done = d.live ? d.done : (earned.has(d.id) || d.done);
     if (done && !d.live) doneIds.push(d.id);
     const t = (config.theme && config.theme.directives[d.id]) || d;
-    return { id: d.id, title: t.title, hint: t.hint, done, live: !!d.live, progress: d.progress || null, timing: null, _t: d.timing };
+    return { id: d.id, title: t.title, hint: t.hint, done, live: !!d.live, chapter: d.chapter || 1, progress: d.progress || null, timing: null, _t: d.timing };
   });
   const current = list.findIndex((d) => !d.done);
   list.forEach((d, i) => {
@@ -217,11 +253,12 @@ function evaluate(config, v, persisted = []) {
   return {
     list, doneIds,
     remaining: list.filter((d) => !d.done).length,
+    remainingMain: list.filter((d) => !d.done && d.chapter === 1).length,
     doom: doomClock(config, v),
   };
 }
 
 // Every directive id, in Brief order. Content (themes, story triggers) is validated against this list.
-const DIRECTIVE_IDS = ['power',  'scrap',  'parts',  'water',  'food',  'adjacency',  'steady',  'market',  'hub2',  'plots',  'housing',  'meals',  'quiet',  'storm',  'materials',  'hub3',  'alloys',  'hub4',  'district',  'ore',  'route',  'exchange',  'synth',  'circuits',  'cells',  'medicine',  'hub5',  'beacon',  'transmit',  'harbour',  'mission'];
+const DIRECTIVE_IDS = ['power',  'scrap',  'parts',  'water',  'food',  'adjacency',  'steady',  'market',  'hub2',  'plots',  'housing',  'meals',  'quiet',  'storm',  'materials',  'hub3',  'alloys',  'hub4',  'district',  'ore',  'route',  'exchange',  'synth',  'circuits',  'cells',  'medicine',  'hub5',  'beacon',  'transmit',  'harbour',  'mission', 'o_staging', 'o_catapult', 'o_command', 'o_cycle', 'o_launch', 'o_reactor', 'o_foundry', 'o_deploy', 'o_rare', 'o_project'];
 
 module.exports = { DIRECTIVE_IDS, evaluate, doomClock, ticksToAfford, leadTimeFor };
