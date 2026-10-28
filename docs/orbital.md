@@ -45,16 +45,18 @@ Orbit is where colonies stop being separate games. Every station shares the same
 - **Territories** are a shared world pool (`territories.advanceWorld`).
   - At least 7 are open at any time. A taken territory is replaced after a short delay.
   - Each territory has an anomaly that sets its lifetime, a rare-resource multiplier and its risk.
-  - Each territory has two common resources, one district resource and one rare resource. The territory buildings use placeholder roles (`$common1`, `$common2`, `$district`, `$rare`), resolved per territory.
+  - Each territory has two common resources (of Reclaim, Aquifer Draw and Raw Ink), one district resource (Raw Ore or Crude) and one rare resource. That makes 6 combinations of what the ground gives, and which rare resources can be extracted from them varies (see the Anomaly Tap below).
+  - A territory has three rings (3 Small, 5 Medium and 7 Large plots), all open from the start. Power is what limits how much of it a player can use, until the dropship is upgraded. A fourth ring is a planned expansion.
 - **Deploying** a docked dropship to a territory:
   - It lands after 15 ticks with a small construction kit plus anything preloaded from orbital storage.
   - The territory becomes a district of type `territory`. Its storage is the ship's hold and its power is the ship's power.
   - Only one station can hold a territory at a time.
 - **Territory buildings:**
-  - Two rigs for the common resources and a drill for the district resource.
-  - A refinery that makes stabiliser charges.
-  - A tap that burns the charges to draw the rare resource.
-  - None of them needs crew.
+  - No power buildings and no crew: the dropship supplies all the power.
+  - Field versions of ordinary ground buildings, paid from the hold, each with a `territory` block over its definition (`sim.territoryDef`). They are only offered where the territory holds what they work on (`needs`): the extractors for Reclaim, Aquifer Draw, Raw Ore and Crude, plus the water purifier, parts press, smelter, cracking tower and polymer plant. The Ink Reclaimer is an extractor for Raw Ink there, and the polymer plant needs no ingots there.
+  - The **Anomaly Tap** is a recipe building, like the Free Port's trade workshop. Each territory has one rare resource, and the tap offers only that rare resource's recipes (two alternatives each, `tapRecipes`). Every recipe takes 8 + 8 of two ordinary goods and 18 power for 0.5 of the rare resource per cycle (× the plot's batch × the anomaly's richness). Changing the recipe costs no credits, only idle ticks, so players can find out what a rare resource needs by trying.
+  - The game does not list the recipes. They are in the production guide only.
+  - Roughly half of all territories can extract their rare resource (a test keeps it between 40% and 65%, with every rare working in 2 to 4 of the 6 combinations).
 - **Links:** up to 2 per ship, between the territory and the station, at the ship's link rate. Rare resources are excluded.
 - **Recalling** a ship:
   - It takes cargo by the player's plan, rare first, up to the hold.
@@ -120,7 +122,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
 | `src/territories.js` | the territory pool, dropships, deploy, recall, damage, repair, territory links |
 | `src/orbitalMarket.js` | the orbital order book and the market makers |
 | `src/projects.js` | global projects, contributions and bonuses |
-| `src/sim.js` | placeholder resolution (`resolveDef`), recipe books (`recipeBook`), district overrides (`capOverride`, `baseEnergy`, `outputMult`, `globalOut`) |
+| `src/sim.js` | field versions of ground buildings (`territoryDef`), recipe books (`recipeBook`), district overrides (`capOverride`, `baseEnergy`, `outputMult`, `globalOut`) |
 | `public/js/orbit.js` | the Orbital Command panes (storage, territories, market, project) and the launch controls |
 | `test/orbital.test.js` | the whole chain, from unlock to projects |
 

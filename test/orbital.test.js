@@ -218,7 +218,11 @@ test('territories: the shared pool stays full, a deployment lands, builds a chai
   assert.ok(open >= O.territories.minAvailable);
   const c = launched('Drop Zone');
   const ship = territories.shipsOf(c.id)[0];
-  const t = db.prepare("SELECT * FROM territories WHERE taken_by IS NULL AND closes_tick > ? ORDER BY closes_tick DESC LIMIT 1").get(now() + 400);
+  const t0 = db.prepare("SELECT * FROM territories WHERE taken_by IS NULL AND closes_tick > ? ORDER BY closes_tick DESC LIMIT 1").get(now() + 400);
+  // a known territory: Aquifer Draw and Raw Ink on the surface, Raw Ore under it, and Mycolian Spores in the anomaly
+  const known = { common1: 'unpurified_water', common2: 'raw_synthetics', district: 'ore', rare: 'drift_spores' };
+  db.prepare('UPDATE territories SET resources = ? WHERE id = ?').run(JSON.stringify(known), t0.id);
+  const t = db.prepare('SELECT * FROM territories WHERE id = ?').get(t0.id);
   assert.match(actions.shipDeploy(c.uid, { ship: ship.id, territory: t.id, preload: { frames: 99999 } }).error, /hold|Not enough/);
   assert.deepEqual(actions.shipDeploy(c.uid, { ship: ship.id, territory: t.id, preload: { frames: 20 } }), { ok: true });
   const other = launched('Late Comer');
@@ -230,12 +234,27 @@ test('territories: the shared pool stays full, a deployment lands, builds a chai
   const tinv = store.loadInventory(c.id, land.id);
   assert.equal(tinv.frames, 20, 'the preload came down');
   assert.equal(tinv.machined_parts, O.dropships.starterKit.machined_parts);
-  // build the chain (instantly) and run it
-  for (const [ring, slot, type] of [[1, 0, 't_rig_a'], [1, 1, 't_drill'], [1, 2, 't_rig_b'], [2, 0, 't_refinery'], [2, 1, 't_tap']]) put(c, land.id, ring, slot, type);
-  tick(10);
+  // only buildings with something to work on here, and only the field versions of ground buildings
+  assert.match(actions.build(c.uid, { ring: 1, slot: 0, type: 'crude_pump', district: land.id }).error, /nothing to work on/);
+  assert.match(actions.build(c.uid, { ring: 1, slot: 0, type: 'solar_array', district: land.id }).error, /can't be built/);
+  const kit0 = store.loadInventory(c.id, land.id);
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 0, type: 'water_pump', district: land.id }), { ok: true });
+  const kit1 = store.loadInventory(c.id, land.id);
+  assert.equal(kit1.machined_parts, kit0.machined_parts - config.buildings.water_pump.territory.cost.machined_parts, 'a field build is paid in the field cost');
+  assert.equal(kit1.scrap, kit0.scrap, 'not the ground cost');
+  db.prepare("DELETE FROM colony_work_orders WHERE colony_id = ? AND district_id = ?").run(c.id, land.id);
+  // build the chain (instantly): Aquifer Draw to Filtrate, Raw Ink from the ground, and the tap
+  db.prepare('DELETE FROM colony_buildings WHERE district_id = ?').run(land.id);
+  for (const [ring, slot, type] of [[1, 0, 'water_pump'], [1, 1, 'synth_reclaimer'], [1, 2, 'water_purifier'], [2, 0, 't_tap']]) put(c, land.id, ring, slot, type);
+  assert.match(actions.setRecipe(c.uid, { ring: 2, slot: 0, recipe: 'void_glass_a', district: land.id }).error, /does not draw/, 'a tap draws only this anomaly\'s own rare resource');
+  assert.deepEqual(actions.setRecipe(c.uid, { ring: 2, slot: 0, recipe: 'drift_spores_a', district: land.id }), { ok: true });
+  tick(30);
   const after = store.loadInventory(c.id, land.id);
-  assert.ok(after[res.common1] > 0 && after[res.district] > 0, 'rigs and drill work');
-  assert.ok(after[res.rare] > 0, 'the tap draws the rare resource through the refinery chain');
+  assert.ok(after.unpurified_water > 0 || after.clean_water > 0, 'the pump and the purifier work');
+  assert.ok(after.raw_synthetics > 0 || after.drift_spores > 0, 'the reclaimer pulls Raw Ink out of the ground here');
+  assert.ok(after[res.rare] > 0, 'the tap draws the rare resource from Filtrate and Raw Ink');
+  const free = actions.setRecipe(c.uid, { ring: 2, slot: 0, recipe: 'drift_spores_b', district: land.id });
+  assert.ok(free.ok || /resetting/.test(free.error), 'switching recipes costs no credits');
   // territory links: to the station only, never rare
   assert.match(actions.setRoute(c.uid, { from: land.id, to: c.station.district_id, resource: res.rare, rate: 5 }).error, /Rare/);
   assert.deepEqual(actions.setRoute(c.uid, { from: land.id, to: c.station.district_id, resource: res.district, rate: 5 }), { ok: true });
@@ -444,4 +463,39 @@ test('rare resources are even: every orbital good uses two, and every rare is dr
     assert.ok(O.projects.list.filter((p) => p.needs[g]).length >= 2, `${g} is needed by at least two projects`);
     assert.ok(inProjects.has(g) && inExpansion.has(g), `${g} has a use in projects and in expansions`);
   }
+});
+
+test('tap recipes: every rare has alternatives built from ground chains, and roughly half of the territories can extract their rare', () => {
+  const T = O.territories;
+  const fits = Object.values(config.buildings).filter((b) => b.territory && b.territory.needs).map((b) => ({ ...b, ...b.territory }));
+  const reach = (held) => {
+    const have = new Set(held);
+    for (let again = true; again;) {
+      again = false;
+      for (const b of fits) {
+        if (!have.has(b.needs) && !held.includes(b.needs)) continue;
+        if (!Object.keys(b.inputsPerTick).filter((r) => r !== 'energy').every((r) => have.has(r))) continue;
+        for (const r of Object.keys(b.outputsPerTick)) if (!have.has(r)) { have.add(r); again = true; }
+      }
+    }
+    return have;
+  };
+  const pairs = [[0, 1], [0, 2], [1, 2]].flatMap(([a, b]) => T.district.map((d) => [T.common[a], T.common[b], d]));
+  assert.equal(pairs.length, 6);
+  let good = 0, total = 0;
+  for (const rare of T.rare) {
+    const recipes = Object.values(config.tapRecipes).filter((r) => r.rare === rare);
+    assert.ok(recipes.length >= 2, `${rare} has alternatives`);
+    for (const r of recipes) {
+      assert.deepEqual(r.outputsPerTick, { [rare]: 0.5 });
+      assert.equal(r.inputsPerTick.energy, 18);
+      assert.equal(Object.keys(r.inputsPerTick).length, 3, 'two inputs and power');
+      for (const [k, q] of Object.entries(r.inputsPerTick)) if (k !== 'energy') { assert.equal(q, 8); assert.ok(!config.resources[k].orbitalOnly, `${k} is an ordinary good`); }
+    }
+    const works = pairs.filter((p) => { const have = reach(p); return recipes.some((r) => Object.keys(r.inputsPerTick).filter((k) => k !== 'energy').every((k) => have.has(k))); }).length;
+    assert.ok(works >= 2 && works <= 4, `${rare} works in ${works} of 6 territories`);
+    good += works; total += 6;
+  }
+  assert.ok(good / total > 0.4 && good / total < 0.65, `${Math.round(good / total * 100)}% of territories work`);
+  for (const p of pairs) assert.ok(T.rare.filter((rare) => { const have = reach(p); return Object.values(config.tapRecipes).some((r) => r.rare === rare && Object.keys(r.inputsPerTick).filter((k) => k !== 'energy').every((k) => have.has(k))); }).length >= 3, 'no territory is a dead end for nearly everything');
 });

@@ -37,6 +37,7 @@ const SECTIONS = {
   factions: [(c) => c.missions.factions, ['name', 'desc']],
   recipes: [(c) => c.recipes, ['name']],
   orbitalRecipes: [(c) => c.orbitalRecipes || {}, ['name']],
+  tapRecipes: [(c) => c.tapRecipes || {}, ['name']],
   places: [(c) => c.orbitalTypes || {}, ['name']],
   anomalies: [(c) => (c.orbital ? c.orbital.territories.anomalies : {}), ['name', 'desc']],
   projects: [(c) => (c.orbital ? Object.fromEntries(c.orbital.projects.list.map((p) => [p.key, p])) : {}), ['name', 'desc']],

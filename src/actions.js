@@ -77,6 +77,7 @@ const build = guarded((c, { ring, slot, type, district }) => {
   if (NaNish(ring, slot)) return fail('Bad slot.');
   if (def.hidden === 'orbital' && !c.orbital_unlocked && !orbital.checkUnlock(c, tickNow())) return fail('Unknown building type.');
   if (!sim.buildableIn(def, d.type)) return fail(`${def.name} can't be built ${d.type === 'core' ? 'in the Core' : `in ${d.name}`}.`);
+  if (d.type === 'territory') { const bad = territories.checkBuild(d, def); if (bad) return fail(bad); }
   if (def.strictPlot && sim.plotSize(config, ring, d.type) < def.minPlotSize) return fail(`${def.name} needs a ${config.plotSizes[def.minPlotSize].name} plot.`);
   if (def.requiresAdjacent) {
     const need = config.buildings[def.requiresAdjacent];
@@ -94,10 +95,11 @@ const build = guarded((c, { ring, slot, type, district }) => {
       + store.loadOrders(c.id).filter((o) => o.action_type === 'build' && o.data.type === type).length;
     if (have >= def.maxCount) return fail(`Only ${def.maxCount} ${def.name} can be built.`);
   }
-  if (!canAfford(store.loadInventory(c.id, d.id), def.cost)) return fail(`Not enough resources for ${def.name}.`);
-  pay(d.id, def.cost);
+  const here = sim.territoryDef(def, d.type);
+  if (!canAfford(store.loadInventory(c.id, d.id), here.cost)) return fail(`Not enough resources for ${def.name}.`);
+  pay(d.id, here.cost);
   db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(c.id, d.id, 'build', JSON.stringify({ ring, slot, type }), def.constructionTicks, def.constructionTicks);
+    .run(c.id, d.id, 'build', JSON.stringify({ ring, slot, type }), here.constructionTicks, here.constructionTicks);
   return OK;
 });
 
@@ -126,7 +128,7 @@ const demolish = guarded((c, { ring, slot, district }) => {
     }
   }
   db.prepare('DELETE FROM colony_buildings WHERE id = ?').run(b.id);
-  refund(d.id, config.buildings[b.building_type].cost, config.global.demolishRefund);
+  refund(d.id, sim.territoryDef(config.buildings[b.building_type], d.type).cost, config.global.demolishRefund);
   return OK;
 });
 
@@ -179,8 +181,9 @@ const cancelOrder = guarded((c, { orderId }) => {
   const oid = toInt(orderId);
   const o = Number.isNaN(oid) ? undefined : store.loadOrders(c.id).find((x) => x.id === oid);
   if (!o) return fail('That order no longer exists.');
-  const d = districtFor(c, o.district_id);
-  const cost = o.action_type === 'build' ? config.buildings[o.data.type].cost
+  const d = districtFor(c, o.district_id, true);
+  if (!d) return fail(NO_DISTRICT);
+  const cost = o.action_type === 'build' ? sim.territoryDef(config.buildings[o.data.type], d.type).cost
     : o.action_type === 'found' ? config.districtTypes[o.data.type].foundCost
       : o.action_type === 'expand' ? sim.expansionCost(config, config.buildings[o.data.type], o.data.level)
         : sim.levelDef(config, d.type, o.data.level).upgradeCost;
@@ -256,6 +259,7 @@ const setRecipe = guarded((c, { ring, slot, recipe, district }) => {
   const bdef = config.buildings[b.building_type];
   if (!bdef.recipeBuilding) return fail('This building does not take recipes.');
   if (!own(sim.recipeBook(config, bdef), recipe)) return fail('Unknown recipe.');
+  if (d.type === 'territory') { const bad = territories.checkRecipe(d, recipe); if (bad) return fail(bad); }
   if (b.recipe === recipe) return OK;
   const tick = Number(store.getMeta('global_tick', 0));
   if (!b.recipe) {

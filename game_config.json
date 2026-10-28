@@ -469,16 +469,6 @@
       "orbitalOnly": true,
       "rare": true
     },
-    "stabilizer": {
-      "name": "Stabiliser Charge",
-      "color": "#7fe0d0",
-      "buy": 60,
-      "sell": 30,
-      "tier": 3,
-      "showFromHub": 99,
-      "convoyMax": 0,
-      "orbitalOnly": true
-    },
     "lattice_cores": {
       "name": "Lattice Cores",
       "color": "#8fd3ff",
@@ -690,7 +680,15 @@
       "minPlotSize": 1,
       "workers": 2,
       "comfort": -6,
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "scrap",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 10,
+          "building_materials": 5
+        }
+      }
     },
     "water_pump": {
       "essential": true,
@@ -711,7 +709,15 @@
       "minPlotSize": 1,
       "workers": 2,
       "comfort": -1,
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "unpurified_water",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 10,
+          "building_materials": 5
+        }
+      }
     },
     "water_purifier": {
       "essential": true,
@@ -734,7 +740,15 @@
       "minPlotSize": 1,
       "workers": 2,
       "comfort": -1,
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "unpurified_water",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 20,
+          "building_materials": 10
+        }
+      }
     },
     "parts_assembler": {
       "name": "Parts Assembler",
@@ -755,7 +769,15 @@
       "minPlotSize": 1,
       "workers": 3,
       "comfort": -4,
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "scrap",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 20,
+          "building_materials": 10
+        }
+      }
     },
     "hydroponics_bay": {
       "essential": true,
@@ -856,7 +878,21 @@
       "districts": [
         "stacks"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "raw_synthetics",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 10,
+          "building_materials": 5
+        },
+        "inputsPerTick": {
+          "energy": 8
+        },
+        "outputsPerTick": {
+          "raw_synthetics": 12
+        }
+      }
     },
     "foundry": {
       "name": "Foundry",
@@ -1102,7 +1138,15 @@
         "pits"
       ],
       "rawExtractor": true,
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "ore",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 10,
+          "building_materials": 5
+        }
+      }
     },
     "smelter": {
       "name": "Smelter",
@@ -1128,7 +1172,15 @@
       "districts": [
         "pits"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "ore",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 20,
+          "building_materials": 10
+        }
+      }
     },
     "alloy_works": {
       "name": "Alloy Works",
@@ -1180,7 +1232,15 @@
         "stacks"
       ],
       "rawExtractor": true,
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "crude",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 10,
+          "building_materials": 5
+        }
+      }
     },
     "cracking_tower": {
       "name": "Cracking Tower",
@@ -1207,7 +1267,15 @@
       "districts": [
         "stacks"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "crude",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 20,
+          "building_materials": 10
+        }
+      }
     },
     "polymer_plant": {
       "name": "Polymer Plant",
@@ -1235,7 +1303,22 @@
       "districts": [
         "stacks"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "territory": {
+        "needs": "crude",
+        "workers": 0,
+        "cost": {
+          "machined_parts": 20,
+          "building_materials": 10
+        },
+        "inputsPerTick": {
+          "energy": 16,
+          "crude": 12
+        },
+        "outputsPerTick": {
+          "polymers": 6
+        }
+      }
     },
     "fuel_generator": {
       "essential": true,
@@ -1494,124 +1577,28 @@
       "recipeSet": "orbital",
       "hidden": "orbital"
     },
-    "t_rig_a": {
-      "name": "Field Rig A",
-      "type": "extractor",
-      "desc": "Pulls the territory's first common resource out of the ground.",
-      "constructionTicks": 6,
-      "cost": {
-        "machined_parts": 20,
-        "building_materials": 15
-      },
-      "inputsPerTick": {
-        "energy": 6
-      },
-      "outputsPerTick": {
-        "$common1": 10
-      },
-      "minPlotSize": 1,
-      "color": "#c08552",
-      "workers": 0,
-      "districts": [
-        "territory"
-      ],
-      "hidden": "orbital"
-    },
-    "t_rig_b": {
-      "name": "Field Rig B",
-      "type": "extractor",
-      "desc": "Pulls the territory's second common resource out of the ground.",
-      "constructionTicks": 6,
-      "cost": {
-        "machined_parts": 20,
-        "building_materials": 15
-      },
-      "inputsPerTick": {
-        "energy": 6
-      },
-      "outputsPerTick": {
-        "$common2": 10
-      },
-      "minPlotSize": 1,
-      "color": "#6f9a8d",
-      "workers": 0,
-      "districts": [
-        "territory"
-      ],
-      "hidden": "orbital"
-    },
-    "t_drill": {
-      "name": "Deep Drill",
-      "type": "extractor",
-      "desc": "Bores for the territory's district resource.",
-      "constructionTicks": 8,
-      "cost": {
-        "machined_parts": 30,
-        "building_materials": 25
-      },
-      "inputsPerTick": {
-        "energy": 10
-      },
-      "outputsPerTick": {
-        "$district": 5
-      },
-      "minPlotSize": 1,
-      "color": "#a98467",
-      "workers": 0,
-      "districts": [
-        "territory"
-      ],
-      "hidden": "orbital"
-    },
-    "t_refinery": {
-      "name": "Field Refinery",
-      "type": "refinery",
-      "desc": "Refines the district resource and a common one into stabiliser charges, which the anomaly tap needs.",
-      "constructionTicks": 10,
-      "cost": {
-        "machined_parts": 40,
-        "building_materials": 30
-      },
-      "inputsPerTick": {
-        "$district": 4,
-        "$common1": 4,
-        "energy": 12
-      },
-      "outputsPerTick": {
-        "stabilizer": 2
-      },
-      "minPlotSize": 2,
-      "color": "#7fe0d0",
-      "workers": 0,
-      "districts": [
-        "territory"
-      ],
-      "hidden": "orbital"
-    },
     "t_tap": {
       "name": "Anomaly Tap",
-      "type": "assembler",
-      "desc": "Draws the territory's rare resource out of the anomaly, burning stabiliser charges to keep it open.",
+      "type": "workshop",
+      "desc": "Draws the territory's rare resource out of the anomaly. Choose one recipe and it is locked in; the right inputs depend on the rare resource. A bigger plot runs a bigger batch.",
       "constructionTicks": 12,
       "cost": {
-        "machined_parts": 50,
-        "building_materials": 40,
+        "machined_parts": 40,
+        "building_materials": 30,
         "alloys": 10
       },
-      "inputsPerTick": {
-        "stabilizer": 1,
-        "energy": 15
-      },
-      "outputsPerTick": {
-        "$rare": 1
-      },
+      "inputsPerTick": {},
+      "outputsPerTick": {},
       "minPlotSize": 2,
       "color": "#f2a7ff",
       "workers": 0,
       "districts": [
         "territory"
       ],
-      "hidden": "orbital"
+      "recipeBuilding": true,
+      "recipeSet": "tap",
+      "hidden": "orbital",
+      "freeReset": true
     }
   },
   "adjacencyModifiers": {
@@ -3138,7 +3125,8 @@
       "color": "#f2a7ff",
       "ringPlotSize": {
         "1": 1,
-        "2": 2
+        "2": 2,
+        "3": 3
       },
       "levels": {
         "1": {
@@ -3146,7 +3134,8 @@
           "baseEnergy": 40,
           "ringCapacities": {
             "1": 3,
-            "2": 5
+            "2": 5,
+            "3": 7
           },
           "upgradeCost": null,
           "upgradeTicks": 0,
@@ -3699,6 +3688,232 @@
           }
         }
       ]
+    }
+  },
+  "tapRecipes": {
+    "void_glass_a": {
+      "name": "Void Glass, route A",
+      "rare": "void_glass",
+      "inputsPerTick": {
+        "unpurified_water": 8,
+        "polymers": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "void_glass": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "void_glass_b": {
+      "name": "Void Glass, route B",
+      "rare": "void_glass",
+      "inputsPerTick": {
+        "scrap": 8,
+        "fuel": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "void_glass": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "chiral_salts_a": {
+      "name": "Chiral Salts, route A",
+      "rare": "chiral_salts",
+      "inputsPerTick": {
+        "clean_water": 8,
+        "reagents": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "chiral_salts": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "chiral_salts_b": {
+      "name": "Chiral Salts, route B",
+      "rare": "chiral_salts",
+      "inputsPerTick": {
+        "unpurified_water": 8,
+        "ingots": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "chiral_salts": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "null_ore_a": {
+      "name": "Null Ore, route A",
+      "rare": "null_ore",
+      "inputsPerTick": {
+        "clean_water": 8,
+        "ore": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "null_ore": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "null_ore_b": {
+      "name": "Null Ore, route B",
+      "rare": "null_ore",
+      "inputsPerTick": {
+        "clean_water": 8,
+        "machined_parts": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "null_ore": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "drift_spores_a": {
+      "name": "Drift Spores, route A",
+      "rare": "drift_spores",
+      "inputsPerTick": {
+        "clean_water": 8,
+        "raw_synthetics": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "drift_spores": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "drift_spores_b": {
+      "name": "Drift Spores, route B",
+      "rare": "drift_spores",
+      "inputsPerTick": {
+        "reagents": 8,
+        "raw_synthetics": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "drift_spores": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "echo_quartz_a": {
+      "name": "Echo Quartz, route A",
+      "rare": "echo_quartz",
+      "inputsPerTick": {
+        "ore": 8,
+        "scrap": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "echo_quartz": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "echo_quartz_b": {
+      "name": "Echo Quartz, route B",
+      "rare": "echo_quartz",
+      "inputsPerTick": {
+        "raw_synthetics": 8,
+        "crude": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "echo_quartz": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "phase_silt_a": {
+      "name": "Phase Silt, route A",
+      "rare": "phase_silt",
+      "inputsPerTick": {
+        "unpurified_water": 8,
+        "scrap": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "phase_silt": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "phase_silt_b": {
+      "name": "Phase Silt, route B",
+      "rare": "phase_silt",
+      "inputsPerTick": {
+        "clean_water": 8,
+        "ingots": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "phase_silt": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "hum_resin_a": {
+      "name": "Hum Resin, route A",
+      "rare": "hum_resin",
+      "inputsPerTick": {
+        "raw_synthetics": 8,
+        "ingots": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "hum_resin": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "hum_resin_b": {
+      "name": "Hum Resin, route B",
+      "rare": "hum_resin",
+      "inputsPerTick": {
+        "raw_synthetics": 8,
+        "fuel": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "hum_resin": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "still_metal_a": {
+      "name": "Still Metal, route A",
+      "rare": "still_metal",
+      "inputsPerTick": {
+        "ingots": 8,
+        "machined_parts": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "still_metal": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
+    },
+    "still_metal_b": {
+      "name": "Still Metal, route B",
+      "rare": "still_metal",
+      "inputsPerTick": {
+        "ore": 8,
+        "machined_parts": 8,
+        "energy": 18
+      },
+      "outputsPerTick": {
+        "still_metal": 0.5
+      },
+      "adjacent": {},
+      "tier": 5
     }
   }
 }

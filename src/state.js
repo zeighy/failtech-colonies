@@ -47,6 +47,7 @@ function clientConfig() {
       rings: sim.ringCapacities(config, type), ringRotation: t.ringRotation || {}, neighbors: Object.fromEntries(engine.neighborMaps[type]),
     }])),
     orbitalRecipeBook: sim.recipeBook(config, config.buildings.orbital_foundry),
+    tapRecipes: config.tapRecipes,
     orbital: config.orbital,
     logistics: config.logistics,
     expansion: config.expansion,
@@ -177,7 +178,7 @@ function viewFor(userId, now = Date.now()) {
     const hub = isCore ? proj.hub : r.hub;
     return {
       id: d.id, type: d.type, name: d.name, level: d.level, core: isCore, orbital: !!(config.orbitalTypes || {})[d.type],
-      resolve: d.resolve || null,
+      territory: d.territory || null,
       resources, cap,
       hub: {
         maxStorage: cap, baseStorage: lvl.maxStorage, baseEnergy: lvl.baseEnergy, rings: lvl.ringCapacities,

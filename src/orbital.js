@@ -101,7 +101,7 @@ function districtExtras(c, d) {
     const lv = O.dropships.levels[(ship && ship.level) || 1];
     const out = { capOverride: lv.hold, baseEnergy: lv.power };
     if (t) {
-      out.resolve = JSON.parse(t.resources);
+      out.territory = JSON.parse(t.resources);
       const an = O.territories.anomalies[t.anomaly];
       if (an) out.outputMult = { t_tap: an.rareMult };
     }

@@ -191,14 +191,22 @@
     var t = CFG.districtTypes[d.type] || CFG.orbitalTypes[d.type];
     return { rings: t.rings, ringPlotSize: t.ringPlotSize, neighbors: t.neighbors, levels: t.levels, rotation: t.ringRotation };
   }
-  // Territory buildings name their resources by role ($common1, $district...); the territory says which resources they are.
+  // A few ground buildings are built in a territory too, with their `territory` block laid over them (no crew, a field build,
+  // sometimes different inputs and outputs).
   function bdef(k) {
-    var d = CFG.buildings[k], map = activeD() && S && S.views && S.views[activeId] ? S.views[activeId].resolve : null;
-    if (!d || !map) return d;
-    var fill = function (o) { var out = {}; Object.keys(o || {}).forEach(function (x) { out[x.charAt(0) === '$' ? (map[x.slice(1)] || x) : x] = o[x]; }); return out; };
-    return Object.assign({}, d, { inputsPerTick: fill(d.inputsPerTick), outputsPerTick: fill(d.outputsPerTick) });
+    var d = CFG.buildings[k];
+    return d && d.territory && activeD() && activeD().type === 'territory' ? Object.assign({}, d, d.territory) : d;
   }
-  function bookFor(d) { return d && d.recipeSet === 'orbital' ? CFG.orbitalRecipeBook : CFG.recipes; }
+  // What this territory holds: the two common resources, the district resource and the rare one.
+  function field() { var v = S && S.views && S.views[activeId]; return v && v.territory ? v.territory : null; }
+  function bookFor(d) {
+    if (d && d.recipeSet === 'tap') {
+      var f = field(), book = {};
+      Object.keys(CFG.tapRecipes).forEach(function (k) { if (f && CFG.tapRecipes[k].rare === f.rare) book[k] = CFG.tapRecipes[k]; });
+      return book;
+    }
+    return d && d.recipeSet === 'orbital' ? CFG.orbitalRecipeBook : CFG.recipes;
+  }
   function plotName(ring) { return CFG.plotSizes[GEO().ringPlotSize[ring]].name; }
   function plotMultFor(def, ring) {
     var deficit = Math.max(0, def.minPlotSize - GEO().ringPlotSize[ring]);
@@ -603,7 +611,9 @@
         '<div class="dim" style="font-size:11px;margin-top:6px">Batch ×' + batch + ' on a ' + plotName(b.ring) + ' plot: more goes in and more comes out, at the same ratio. Crew and power scale with it.</div>' +
         (adjn.length ? '<div class="dim" style="font-size:11px;margin-top:4px">Runs better beside: ' + adjn.join(', ') + '</div>' : '') + '</div>';
       if (b.resetting) h += '<div class="note warn">Resetting: idle for ' + b.resetting + ' more ticks.</div>';
-    } else h += '<div class="note warn">No recipe chosen. The first choice is free, but it locks in: changing it later costs credits and idles the workshop.</div>';
+    } else h += CFG.buildings[b.type].freeReset
+      ? '<div class="note warn">No recipe chosen. Try one: changing it later costs no credits, only a short idle spell.</div>'
+      : '<div class="note warn">No recipe chosen. The first choice is free, but it locks in: changing it later costs credits and idles the workshop.</div>';
     var changing = !!rec;
     if (!b.resetting) {
       h += '<div class="dim" style="font-size:11px;margin:8px 0 4px">' + (changing ? 'Change recipe · costs <b>' + fmt(b.resetFee) + ' cr</b> and ' + CFG.tradeWorks.reset.delayTicks + ' idle ticks' : 'Choose a recipe') + '</div>' +
@@ -644,6 +654,7 @@
       var d = bdef(k);
       if ((CFG.buildableIn[dtype] || []).indexOf(k) < 0) return;
       if (d.hidden === 'orbital' && !(S.orbital && S.orbital.unlocked)) return; // unknown until the colony is recognised
+      if (d.needs && (!field() || [field().common1, field().common2, field().district].indexOf(d.needs) < 0)) return; // nothing to work on here
       var afford = canAfford(d.cost);
       var blocked = null;
       if (d.strictPlot && GEO().ringPlotSize[r] < d.minPlotSize) blocked = 'Needs a ' + plotName2(d.minPlotSize) + ' plot';

@@ -15,7 +15,7 @@ Energy is not stockpiled. Each tick, supply (the Core's own power plus generator
 | 0 | Reclaim (scrap), Aquifer Draw (unpurified_water), Raw Ink (raw_synthetics) |
 | 1 | Filtrate (clean_water), Nutrient Paste (rations), Hard-Spec Parts (machined_parts), Raw Ore (ore), Crude (crude), Mycelial Biomass (biomass) |
 | 2 | Print Stock (building_materials), Heavy Meals (meals), Ingots (ingots), Reagent Stock (reagents), Refined Fuel (fuel), Polymer Stock (polymers), Soil Primer (fertiliser), Vintage Curios (curios), Tool Steel (tool_steel), Heritage Preserves (preserves), Cast Plastics (plastics), Cliffside Tinctures (tinctures) |
-| 3 | Spine Alloy (alloys), Phononic Circuits (circuits), HTR Patches (medicine), Hard-Spec Instruments (precision_tools), Apex Field Kits (field_kits), Mycelial Stimulants (grow_stims), Artisanal Goods (luxuries), Spine Frames (frames), Stabiliser Charge (stabilizer) |
+| 3 | Spine Alloy (alloys), Phononic Circuits (circuits), HTR Patches (medicine), Hard-Spec Instruments (precision_tools), Apex Field Kits (field_kits), Mycelial Stimulants (grow_stims), Artisanal Goods (luxuries), Spine Frames (frames) |
 | 4 | Klein Cells (power_cells), Heritage Masterworks (masterworks), Dampener Fittings (fittings), Donstand-Pattern Modules (modules) |
 | 5 | Anfang Glass (void_glass), Icarus Compound (chiral_salts), Mobiulic Ore (null_ore), Windsor Crystal (echo_quartz), Mycolian Spores (drift_spores), Orphic Silt (phase_silt), Phononic Substrate (hum_resin), Graviton Metaloid (still_metal), Sirius Core (lattice_cores), Dense Metal (null_alloy), Cliffside Rejuvenator (chiral_serum), Sirius Cell (phase_cells), Phononic Amplifier (resonators), Stabilized Alloy (still_frames) |
 Chains resolve in this building order, so output made this tick can be consumed this tick: extractor, refinery, assembler, producer, beacon.
@@ -57,11 +57,7 @@ Chains resolve in this building order, so output made this tick can be consumed 
 | Orbital Command Center (orbital_command) | command | The Sanctuary Port | Heavy | 350 Spine Frames, 300 Dampener Fittings, 350 Donstand-Pattern Modules, 150 Phononic Circuits | 15 power, 3 Nutrient Paste, 3 Filtrate | – | 10 | -2 | 90 | – |
 | Klein Reactor (klein_reactor) | generator | station | Medium | 60 Spine Frames, 40 Dampener Fittings | 1 Klein Cells | 90 power | – | – | 20 | – |
 | Orbital Foundry (orbital_foundry) | workshop | station | Medium | 80 Spine Frames, 60 Dampener Fittings | – | – | – | – | 25 | – |
-| Field Rig A (t_rig_a) | extractor | territory | Small | 20 Hard-Spec Parts, 15 Print Stock | 6 power | 10 territory's common A | – | – | 6 | – |
-| Field Rig B (t_rig_b) | extractor | territory | Small | 20 Hard-Spec Parts, 15 Print Stock | 6 power | 10 territory's common B | – | – | 6 | – |
-| Deep Drill (t_drill) | extractor | territory | Small | 30 Hard-Spec Parts, 25 Print Stock | 10 power | 5 territory's district resource | – | – | 8 | – |
-| Field Refinery (t_refinery) | refinery | territory | Medium | 40 Hard-Spec Parts, 30 Print Stock | 4 territory's district resource, 4 territory's common A, 12 power | 2 Stabiliser Charge | – | – | 10 | – |
-| Anomaly Tap (t_tap) | assembler | territory | Medium | 50 Hard-Spec Parts, 40 Print Stock, 10 Spine Alloy | 1 Stabiliser Charge, 15 power | 1 territory's rare | – | – | 12 | – |
+| Anomaly Tap (t_tap) | workshop | territory | Medium | 40 Hard-Spec Parts, 30 Print Stock, 10 Spine Alloy | – | – | – | – | 12 | – |
 A building with partial inputs runs at partial efficiency (limited by its scarcest input). Buildings marked `optional` take an extra input that boosts output when switched on. Some buildings (`essential`) stay on during a shutdown (section 4b).
 
 ## **4b. People, housing, crew, morale and shutdown**
@@ -228,7 +224,6 @@ Every 40 ticks. Standing export and import orders execute on arrival at **that c
 | Orphic Silt (phase_silt) | 5 | 260 | 150 |
 | Phononic Substrate (hum_resin) | 5 | 260 | 150 |
 | Graviton Metaloid (still_metal) | 5 | 260 | 150 |
-| Stabiliser Charge (stabilizer) | 3 | 60 | 30 |
 | Sirius Core (lattice_cores) | 5 | 1400 | 800 |
 | Dense Metal (null_alloy) | 5 | 1400 | 800 |
 | Cliffside Rejuvenator (chiral_serum) | 5 | 1400 | 800 |
@@ -282,7 +277,7 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 **Orbital storage** is slot-limited: one resource per slot (level 1: 6 slots of 2,000; level 2: 8 slots of 4,000 for 200 Spine Frames, 120 Dampener Fittings; level 3: 10 slots of 8,000 for 300 Spine Frames, 200 Dampener Fittings, 30 Stabilized Alloy). The largest stocks claim slots first; anything without a slot is lost. Jettisoning empties a slot, which then costs 20 Spine Frames, 10 Dampener Fittings to rebuild.
 **Orbital links** run between the Core and the station, both ways (level 1: 4 links at 25/tick; level 2: 6 links at 40/tick for 200 Dampener Fittings, 100 Donstand-Pattern Modules; level 3: 8 links at 60/tick for 300 Dampener Fittings, 30 Sirius Cell). Rare resources never travel by link. **Express launch:** up to 400 of one resource from the Core, 150 + 0.5/unit Refined Fuel, arriving in 12 ticks, once every 480 ticks. **Express drop:** the other way, from orbital storage to the Core, for a capsule of 10 Dampener Fittings from orbital storage, landing in 12 ticks; it shares the cooldown.
 **Dropships** (up to 3; build 600 Spine Frames, 400 Dampener Fittings, 300 Donstand-Pattern Modules, 200 Klein Cells, 120 ticks): level 1 power 40, hold 600, links 15/tick; level 2 power 70, hold 1000, links 25/tick (200 Spine Frames, 150 Dampener Fittings, 80 Klein Cells); level 3 power 100, hold 1600, links 40/tick (350 Spine Frames, 250 Dampener Fittings, 120 Donstand-Pattern Modules). Landing takes 15 ticks with a kit of 140 Hard-Spec Parts, 110 Print Stock, 10 Spine Alloy; the hold can be preloaded. A ship on a territory gets up to 2 links to the station. Recalling brings back what the plan says (rare first) up to the hold, in 150 ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at 10% with the cargo gone; the second loses the ship.
-**Anomalous territories** are shared by every station: at least 7 are open, a taken one is replaced in 10-30 ticks. Each has two common resources (Reclaim, Aquifer Draw, Raw Ink), one district resource (Raw Ore, Crude) and one rare (Anfang Glass, Icarus Compound, Mobiulic Ore, Windsor Crystal, Mycolian Spores, Orphic Silt, Phononic Substrate, Graviton Metaloid). Rings 1: 3 × Small, 2: 5 × Medium, storage = the hold, power = the ship's. Leaving early keeps only 35% of its remaining time for the next visitor; still being there when it closes forces a late recall with damage.
+**Anomalous territories** are shared by every station: at least 7 are open, a taken one is replaced in 10-30 ticks. Each has two common resources (Reclaim, Aquifer Draw, Raw Ink), one district resource (Raw Ore, Crude) and one rare (Anfang Glass, Icarus Compound, Mobiulic Ore, Windsor Crystal, Mycolian Spores, Orphic Silt, Phononic Substrate, Graviton Metaloid). Rings 1: 3 × Small, 2: 5 × Medium, 3: 7 × Large, storage = the hold, power = the ship's. Leaving early keeps only 35% of its remaining time for the next visitor; still being there when it closes forces a late recall with damage.
 | Anomaly | Weight | Lasts (ticks) | Late damage | Integrity lost / tick | Rare × |
 | --- | --- | --- | --- | --- | --- |
 | Slow Drift | 3 | 1440-11520 | 25% | – | 1 |
@@ -291,13 +286,38 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 | Fold | 2 | 720-2880 | 35% | – | 1.3 |
 | Shear | 1 | 480-1440 | 45% | 0.02 | 1.6 |
 | Flare | 1 | 480-960 | 50% | 0.04 | 2 |
-| Territory building (id) | Inputs / tick | Outputs / tick |
-| --- | --- | --- |
-| Field Rig A (t_rig_a) | 6 power | 10 territory's common A |
-| Field Rig B (t_rig_b) | 6 power | 10 territory's common B |
-| Deep Drill (t_drill) | 10 power | 5 territory's district resource |
-| Field Refinery (t_refinery) | 4 territory's district resource, 4 territory's common A, 12 power | 2 Stabiliser Charge |
-| Anomaly Tap (t_tap) | 1 Stabiliser Charge, 15 power | 1 territory's rare |
+**Building in a territory.** The dropship supplies all the power (upgrade the ship for more). Nothing needs a crew. A few ground buildings can be built there as field versions paid from the hold, and only where the territory holds what they work on. The Ink Reclaimer pulls Raw Ink out of the ground there, and the Polymer Plant needs no ingots.
+| Building (id) | Needs in the territory | Inputs / tick | Outputs / tick | Field cost |
+| --- | --- | --- | --- | --- |
+| Reclaim Rig (scrap_extractor) | Reclaim | 5 power | 50 Reclaim | 10 Hard-Spec Parts, 5 Print Stock |
+| Aquifer Pump (water_pump) | Aquifer Draw | 5 power | 20 Aquifer Draw | 10 Hard-Spec Parts, 5 Print Stock |
+| Cliffside Filtration Plant (water_purifier) | Aquifer Draw | 10 power, 15 Aquifer Draw | 15 Filtrate | 20 Hard-Spec Parts, 10 Print Stock |
+| LMAO Parts Press (parts_assembler) | Reclaim | 10 power, 30 Reclaim | 6 Hard-Spec Parts | 20 Hard-Spec Parts, 10 Print Stock |
+| Ink Reclaimer (synth_reclaimer) | Raw Ink | 8 power | 12 Raw Ink | 10 Hard-Spec Parts, 5 Print Stock |
+| Strata Drill (ore_drill) | Raw Ore | 8 power | 24 Raw Ore | 10 Hard-Spec Parts, 5 Print Stock |
+| Black Smelter (smelter) | Raw Ore | 14 power, 20 Raw Ore | 8 Ingots | 20 Hard-Spec Parts, 10 Print Stock |
+| Pipeline Tap (crude_pump) | Crude | 10 power | 20 Crude | 10 Hard-Spec Parts, 5 Print Stock |
+| Cracking Tower (cracking_tower) | Crude | 16 power, 15 Crude | 8 Refined Fuel, 5 Reagent Stock | 20 Hard-Spec Parts, 10 Print Stock |
+| Polymer Plant (polymer_plant) | Crude | 16 power, 12 Crude | 6 Polymer Stock | 20 Hard-Spec Parts, 10 Print Stock |
+**The Anomaly Tap** (Medium plot or bigger) is a recipe building: choose one recipe and it holds. It only offers the recipes for this territory's own rare resource, there are alternatives for each rare, and changing one costs no credits (only idle ticks). Which recipe works depends on what the territory holds, so some territories cannot yield their rare at all. The game does not list these in play; they are here for reference.
+| Rare resource | Recipe (id) | Inputs / tick | Outputs / tick |
+| --- | --- | --- | --- |
+| Anfang Glass | Anfang Glass, route A (void_glass_a) | 8 Aquifer Draw, 8 Polymer Stock, 18 power | 0.5 Anfang Glass |
+| Anfang Glass | Anfang Glass, route B (void_glass_b) | 8 Reclaim, 8 Refined Fuel, 18 power | 0.5 Anfang Glass |
+| Icarus Compound | Icarus Compound, route A (chiral_salts_a) | 8 Filtrate, 8 Reagent Stock, 18 power | 0.5 Icarus Compound |
+| Icarus Compound | Icarus Compound, route B (chiral_salts_b) | 8 Aquifer Draw, 8 Ingots, 18 power | 0.5 Icarus Compound |
+| Mobiulic Ore | Mobiulic Ore, route A (null_ore_a) | 8 Filtrate, 8 Raw Ore, 18 power | 0.5 Mobiulic Ore |
+| Mobiulic Ore | Mobiulic Ore, route B (null_ore_b) | 8 Filtrate, 8 Hard-Spec Parts, 18 power | 0.5 Mobiulic Ore |
+| Mycolian Spores | Mycolian Spores, route A (drift_spores_a) | 8 Filtrate, 8 Raw Ink, 18 power | 0.5 Mycolian Spores |
+| Mycolian Spores | Mycolian Spores, route B (drift_spores_b) | 8 Reagent Stock, 8 Raw Ink, 18 power | 0.5 Mycolian Spores |
+| Windsor Crystal | Windsor Crystal, route A (echo_quartz_a) | 8 Raw Ore, 8 Reclaim, 18 power | 0.5 Windsor Crystal |
+| Windsor Crystal | Windsor Crystal, route B (echo_quartz_b) | 8 Raw Ink, 8 Crude, 18 power | 0.5 Windsor Crystal |
+| Orphic Silt | Orphic Silt, route A (phase_silt_a) | 8 Aquifer Draw, 8 Reclaim, 18 power | 0.5 Orphic Silt |
+| Orphic Silt | Orphic Silt, route B (phase_silt_b) | 8 Filtrate, 8 Ingots, 18 power | 0.5 Orphic Silt |
+| Phononic Substrate | Phononic Substrate, route A (hum_resin_a) | 8 Raw Ink, 8 Ingots, 18 power | 0.5 Phononic Substrate |
+| Phononic Substrate | Phononic Substrate, route B (hum_resin_b) | 8 Raw Ink, 8 Refined Fuel, 18 power | 0.5 Phononic Substrate |
+| Graviton Metaloid | Graviton Metaloid, route A (still_metal_a) | 8 Ingots, 8 Hard-Spec Parts, 18 power | 0.5 Graviton Metaloid |
+| Graviton Metaloid | Graviton Metaloid, route B (still_metal_b) | 8 Raw Ore, 8 Hard-Spec Parts, 18 power | 0.5 Graviton Metaloid |
 **Orbital market:** trade goods only, straight from orbital storage, orders signed with the station name. Market makers post 20 (tier 2), 12 (tier 3), 6 (tier 4), 4 (tier 5) at ±8% of the reference every 240 ticks. Prices must stay within 0.5-2× the reference; 4% fee from sellers; lifetimes 100, 300, 1000; 10 open orders.
 **Global projects:** one at a time, announced 480 ticks ahead. Needs are per player × stations seen recently; the period is twice the time to make one player's share (2880-11520 ticks). Contributions travel by dropship (240 ticks). Completion gives every colony +40 standing with the project's faction and a bonus for half the period.
 | Project | Needs per player | Bonus |
