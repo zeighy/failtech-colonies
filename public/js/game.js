@@ -35,7 +35,8 @@
   var ws = null;           // the workspace open over the map (a screen from the dock), or null
   var lastWs = {};         // dock group -> the workspace last opened in it
   var bellSeen = 0;        // newest event the player has looked at in the notifications popover
-  var msgTab = 'mail';     // tab of the Messages window
+  var pins = null;         // stock the player pinned to the overview (null = automatic)
+  var msgTab = 'mail', msgSel = {};     // tab of the Messages window
   var offset = 0;          // server clock - client clock
   var lastEventId = null;
   var shown = {};          // modals already shown (per page load)
@@ -441,6 +442,10 @@
   // What the top bar says about the place being looked at (the colony's vitals are always the same).
   function placeVitals() {
     var d = activeD(), O = S.orbital;
+    var here = '<div class="here"><small>' + (d.type === 'territory' ? 'Territory' : d.orbital ? 'Orbit' : 'Surface') + '</small><b>' + esc(d.core ? 'The Core' : d.name) + '</b></div>';
+    return here + placeChips(d, O);
+  }
+  function placeChips(d, O) {
     if (!d.orbital) return powerChip(lab('energy', 'Power')) + plainChip(lab('convoy', 'Next convoy'), convoyHtml(), '', 'convoy', 'The next scheduled convoy', 'c-convoy');
     if (d.type === 'station' && O && O.station) {
       var st = O.station, used = st.storage.slots.filter(function (x) { return x.resource; }).length, x = S.express;
@@ -518,19 +523,32 @@
       return r && !(def.showFromHub && def.showFromHub > S.colony.hubLevel && r.amount < 0.5 && r.produced <= 0 && r.consumed <= 0);
     });
   }
+  function pinKeys() {
+    var ok = stockKeys();
+    if (pins !== null) return pins.filter(function (k) { return ok.indexOf(k) >= 0; });
+    var a = ok.filter(function (k) { return CFG.resources[k].critical || stockAttention().indexOf(k) >= 0; });
+    if (a.length < 4) ok.forEach(function (k) { if (a.length < 5 && a.indexOf(k) < 0 && S.resources[k].amount >= 1) a.push(k); });
+    return a.slice(0, 8);
+  }
+  function togglePin(k) {
+    var cur = pinKeys().slice(), i = cur.indexOf(k);
+    if (i >= 0) cur.splice(i, 1); else if (cur.length < 10) cur.push(k); else { toast('Ten pinned is the limit. Unpin one first.'); return; }
+    pins = cur; storeSet('pins:' + S.user, cur.join(',')); renderAll();
+  }
   function stockAttention() { return stockKeys().filter(function (k) { var c = stockNote(k)[1]; return c === 'bad' || c === 'warn'; }); }
   function stockRow(k, full) {
     var r = S.resources[k], def = CFG.resources[k], n = stockNote(k);
     var amt = '<span data-sr-amt>' + fmt(r.amount) + '</span>';
     var net = '<span class="num ' + (r.net > 0.05 ? 'good' : r.net < -0.05 ? 'bad' : '') + '">' + rate(r.net) + '/t</span>';
-    if (!full) return '<div class="pn-pin' + (def.critical && r.amount < 0.5 && r.net < 0 ? ' bad' : '') + '" data-sr="' + k + '"><span><i class="dot" style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:7px;background:' + def.color + '"></i>' + esc(def.name) + '</span><span class="num"><b>' + amt + '</b> ' + net + (n[1] === 'bad' || n[1] === 'warn' ? ' <small class="' + n[1] + '">' + n[0] + '</small>' : '') + '</span></div>';
+    var pinned = pinKeys().indexOf(k) >= 0;
+    if (!full) return '<div class="pn-pin' + (def.critical && r.amount < 0.5 && r.net < 0 ? ' bad' : '') + '" data-sr="' + k + '"><span><i class="dot" style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:7px;background:' + def.color + '"></i>' + esc(def.name) + '</span><span class="num"><b>' + amt + '</b> ' + net + (n[1] === 'bad' || n[1] === 'warn' ? ' <small class="' + n[1] + '">' + n[0] + '</small>' : '') + ' <button class="pn-x" data-act="pin" data-res="' + k + '" title="Unpin" aria-label="Unpin ' + esc(def.name) + '">&times;</button></span></div>';
     return '<tr data-sr="' + k + '" class="' + (def.critical && r.amount < 0.5 && r.net < 0 ? 'crit' : '') + '" title="Tier ' + def.tier + '"><td><i class="dot" style="background:' + def.color + '"></i>' + esc(def.name) + '<span class="tier">T' + def.tier + '</span></td>' +
-      '<td class="num"><b>' + amt + '</b></td><td>' + net + '</td><td><span class="fillbar"><i data-sr-bar style="width:' + (r.amount / r.cap * 100).toFixed(1) + '%;background:' + def.color + '"></i></span></td><td class="' + n[1] + '" style="text-align:left">' + esc(n[0]) + '</td></tr>';
+      '<td class="num"><b>' + amt + '</b></td><td>' + net + '</td><td><span class="fillbar"><i data-sr-bar style="width:' + (r.amount / r.cap * 100).toFixed(1) + '%;background:' + def.color + '"></i></span></td><td class="' + n[1] + '" style="text-align:left">' + esc(n[0]) + '</td><td><button class="pinbtn' + (pinned ? ' on' : '') + '" data-act="pin" data-res="' + k + '" aria-pressed="' + pinned + '" title="' + (pinned ? 'Unpin from the overview' : 'Pin to the overview') + '">' + (pinned ? '★' : '☆') + '</button></td></tr>';
   }
   function stockpileTab() {
     var keys = stockKeys();
     return '<div class="wide"><div class="p-title"><h3>Stockpile</h3><span class="dim" style="margin-left:auto">' + esc(activeD().core ? 'The colony' : activeD().name) + ' · ' + keys.length + ' kinds</span></div>' +
-      '<table class="stock"><thead><tr><th>Resource</th><th>On hand</th><th>Net</th><th>Fill</th><th style="text-align:left">Status</th></tr></thead><tbody>' + keys.map(function (k) { return stockRow(k, true); }).join('') + '</tbody></table></div>';
+      '<table class="stock"><thead><tr><th>Resource</th><th>On hand</th><th>Net</th><th>Fill</th><th style="text-align:left">Status</th><th>Pin</th></tr></thead><tbody>' + keys.map(function (k) { return stockRow(k, true); }).join('') + '</tbody></table></div>';
   }
   // construction/stock numbers interpolate between ticks
   function frameStock(f) {
@@ -559,19 +577,26 @@
     }));
     return { up: up, found: found };
   }
-  function groupDot(g) {
-    if (g.id === 'economy') { var n = stockAttention().length; return n ? '<span class="dotb" title="' + n + ' need attention"></span>' : ''; }
-    if (g.id === 'colony') { var f = readyFlags(); return f.up || f.found ? '<span class="dotb good" title="' + (f.up ? 'An upgrade is affordable' : 'A district can be founded') + '"></span>' : ''; }
+  function tabBadge(t) {
+    if (t === 'brief' && S.brief.remaining) return '<em>' + S.brief.remaining + '</em>';
+    if (t === 'stockpile') { var n = stockAttention().length; return n ? '<em class="warn">' + n + '</em>' : ''; }
+    var f = readyFlags();
+    if (t === 'hub' && f.up) return '<span class="dotb good" title="An upgrade is affordable"></span>';
+    if (t === 'districts' && f.found) return '<span class="dotb good" title="A district can be founded"></span>';
     return '';
   }
   function renderDock() {
     var h = groupsNow().map(function (g) {
-      var open = g.tabs.some(function (t) { return t[0] === ws; });
-      var tgt = open ? ws : (lastWs[g.id] && g.tabs.some(function (t) { return t[0] === lastWs[g.id]; }) ? lastWs[g.id] : g.tabs[0][0]);
-      return '<button class="dbtn" data-act="tab" data-tab="' + tgt + '" aria-pressed="' + open + '" title="' + esc(g.tabs.map(function (t) { return tabLabel(t); }).join(' · ')) + '">' + icon(g.icon, 16) + '<span>' + esc(g.name) + '</span>' +
-        (g.id === 'colony' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') + groupDot(g) + '</button>';
+      return '<div class="dg"><span class="label">' + esc(g.name) + '</span>' + g.tabs.map(function (t) {
+        return '<button class="dbtn" data-act="tab" data-tab="' + t[0] + '" aria-pressed="' + (ws === t[0]) + '">' + icon(t[2], 16) + '<span>' + esc(tabLabel(t)) + '</span>' + tabBadge(t[0]) + '</button>';
+      }).join('') + '</div>';
     }).join('');
+    var ds = S.brief.directives, cur = ds.filter(function (x) { return x.current; })[0] || ds.filter(function (x) { return !x.done; })[0];
+    var dh = '';
+    if (cur) dh = '<button class="dir-chip" data-act="tab" data-tab="brief" title="' + esc(cur.hint) + '">' + icon('check', 14) + '<span class="label">Directive</span><b>' + esc(cur.title) + '</b>' +
+      (cur.progress ? '<small class="num">' + cur.progress.value + ' / ' + cur.progress.max + '</small>' : '') + '</button>';
     if ($('dock-groups').dataset.h !== h) { $('dock-groups').innerHTML = h; $('dock-groups').dataset.h = h; }
+    if ($('dock-dir').dataset.h !== dh) { $('dock-dir').innerHTML = dh; $('dock-dir').dataset.h = dh; }
   }
   function wsHtml(t) {
     if (window.Orbit.panes[t]) return window.Orbit.panes[t]();
@@ -585,13 +610,13 @@
     if (!ws || !g) { ws = null; sh.hidden = true; lastSheet = ''; document.body.classList.remove('ws-open'); return; }
     sh.hidden = false; document.body.classList.add('ws-open');
     var th = g.tabs.map(function (t) {
-      var badge = t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : t[0] === 'stockpile' && stockAttention().length ? '<span class="dotb"></span>' : '';
+      var badge = tabBadge(t[0]);
       return '<button class="dtab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (ws === t[0]) + '">' + icon(t[2], 15) + '<span>' + esc(tabLabel(t)) + '</span>' + badge + '</button>';
     }).join('');
     if (th !== lastSheetTabs) { $('sheet-tabs').innerHTML = th; lastSheetTabs = th; }
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains('numin') && sh.contains(ae)) { panelDeferred = true; return; }
-    var h = wsHtml(ws);
+    var h = '<div class="ws-col' + (ws === 'stockpile' ? ' wide' : '') + '">' + wsHtml(ws) + '</div>';
     if (h === lastSheet) return;
     lastSheet = h;
     var b = $('sheet-body'), top = b.scrollTop;
@@ -640,9 +665,9 @@
       h += '<div class="ov-row">' + (a[2] ? '<button data-act="tab" data-tab="' + a[2] + '">' + inner + '</button>' : inner) + '</div>';
     });
     h += '</div>';
-    var pins = stockKeys().filter(function (k) { return CFG.resources[k].critical || stockAttention().indexOf(k) >= 0; });
-    if (pins.length < 4) stockKeys().forEach(function (k) { if (pins.length < 5 && pins.indexOf(k) < 0 && S.resources[k].amount >= 1) pins.push(k); });
-    h += '<div class="label sec">Pinned stock</div>' + pins.slice(0, 8).map(function (k) { return stockRow(k, false); }).join('') +
+    var pk = pinKeys();
+    h += '<div class="label sec" style="display:flex;justify-content:space-between"><span>Pinned stock</span><button class="linkbtn" data-act="tab" data-tab="stockpile">' + (pins === null ? 'Choose' : 'Edit') + '</button></div>' +
+      (pk.length ? pk.map(function (k) { return stockRow(k, false); }).join('') : '<div class="dim" style="font-size:12px">Nothing pinned. Pin stock from the Stockpile.</div>') +
       '<button class="btn block" style="margin-top:10px" data-act="tab" data-tab="stockpile">Open the full stockpile</button>';
     return h;
   }
@@ -1493,22 +1518,31 @@
   function messages(t) {
     if (t) msgTab = t;
     closePop();
-    if (!document.querySelector('.modal.messages')) modal('<div class="msg-head" id="msg-head"></div><div class="msg-body" id="msg-body"></div>', 'messages');
+    if (!document.querySelector('.modal.messages')) modal('<nav class="nav" id="msg-nav"></nav><div class="list"><div class="lh" id="msg-lh"></div><div class="lscroll" id="msg-list"></div></div><div class="read" id="msg-read"></div>', 'messages');
     msgDone = '';
     renderMessages();
   }
   function renderMessages() {
-    var head = $('msg-head');
-    if (!head || !S) return;
-    var cnt = window.Story.counts();
-    var h = [['mail', 'Mail', cnt.mail], ['calls', 'Calls', cnt.calls], ['history', 'History', 0]].map(function (t) {
-      return '<button class="dtab" data-act="mtab" data-t="' + t[0] + '" aria-selected="' + (msgTab === t[0]) + '">' + t[1] + (t[2] ? '<span class="count">' + t[2] + '</span>' : '') + '</button>';
-    }).join('') + '<button class="x" data-m="close" aria-label="Close">&times;</button>';
-    var body = msgTab === 'calls' ? window.Story.callsHtml() : msgTab === 'history' ? logTab() : window.Story.mailHtml();
-    if (msgDone === h + body) return;
-    msgDone = h + body;
-    head.innerHTML = h;
-    var b = $('msg-body'), top = b.scrollTop; b.innerHTML = body; b.scrollTop = top;
+    var nav = $('msg-nav');
+    if (!nav || !S) return;
+    var cnt = window.Story.counts(), hist = msgTab === 'history';
+    var navH = '<h3>Messages</h3>' + [['mail', 'Mail', 'mail', cnt.mail], ['calls', 'Calls', 'play', cnt.calls], ['history', 'History', 'list', 0]].map(function (t) {
+      return '<button class="ni' + (msgTab === t[0] ? ' on' : '') + '" data-act="mtab" data-t="' + t[0] + '">' + icon(t[2], 16) + t[1] + (t[3] ? '<em>' + t[3] + '</em>' : '') + '</button>';
+    }).join('') + '<div style="flex:1"></div><div class="dim" style="font-size:12px;padding:0 8px;line-height:1.5">Mail and calls arrive from the people the colony talks to. History is the colony\'s own log.</div>';
+    var lh, list, rd = '';
+    if (hist) { lh = 'History · ' + S.events.length + ' events'; list = S.events.length ? '<ul class="log" style="padding:12px 16px">' + S.events.map(function (e) { return '<li class="' + e.kind + '">' + esc(e.message) + '<small>tick #' + e.tick + '</small></li>'; }).join('') + '</ul>' : '<div class="empty-state">No events yet.</div>'; }
+    else {
+      var v = window.Story.msgView(msgTab, msgSel[msgTab]);
+      msgSel[msgTab] = v.sel; lh = (msgTab === 'mail' ? 'Mail' : 'Calls') + ' · ' + v.n + (v.n === 1 ? ' item' : ' items'); list = v.list; rd = v.reader;
+    }
+    var sig = navH + lh + list + rd;
+    if (msgDone === sig) return;
+    msgDone = sig;
+    var md = document.querySelector('.modal.messages'); md.classList.toggle('solo', hist);
+    nav.innerHTML = navH; $('msg-lh').innerHTML = '<span class="label">' + esc(lh) + '</span>' + (hist ? '<button class="x" data-m="close" aria-label="Close" style="margin-left:auto">&times;</button>' : '');
+    renderTop();
+    var ls = $('msg-list'), top = ls.scrollTop; ls.innerHTML = list; ls.scrollTop = top;
+    $('msg-read').innerHTML = hist ? '' : '<div class="rh"><span class="label">' + (msgTab === 'mail' ? 'Message' : 'Call') + '</span><button class="x" data-m="close" aria-label="Close" style="margin-left:auto">&times;</button></div><div class="rb">' + rd + '</div>';
   }
   // answering a call or reading a message hands the screen to the story overlay
   document.addEventListener('click', function (e) {
@@ -1595,6 +1629,8 @@
     var sh = e.shiftKey ? 10 : 1; // hold Shift for bigger steps
     if (a === 'tab') { e.preventDefault(); if (el.dataset.tab === ws && el.classList.contains('dbtn')) { ws = null; renderAll(); } else go(el.dataset.tab); }
     else if (a === 'desel') { sel = null; renderAll(); }
+    else if (a === 'pin') togglePin(el.dataset.res)
+    else if (a === 'msel') { msgSel[msgTab] = el.dataset.id; renderMessages(); }
     else if (a === 'wsclose') { ws = null; renderAll(); }
     else if (a === 'msgs') { closePop(); messages(el.dataset.t || 'mail'); }
     else if (a === 'mtab') { msgTab = el.dataset.t; renderMessages(); }
@@ -1787,6 +1823,7 @@
       });
     }
     lastEventId = Math.max(lastEventId || 0, top);
+    if (first) { var pv0 = storeGet('pins:' + ns.user); pins = pv0 === null ? null : pv0 ? pv0.split(',') : []; }
     if (first) bellSeen = +(storeGet('bell:' + ns.user) || 0) || top;
     renderAll();
   }
