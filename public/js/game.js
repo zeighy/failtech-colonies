@@ -1039,6 +1039,8 @@
   function costPills(cost, have) {
     return Object.keys(cost).map(function (r) { return pill(r, cost[r], have[r].amount < cost[r] ? 'no' : ''); }).join('');
   }
+  // Routes, shipments, the exchange and missions only deal with surface districts; the station and territories have their own links.
+  function groundDs() { return S.districts.filter(function (d) { return !d.orbital; }); }
   function districtOf(type) { return S.districts.filter(function (d) { return d.type === type; })[0]; }
   function shipTime(a, b) {
     var d = function (x) { return x.core ? 0 : CFG.districtTypes[x.type].distance; };
@@ -1112,8 +1114,8 @@
   }
   function shipmentsBlock() {
     var h = '';
-    if (S.districts.length > 1) {
-      var ds = S.districts;
+    if (groundDs().length > 1) {
+      var ds = groundDs();
       if (!ds.some(function (d) { return d.id === ship.from; })) ship.from = ds[0].id;
       if (!ds.some(function (d) { return d.id === ship.to; }) || ship.to === ship.from) ship.to = ds.filter(function (d) { return d.id !== ship.from; })[0].id;
       var opt = function (cur) { return ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === cur ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join(''); };
@@ -1143,9 +1145,10 @@
   }
 
   function routeRows() {
-    var ds = S.districts, nm = function (id) { var d = ds.filter(function (x) { return x.id === id; })[0]; return d ? d.name : '?'; };
-    if (!S.routes.length) return '<div class="dim" style="font-size:12px">No standing routes yet.</div>';
-    return S.routes.map(function (r) {
+    var ds = groundDs(), nm = function (id) { var d = ds.filter(function (x) { return x.id === id; })[0]; return d ? d.name : '?'; };
+    var routes = S.routes.filter(function (r) { return ds.some(function (d) { return d.id === r.fromDistrict; }) && ds.some(function (d) { return d.id === r.toDistrict; }); });
+    if (!routes.length) return '<div class="dim" style="font-size:12px">No standing routes yet.</div>';
+    return routes.map(function (r) {
       var def = CFG.resources[r.resource], st = STEP[r.resource] || 10;
       return '<div class="route" style="--c:' + def.color + '"><div class="rhead"><b>' + esc(def.name) + '</b><span class="dim">' + esc(nm(r.fromDistrict)) + ' → ' + esc(nm(r.toDistrict)) + '</span>' +
         '<button class="x" data-act="rdel" data-id="' + r.id + '" title="Remove route" aria-label="Remove route">×</button></div>' +
@@ -1156,11 +1159,11 @@
   // Logistics has its own tab: links, standing routes and one-off shipments.
   function logisticsPage() {
     if (!S.districtsUnlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>Logistics opens with districts, at hub level ' + CFG.districtProgression.unlockCoreLevel + '.</div></div>';
-    if (S.districts.length < 2) return '<div class="empty-state">' + icon('route', 36) + '<div>No districts to connect yet.</div></div><div class="note">Found a district in the Districts tab. Then this is where you set up the routes and links between them, and send one-off shipments.</div><div class="actions"><button class="btn primary" data-act="tab" data-tab="districts">Go to Districts</button></div>';
+    if (groundDs().length < 2) return '<div class="empty-state">' + icon('route', 36) + '<div>No districts to connect yet.</div></div><div class="note">Found a district in the Districts tab. Then this is where you set up the routes and links between them, and send one-off shipments.</div><div class="actions"><button class="btn primary" data-act="tab" data-tab="districts">Go to Districts</button></div>';
     return logisticsTab();
   }
   function logisticsTab() {
-    var ds = S.districts, L = CFG.logistics;
+    var ds = groundDs(), L = CFG.logistics;
     var h = '<div class="note"><b>Routes</b> move goods straight between stockpiles every tick: the source\'s rate drops and the destination\'s rises by the same amount, with no delay. Every satellite has one <b>link</b> to the Core; its capacity is shared by every route touching it. <b>One-off shipments</b> are separate and take time on the road.</div><div class="label sec">Links</div>';
     ds.filter(function (d) { return !d.core; }).forEach(function (d) {
       var k = d.link, can = k.next && canAffordCore(k.next.upgradeCost);
@@ -1168,7 +1171,7 @@
         '<div class="meter"><i style="width:' + Math.min(100, k.load / k.capacity * 100).toFixed(0) + '%;background:' + (k.load >= k.capacity ? 'var(--warn)' : 'var(--good)') + '"></i></div>' +
         (k.next && k.next.upgradeCost.frames ? '<div class="dim" style="font-size:11px;margin-top:8px">Beyond 140 per tick the link needs Free Port goods (frames, fittings) in the <b>Core</b> stockpile: route them in from the Free Port.</div>' : '') + (k.next ? '<div class="label" style="margin-top:8px">Widen the link (from the Core)</div><div class="io">' + costPills(k.next.upgradeCost, S.coreRes) + '<span class="pill out"><i style="background:var(--good)"></i>to ' + k.next.capacity + '/t</span></div><div class="actions"><button class="btn" data-act="linkup" data-id="' + d.id + '"' + (can ? '' : ' disabled') + '>Upgrade link</button></div>' : '<div class="dim" style="font-size:11px;margin-top:6px">Fully upgraded.</div>') + '</div>';
     });
-    h += '<div class="label sec">Standing routes · ' + S.routes.length + ' / ' + L.maxRoutes + '</div>' + routeRows();
+    h += '<div class="label sec">Standing routes · ' + S.routes.filter(function (r) { return ds.some(function (d) { return d.id === r.fromDistrict; }); }).length + ' / ' + L.maxRoutes + '</div>' + routeRows();
     if (!ds.some(function (d) { return d.id === route.from; })) route.from = ds[0].id;
     if (!ds.some(function (d) { return d.id === route.to; }) || route.to === route.from) route.to = ds.filter(function (d) { return d.id !== route.from; })[0].id;
     var opt = function (cur) { return ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === cur ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join(''); };
@@ -1228,7 +1231,7 @@
   function exchangeTab() {
     var E = S.exchange, X = CFG.exchange;
     if (!E.unlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>The exchange opens at hub level ' + X.unlockCoreLevel + '.</div></div><div class="note">A place to name your own price: post buy and sell orders against traders, and against anyone else who turns up. Grow the hub first.</div>';
-    var x = E.resources[mk.res], r = CFG.resources[mk.res], ds = S.districts;
+    var x = E.resources[mk.res], r = CFG.resources[mk.res], ds = groundDs();
     if (!ds.some(function (d) { return d.id === mk.district; })) mk.district = ds[0].id;
     if (mk.price === null) mk.price = mk.side === 'buy' ? (x.ask || x.ref) : (x.bid || x.ref);
     var pstep = Math.max(0.01, Math.round(x.ref * 0.01 * 100) / 100), qstep = STEP[mk.res] || 10;
@@ -1283,7 +1286,7 @@
     var recog = S.orbital && !S.orbital.unlocked ? '<div class="note" style="margin-bottom:10px">' + esc((CFG.ui && CFG.ui.missionsHint) || ('Reach a total standing of ' + S.orbital.unlockStanding + ' across all factions and your name will be known across the lands.')) + ' <span class="dim">(' + fmt(S.orbital.standing) + ' / ' + S.orbital.unlockStanding + ')</span></div>' : '';
     var h = recog + '<div class="standing"><div class="label">Standing</div><div class="big num">' + fmt(M.total) + '</div><div class="dim" style="font-size:11px">' + M.filled + ' mission' + (M.filled === 1 ? '' : 's') + ' filled</div><div class="facs">' +
       Object.keys(F).map(function (k) { var r = rankOf(k, M.standing[k]); return '<span class="fac"><b>' + fmt(M.standing[k]) + '</b><small>' + esc(F[k].name) + '</small>' + (r ? '<small class="rank">' + esc(r) + '</small>' : '') + '</span>'; }).join('') + '</div></div>' +
-      '<label class="selrow" style="margin:10px 0">Supply from<select data-sel="s:src">' + S.districts.map(function (d) { return '<option value="' + d.id + '"' + (d.id === msrc ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select></label>' +
+      '<label class="selrow" style="margin:10px 0">Supply from<select data-sel="s:src">' + groundDs().map(function (d) { return '<option value="' + d.id + '"' + (d.id === msrc ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select></label>' +
       '<div class="note">Each mission is offered in the name of every faction, each asking for something different. Fill one and the others lapse. Standing builds your rank with each faction and opens up what they have to tell you.</div>';
     if (!M.open.length) h += '<div class="dim">No missions open right now. New ones arrive soon.</div>';
     M.open.forEach(function (q) {
