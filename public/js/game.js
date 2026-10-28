@@ -32,7 +32,10 @@
   var route = { from: null, to: null, res: 'scrap', rate: 10, reserve: 0 }; // route being composed
   var ship = { from: null, to: null, res: 'scrap', qty: 100 }; // shipment being composed
   var sel = null;          // { ring, slot } | { hub: true } | null
-  var tab = 'brief';
+  var ws = null;           // the workspace open over the map (a screen from the dock), or null
+  var lastWs = {};         // dock group -> the workspace last opened in it
+  var bellSeen = 0;        // newest event the player has looked at in the notifications popover
+  var msgTab = 'mail';     // tab of the Messages window
   var offset = 0;          // server clock - client clock
   var lastEventId = null;
   var shown = {};          // modals already shown (per page load)
@@ -50,13 +53,32 @@
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
   var STEP = {}; // every stepper moves by 10 (hold Shift for 100); type a value for anything else
-  // In orbit (the station or a territory is being viewed) the rail shows Orbital Command's own panes.
-  var ORBIT_TABS = [['oplace', 'Station', 'orbit'], ['site', 'Site', 'site'], ['ostore', 'Storage', 'box'], ['oterr', 'Territories', 'ship'], ['omarket', 'Market', 'scale'], ['oproject', 'Project', 'globe'], ['comms', 'Comms', 'mail'], ['log', 'Log', 'list']];
   function inOrbit() { return !!(RAW && activeD().orbital); }
-  function tabsNow() { return inOrbit() ? ORBIT_TABS : TABS; }
   function stationId() { return RAW && RAW.orbital && RAW.orbital.station ? RAW.orbital.station.districtId : null; }
-  function enterOrbit() { var id = stationId(); if (id === null) return; tab = 'oplace'; enter(id); }
-  var TABS = [['brief', 'Brief', 'check'], ['site', 'Site', 'site'], ['hub', 'Hub', 'hub'], ['people', 'People', 'users'], ['districts', 'Districts', 'map'], ['logistics', 'Logistics', 'route'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'scale'], ['missions', 'Missions', 'flag'], ['comms', 'Comms', 'mail'], ['log', 'Log', 'list']];
+  function enterOrbit() { var id = stationId(); if (id === null) return; enter(id); }
+  // The dock opens full-size workspaces. What is on offer depends on where the player is: the colony or orbit.
+  var GROUPS = {
+    ground: [
+      { id: 'colony', name: 'Colony', icon: 'hub', tabs: [['brief', 'Brief', 'check'], ['people', 'People', 'users'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'map']] },
+      { id: 'economy', name: 'Economy', icon: 'scale', tabs: [['stockpile', 'Stockpile', 'box'], ['logistics', 'Logistics', 'route'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'scale'], ['missions', 'Missions', 'flag']] }
+    ],
+    orbit: [
+      { id: 'station', name: 'Station', icon: 'orbit', tabs: [['ostore', 'Storage', 'box'], ['omarket', 'Market', 'scale']] },
+      { id: 'exped', name: 'Expeditions', icon: 'ship', tabs: [['oterr', 'Territories', 'ship'], ['oproject', 'Project', 'globe']] }
+    ]
+  };
+  var ORBIT_WS = { ostore: 1, omarket: 1, oterr: 1, oproject: 1 };
+  function groupsNow() { return inOrbit() ? GROUPS.orbit : GROUPS.ground; }
+  function tabLabel(t) { var ui = CFG.ui && CFG.ui.tabs; return (ui && ui[t[0]]) || (t[0] === 'hub' && !activeD().core ? 'District' : t[1]); }
+  // Where a link that names a screen goes: a workspace, or one of the two overlays.
+  function go(t) {
+    if (t === 'comms' || t === 'log') { messages(t === 'log' ? 'history' : 'mail'); return; }
+    if (t === 'site') { ws = null; renderAll(); return; }
+    if (ORBIT_WS[t] && !inOrbit()) enterOrbit();
+    var g = GROUPS.ground.concat(GROUPS.orbit).filter(function (x) { return x.tabs.some(function (y) { return y[0] === t; }); })[0];
+    if (g) lastWs[g.id] = t;
+    ws = t; renderAll();
+  }
 
   // ------------------------------------------------------------------ api
   // A number the player can type into. The panel is not redrawn while it has focus, and the value is applied when they leave
@@ -325,16 +347,16 @@
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R - 7, fill: 'none', stroke: 'rgba(255,159,28,.25)', 'stroke-dasharray': '2 5' }, hub);
     var t1 = svgEl('text', { x: 0, y: -3, 'font-size': activeD().core ? 15 : 12, 'class': 'no-terms' }, hub); t1.textContent = activeD().core ? ((CFG.ui && CFG.ui.hubLabel) || 'HUB') : activeD().name.replace(/^The /, '').toUpperCase();
     var t2 = svgEl('text', { x: 0, y: 15, 'font-size': 10, 'letter-spacing': '.12em' }, hub);
-    hub.addEventListener('click', function () { sel = { hub: true }; tab = 'hub'; renderAll(); });
+    hub.addEventListener('click', function () { sel = { hub: true }; go('hub'); });
     hub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hub.dispatchEvent(new Event('click')); } });
     hubEl = { g: hub, sub: t2 };
     svg.onclick = function (e) { if (e.target === svg) { sel = null; renderAll(); } };
   }
 
   function onSlot(ring, slot) {
-    if (!slotUnlocked(ring, slot)) { sel = { ring: ring, slot: slot }; tab = 'site'; renderAll(); return; }
+    if (!slotUnlocked(ring, slot)) { sel = { ring: ring, slot: slot }; ws = null; renderAll(); return; }
     sel = { ring: ring, slot: slot };
-    tab = 'site';
+    ws = null;
     confirmKey = null;
     renderAll();
   }
@@ -404,115 +426,229 @@
   }
 
   // ------------------------------------------------------------------ top bar & resources
+  function setChip(id, cls) { var c = $(id).closest('.chip'); c.classList.remove('warn', 'bad'); if (cls) c.classList.add(cls); }
+  function lab(k, dflt) { var l = CFG.ui && CFG.ui.labels && CFG.ui.labels[k]; return esc(l || dflt); }
+  function convoyHtml() { return clock(S.convoy.arrivesAt - (Date.now() + offset)) + ' <small>' + S.convoy.ticksLeft + 't</small>'; }
+  function powerChip(label) {
+    var e = S.energy, ok = e.satisfaction >= 0.999;
+    var col = ok ? 'var(--energy)' : e.satisfaction > 0.5 ? 'var(--warn)' : 'var(--bad)';
+    return '<div class="chip place' + (ok ? '' : e.satisfaction > 0.5 ? ' warn' : ' bad') + '" title="Supply ' + Math.floor(e.supply) + ', demand ' + Math.ceil(e.demand) + (ok ? '' : ' · production at ' + pct(e.satisfaction)) + '"><span class="label">' + label + '</span><span class="v num" id="c-energy"><span class="' + (ok ? '' : 'bad') + '">' + Math.floor(e.supply) + '</span><small>/ ' + Math.ceil(e.demand) + ' used</small></span>' +
+      '<div class="meter"><i style="width:' + (e.demand ? clamp(e.supply / e.demand, 0, 1) * 100 : 100) + '%;background:' + col + '"></i></div></div>';
+  }
+  function plainChip(label, html, cls, tab, title, id) {
+    return '<div class="chip place' + (cls ? ' ' + cls : '') + (tab ? ' click' : '') + '"' + (tab ? ' data-act="tab" data-tab="' + tab + '"' : '') + (title ? ' title="' + esc(title) + '"' : '') + '><span class="label">' + label + '</span><span class="v num"' + (id ? ' id="' + id + '"' : '') + '>' + html + '</span></div>';
+  }
+  // What the top bar says about the place being looked at (the colony's vitals are always the same).
+  function placeVitals() {
+    var d = activeD(), O = S.orbital;
+    if (!d.orbital) return powerChip(lab('energy', 'Power')) + plainChip(lab('convoy', 'Next convoy'), convoyHtml(), '', 'convoy', 'The next scheduled convoy', 'c-convoy');
+    if (d.type === 'station' && O && O.station) {
+      var st = O.station, used = st.storage.slots.filter(function (x) { return x.resource; }).length, x = S.express;
+      var h = powerChip('Station power') + plainChip('Storage', used + ' <small>/ ' + st.storage.slots.length + ' slots</small>', used >= st.storage.slots.length ? 'warn' : '', 'ostore') +
+        plainChip('Express slot', x.active ? 'In flight' : x.readyIn > 0 ? '<span class="dim">' + x.readyIn + 't</span>' : '<span class="good">Ready</span>', '', 'ostore', 'The express convoy: ' + (x.active ? 'in flight' : x.readyIn > 0 ? 'cooling down' : 'ready to dispatch'));
+      var p = O.project;
+      if (p && p.status !== 'done' && p.status !== 'failed') h += plainChip('Project', (p.status === 'announced' ? 'opens ' + p.startsIn + 't' : p.status === 'active' ? 'ends ' + p.endsIn + 't' : 'bonus ' + p.bonusLeft + 't'), p.status === 'active' && p.endsIn <= 20 ? 'warn' : '', 'oproject', p.name);
+      return h;
+    }
+    var sh = O && O.ships.ships.filter(function (z) { return z.districtId === d.id; })[0], t = sh && sh.territory;
+    var h2 = powerChip('Ship power');
+    if (sh) h2 += plainChip('Hold', fmt(sh.hold), '', '', 'Cargo the dropship can carry home') +
+      (t ? plainChip('Closes in', t.ticksLeft + 't <small>' + clock(t.ticksLeft * S.tickMs) + '</small>', t.ticksLeft <= 6 ? 'bad' : t.ticksLeft <= 15 ? 'warn' : '', '', t.anomaly.name) : '') +
+      plainChip('Hull', sh.integrity + '<small>%</small>', sh.integrity < 35 ? 'bad' : sh.integrity < 60 ? 'warn' : '', '', 'Dropship integrity');
+    return h2;
+  }
+  function newEvents() { return S.events.filter(function (e) { return e.id > bellSeen && e.kind !== 'info'; }); }
   function renderTop() {
     var c = S.colony;
     $('c-credits').innerHTML = fmt(c.credits) + ' <small>cr</small>';
-    $('c-pop').innerHTML = c.population + ' <small>/ ' + c.maxPopulation + '</small>';
-    $('c-pop').title = 'Housing: hub quarters ' + c.housing.base + (c.housing.built ? ' + homes ' + Math.floor(c.housing.built) : '');
-    $('c-crew').innerHTML = '<span class="' + (c.staffing.ratio < 0.999 ? 'warn' : '') + '">' + pct(c.staffing.ratio) + '</span>';
-    $('c-crew').title = Math.floor(c.staffing.workforce) + ' hands for ' + c.staffing.posts + ' posts';
+    $('c-pop').innerHTML = c.population + ' <small>/ ' + c.maxPopulation + '</small>' + (c.staffing.ratio < 0.999 ? ' <small class="warn">crew ' + pct(c.staffing.ratio) + '</small>' : '');
+    $('c-pop').title = 'Housing: hub quarters ' + c.housing.base + (c.housing.built ? ' + homes ' + Math.floor(c.housing.built) : '') + ' · ' + Math.floor(c.staffing.workforce) + ' hands for ' + c.staffing.posts + ' posts';
+    setChip('c-pop', c.staffing.ratio < 0.999 ? 'warn' : '');
     var m = clamp(c.morale, 0, 100);
     $('c-morale').innerHTML = Math.round(m) + '<small>%</small>';
     $('c-morale').title = 'Target ' + Math.round(c.moraleInfo.target) + ' (base ' + c.moraleInfo.base + ', homes ' + (c.moraleInfo.comfort >= 0 ? '+' : '') + c.moraleInfo.comfort.toFixed(1) + ', meals +' + c.moraleInfo.meals.toFixed(0) + ') · output ×' + c.moraleInfo.productivity.toFixed(2);
     var mb = $('c-morale-bar'); mb.style.width = m + '%'; mb.style.background = m > 60 ? 'var(--good)' : m > 30 ? 'var(--warn)' : 'var(--bad)';
-    var e = S.energy;
-    var ok = e.satisfaction >= 0.999;
-    $('c-energy').innerHTML = '<span class="' + (ok ? '' : 'bad') + '">' + Math.floor(e.supply) + '</span><small>/ ' + Math.ceil(e.demand) + ' used</small>';
-    var eb = $('c-energy-bar'); eb.style.width = (e.demand ? clamp(e.supply / e.demand, 0, 1) * 100 : 100) + '%';
-    eb.style.background = ok ? 'var(--energy)' : e.satisfaction > 0.5 ? 'var(--warn)' : 'var(--bad)';
-    var d = S.doom, dc = $('c-doom');
-    if (d && d.phase === 'shutdown') { dc.innerHTML = '<span class="warn">Shut down</span>'; dc.title = 'The colony is shut down. Non-essential buildings are parked until you restart them.'; }
+    setChip('c-morale', m > 60 ? '' : m > 30 ? 'warn' : 'bad');
+    var d = S.doom, dc = $('c-doom'), dcls = '';
+    if (d && d.phase === 'shutdown') { dc.innerHTML = '<span class="warn">Shut down</span>'; dc.title = 'The colony is shut down. Non-essential buildings are parked until you restart them.'; dcls = 'warn'; }
     else if (!d) { dc.innerHTML = '<span class="good">Stable</span>'; dc.title = 'No critical supply is draining at current rates.'; }
     else {
       var urgent = d.phase === 'starving' || d.ticks <= 20;
       dc.innerHTML = '<span class="' + (urgent ? 'bad' : d.ticks <= 40 ? 'warn' : '') + '">' + d.ticks + 't</span><small>' + clock(d.ticks * S.tickMs) + '</small>';
       dc.title = d.phase === 'starving' ? 'Collapse in ' + d.ticks + ' ticks unless supplies are restored.'
         : 'If nothing changes, ' + d.resources.map(function (r) { return CFG.resources[r].name; }).join(' & ') + ' runs short in ' + d.untilShortage + ' ticks and the colony collapses ' + d.ticks + ' ticks from now.';
+      dcls = urgent ? 'bad' : d.ticks <= 40 ? 'warn' : '';
     }
-    $('c-tick').textContent = '#' + S.tick;
+    setChip('c-doom', dcls);
+    var hz = S.hazard, hc = $('c-hazard'), hb = $('c-hazard-bar'), hcls = '', hw = 0;
+    if (!hz) { hc.innerHTML = '<span class="dim">Clear</span>'; hc.title = 'No hazard is forecast.'; }
+    else if (hz.state === 'forecast') {
+      hcls = hz.prep < 0.5 && hz.ticksUntil <= 12 ? 'bad' : hz.prep < 0.8 ? 'warn' : ''; hw = hz.prep * 100;
+      hc.innerHTML = '<span class="' + hcls + '">' + hz.ticksUntil + 't</span><small>' + pct(hz.prep) + ' ready</small>';
+      hc.title = hz.name + ' strikes in ' + hz.ticksUntil + ' ticks (' + clock(hz.ticksUntil * S.tickMs) + '). The bar is how prepared the colony is.';
+    } else {
+      hcls = hz.severity > 0.02 ? 'bad' : 'warn'; hw = clamp(1 - hz.severity, 0, 1) * 100;
+      hc.innerHTML = '<span class="' + hcls + '">Active</span><small>' + hz.ticksLeft + 't left</small>';
+      hc.title = hz.name + (hz.severity > 0.02 ? ' is in effect.' : ' is being weathered.') + ' The bar is how well the colony is holding.';
+    }
+    hb.style.width = hw + '%'; hb.style.background = hcls === 'bad' ? 'var(--bad)' : hcls === 'warn' ? 'var(--warn)' : 'var(--good)';
+    setChip('c-hazard', hcls);
+    var pv = placeVitals();
+    if ($('v-place').dataset.h !== pv) { $('v-place').innerHTML = pv; $('v-place').dataset.h = pv; }
+    var cnt = window.Story.counts(), nb = cnt.calls + newEvents().length;
+    $('bell-n').textContent = nb; $('bell-n').hidden = !nb;
+    $('bell-btn').classList.toggle('ring', cnt.calls > 0);
+    $('mail-n').textContent = cnt.mail; $('mail-n').hidden = !cnt.mail;
     $('c-user').textContent = S.user;
   }
 
-  var resBuilt = false;
-  function buildResources() {
-    var h = '';
-    Object.keys(CFG.resources).forEach(function (k) {
-      var r = CFG.resources[k];
-      h += '<div class="res" data-res="' + k + '" title="Tier ' + r.tier + '"><div class="row"><span class="dot" style="background:' + r.color + '"></span>' +
-        '<span class="nm">' + esc(r.name) + '</span><span class="amt num" data-f="amt">0</span></div>' +
-        '<div class="sub"><span data-f="net" class="num"></span><span data-f="note"></span></div>' +
-        '<div class="bar"><i data-f="bar" style="background:' + r.color + '"></i></div></div>';
-    });
-    $('resources').innerHTML = h;
-    resBuilt = true;
+  // ------------------------------------------------------------------ stockpile
+  // How each resource is doing, in a few words (also what the overview calls out).
+  function stockNote(k) {
+    var r = S.resources[k], txt = '', cls = '';
+    if (r.ticksLeft !== null && r.ticksLeft < 40) { txt = r.amount < 0.5 ? 'EMPTY' : 'empty in ' + Math.ceil(r.ticksLeft) + 't'; cls = r.ticksLeft < 15 ? 'bad' : 'warn'; }
+    else if (r.amount >= r.cap - 0.5 && r.net > 0) { txt = 'FULL · wasting'; cls = 'warn'; }
+    else txt = 'cap ' + fmt(r.cap);
+    if (cls === '' && (r.routeIn || r.routeOut)) { txt = (r.routeIn ? '↘ +' + fmt(r.routeIn) + ' routed in' : '') + (r.routeIn && r.routeOut ? ' · ' : '') + (r.routeOut ? '↗ −' + fmt(r.routeOut) + ' routed out' : ''); cls = 'dim'; }
+    return [txt, cls];
   }
-  function frameResources(f) {
-    Object.keys(CFG.resources).forEach(function (k) {
-      var row = document.querySelector('.res[data-res="' + k + '"]');
-      if (!row) return;
-      var r = S.resources[k];
-      var def = CFG.resources[k];
-      row.classList.toggle('hidden', !!(def.showFromHub && def.showFromHub > S.colony.hubLevel && r.amount < 0.5 && r.produced <= 0 && r.consumed <= 0));
-      var shownAmt = clamp(r.amount + r.net * f, 0, r.cap);
-      row.querySelector('[data-f=amt]').textContent = fmt(shownAmt);
-      var net = row.querySelector('[data-f=net]');
-      net.textContent = rate(r.net) + '/t';
-      net.className = 'num ' + (r.net > 0.05 ? 'good' : r.net < -0.05 ? 'bad' : '');
-      var note = row.querySelector('[data-f=note]');
-      var crit = !!(CFG.resources[k].critical && r.amount < 0.5 && r.net < 0);
-      var txt = '', cls = '';
-      if (r.ticksLeft !== null && r.ticksLeft < 40) { txt = r.amount < 0.5 ? 'EMPTY' : 'empty in ' + Math.ceil(r.ticksLeft) + 't'; cls = r.ticksLeft < 15 ? 'bad' : 'warn'; }
-      else if (r.amount >= r.cap - 0.5 && r.net > 0) { txt = 'FULL · wasting'; cls = 'warn'; }
-      else txt = 'cap ' + fmt(r.cap);
-      if (cls === '' && (r.routeIn || r.routeOut)) { txt = (r.routeIn ? '↘ +' + fmt(r.routeIn) + ' routed in' : '') + (r.routeIn && r.routeOut ? ' · ' : '') + (r.routeOut ? '↗ −' + fmt(r.routeOut) + ' routed out' : ''); cls = 'dim'; }
-      note.textContent = txt; note.className = cls;
-      row.classList.toggle('crit', crit);
-      row.querySelector('[data-f=bar]').style.width = (shownAmt / r.cap * 100).toFixed(1) + '%';
+  function stockKeys() {
+    return Object.keys(CFG.resources).filter(function (k) {
+      var r = S.resources[k], def = CFG.resources[k];
+      return r && !(def.showFromHub && def.showFromHub > S.colony.hubLevel && r.amount < 0.5 && r.produced <= 0 && r.consumed <= 0);
+    });
+  }
+  function stockAttention() { return stockKeys().filter(function (k) { var c = stockNote(k)[1]; return c === 'bad' || c === 'warn'; }); }
+  function stockRow(k, full) {
+    var r = S.resources[k], def = CFG.resources[k], n = stockNote(k);
+    var amt = '<span data-sr-amt>' + fmt(r.amount) + '</span>';
+    var net = '<span class="num ' + (r.net > 0.05 ? 'good' : r.net < -0.05 ? 'bad' : '') + '">' + rate(r.net) + '/t</span>';
+    if (!full) return '<div class="pn-pin' + (def.critical && r.amount < 0.5 && r.net < 0 ? ' bad' : '') + '" data-sr="' + k + '"><span><i class="dot" style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:7px;background:' + def.color + '"></i>' + esc(def.name) + '</span><span class="num"><b>' + amt + '</b> ' + net + (n[1] === 'bad' || n[1] === 'warn' ? ' <small class="' + n[1] + '">' + n[0] + '</small>' : '') + '</span></div>';
+    return '<tr data-sr="' + k + '" class="' + (def.critical && r.amount < 0.5 && r.net < 0 ? 'crit' : '') + '" title="Tier ' + def.tier + '"><td><i class="dot" style="background:' + def.color + '"></i>' + esc(def.name) + '<span class="tier">T' + def.tier + '</span></td>' +
+      '<td class="num"><b>' + amt + '</b></td><td>' + net + '</td><td><span class="fillbar"><i data-sr-bar style="width:' + (r.amount / r.cap * 100).toFixed(1) + '%;background:' + def.color + '"></i></span></td><td class="' + n[1] + '" style="text-align:left">' + esc(n[0]) + '</td></tr>';
+  }
+  function stockpileTab() {
+    var keys = stockKeys();
+    return '<div class="wide"><div class="p-title"><h3>Stockpile</h3><span class="dim" style="margin-left:auto">' + esc(activeD().core ? 'The colony' : activeD().name) + ' · ' + keys.length + ' kinds</span></div>' +
+      '<table class="stock"><thead><tr><th>Resource</th><th>On hand</th><th>Net</th><th>Fill</th><th style="text-align:left">Status</th></tr></thead><tbody>' + keys.map(function (k) { return stockRow(k, true); }).join('') + '</tbody></table></div>';
+  }
+  // construction/stock numbers interpolate between ticks
+  function frameStock(f) {
+    document.querySelectorAll('[data-sr]').forEach(function (row) {
+      var r = S.resources[row.dataset.sr]; if (!r) return;
+      var v = clamp(r.amount + r.net * f, 0, r.cap);
+      var a = row.querySelector('[data-sr-amt]'); if (a) a.textContent = fmt(v);
+      var b = row.querySelector('[data-sr-bar]'); if (b) b.style.width = (v / r.cap * 100).toFixed(1) + '%';
     });
   }
 
-  // ------------------------------------------------------------------ alerts + legend
-  function renderAlerts() {
-    var h = '', c = S.colony;
-    if (!connected) h += '<div class="alert warn">' + icon('warn', 14) + (pending.length ? 'Offline: ' + pending.length + ' action' + (pending.length === 1 ? '' : 's') + ' waiting to be sent' : 'Connection lost. Retrying…') + '</div>';
-    else if (flushing) h += '<div class="alert warn">' + icon('truck', 14) + 'Reconnected: sending ' + pending.length + ' queued action' + (pending.length === 1 ? '' : 's') + '…</div>';
-    if (c.shutdown) h += '<div class="alert" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + 'Colony shut down' + (c.parked ? ' · ' + c.parked + ' building' + (c.parked === 1 ? '' : 's') + ' parked' : '') + '</div>';
-    if (c.starving.length && !c.shutdown) {
-      var left = Math.ceil(c.morale / (100 / CFG.failureThresholdTicks));
-      h += '<div class="alert">' + icon('warn', 14) + 'Shortage of ' + c.starving.map(function (r) { return CFG.resources[r].name; }).join(' & ') + ' · collapse in ' + left + ' ticks</div>';
-    } else {
-      ['clean_water', 'rations'].forEach(function (k) {
-        var r = S.resources[k];
-        if (r.ticksLeft !== null && r.ticksLeft < 12) h += '<div class="alert warn">' + icon('warn', 14) + CFG.resources[k].name + ' runs out in ' + Math.ceil(r.ticksLeft) + ' ticks</div>';
-      });
-    }
-    if (S.energy.satisfaction < 0.999) h += '<div class="alert warn">' + icon('bolt', 14) + 'Brownout · production at ' + pct(S.energy.satisfaction) + '</div>';
-    if (S.hub.eff < 0.999) h += '<div class="alert warn">' + icon('hub', 14) + 'Hub under-maintained: short of ' + esc(CFG.resources[S.hub.limiting].name) + ' · hub power output cut</div>';
-    var hz = S.hazard;
-    if (hz && hz.state === 'forecast') {
-      var risky = hz.prep < 0.5 && hz.ticksUntil <= 12;
-      h += '<div class="alert ' + (risky ? '' : 'warn') + '" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + esc(hz.name) + ' in ' + hz.ticksUntil + 't (' + clock(hz.ticksUntil * S.tickMs) + ') · ' + Math.round(hz.prep * 100) + '% prepared</div>';
-    } else if (hz) {
-      var first = hz.penalty.concat(hz.cost)[0] || '';
-      h += '<div class="alert' + (hz.severity > 0.02 ? '' : ' warn') + '" style="pointer-events:auto;cursor:pointer" data-act="tab" data-tab="brief">' + icon('warn', 14) + esc(hz.name) + (hz.severity > 0.02 ? ' in effect' : ' being weathered') + (first ? ' · ' + esc(first) : '') + ' · ' + hz.ticksLeft + 't left</div>';
-    }
-    if ($('alerts').dataset.h !== h) { $('alerts').innerHTML = h; $('alerts').dataset.h = h; }
+  // ------------------------------------------------------------------ connection status, dock, workspaces, overview
+  function renderNet() {
+    var h = '';
+    if (!connected) h = '<div class="alert warn">' + icon('warn', 14) + (pending.length ? 'Offline: ' + pending.length + ' action' + (pending.length === 1 ? '' : 's') + ' waiting to be sent' : 'Connection lost. Retrying…') + '</div>';
+    else if (flushing) h = '<div class="alert warn">' + icon('truck', 14) + 'Reconnected: sending ' + pending.length + ' queued action' + (pending.length === 1 ? '' : 's') + '…</div>';
+    if ($('net').dataset.h !== h) { $('net').innerHTML = h; $('net').dataset.h = h; }
   }
-  // ------------------------------------------------------------------ right panel
-  function renderTabs() {
+  function renderAlerts() { renderNet(); }
+
+  function readyFlags() {
     var next = GEO().levels[activeD().level + 1];
-    var dot = next && next.upgradeCost && !S.hub.upgrading && canAfford(next.upgradeCost) && (activeD().core || activeD().level + 1 <= S.districtLevelCap);
-    var ddot = S.districtsUnlocked && Object.keys(CFG.districtTypes).some(function (k) {
+    var up = !!(next && next.upgradeCost && !S.hub.upgrading && canAfford(next.upgradeCost) && (activeD().core || activeD().level + 1 <= S.districtLevelCap));
+    var found = !!(S.districtsUnlocked && Object.keys(CFG.districtTypes).some(function (k) {
       return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
-    });
-    var h = tabsNow().map(function (t) {
-      var label = esc((CFG.ui && CFG.ui.tabs && CFG.ui.tabs[t[0]]) || (t[0] === 'oplace' && activeD().type === 'territory' ? 'Territory' : t[1]));
-      return '<button class="tab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '" title="' + label + '" aria-label="' + label + '">' + icon(t[2], 20) + '<span>' + label + '</span>' +
-        ((t[0] === 'hub' && dot) || (t[0] === 'districts' && ddot) ? '<span class="badge" style="background:var(--good)"></span>' : '') +
-        (t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') +
-        (t[0] === 'comms' && window.Story.unread() ? '<span class="count">' + window.Story.unread() + '</span>' : '') + '</button>';
+    }));
+    return { up: up, found: found };
+  }
+  function groupDot(g) {
+    if (g.id === 'economy') { var n = stockAttention().length; return n ? '<span class="dotb" title="' + n + ' need attention"></span>' : ''; }
+    if (g.id === 'colony') { var f = readyFlags(); return f.up || f.found ? '<span class="dotb good" title="' + (f.up ? 'An upgrade is affordable' : 'A district can be founded') + '"></span>' : ''; }
+    return '';
+  }
+  function renderDock() {
+    var h = groupsNow().map(function (g) {
+      var open = g.tabs.some(function (t) { return t[0] === ws; });
+      var tgt = open ? ws : (lastWs[g.id] && g.tabs.some(function (t) { return t[0] === lastWs[g.id]; }) ? lastWs[g.id] : g.tabs[0][0]);
+      return '<button class="dbtn" data-act="tab" data-tab="' + tgt + '" aria-pressed="' + open + '" title="' + esc(g.tabs.map(function (t) { return tabLabel(t); }).join(' · ')) + '">' + icon(g.icon, 16) + '<span>' + esc(g.name) + '</span>' +
+        (g.id === 'colony' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : '') + groupDot(g) + '</button>';
     }).join('');
-    if ($('tabs').dataset.h !== h) { $('tabs').innerHTML = h; $('tabs').dataset.h = h; }
+    if ($('dock-groups').dataset.h !== h) { $('dock-groups').innerHTML = h; $('dock-groups').dataset.h = h; }
+  }
+  function wsHtml(t) {
+    if (window.Orbit.panes[t]) return window.Orbit.panes[t]();
+    return t === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : t === 'people' ? peopleTab() : t === 'districts' ? districtsTab() : t === 'logistics' ? logisticsPage() :
+      t === 'convoy' ? convoyTab() : t === 'exchange' ? exchangeTab() : t === 'missions' ? missionsTab() : t === 'stockpile' ? stockpileTab() : briefTab();
+  }
+  var lastSheetTabs = '', lastSheet = '';
+  function renderSheet() {
+    var sh = $('sheet');
+    var g = groupsNow().filter(function (x) { return x.tabs.some(function (t) { return t[0] === ws; }); })[0];
+    if (!ws || !g) { ws = null; sh.hidden = true; lastSheet = ''; document.body.classList.remove('ws-open'); return; }
+    sh.hidden = false; document.body.classList.add('ws-open');
+    var th = g.tabs.map(function (t) {
+      var badge = t[0] === 'brief' && S.brief.remaining ? '<span class="count">' + S.brief.remaining + '</span>' : t[0] === 'stockpile' && stockAttention().length ? '<span class="dotb"></span>' : '';
+      return '<button class="dtab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (ws === t[0]) + '">' + icon(t[2], 15) + '<span>' + esc(tabLabel(t)) + '</span>' + badge + '</button>';
+    }).join('');
+    if (th !== lastSheetTabs) { $('sheet-tabs').innerHTML = th; lastSheetTabs = th; }
+    var ae = document.activeElement;
+    if (ae && ae.classList && ae.classList.contains('numin') && sh.contains(ae)) { panelDeferred = true; return; }
+    var h = wsHtml(ws);
+    if (h === lastSheet) return;
+    lastSheet = h;
+    var b = $('sheet-body'), top = b.scrollTop;
+    b.innerHTML = h; b.scrollTop = top;
+  }
+
+  // The overview: what the place needs from the player when nothing is selected.
+  function attention() {
+    var out = [], c = S.colony, hz = S.hazard;
+    if (c.shutdown) out.push(['bad', 'Colony shut down' + (c.parked ? ' · ' + c.parked + ' building' + (c.parked === 1 ? '' : 's') + ' parked' : ''), 'brief']);
+    if (c.starving.length && !c.shutdown) out.push(['bad', 'Shortage of ' + c.starving.map(function (r) { return CFG.resources[r].name; }).join(' & ') + ' · collapse in ' + Math.ceil(c.morale / (100 / CFG.failureThresholdTicks)) + ' ticks', 'stockpile']);
+    var full = [];
+    stockAttention().forEach(function (k) {
+      if (c.starving.indexOf(k) >= 0) return;
+      var n = stockNote(k);
+      if (/FULL/.test(n[0])) { full.push(CFG.resources[k].name); return; }
+      out.push([n[1], CFG.resources[k].name + ' ' + (n[0] === 'EMPTY' ? 'is empty' : n[0]), 'stockpile']);
+    });
+    if (full.length) out.push(['warn', full.length === 1 ? full[0] + ' is full and wasting' : full.length + ' stockpiles are full and wasting: ' + full.slice(0, 3).join(', ') + (full.length > 3 ? '…' : ''), 'stockpile']);
+    if (S.energy.satisfaction < 0.999) out.push(['warn', 'Brownout · production at ' + pct(S.energy.satisfaction), '']);
+    if (S.hub.eff < 0.999) out.push(['warn', 'Hub under-maintained: short of ' + CFG.resources[S.hub.limiting].name, 'hub']);
+    if (hz) out.push([hz.state === 'forecast' ? (hz.prep < 0.5 && hz.ticksUntil <= 12 ? 'bad' : 'warn') : (hz.severity > 0.02 ? 'bad' : 'warn'),
+      hz.name + (hz.state === 'forecast' ? ' in ' + hz.ticksUntil + 't · ' + Math.round(hz.prep * 100) + '% prepared' : hz.severity > 0.02 ? ' in effect' : ' being weathered'), 'brief']);
+    var f = readyFlags();
+    if (f.up) out.push(['good', 'An upgrade is affordable', 'hub']);
+    if (f.found) out.push(['good', 'A district can be founded', 'districts']);
+    return out.slice(0, 7);
+  }
+  function overview() {
+    var d = activeD();
+    if (d.orbital) {
+      var h0 = window.Orbit.panes.oplace();
+      var side = window.Orbit.sideHtml();
+      return h0 + '<div class="label sec">' + (d.type === 'station' ? 'Orbital stock' : 'Territory stock') + '</div>' + side.replace(/^<h2[^>]*>.*?<\/h2>/, '');
+    }
+    var h = '', ds = S.brief.directives, cur = ds.filter(function (x) { return x.current; })[0] || ds.filter(function (x) { return !x.done; })[0];
+    if (cur) {
+      h += '<div class="label sec" style="margin-top:0">Next step</div><div class="ov-card"><h4>' + esc(cur.title) + '</h4><p>' + esc(cur.hint) + '</p>' + timingLine(cur.timing) +
+        '<button class="btn" data-act="tab" data-tab="brief">' + S.brief.remaining + ' left in the Brief</button></div>';
+    }
+    var at = attention();
+    h += '<div class="label sec"' + (cur ? '' : ' style="margin-top:0"') + '>Needs attention</div><div class="ov-card" style="border-left-color:' + (at.some(function (x) { return x[0] === 'bad'; }) ? 'var(--bad)' : at.length ? 'var(--warn)' : 'var(--good)') + '">';
+    if (!at.length) h += '<div class="ov-row"><span class="ov-dot good"></span><span class="grow dim">Nothing needs attention.</span></div>';
+    at.forEach(function (a) {
+      var inner = '<span class="ov-dot ' + a[0] + '"></span><span class="grow">' + esc(a[1]) + '</span>' + (a[2] ? '<span class="dim">›</span>' : '');
+      h += '<div class="ov-row">' + (a[2] ? '<button data-act="tab" data-tab="' + a[2] + '">' + inner + '</button>' : inner) + '</div>';
+    });
+    h += '</div>';
+    var pins = stockKeys().filter(function (k) { return CFG.resources[k].critical || stockAttention().indexOf(k) >= 0; });
+    if (pins.length < 4) stockKeys().forEach(function (k) { if (pins.length < 5 && pins.indexOf(k) < 0 && S.resources[k].amount >= 1) pins.push(k); });
+    h += '<div class="label sec">Pinned stock</div>' + pins.slice(0, 8).map(function (k) { return stockRow(k, false); }).join('') +
+      '<button class="btn block" style="margin-top:10px" data-act="tab" data-tab="stockpile">Open the full stockpile</button>';
+    return h;
+  }
+  function rightPane() {
+    if (sel && sel.ring) return '<button class="pn-x" data-act="desel" title="Close (Esc)" aria-label="Close" style="float:right">&times;</button>' + siteTab();
+    return overview();
   }
 
   function siteTab() {
@@ -868,27 +1004,25 @@
   function renderSwitch() {
     var el = $('dswitch'), h = '';
     visited[activeId] = true;
+    var ground = S.districts.filter(function (d) { return !d.orbital; });
+    var chip = function (d, color, label, small, extra) {
+      return '<button class="dchip' + (d.id === activeId ? ' on' : '') + (extra || '') + '" data-act="enter" data-id="' + d.id + '" title="' + esc(d.name) + '" style="--c:' + color + '"><i></i><span>' + esc(label) + '</span>' + (small ? '<small>' + small + '</small>' : '') + '</button>';
+    };
     if (S.districtsUnlocked) {
-      var canFound = Object.keys(CFG.districtTypes).some(function (k) {
-        return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
-      });
-      var ground = S.districts.filter(function (d) { return !d.orbital; });
-      if (inOrbit()) {
-        h = '<button class="dchip" data-act="enter" data-id="' + ground[0].id + '" style="--c:var(--amber)"><i></i><span>← Colony</span></button>' +
-          S.districts.filter(function (d) { return d.orbital; }).map(function (d) {
-            var t = CFG.orbitalTypes[d.type];
-            return '<button class="dchip' + (d.id === activeId ? ' on' : '') + '" data-act="enter" data-id="' + d.id + '" style="--c:' + t.color + '"><i></i><span>' + esc(d.name) + '</span><small>' + (d.type === 'station' ? 'L' + d.level : 'territory') + '</small></button>';
-          }).join('');
-        if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
-        return;
-      }
-      h = ground.map(function (d) {
+      var found = readyFlags().found;
+      h += '<div class="dgroup">Surface</div>' + ground.map(function (d) {
         var t = d.core ? null : CFG.districtTypes[d.type], fresh = !d.core && !visited[d.id];
-        return '<button class="dchip' + (d.id === activeId ? ' on' : '') + (fresh ? ' new' : '') + '" data-act="enter" data-id="' + d.id + '" style="--c:' + (t ? t.color : 'var(--amber)') + '"><i></i><span>' + esc(d.core ? 'Core' : d.name) + '</span><small>L' + d.level + '</small>' + (fresh ? '<em>NEW</em>' : '') + '</button>';
-      }).join('') + '<button class="dchip add' + (canFound ? ' pulse' : '') + '" data-act="tab" data-tab="districts" style="--c:var(--good)"><i></i><span>' + (ground.length > 1 ? 'Districts' : 'Found a district') + '</span>' + (canFound ? '<em>READY</em>' : '') + '</button>' +
-        (stationId() !== null ? '<button class="dchip orbit" data-act="orbit" style="--c:#90e0ef"><i></i><span>Orbital Command</span></button>' : '');
+        return chip(d, t ? t.color : 'var(--amber)', d.core ? 'Core' : d.name.replace(/^The /, ''), 'L' + d.level, fresh ? ' new' : '') + (fresh ? '' : '');
+      }).join('') + '<button class="dchip add' + (found ? ' pulse' : '') + '" data-act="tab" data-tab="districts" style="--c:var(--good)" title="Found a district"><i></i><span>Found</span>' + (found ? '<em>READY</em>' : '') + '</button>';
+      if (stationId() !== null) {
+        h += '<div class="dgroup">Orbit</div>' + S.districts.filter(function (d) { return d.orbital; }).map(function (d) {
+          var t = CFG.orbitalTypes[d.type];
+          return chip(d, t.color, d.type === 'station' ? 'Station' : d.name, d.type === 'station' ? 'L' + d.level : 'territory');
+        }).join('') + '<button class="dchip add" data-act="tab" data-tab="oterr" style="--c:#f2a7ff" title="Send a dropship to a territory"><i></i><span>Deploy</span></button>';
+      }
     }
     if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
+    $('layout').classList.toggle('no-rail', !h);
   }
   function districtMap() {
     var h = '<svg class="dmap" viewBox="-110 -90 220 180" role="img" aria-label="District map">';
@@ -1269,14 +1403,13 @@
 
   var lastPanel = '';
   var panelDeferred = false;
+  function numFocused(el) { var ae = document.activeElement; return !!(ae && ae.classList && ae.classList.contains('numin') && el.contains(ae)); }
+  // The right pane follows the selection; the workspace over the map is whatever the dock opened.
   function renderPanel() {
-    var ae = document.activeElement;
-    if (ae && ae.classList && ae.classList.contains('numin') && $('panel').contains(ae)) { panelDeferred = true; return; }
+    if (numFocused($('panel')) || numFocused($('sheet'))) { panelDeferred = true; return; }
     panelDeferred = false;
-    var orbitTab = ORBIT_TABS.some(function (x) { return x[0] === tab && tab !== 'site' && tab !== 'comms' && tab !== 'log'; });
-    if (inOrbit() && !ORBIT_TABS.some(function (x) { return x[0] === tab; })) tab = 'oplace';
-    if (!inOrbit() && orbitTab) { tab = 'brief'; orbitTab = false; }
-    var h = orbitTab ? window.Orbit.panes[tab]() : tab === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : tab === 'people' ? peopleTab() : tab === 'districts' ? districtsTab() : tab === 'logistics' ? logisticsPage() : tab === 'convoy' ? convoyTab() : tab === 'exchange' ? exchangeTab() : tab === 'missions' ? missionsTab() : tab === 'comms' ? window.Story.commsHtml() : tab === 'log' ? logTab() : tab === 'brief' ? briefTab() : siteTab();
+    renderSheet();
+    var h = rightPane();
     if (h === lastPanel) return;
     lastPanel = h;
     var p = $('panel'), top = p.scrollTop;
@@ -1286,16 +1419,16 @@
   }
   function framePanel() {
     var now = Date.now() + offset;
-    document.querySelectorAll('#panel [data-b]').forEach(function (el) {
+    document.querySelectorAll('#panel [data-b], #sheet [data-b]').forEach(function (el) {
       var k = el.dataset.b.split(':');
       if (k[0] === 'amt') { var r = S.coreRes[k[1]]; el.textContent = fmt(clamp(r.amount + r.net * frac(), 0, r.cap)); }
     });
-    var xe = document.querySelector('#panel [data-f=xeta]');
+    var xe = document.querySelector('#panel [data-f=xeta], #sheet [data-f=xeta]');
     if (xe && S.express.active) xe.textContent = clock(S.express.active.arrivesAt - now);
-    var cv = document.querySelector('#panel [data-f=convoy]');
+    var cv = document.querySelector('#panel [data-f=convoy], #sheet [data-f=convoy]');
     if (cv) {
       cv.textContent = clock(S.convoy.arrivesAt - now);
-      document.querySelector('#panel [data-f=convoyTicks]').textContent = S.convoy.ticksLeft + ' tick' + (S.convoy.ticksLeft === 1 ? '' : 's');
+      document.querySelector('#panel [data-f=convoyTicks], #sheet [data-f=convoyTicks]').textContent = S.convoy.ticksLeft + ' tick' + (S.convoy.ticksLeft === 1 ? '' : 's');
     }
   }
   function clock(ms) {
@@ -1330,6 +1463,58 @@
       if (o) el.querySelector('.bar i').style.width = (clamp((o.total - o.remaining + f) / o.total, 0, 1) * 100).toFixed(1) + '%';
     });
   }
+
+  // ------------------------------------------------------------------ notifications and messages
+  var popOpen = false, popFrom = 0;
+  function popHtml() {
+    var w = window.Story.waitingHtml();
+    var ev = S.events.slice(0, 8);
+    return '<div class="pop-sec">Incoming</div>' + (w || '<div class="dim" style="font-size:12px">No calls waiting.</div>') +
+      '<div class="pop-sec">Just happened</div>' + (ev.length ? '<ul class="log">' + ev.map(function (e) {
+        return '<li class="' + e.kind + (e.id > popFrom ? ' new' : '') + '">' + esc(e.message) + '<small>tick #' + e.tick + '</small></li>';
+      }).join('') + '</ul>' : '<div class="dim" style="font-size:12px">Nothing yet.</div>') +
+      '<button class="btn pop-link" data-act="msgs" data-t="history">Open the full history</button>';
+  }
+  function renderPop() {
+    if (!popOpen || !S) return;
+    var h = popHtml();
+    if ($('pop').dataset.h !== h) { $('pop').innerHTML = h; $('pop').dataset.h = h; }
+  }
+  function closePop() { popOpen = false; $('pop').hidden = true; }
+  function togglePop() {
+    if (popOpen) { closePop(); return; }
+    if (!S) return;
+    popOpen = true; popFrom = bellSeen; $('pop').hidden = false; $('pop').dataset.h = ''; renderPop();
+    bellSeen = S.events.length ? Math.max(bellSeen, S.events[0].id) : bellSeen;
+    storeSet('bell:' + S.user, String(bellSeen));
+    renderTop();
+  }
+  var msgDone = '';
+  function messages(t) {
+    if (t) msgTab = t;
+    closePop();
+    if (!document.querySelector('.modal.messages')) modal('<div class="msg-head" id="msg-head"></div><div class="msg-body" id="msg-body"></div>', 'messages');
+    msgDone = '';
+    renderMessages();
+  }
+  function renderMessages() {
+    var head = $('msg-head');
+    if (!head || !S) return;
+    var cnt = window.Story.counts();
+    var h = [['mail', 'Mail', cnt.mail], ['calls', 'Calls', cnt.calls], ['history', 'History', 0]].map(function (t) {
+      return '<button class="dtab" data-act="mtab" data-t="' + t[0] + '" aria-selected="' + (msgTab === t[0]) + '">' + t[1] + (t[2] ? '<span class="count">' + t[2] + '</span>' : '') + '</button>';
+    }).join('') + '<button class="x" data-m="close" aria-label="Close">&times;</button>';
+    var body = msgTab === 'calls' ? window.Story.callsHtml() : msgTab === 'history' ? logTab() : window.Story.mailHtml();
+    if (msgDone === h + body) return;
+    msgDone = h + body;
+    head.innerHTML = h;
+    var b = $('msg-body'), top = b.scrollTop; b.innerHTML = body; b.scrollTop = top;
+  }
+  // answering a call or reading a message hands the screen to the story overlay
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('[data-story]')) { closePop(); var m = document.querySelector('.modal.messages'); if (m) m.closest('.modal-bg').remove(); return; }
+    if (popOpen && !e.target.closest('#pop, #bell-btn')) closePop();
+  });
 
   // ------------------------------------------------------------------ modals
   function modal(html, cls) {
@@ -1408,7 +1593,11 @@
     if (!el || el.disabled) return;
     var a = el.dataset.act;
     var sh = e.shiftKey ? 10 : 1; // hold Shift for bigger steps
-    if (a === 'tab') { e.preventDefault(); tab = el.dataset.tab; renderAll(); }
+    if (a === 'tab') { e.preventDefault(); if (el.dataset.tab === ws && el.classList.contains('dbtn')) { ws = null; renderAll(); } else go(el.dataset.tab); }
+    else if (a === 'desel') { sel = null; renderAll(); }
+    else if (a === 'wsclose') { ws = null; renderAll(); }
+    else if (a === 'msgs') { closePop(); messages(el.dataset.t || 'mail'); }
+    else if (a === 'mtab') { msgTab = el.dataset.t; renderMessages(); }
     else if (a === 'resumeOps') act('resume', {});
     else if (a === 'build' && sel && sel.ring) act('build', { ring: sel.ring, slot: sel.slot, type: el.dataset.type, district: activeId });
     else if (a === 'toggle') {
@@ -1480,7 +1669,7 @@
     else if (a === 'xprefill') {
       xdraft = { sell: {}, buy: {} };
       shortfalls(S.hazard).forEach(function (r) { xdraft.buy[r.resource] = Math.min(S.express.limits[r.resource], Math.ceil(r.need - r.have)); });
-      convoyMode = 'express'; tab = 'convoy'; renderAll();
+      convoyMode = 'express'; go('convoy');
     }
     else if (a === 'xdispatch') {
       act('express', { sell: xdraft.sell, buy: xdraft.buy }, 'Express convoy dispatched.').then(function (d) {
@@ -1542,25 +1731,30 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
+      if (popOpen) { closePop(); return; }
       var m = document.querySelector('.modal-bg'); if (m && !m.querySelector('[data-lock]')) { m.remove(); return; }
+      if (ws) { ws = null; renderAll(); return; }
       if (sel) { sel = null; renderAll(); }
     }
   });
-  $('menu-btn').innerHTML = icon('menu', 18);
+  $('bell-btn').innerHTML = icon('bell', 18) + '<span class="dotc" id="bell-n" hidden></span>';
+  $('mail-btn').innerHTML = icon('mail', 18) + '<span class="dotc" id="mail-n" hidden></span>';
+  $('bell-btn').addEventListener('click', togglePop);
+  $('mail-btn').addEventListener('click', function () { messages(); });
   $('menu-btn').addEventListener('click', menu);
+  $('sheet-close').addEventListener('click', function () { ws = null; renderAll(); });
+  [['c-pop', 'people'], ['c-morale', 'people'], ['c-doom', 'brief'], ['c-hazard', 'brief']].forEach(function (x) {
+    var c = $(x[0]).closest('.chip'); c.classList.add('click'); c.dataset.act = 'tab'; c.dataset.tab = x[1];
+  });
+  $('legend').innerHTML = '<span>' + icon('lock', 11) + ' locked</span><span>- - dashed: being built</span><span>! hazard</span><span>OFF / DOWN: not running</span><span>▲n: level</span>';
 
   // ------------------------------------------------------------------ state flow
   function renderAll() {
     if (!S) return;
     if (radarFor !== activeId) { radarFor = activeId; viewR = 0; buildRadar(); }
     renderSwitch();
-    var orb = inOrbit();
-    document.body.classList.toggle('orbit-mode', orb);
-    $('resources').style.display = orb ? 'none' : '';
-    $('res-title').style.display = orb ? 'none' : '';
-    $('oside').style.display = orb ? '' : 'none';
-    if (orb) { var oh = window.Orbit.sideHtml(); if ($('oside').dataset.h !== oh) { $('oside').innerHTML = oh; $('oside').dataset.h = oh; } }
-    renderTop(); renderRadar(); renderTabs(); renderPanel(); renderQueue(); renderAlerts(); checkModals();
+    document.body.classList.toggle('orbit-mode', inOrbit());
+    renderTop(); renderRadar(); renderDock(); renderPanel(); renderQueue(); renderNet(); renderPop(); renderMessages(); checkModals();
   }
 
   function merge(ns) {
@@ -1575,7 +1769,7 @@
   }
   function enter(id) {
     if (!RAW || !RAW.views[id]) return;
-    activeId = id; sel = null; confirmKey = null;
+    activeId = id; sel = null; ws = null; confirmKey = null;
     S = merge(RAW); renderAll();
   }
   function setState(ns) {
@@ -1593,7 +1787,7 @@
       });
     }
     lastEventId = Math.max(lastEventId || 0, top);
-    if (first) buildResources();
+    if (first) bellSeen = +(storeGet('bell:' + ns.user) || 0) || top;
     renderAll();
   }
 
@@ -1603,10 +1797,10 @@
     if (!S || t - lastFrame < 70) return;
     lastFrame = t;
     var f = frac();
-    frameResources(f); frameQueue(f); frameRadar(f);
+    frameStock(f); frameQueue(f); frameRadar(f);
     if (Math.abs(viewR - targetR) > 0.5) { viewR += (targetR - viewR) * 0.12; setView(viewR); } else if (viewR !== targetR) { viewR = targetR; setView(viewR); }
     var now = Date.now() + offset;
-    $('c-convoy').innerHTML = clock(S.convoy.arrivesAt - now) + ' <small>' + S.convoy.ticksLeft + 't</small>';
+    var cvEl = $('c-convoy'); if (cvEl) cvEl.innerHTML = convoyHtml();
     framePanel();
   }
 
@@ -1653,15 +1847,15 @@
     var ui = CFG.ui || {};
     if (ui.title) document.title = ui.title;
     if (ui.brand) document.querySelector('.brand').textContent = ui.brand;
-    var ids = { credits: 'c-credits', population: 'c-pop', crew: 'c-crew', morale: 'c-morale', doom: 'c-doom', energy: 'c-energy', convoy: 'c-convoy', tick: 'c-tick' };
+    var ids = { credits: 'c-credits', population: 'c-pop', morale: 'c-morale', doom: 'c-doom' };
     if (window.Terms) window.Terms.init(ui.terms);
     Object.keys(ids).forEach(function (k) { var l = ui.labels && ui.labels[k]; var el = $(ids[k]); if (l && el && el.previousElementSibling) el.previousElementSibling.textContent = l; });
   }
   window.Orbit.init({
     S: function () { return S; }, CFG: function () { return CFG; }, act: act, esc: esc, fmt: fmt, icon: icon, pill: pill, toast: toast,
-    enter: function (id) { enter(id); }, enterOrbit: enterOrbit, activeD: activeD, redraw: function () { if (S) { lastPanel = ''; renderPanel(); } }
+    enter: function (id) { enter(id); }, enterOrbit: enterOrbit, activeD: activeD, redraw: function () { if (S) { lastPanel = ''; lastSheet = ''; renderPanel(); } }
   });
-  window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, changed: function () { if (S) { renderTabs(); renderPanel(); } } });
+  window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, changed: function () { if (S) { renderTop(); renderPanel(); renderPop(); renderMessages(); } } });
   api('config').then(function (cfg) {
     CFG = cfg;
     applyTheme();

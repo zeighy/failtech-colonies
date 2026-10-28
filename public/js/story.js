@@ -279,33 +279,35 @@
   function closeMail() { var el = document.getElementById('mailv'); if (el) el.remove(); }
 
   // ---------------------------------------------------------------- Comms tab
-  function commsHtml() {
-    if (!view || !view.items.length) return '<div class="empty-state">' + host.icon('mail', 36) + '<div>No messages yet.</div></div>';
-    var pending = view.items.filter(function (i) { return i.kind === 'dialogue' && !i.seen; });
-    var mail = view.items.filter(function (i) { return i.kind === 'mail'; }).reverse();
-    var archive = view.items.filter(function (i) { return i.kind === 'dialogue' && i.seen; }).reverse();
-    var h = '';
-    if (pending.length) {
-      h += '<div class="label sec">Waiting calls</div>' + pending.map(function (i) {
-        return '<div class="vn-card"><div><b>' + esc(i.title) + '</b><div class="dim" style="font-size:11px">Waiting for you</div></div>' +
-          '<button class="btn primary" data-story="answer" data-beat="' + esc(i.id) + '">' + host.icon('play', 12) + ' Answer</button></div>';
-      }).join('');
-    }
-    h += '<div class="label sec">Inbox</div>';
-    if (!mail.length) h += '<div class="dim" style="font-size:12px">Nothing yet.</div>';
-    h += mail.map(function (i) {
+  function waitingHtml() {
+    if (!view) return '';
+    return view.items.filter(function (i) { return i.kind === 'dialogue' && !i.seen; }).map(function (i) {
+      return '<div class="vn-card"><div><b>' + esc(i.title) + '</b><div class="dim" style="font-size:11px">Waiting for you</div></div>' +
+        '<button class="btn primary" data-story="answer" data-beat="' + esc(i.id) + '">' + host.icon('play', 12) + ' Answer</button></div>';
+    }).join('');
+  }
+  function mailHtml() {
+    var mail = view ? view.items.filter(function (i) { return i.kind === 'mail'; }).reverse() : [];
+    if (!mail.length) return '<div class="empty-state">' + host.icon('mail', 36) + '<div>No mail yet.</div></div>';
+    return mail.map(function (i) {
       var from = nameOf(i.from) || 'Unknown';
       return '<div class="mail' + (i.seen ? '' : ' unread') + '"><button class="mail-head" data-story="mail" data-beat="' + esc(i.id) + '">' +
         '<span class="dot"></span><span class="mail-from">' + esc(from) + '</span><span class="mail-subj">' + esc(i.title) + '</span><small>#' + i.tick + '</small></button></div>';
     }).join('');
+  }
+  function callsHtml() {
+    var archive = view ? view.items.filter(function (i) { return i.kind === 'dialogue' && i.seen; }).reverse() : [];
+    var h = waitingHtml();
+    if (h) h = '<div class="label sec">Waiting calls</div>' + h;
     if (archive.length) {
-      h += '<div class="label sec">Archive</div>' + archive.map(function (i) {
+      h += '<div class="label sec">Past calls</div>' + archive.map(function (i) {
         return '<div class="vn-card"><div><b>' + esc(i.title) + '</b><div class="dim" style="font-size:11px">tick #' + i.tick + '</div></div>' +
           '<button class="btn" data-story="play" data-beat="' + esc(i.id) + '" data-replay="1">Replay</button></div>';
       }).join('');
     }
-    return h;
+    return h || '<div class="empty-state">' + host.icon('mail', 36) + '<div>No calls yet.</div></div>';
   }
+  function counts() { return view ? { mail: view.unreadMail, calls: view.pending.length } : { mail: 0, calls: 0 }; }
 
-  window.Story = { init: init, setView: setView, commsHtml: commsHtml, unread: unread };
+  window.Story = { init: init, setView: setView, waitingHtml: waitingHtml, mailHtml: mailHtml, callsHtml: callsHtml, counts: counts, unread: unread };
 })();

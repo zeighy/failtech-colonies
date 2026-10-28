@@ -149,8 +149,8 @@ keep the current wording. Ids never change.
 - Quartermaster's request
 
 ### UI words
-Brand, subtitle, browser title, login note, the top-bar labels (credits, population, crew, morale, collapse clock,
-power grid, convoy, tick) and the tab names (Brief, Site, Hub, People, Districts, Logistics, Convoy, Exchange,
+Brand, subtitle, browser title, login note, the top-bar labels (credits, population, morale, collapse clock,
+power grid, convoy) and the workspace names (Brief, Site, Hub, People, Districts, Logistics, Convoy, Exchange,
 Missions, Comms, Log). These are in `ui` in `theme.json`. If your setting has its own words for *hub*, *colony*,
 *credits*, *convoy*, tell me the list.
 
