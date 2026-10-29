@@ -659,3 +659,5 @@ body.orbit-mode .dtab[aria-selected="true"], body.orbit-mode .dbtn[aria-pressed=
 #layout, #dock, #topbar { min-width: 0; }
 #dock { overflow: hidden; }
 #queue { overflow-x: auto; overflow-y: hidden; }
+.slot.clearing .cell { fill: rgba(255,255,255,.02); stroke: var(--warn); stroke-dasharray: 2 4; }
+.slot.clearing .tag { fill: var(--warn); }

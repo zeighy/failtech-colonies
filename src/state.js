@@ -179,6 +179,7 @@ function viewFor(userId, now = Date.now()) {
     return {
       id: d.id, type: d.type, name: d.name, level: d.level, core: isCore, orbital: !!(config.orbitalTypes || {})[d.type],
       territory: d.territory || null,
+      locks: store.loadSlotLocks(d.id, t.globalTick).map((l) => ({ ring: l.ring, slot: l.slot, ticksLeft: l.untilTick - t.globalTick })),
       resources, cap,
       hub: {
         maxStorage: cap, baseStorage: lvl.maxStorage, baseEnergy: lvl.baseEnergy, rings: lvl.ringCapacities,

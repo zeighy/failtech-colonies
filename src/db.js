@@ -87,6 +87,13 @@ function migrate() {
       status TEXT NOT NULL DEFAULT 'active',
       UNIQUE (district_id, ring_index, slot_index)
     );
+    CREATE TABLE IF NOT EXISTS slot_locks (
+      district_id INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+      ring_index INTEGER NOT NULL,
+      slot_index INTEGER NOT NULL,
+      until_tick INTEGER NOT NULL,
+      PRIMARY KEY (district_id, ring_index, slot_index)
+    );
     CREATE TABLE IF NOT EXISTS colony_work_orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
@@ -504,6 +511,10 @@ function loadBuildings(colonyId, districtId = coreId(colonyId)) {
 }
 
 // With a districtId: that district's orders. Without: every order in the colony.
+// Slots that cannot be built on yet because a configured workshop was just scrapped there.
+function loadSlotLocks(districtId, tick) {
+  return db.prepare('SELECT ring_index AS ring, slot_index AS slot, until_tick AS untilTick FROM slot_locks WHERE district_id = ? AND until_tick > ?').all(districtId, tick);
+}
 function loadOrders(colonyId, districtId) {
   const rows = districtId === undefined
     ? db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? ORDER BY id').all(colonyId)
@@ -546,5 +557,5 @@ function loadContracts(colonyId) {
 module.exports = {
   db, config, dbPath, purgeSessions, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
-  coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadShipments, loadRoutes, loadContracts, loadHazard, loadExpress,
+  coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadSlotLocks, loadShipments, loadRoutes, loadContracts, loadHazard, loadExpress,
 };

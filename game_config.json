@@ -3357,12 +3357,12 @@
       "buildTicks": 120,
       "levels": {
         "1": {
-          "power": 40,
+          "power": 50,
           "hold": 600,
           "linkRate": 15
         },
         "2": {
-          "power": 70,
+          "power": 80,
           "hold": 1000,
           "linkRate": 25,
           "cost": {
@@ -3372,7 +3372,7 @@
           }
         },
         "3": {
-          "power": 100,
+          "power": 120,
           "hold": 1600,
           "linkRate": 40,
           "cost": {

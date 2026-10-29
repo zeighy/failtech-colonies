@@ -8,7 +8,7 @@ The game ships with a story and a full theme: **Recontinuation** (Earth after th
 
 1. **Register** a Commander ID. You start with a Core (level 1), 20 colonists and a stockpile.
 2. **Click an empty slot** on the radar to see what you can build. The menu shows costs, inputs and outputs, the adjacency bonus *for that exact slot*, and whether the **plot is big enough**.
-3. **Click a structure** to inspect it: efficiency, what is limiting it, neighbours, plot fit. You can pause it (saves power), switch on an optional input, expand it, or demolish it (50% refund).
+3. **Click a structure** to inspect it: efficiency, what is limiting it, neighbours, plot fit. You can pause it (saves power), switch on an optional input, expand it, or demolish it (50% refund; a configured workshop also leaves its slot clearing for a while, as long as a recipe change takes).
 4. Your people drink and eat every tick. If clean water or rations run out, morale falls and people leave. If hope runs out the colony **shuts down** instead of collapsing: non-essential buildings are parked and you decide whether to rebuild or start over (see Systems).
 5. **Goal:** build the Beacon Array and keep it running until the transmission completes (25 signal). Everything else exists to make that possible. Then the harbour opens, and the game turns open-ended.
 6. **Orbit:** with 500 standing across the factions, a second chapter opens (it stays hidden until then). Launch a station, then send dropships to the anomalies (see [Orbit](#orbit)).

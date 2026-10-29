@@ -41,7 +41,7 @@ transaction. The simulation is server-authoritative, so there is nothing for a m
 - Anything that spends (building, shipments, routes, orders, express trips) checks and pays in one transaction; tests fire dozens of simultaneous requests at one stock.
 
 ## Game-rule exploits closed
-- Scrapping a configured Trade Workshop costs its recipe-reset fee (otherwise demolish-and-rebuild is a free reset).
+- Scrapping a configured recipe building (Trade Workshop, Orbital Foundry, Anomaly Tap) costs its recipe-reset fee and locks the slot for `tradeWorks.reset.delayTicks` (table `slot_locks`), so demolish-and-rebuild is never a faster or cheaper reset than changing the recipe.
 - Trade goods cannot go through the convoy; the exchange has an escrow, a fee and a price band; crafting from exchange-bought goods never makes money (tested).
 - No player-to-player self-trading; one express trip at a time; per-resource limits scale with hub level.
 
