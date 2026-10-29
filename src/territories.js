@@ -375,27 +375,47 @@ function advanceData(c, results, tick) {
   }
 }
 
-// The packets: cost and wording are public; the text only once unlocked.
+// A packet unlocks in parts. Part 1 costs fragments; later parts cost fragments and a few orbital goods from the station, so
+// reading everything takes expeditions and the foundry as well as data sites. A sealed part shows only its cost.
+const packetParts = (p) => p.costs.length;
+const partText = (p, i) => p[i === 0 ? 'text' : `text${i + 1}`];
+
 function dataView(c) {
   const row = db.prepare('SELECT data_fragments, data_successes, data_total FROM colonies WHERE id = ?').get(c.id);
-  const mine = new Set(db.prepare('SELECT packet_id FROM colony_data_packets WHERE colony_id = ?').all(c.id).map((x) => x.packet_id));
+  const lv = Object.fromEntries(db.prepare('SELECT packet_id, level FROM colony_data_packets WHERE colony_id = ?').all(c.id).map((x) => [x.packet_id, x.level]));
   const DS = T.dataSite;
   return {
     unlocked: row.data_total > 0, fragments: row.data_fragments, total: row.data_total, successes: row.data_successes,
     perFragment: DS.attemptsPerFragment, attemptTicks: DS.attemptTicks, successChance: DS.successChance,
-    // a sealed packet shows only its cost, which hints at its size; name and text arrive once it is unlocked
-    packets: Object.entries(config.orbital.data.packets).map(([id, p]) => (mine.has(id) ? { id, cost: p.cost, unlocked: true, name: p.name, text: p.text } : { id, cost: p.cost, unlocked: false })),
+    packets: Object.entries(config.orbital.data.packets).map(([id, p]) => {
+      const level = lv[id] || 0;
+      const next = level < packetParts(p) ? { part: level + 1, ...p.costs[level] } : null;
+      if (!level) return { id, level, next };                      // sealed: only what part 1 costs
+      return { id, level, of: packetParts(p), name: p.name, texts: Array.from({ length: level }, (_, i) => partText(p, i)), next };
+    }),
   };
 }
 
 function unlockPacket(c, { packet }) {
   const p = Object.prototype.hasOwnProperty.call(config.orbital.data.packets, packet) ? config.orbital.data.packets[packet] : null;
   if (!p) return fail('Unknown data packet.');
-  if (db.prepare('SELECT 1 FROM colony_data_packets WHERE colony_id = ? AND packet_id = ?').get(c.id, packet)) return fail('You already have that packet.');
-  const row = db.prepare('SELECT data_fragments FROM colonies WHERE id = ?').get(c.id);
-  if (row.data_fragments < p.cost) return fail(`That packet costs ${p.cost} data fragment${p.cost === 1 ? '' : 's'}.`);
-  db.prepare('UPDATE colonies SET data_fragments = data_fragments - ? WHERE id = ?').run(p.cost, c.id);
-  db.prepare('INSERT INTO colony_data_packets (colony_id, packet_id) VALUES (?, ?)').run(c.id, packet);
+  const row = db.prepare('SELECT level FROM colony_data_packets WHERE colony_id = ? AND packet_id = ?').get(c.id, packet);
+  const level = row ? row.level : 0;
+  if (level >= packetParts(p)) return fail('You have already unlocked all of that packet.');
+  const cost = p.costs[level];
+  const have = db.prepare('SELECT data_fragments FROM colonies WHERE id = ?').get(c.id).data_fragments;
+  if (have < cost.fragments) return fail(`That costs ${cost.fragments} data fragment${cost.fragments === 1 ? '' : 's'}.`);
+  const goods = cost.goods || {};
+  let inv = null; let did = null;
+  if (Object.keys(goods).length) {
+    const st = orbital.stationOf(c.id);
+    if (!st) return fail('The goods for this part are paid from orbital storage, and there is no station.');
+    did = st.district_id; inv = store.loadInventory(c.id, did);
+    for (const [r, q] of Object.entries(goods)) if ((inv[r] || 0) < q) return fail(`Not enough ${config.resources[r].name} in orbital storage: ${q} needed.`);
+  }
+  db.prepare('UPDATE colonies SET data_fragments = data_fragments - ? WHERE id = ?').run(cost.fragments, c.id);
+  if (inv) { for (const [r, q] of Object.entries(goods)) inv[r] -= q; store.saveInventory(c.id, inv, did); }
+  db.prepare('INSERT INTO colony_data_packets (colony_id, packet_id, level) VALUES (?, ?, 1) ON CONFLICT (colony_id, packet_id) DO UPDATE SET level = level + 1').run(c.id, packet);
   return OK;
 }
 

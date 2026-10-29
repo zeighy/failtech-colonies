@@ -374,9 +374,11 @@ function migrate() {
     CREATE TABLE IF NOT EXISTS colony_data_packets (
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
       packet_id TEXT NOT NULL,
+      level INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY (colony_id, packet_id)
     );
   `);
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('colony_data_packets') WHERE name = 'level'").get()) db.exec('ALTER TABLE colony_data_packets ADD COLUMN level INTEGER NOT NULL DEFAULT 1');
   if (!db.prepare("SELECT 1 FROM pragma_table_info('orbital_shipments') WHERE name = 'dest'").get()) db.exec("ALTER TABLE orbital_shipments ADD COLUMN dest TEXT NOT NULL DEFAULT 'station'");
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

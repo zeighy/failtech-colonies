@@ -675,3 +675,7 @@ body.orbit-mode .dtab[aria-selected="true"], body.orbit-mode .dbtn[aria-pressed=
 .packet .ptext p { margin: 0 0 8px; }
 .packet.sealed .psize { height: 4px; background: #1d252c; border-radius: 2px; margin: 8px 0 10px; overflow: hidden; }
 .packet.sealed .psize i { display: block; height: 100%; background: var(--cyan); opacity: .6; }
+.packet .ptext + .ptext { border-top: 1px dashed var(--line2); margin-top: 10px; padding-top: 10px; }
+.packet .ptext .label { margin-bottom: 4px; color: var(--cyan); }
+.packet .pmore { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--line2); border-radius: var(--radius); background: rgba(127,214,194,.04); }
+.packet .pmore .grow { flex: 1; min-width: 0; }

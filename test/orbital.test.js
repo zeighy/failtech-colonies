@@ -580,18 +580,38 @@ test('data sites: about one territory in twenty has one, Data Recovery only buil
     assert.equal(d.fragments, 1);
     assert.equal(d.unlocked, true);
     assert.ok(orbital.flagsOf(db.prepare('SELECT * FROM colonies WHERE id = ?').get(c.id)).dataFragment !== undefined, 'the first fragment raises the story flag');
-    // packets: the text is only sent once it is unlocked
-    const cheap = d.packets.find((p) => p.cost === 1), dear = d.packets.find((p) => p.cost > 1);
-    assert.deepEqual(Object.keys(cheap).sort(), ['cost', 'id', 'unlocked'], 'a sealed packet shows only its cost');
-    assert.ok(d.packets.some((p) => p.cost >= 4), 'longer packets cost more');
+    // packets: a sealed one shows only its cost; later parts also cost orbital goods from the station
+    const cheap = d.packets.find((p) => p.next.fragments === 1), dear = d.packets.find((p) => p.next.fragments > 1);
+    assert.deepEqual(Object.keys(cheap).sort(), ['id', 'level', 'next'], 'a sealed packet shows only its cost');
+    assert.deepEqual(Object.keys(cheap.next).sort(), ['fragments', 'part'], 'and part one needs nothing but fragments');
+    assert.ok(d.packets.some((p) => p.next.fragments >= 4), 'longer packets cost more');
     assert.match(actions.dataUnlock(c.uid, { packet: dear.id }).error, /costs/);
     assert.match(actions.dataUnlock(c.uid, { packet: 'nope' }).error, /Unknown/);
     assert.deepEqual(actions.dataUnlock(c.uid, { packet: cheap.id }), { ok: true });
     const after = viewFor(c.uid).data;
     assert.equal(after.fragments, 0);
-    assert.ok(after.packets.find((p) => p.id === cheap.id).text.length > 20);
-    assert.ok(after.packets.find((p) => p.id === cheap.id).name);
-    assert.match(actions.dataUnlock(c.uid, { packet: cheap.id }).error, /already/);
-    assert.equal(JSON.stringify(require('../src/state').clientConfig().orbital.data.packets), JSON.stringify(Object.fromEntries(Object.keys(config.orbital.data.packets).map((k) => [k, { cost: config.orbital.data.packets[k].cost }]))), 'the config carries costs only, never names or lore');
+    const opened = after.packets.find((p) => p.id === cheap.id);
+    assert.ok(opened.name && opened.texts[0].length > 20);
+    assert.match(actions.dataUnlock(c.uid, { packet: cheap.id }).error, /already unlocked all/, 'a one-part packet is finished');
+    assert.equal(require('../src/state').clientConfig().orbital.data, undefined, 'the config never carries the packets');
+    // a packet with more parts: part two needs fragments and goods from orbital storage
+    const multi = Object.entries(config.orbital.data.packets).find(([, p]) => p.costs.length > 2)[0];
+    const costs = config.orbital.data.packets[multi].costs;
+    db.prepare('UPDATE colonies SET data_fragments = 99 WHERE id = ?').run(c.id);
+    assert.deepEqual(actions.dataUnlock(c.uid, { packet: multi }), { ok: true });
+    let mp = viewFor(c.uid).data.packets.find((p) => p.id === multi);
+    assert.equal(mp.level, 1); assert.equal(mp.of, costs.length); assert.equal(mp.texts.length, 1);
+    assert.deepEqual(Object.keys(mp.next.goods).sort(), Object.keys(costs[1].goods).sort(), 'the next part names its goods');
+    assert.match(actions.dataUnlock(c.uid, { packet: multi }).error, /Not enough .* in orbital storage/);
+    const sinv = store.loadInventory(c.id, c.station.district_id);
+    for (const [r, q] of Object.entries(costs[1].goods)) sinv[r] = q + 1;
+    store.saveInventory(c.id, sinv, c.station.district_id);
+    const frags = viewFor(c.uid).data.fragments;
+    assert.deepEqual(actions.dataUnlock(c.uid, { packet: multi }), { ok: true });
+    assert.equal(viewFor(c.uid).data.fragments, frags - costs[1].fragments);
+    const sinv2 = store.loadInventory(c.id, c.station.district_id);
+    for (const r of Object.keys(costs[1].goods)) assert.equal(sinv2[r], 1, 'the goods were paid from the station');
+    mp = viewFor(c.uid).data.packets.find((p) => p.id === multi);
+    assert.equal(mp.level, 2); assert.equal(mp.texts.length, 2);
   } finally { Object.assign(DS, saved); }
 });

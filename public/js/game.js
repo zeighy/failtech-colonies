@@ -597,14 +597,19 @@
       return '<div class="ov-row"><div class="grow"><b>' + esc(x.district.name) + '</b><div class="dim" style="font-size:12px">Attempt ' + Math.floor(x.b.dataProgress || 0) + ' / ' + D.attemptTicks + ' ticks · <span class="' + st[1] + '">' + st[0] + '</span></div></div><div class="meter" style="width:120px"><i style="width:' + ((x.b.dataProgress || 0) / D.attemptTicks * 100).toFixed(0) + '%;background:var(--cyan)"></i></div></div>';
     }).join('') : '<div class="dim" style="font-size:12px">No rig is working. Build Data Recovery in a territory that has a data site.</div>';
     h += '<div class="sheet-h">Data packets</div>';
-    var biggest = Math.max.apply(null, D.packets.map(function (p) { return p.cost; }));
-    h += '<div class="dim" style="font-size:12px;margin:-2px 0 6px">Sealed packets show only how many fragments they take. The bigger the packet, the more it costs.</div>';
+    var biggest = Math.max.apply(null, D.packets.map(function (p) { return p.level ? 0 : p.next.fragments; }).concat([1]));
+    var st = RAW.orbital && RAW.orbital.station, sv = st && S.views[st.districtId];
+    var stock = function (r) { return { amount: sv && sv.resources[r] ? sv.resources[r].amount : 0 }; };
+    h += '<div class="dim" style="font-size:12px;margin:-2px 0 6px">Sealed packets show only what they cost. Some hold more than one part: reading on takes more fragments and a few orbital goods from the station.</div>';
     h += D.packets.map(function (p) {
-      var can = D.fragments >= p.cost;
-      if (p.unlocked) return '<div class="packet open"><div class="top"><b>' + esc(p.name) + '</b><span class="good">Unlocked</span></div><div class="ptext">' + esc(p.text).split(/\n+/).map(function (t) { return '<p>' + t + '</p>'; }).join('') + '</div></div>';
-      return '<div class="packet sealed"><div class="top"><b>' + icon('lock', 14) + ' Sealed packet</b><span class="dim">' + p.cost + ' fragment' + (p.cost === 1 ? '' : 's') + '</span></div>' +
-        '<div class="psize" title="Size, from the cost"><i style="width:' + Math.round(p.cost / biggest * 100) + '%"></i></div>' +
-        '<button class="btn' + (can ? ' primary' : '') + '" data-act="dataunlock" data-packet="' + esc(p.id) + '"' + (can ? '' : ' disabled') + '>Unlock for ' + p.cost + '</button></div>';
+      var n = p.next, can = !!n && D.fragments >= n.fragments && Object.keys(n.goods || {}).every(function (r) { return stock(r).amount >= n.goods[r]; });
+      var cost = n ? '<span class="num">' + n.fragments + ' fragment' + (n.fragments === 1 ? '' : 's') + '</span>' + (n.goods ? '<span class="io" style="display:inline-flex;margin-left:6px">' + Object.keys(n.goods).map(function (r) { return pill(r, n.goods[r], stock(r).amount < n.goods[r] ? 'no' : ''); }).join('') + '</span>' : '') : '';
+      var btn = n ? '<button class="btn' + (can ? ' primary' : '') + '" data-act="dataunlock" data-packet="' + esc(p.id) + '"' + (can ? '' : ' disabled') + '>' + (p.level ? 'Read on' : 'Unlock') + '</button>' : '';
+      if (!p.level) return '<div class="packet sealed"><div class="top"><b>' + icon('lock', 14) + ' Sealed packet</b><span class="dim">' + cost + '</span></div>' +
+        '<div class="psize" title="Size, from the cost"><i style="width:' + Math.round(n.fragments / biggest * 100) + '%"></i></div>' + btn + '</div>';
+      return '<div class="packet open"><div class="top"><b>' + esc(p.name) + '</b>' + (p.of > 1 ? '<span class="dim">Part ' + p.level + ' of ' + p.of + '</span>' : '<span class="good">Unlocked</span>') + '</div>' +
+        p.texts.map(function (t, i) { return '<div class="ptext">' + (p.of > 1 ? '<div class="label">Part ' + (i + 1) + '</div>' : '') + esc(t).split(/\n+/).map(function (x) { return '<p>' + x + '</p>'; }).join('') + '</div>'; }).join('') +
+        (n ? '<div class="pmore"><div class="grow"><b>More inside</b> <span class="dim">Part ' + n.part + ' of ' + p.of + '</span><div style="margin-top:4px">' + cost + '</div></div>' + btn + '</div>' : (p.of > 1 ? '<div class="good" style="font-size:12px;margin-top:6px">Complete</div>' : '')) + '</div>';
     }).join('');
     return h;
   }
