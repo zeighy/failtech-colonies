@@ -48,7 +48,7 @@ function clientConfig() {
     }])),
     orbitalRecipeBook: sim.recipeBook(config, config.buildings.orbital_foundry),
     tapRecipes: config.tapRecipes,
-    orbital: { ...config.orbital, data: { packets: Object.fromEntries(Object.entries(config.orbital.data.packets).map(([id, p]) => [id, { name: p.name, desc: p.desc, cost: p.cost }])) } }, // (a packet's text is only sent once it is unlocked)
+    orbital: { ...config.orbital, data: { packets: Object.fromEntries(Object.entries(config.orbital.data.packets).map(([id, p]) => [id, { cost: p.cost }])) } }, // (a packet's name and text are only sent once it is unlocked)
     logistics: config.logistics,
     expansion: config.expansion,
     popConsumption: config.global.populationConsumptionPerTick,

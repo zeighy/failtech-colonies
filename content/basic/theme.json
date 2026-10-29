@@ -721,35 +721,37 @@
     }
   },
   "dataPackets": {
-    "survey_log": {
-      "name": "Survey Log: Landing",
-      "desc": "The first survey of the ground the colony stands on.",
-      "text": "The first survey team set down on a dry morning and wrote only the facts: the ground was level, the water was bad, the sky was the colour of a pressed coin. They marked a point for the hub and went home. Nothing in the log says why that point was chosen. The coordinates are not the best ones in the area. They are the only ones the surveyors all agreed on without discussion."
+    "p01": {
+      "name": "Survey Log",
+      "text": "The first survey team wrote only facts: the ground was level, the water was bad, and one point was marked for the hub. Nothing says why that point was chosen. All of them agreed on it without discussion."
     },
-    "supply_audit": {
+    "p02": {
       "name": "Supply Audit",
-      "desc": "A ledger of what was sent and what arrived.",
-      "text": "Every line in the audit balances. That is the strange part. Crates were counted out, crates were counted in, and not a single one went missing across a hundred trips. The auditor added a note in the margin: nothing this tidy has ever happened. They signed it, dated it, and asked that someone check whether the road was real."
+      "text": "Every line in the audit balances. Crates went out, crates came in, and in a hundred trips not one went missing. The auditor asked that someone confirm the road was real."
     },
-    "relay_notes": {
+    "p03": {
       "name": "Relay Notes",
-      "desc": "Someone's private notes from the first relay station.",
-      "text": "The relay hums at night, a note below hearing. Mara says it is the cooling. Mara has also stopped sleeping in the east bunk. If you find this, tell whoever listens that the relay was never switched on; it only answered. I have written down every word it said. The pages are in the second drawer. Please do not read them aloud."
+      "text": "The relay hums at night, a note just below hearing. Someone says it is the cooling. Someone has also stopped sleeping in the east bunk. If you find this, tell whoever is listening that the relay was never switched on. It only answered. The pages of what it said are in the second drawer. Please do not read them aloud."
     },
-    "site_report": {
-      "name": "Site Report: The Slow Ground",
-      "desc": "What the anomaly does to the places it touches.",
-      "text": "The anomalies are not storms and not machines. They are patient. A territory opens, stays a while, and folds shut as quietly as a hand closing. Nothing that was inside is damaged by this; things are only returned a little different. The report recommends leaving a light on at every site. It cannot say who the light is for."
+    "p04": {
+      "name": "Site Report",
+      "text": "The anomalies are not storms and not machines. They are patient. A territory opens, stays a while, and folds shut as quietly as a hand closing. Nothing inside is harmed by this. Things are only returned a little different. The report recommends leaving a light on at every site and cannot say who the light is for."
     },
-    "crew_roll": {
+    "p05": {
       "name": "Crew Roll",
-      "desc": "A list of names, and one column that has been left blank.",
-      "text": "The roll lists four hundred and twelve names. Each has a role, a bunk, a ration card. The last column is headed 'Returned' and is empty for everyone. The compiler writes: I do not know if this means none of us came back, or that none of us ever left. Either way the ration cards are still being issued."
+      "text": "The roll lists four hundred and twelve names, each with a role, a bunk and a ration card. The last column is headed Returned and is empty for every row. The clerk wrote: I do not know whether this means none of us came back, or that none of us ever left. A thirteenth line has been added below the last name, with no name in it. The role given is Listener. The ration card has been collected every week."
     },
-    "final_memo": {
+    "p06": {
+      "name": "Sample Log",
+      "text": "Entry one: the tray holds eleven samples. Entry two: the tray holds eleven samples and hums. Entry three: I moved the tray to the cold room and it is warmer there than anywhere else. Entry four: the samples are not heavier, but they are harder to put down. Entry five: the labels have started to agree with each other. I initialled each of them last week. This morning every initial reads the same, and it is not mine. Entry six: I have stopped writing the date. The tray keeps it for me."
+    },
+    "p07": {
+      "name": "Incident Summary",
+      "text": "The official account of the incident runs to one page. It states that a week went missing from the records, that no one was harmed, and that all affected forms were reissued with the correct dates. It lists no cause. Appended in pencil are the observations of forty clerks, each of whom independently noticed the same thing: nobody could say what they had been doing that week, and nobody was troubled by it. The notes end with a single line in an unknown hand: it was not missing. It was borrowed. The reissued forms are all signed, in ink, on the day the week began."
+    },
+    "p08": {
       "name": "Final Memorandum",
-      "desc": "The last thing written before the records stopped.",
-      "text": "To whoever finds this: we did not abandon the colony. We stayed and the colony stayed with us, and somewhere along the way the difference stopped mattering. Keep building. Keep the lights on. The work is not the point and it is also the only point. If you have read this far, you have already begun to understand it."
+      "text": "To whoever recovers this: we did not abandon the colony. We stayed, and the colony stayed with us, and somewhere along the way the difference stopped mattering. Keep building. Keep the lights on. The beacon was never a message to somebody else. It was the colony learning to say its own name, slowly, in the only language it had, which was work. Somewhere out there it will be heard, and what hears it will not be a stranger. If you are reading this, you have been counted, and counted again. Do not be afraid of the count. The work is not the point, and it is also the only point. When you are tired, remember that being tired is also something the colony does, and it is allowed to."
     }
   }
 }

@@ -995,35 +995,37 @@
     }
   },
   "dataPackets": {
-    "survey_log": {
+    "p01": {
       "name": "Charter Survey, Annex 0",
-      "desc": "The first survey of the ground the Office chose.",
-      "text": "Annex 0 to the Charter, filed before the Lapse and never indexed. The surveyors set down on a dry morning and wrote only facts: the ground was level, the water was bad, the sky was the colour of a pressed coin. They marked a point for the hub and went home. Nothing in the annex explains why that point was chosen. The coordinates are not the best in the area. They are the only ones every surveyor agreed on without discussion. The Office has no form for a unanimous survey."
+      "text": "Annex 0 to the Charter, filed before the Lapse and never indexed. The surveyors set down on a dry morning, wrote that the ground was level and the water was bad, and marked one point for the hub. They agreed on it without discussion. The Office has no form for a unanimous survey."
     },
-    "supply_audit": {
+    "p02": {
       "name": "Continuity Audit 4",
-      "desc": "A ledger of what was sent, and what arrived.",
-      "text": "Every line in Audit 4 balances. That is the strange part. Crates went out, crates came in, and in a hundred trips not one went missing. The auditor wrote in the margin: nothing this tidy has ever happened in the Office's history. They signed it, dated it, and asked that someone confirm the road was real. The reply is stapled to the back. It reads: Noted."
+      "text": "Every line in Audit 4 balances. Crates went out, crates came in, and in a hundred trips not one went missing. The auditor asked that someone confirm the road was real. The reply is stapled to the back. It reads: Noted."
     },
-    "relay_notes": {
+    "p03": {
       "name": "Relay Station Night Notes",
-      "desc": "Someone's private notes from the first relay.",
       "text": "The relay hums at night, a note just below hearing. Maren says it is the cooling. Maren has also stopped sleeping in the east bunk. If you find this, tell whoever is listening that the relay was never switched on. It only answered. I have written down everything it said. The pages are in the second drawer. Please do not read them aloud, and please, whatever you do, do not file them."
     },
-    "site_report": {
+    "p04": {
       "name": "Site Report: The Slow Ground",
-      "desc": "What the anomalies do to the places they touch.",
       "text": "The anomalies are not storms and not machines. They are patient. A territory opens, stays a while, and folds shut as quietly as a hand closing. Nothing inside is harmed by this. Things are only returned a little different. The report recommends leaving a light on at every site and cannot say who the light is for. Pell's note on the cover reads: it is for whoever is coming back."
     },
-    "crew_roll": {
+    "p05": {
       "name": "Founding Roll",
-      "desc": "A list of names, and one column left blank.",
-      "text": "The roll lists four hundred and twelve names, each with a role, a bunk and a ration card. The last column is headed Returned and is empty for every row. The clerk wrote: I do not know whether this means none of us came back, or that none of us ever left. Either way the ration cards are still being issued, and somebody is still collecting them."
+      "text": "The roll lists four hundred and twelve names, each with a role, a bunk and a ration card. The last column is headed Returned and is empty for every row. The clerk wrote: I do not know whether this means none of us came back, or that none of us ever left. Either way the ration cards are still being issued, and somebody is still collecting them. A second hand has added a thirteenth line below the last name, with no name in it. The role given is Listener. The bunk is the one under the relay. The ration card has been collected every week."
     },
-    "final_memo": {
+    "p06": {
+      "name": "Archivist's Tray Log",
+      "text": "Entry one: the tray holds eleven samples. Entry two: the tray holds eleven samples and hums. Entry three: I have moved the tray to the cold room and it is warmer there than anywhere else. Entry four: the samples are not heavier, but they are harder to put down. Entry five: the labels on the samples have started to agree with each other. I filed my initials on each of them last week. This morning every initial reads the same, and it is not mine. Entry six: I asked Seven which drawer. Seven said this node does not wish to guess. Entry seven: I have stopped writing the date. The tray keeps it for me."
+    },
+    "p07": {
+      "name": "The Lapse, As Filed",
+      "text": "The Office's official account of the Lapse runs to one page. It states that a week went missing from the records, that no one was harmed, and that all affected forms were reissued with the correct dates. It lists no cause. Appended in pencil are the observations of forty clerks, each of whom independently noticed the same thing: nobody could say what they had been doing that week, and nobody was troubled by it. The Continuity Office was founded to prevent a second lapse. The pencil notes end with a single line in a hand the Office has never matched to any clerk: it was not missing. It was borrowed. The reissued forms are on file. They are all signed, in ink, on the day the week began."
+    },
+    "p08": {
       "name": "Memorandum 0: What Was Meant to Be Heard",
-      "desc": "The last thing written before the records stopped.",
-      "text": "To whoever recovers this: we did not abandon the colony. We stayed, and the colony stayed with us, and somewhere along the way the difference stopped mattering. Keep building. Keep the lights on. The Series-9 Beacon was never a message to somebody else. It was the Office learning to say its own name. The work is not the point, and it is also the only point. If you have read this far, you have already begun to understand it. Please file this under Continuity."
+      "text": "To whoever recovers this: we did not abandon the colony. We stayed, and the colony stayed with us, and somewhere along the way the difference stopped mattering. Keep building. Keep the lights on. The Series-9 Beacon was never a message to somebody else. It was the Office learning to say its own name, slowly, in the only language it had, which was work. Somewhere out there it will be heard, and what hears it will not be a stranger. If you are reading this, you have been counted, and counted again. Do not be afraid of the count. The work is not the point, and it is also the only point. When you are tired, remember that being tired is also something the colony does, and it is allowed to. Please file this under Continuity."
     }
   }
 }

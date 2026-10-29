@@ -597,11 +597,14 @@
       return '<div class="ov-row"><div class="grow"><b>' + esc(x.district.name) + '</b><div class="dim" style="font-size:12px">Attempt ' + Math.floor(x.b.dataProgress || 0) + ' / ' + D.attemptTicks + ' ticks · <span class="' + st[1] + '">' + st[0] + '</span></div></div><div class="meter" style="width:120px"><i style="width:' + ((x.b.dataProgress || 0) / D.attemptTicks * 100).toFixed(0) + '%;background:var(--cyan)"></i></div></div>';
     }).join('') : '<div class="dim" style="font-size:12px">No rig is working. Build Data Recovery in a territory that has a data site.</div>';
     h += '<div class="sheet-h">Data packets</div>';
+    var biggest = Math.max.apply(null, D.packets.map(function (p) { return p.cost; }));
+    h += '<div class="dim" style="font-size:12px;margin:-2px 0 6px">Sealed packets show only how many fragments they take. The bigger the packet, the more it costs.</div>';
     h += D.packets.map(function (p) {
       var can = D.fragments >= p.cost;
-      return '<div class="packet' + (p.unlocked ? ' open' : '') + '"><div class="top"><b>' + esc(p.name) + '</b>' + (p.unlocked ? '<span class="good">Unlocked</span>' : '<span class="dim">' + p.cost + ' fragment' + (p.cost === 1 ? '' : 's') + '</span>') + '</div>' +
-        (p.unlocked ? '<div class="ptext">' + esc(p.text).split(/\n+/).map(function (t) { return '<p>' + t + '</p>'; }).join('') + '</div>' :
-          '<div class="dim" style="font-size:12px;margin:2px 0 8px">' + esc(p.desc) + '</div><button class="btn' + (can ? ' primary' : '') + '" data-act="dataunlock" data-packet="' + esc(p.id) + '"' + (can ? '' : ' disabled') + '>Unlock for ' + p.cost + '</button>') + '</div>';
+      if (p.unlocked) return '<div class="packet open"><div class="top"><b>' + esc(p.name) + '</b><span class="good">Unlocked</span></div><div class="ptext">' + esc(p.text).split(/\n+/).map(function (t) { return '<p>' + t + '</p>'; }).join('') + '</div></div>';
+      return '<div class="packet sealed"><div class="top"><b>' + icon('lock', 14) + ' Sealed packet</b><span class="dim">' + p.cost + ' fragment' + (p.cost === 1 ? '' : 's') + '</span></div>' +
+        '<div class="psize" title="Size, from the cost"><i style="width:' + Math.round(p.cost / biggest * 100) + '%"></i></div>' +
+        '<button class="btn' + (can ? ' primary' : '') + '" data-act="dataunlock" data-packet="' + esc(p.id) + '"' + (can ? '' : ' disabled') + '>Unlock for ' + p.cost + '</button></div>';
     }).join('');
     return h;
   }

@@ -582,14 +582,16 @@ test('data sites: about one territory in twenty has one, Data Recovery only buil
     assert.ok(orbital.flagsOf(db.prepare('SELECT * FROM colonies WHERE id = ?').get(c.id)).dataFragment !== undefined, 'the first fragment raises the story flag');
     // packets: the text is only sent once it is unlocked
     const cheap = d.packets.find((p) => p.cost === 1), dear = d.packets.find((p) => p.cost > 1);
-    assert.equal(cheap.text, null);
+    assert.deepEqual(Object.keys(cheap).sort(), ['cost', 'id', 'unlocked'], 'a sealed packet shows only its cost');
+    assert.ok(d.packets.some((p) => p.cost >= 4), 'longer packets cost more');
     assert.match(actions.dataUnlock(c.uid, { packet: dear.id }).error, /costs/);
     assert.match(actions.dataUnlock(c.uid, { packet: 'nope' }).error, /Unknown/);
     assert.deepEqual(actions.dataUnlock(c.uid, { packet: cheap.id }), { ok: true });
     const after = viewFor(c.uid).data;
     assert.equal(after.fragments, 0);
     assert.ok(after.packets.find((p) => p.id === cheap.id).text.length > 20);
+    assert.ok(after.packets.find((p) => p.id === cheap.id).name);
     assert.match(actions.dataUnlock(c.uid, { packet: cheap.id }).error, /already/);
-    assert.equal(require('../src/state').clientConfig().orbital.data.packets[cheap.id].text, undefined, 'the config never carries the lore');
+    assert.equal(JSON.stringify(require('../src/state').clientConfig().orbital.data.packets), JSON.stringify(Object.fromEntries(Object.keys(config.orbital.data.packets).map((k) => [k, { cost: config.orbital.data.packets[k].cost }]))), 'the config carries costs only, never names or lore');
   } finally { Object.assign(DS, saved); }
 });

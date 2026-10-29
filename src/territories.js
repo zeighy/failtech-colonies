@@ -383,7 +383,8 @@ function dataView(c) {
   return {
     unlocked: row.data_total > 0, fragments: row.data_fragments, total: row.data_total, successes: row.data_successes,
     perFragment: DS.attemptsPerFragment, attemptTicks: DS.attemptTicks, successChance: DS.successChance,
-    packets: Object.entries(config.orbital.data.packets).map(([id, p]) => ({ id, name: p.name, desc: p.desc, cost: p.cost, unlocked: mine.has(id), text: mine.has(id) ? p.text : null })),
+    // a sealed packet shows only its cost, which hints at its size; name and text arrive once it is unlocked
+    packets: Object.entries(config.orbital.data.packets).map(([id, p]) => (mine.has(id) ? { id, cost: p.cost, unlocked: true, name: p.name, text: p.text } : { id, cost: p.cost, unlocked: false })),
   };
 }
 

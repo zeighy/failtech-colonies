@@ -40,7 +40,7 @@ const SECTIONS = {
   tapRecipes: [(c) => c.tapRecipes || {}, ['name']],
   places: [(c) => c.orbitalTypes || {}, ['name']],
   anomalies: [(c) => (c.orbital ? c.orbital.territories.anomalies : {}), ['name', 'desc']],
-  dataPackets: [(c) => (c.orbital && c.orbital.data ? c.orbital.data.packets : {}), ['name', 'desc', 'text']],
+  dataPackets: [(c) => (c.orbital && c.orbital.data ? c.orbital.data.packets : {}), ['name', 'text']],
   projects: [(c) => (c.orbital ? Object.fromEntries(c.orbital.projects.list.map((p) => [p.key, p])) : {}), ['name', 'desc']],
 };
 
