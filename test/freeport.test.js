@@ -242,3 +242,24 @@ test('unfilled missions lapse', () => {
   assert.ok(ids.every((id) => !now.includes(id)));
   assert.equal(now.length, config.missions.slots);
 });
+
+test('scrapping a configured workshop locks the slot for as long as a recipe change takes, so it is not a faster reset', () => {
+  const c = colony(); const fp = freeport(c);
+  db.prepare('UPDATE districts SET level = 2 WHERE id = ?').run(fp.id);
+  db.prepare('UPDATE colony_inventory SET amount = 5000 WHERE district_id = ?').run(fp.id);
+  put(c, fp, 1, 0, 'solar_array'); put(c, fp, 1, 1, 'trade_workshop', { recipe: 'plastics' }); put(c, fp, 1, 2, 'trade_workshop');
+  db.prepare('UPDATE colonies SET credits = 100000 WHERE id = ?').run(c.id);
+  const locks = () => viewFor(c.uid).views[fp.id].locks;
+  assert.deepEqual(actions.demolish(c.uid, { ring: 1, slot: 1, district: fp.id }), { ok: true });
+  assert.deepEqual(locks().map((l) => [l.ring, l.slot]), [[1, 1]]);
+  assert.equal(locks()[0].ticksLeft, config.tradeWorks.reset.delayTicks);
+  assert.match(actions.build(c.uid, { ring: 1, slot: 1, type: 'trade_workshop', district: fp.id }).error, /still being cleared/);
+  tick(config.tradeWorks.reset.delayTicks - 1);
+  assert.match(actions.build(c.uid, { ring: 1, slot: 1, type: 'trade_workshop', district: fp.id }).error, /still being cleared/);
+  tick(2);
+  assert.deepEqual(locks(), []);
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 1, type: 'trade_workshop', district: fp.id }), { ok: true });
+  // a workshop that was never given a recipe has nothing to reset
+  assert.deepEqual(actions.demolish(c.uid, { ring: 1, slot: 2, district: fp.id }), { ok: true });
+  assert.deepEqual(locks(), []);
+});

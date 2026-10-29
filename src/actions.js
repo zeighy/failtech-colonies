@@ -89,6 +89,8 @@ const build = guarded((c, { ring, slot, type, district }) => {
   if (!sim.slotUnlocked(config, d.level, ring, slot, d.type)) return fail(`That slot is locked. Upgrade the ${d.type === 'core' ? 'hub' : 'district'}.`);
   if (def.minHubLevel && c.hub_level < def.minHubLevel) return fail(`${def.name} requires hub level ${def.minHubLevel}.`);
   if (slotBusy(c, d, ring, slot)) return fail('That slot is already in use.');
+  const lock = db.prepare('SELECT until_tick FROM slot_locks WHERE district_id = ? AND ring_index = ? AND slot_index = ?').get(d.id, ring, slot);
+  if (lock && lock.until_tick > tickNow()) return fail(`That slot is still being cleared (${lock.until_tick - tickNow()} ticks).`);
   if (def.maxCount) {
     // limits such as "only one Beacon" count the whole colony, not one district
     const have = store.loadDistricts(c.id).reduce((n, x) => n + store.loadBuildings(c.id, x.id).filter((b) => b.type === type).length, 0)
@@ -114,8 +116,10 @@ const demolish = guarded((c, { ring, slot, district }) => {
   if (!d) return fail(NO_DISTRICT);
   const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing to demolish there.');
-  // Scrapping a configured workshop costs what changing its recipe would, or demolishing and rebuilding would be a free reset.
-  if (config.buildings[b.building_type].recipeBuilding && b.recipe) {
+  // Scrapping a configured workshop costs what changing its recipe would, and the slot stays clear for as long as a recipe
+  // change takes to settle, or demolishing and rebuilding would be a quicker, cheaper reset.
+  const scrapped = config.buildings[b.building_type].recipeBuilding && b.recipe;
+  if (scrapped) {
     const fee = sim.recipeResetFee(config, b.recipe, b.ring_index, d.type, config.buildings[b.building_type]);
     if (c.credits < fee) return fail(`Scrapping a configured workshop costs ${fee} cr.`);
     db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(fee, c.id);
@@ -128,6 +132,9 @@ const demolish = guarded((c, { ring, slot, district }) => {
     }
   }
   db.prepare('DELETE FROM colony_buildings WHERE id = ?').run(b.id);
+  if (scrapped) {
+    db.prepare('INSERT OR REPLACE INTO slot_locks (district_id, ring_index, slot_index, until_tick) VALUES (?, ?, ?, ?)').run(d.id, b.ring_index, b.slot_index, tickNow() + config.tradeWorks.reset.delayTicks);
+  }
   refund(d.id, sim.territoryDef(config.buildings[b.building_type], d.type).cost, config.global.demolishRefund);
   return OK;
 });

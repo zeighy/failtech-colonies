@@ -176,7 +176,7 @@ spent on hazards, or handed to factions.
 - **District rules**: it builds anything except the other districts' base-resource extractors (`rawExtractor`: ore drill, crude pump) and Core-only structures
   (`sim.buildableIn`), so a player can power it themselves, ship in fuel, or run intermediate chains there. The **Trade Workshop** can only be built here.
 - **Trade Workshop** (`building.recipeBuilding`): runs one recipe from `config.recipes`. The first choice is free and locks in; changing it costs credits
-  (`tradeWorks.reset.feeTicks` ticks of the old recipe's output at market value, scaled by batch) and idles the workshop for `delayTicks`.
+  (`tradeWorks.reset.feeTicks` ticks of the old recipe's output at market value, scaled by batch) and idles the workshop for `delayTicks`. Scrapping a configured workshop charges the same fee and keeps the slot clear for the same `delayTicks` (it shows as "clearing" on the map and cannot be built on), before a new building's own construction time starts.
   **Plot size sets the batch** (`tradeWorks.batchByPlot`): inputs, outputs, power and crew all scale together, so a big plot is more throughput per slot, never a better ratio.
   A recipe gets an output bonus beside a workshop making its ingredient (`recipe.adjacent`).
 - **Trade goods** (`resource.trade`) are never carried by the convoy; the exchange is their market. Their reference price is a fixed premium (`priceRatio`) over the live price of

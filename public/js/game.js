@@ -244,6 +244,7 @@
 
   // ------------------------------------------------------------------ derived lookups
   function buildingAt(r, s) { return S.buildings.filter(function (b) { return b.ring === r && b.slot === s; })[0]; }
+  function lockAt(r, s) { return (S.locks || []).filter(function (l) { return l.ring === r && l.slot === s; })[0]; }
   function orderAt(r, s) { return S.orders.filter(function (o) { return o.kind === 'build' && o.data.ring === r && o.data.slot === s; })[0]; }
   function slotUnlocked(r, s) { var cap = S.hub.rings[r]; return !!cap && s < cap; }
   function neighborsOf(r, s) { return GEO().neighbors[r + ':' + s] || []; }
@@ -389,6 +390,9 @@
       } else if (o) {
         cls += ' building'; c = CFG.buildings[o.data.type].color; icoName = o.data.type;
         name = 'Building ' + CFG.buildings[o.data.type].name;
+      } else if (lockAt(r, s)) {
+        cls += ' clearing'; icoName = 'lock'; tag = 'CLEAR ' + lockAt(r, s).ticksLeft + 't';
+        name += ' · being cleared: ' + lockAt(r, s).ticksLeft + ' ticks';
       } else cls += ' empty';
       if (sel && sel.ring === r && sel.slot === s) cls += ' sel';
       if (nb[k]) cls += ' nb';
@@ -401,7 +405,7 @@
       el.g.style.setProperty('--c', c || '');
       el.ico.innerHTML = icoName ? (icoName === 'lock' ? '<g opacity=".35">' + ICONS.lock + '</g>' : ICONS[icoName]) : '';
       el.tag.textContent = tag;
-      el.plus.style.display = (!b && !o && !q && unlocked) ? '' : 'none';
+      el.plus.style.display = (!b && !o && !q && unlocked && !lockAt(r, s)) ? '' : 'none';
       el.pbg.style.display = o ? '' : 'none';
       el.pb.style.display = o ? '' : 'none';
       el.ico.setAttribute('y', o || tag ? -el.isz / 2 - 4 : -el.isz / 2);
@@ -723,6 +727,8 @@
         '<div class="actions"><button class="btn danger" data-act="cancel" data-id="' + o.id + '">Cancel &amp; refund</button></div>';
     }
     if (b) return builtPanel(b, head);
+    var lk = lockAt(r, s);
+    if (lk) return '<div class="p-title">' + icon('lock', 22) + '<h3>' + head + '</h3></div><div class="label">Being cleared</div><p class="p-desc">A configured workshop was scrapped here. The slot is free to build on again in <b>' + span(lk.ticksLeft) + '</b>, the same wait as changing a recipe.</p>';
     return buildMenu(r, s, head);
   }
 
@@ -1824,7 +1830,7 @@
   function merge(ns) {
     var v = ns.views[activeId];
     return Object.assign({}, ns, {
-      buildings: v.buildings, orders: v.orders, resources: v.resources, hub: v.hub, energy: v.energy, defense: v.defense,
+      buildings: v.buildings, orders: v.orders, locks: v.locks || [], resources: v.resources, hub: v.hub, energy: v.energy, defense: v.defense,
       coreRes: ns.resources, coreBuildings: ns.buildings,
       allOrders: Object.keys(ns.views).reduce(function (a, k) {
         return a.concat(ns.views[k].orders.map(function (o) { return Object.assign({ dname: ns.views[k].core ? '' : ns.views[k].name }, o); }));
