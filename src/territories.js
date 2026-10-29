@@ -35,6 +35,17 @@ function pickWeighted(r, table) {
   return entries[0][0];
 }
 
+// The rare resource is random, but evened out: it comes from whichever rares are least represented among the territories
+// open right now. Pure chance would too often leave a rare missing for a long time (and a long-lived anomaly keeps a
+// lucky streak on screen for days), which stalls a player who needs it. Every rare still comes up equally often overall.
+function pickRare(r, tick) {
+  const have = Object.fromEntries(T.rare.map((x) => [x, 0]));
+  for (const t of openTerritories(tick)) { const k = parse(t.resources, {}).rare; if (k in have) have[k]++; }
+  const least = Math.min(...Object.values(have));
+  const pool = T.rare.filter((x) => have[x] === least);
+  return pool[Math.floor(r() * pool.length) % pool.length];
+}
+
 function spawn(tick, seq) {
   const r = ms.rng(ms.hash(`territory:${tick}:${seq}:${db.prepare('SELECT COUNT(*) AS n FROM territories').get().n}`));
   const anomaly = pickWeighted(r, T.anomalies);
@@ -43,7 +54,7 @@ function spawn(tick, seq) {
   const commons = [...T.common];
   const common1 = commons.splice(Math.floor(r() * commons.length), 1)[0];
   const common2 = pick(r, commons);
-  const resources = { common1, common2, district: pick(r, T.district), rare: pick(r, T.rare) };
+  const resources = { common1, common2, district: pick(r, T.district), rare: pickRare(r, tick) };
   const n = db.prepare('SELECT COUNT(*) AS n FROM territories').get().n;
   const name = `${pick(r, T.names)} ${n + 1}`;
   db.prepare('INSERT INTO territories (name, anomaly, resources, opens_tick, closes_tick) VALUES (?, ?, ?, ?, ?)').run(name, anomaly, JSON.stringify(resources), tick, tick + dur);

@@ -518,3 +518,24 @@ test('the gentle anomalies last longer than any other and pay for it, in extract
   const power = viewFor(c.uid).views[land.id].energy.supply;
   assert.equal(power, Math.round(O.dropships.levels[1].power * an.gloam.powerMult), 'Gloam thins the ship\'s power');
 });
+
+test('territories: the rare resources are evened out, so a needed one is never missing for long and none runs away', () => {
+  const t = now() + 1;
+  db.prepare('DELETE FROM territories').run();
+  const rares = () => db.prepare('SELECT resources FROM territories WHERE taken_by IS NULL AND closes_tick > ?').all(t).map((x) => JSON.parse(x.resources).rare);
+  for (let i = 0; i < O.territories.minAvailable; i++) territories.spawn(t, i);
+  assert.equal(new Set(rares()).size, O.territories.minAvailable, 'seven open territories hold seven different rares');
+  const made = {};
+  for (let i = 0; i < 400; i++) {
+    const open = db.prepare('SELECT id FROM territories WHERE taken_by IS NULL AND closes_tick > ?').all(t);
+    db.prepare('DELETE FROM territories WHERE id = ?').run(open[(i * 7919) % open.length].id); // someone takes one, or it closes
+    territories.spawn(t, 100 + i);
+    assert.equal(new Set(rares()).size, O.territories.minAvailable, `round ${i}: still all different`);
+    const latest = JSON.parse(db.prepare('SELECT resources FROM territories ORDER BY id DESC LIMIT 1').get().resources).rare;
+    made[latest] = (made[latest] || 0) + 1;
+  }
+  const counts = O.territories.rare.map((r) => made[r] || 0);
+  assert.ok(Math.max(...counts) - Math.min(...counts) <= 40, `every rare keeps coming up: ${counts}`);
+  db.prepare('DELETE FROM territories').run();
+  tick(1); // the world refills its pool for the tests that follow
+});
