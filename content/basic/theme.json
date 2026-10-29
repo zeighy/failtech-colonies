@@ -317,6 +317,10 @@
     "t_tap": {
       "name": "Anomaly Tap",
       "desc": "Draws the territory's rare resource out of the anomaly. Choose one recipe and it is locked in; what it needs depends on the rare resource, so expect to try a few. A bigger plot runs a bigger batch."
+    },
+    "t_data": {
+      "name": "Data Recovery",
+      "desc": "Works a data site. It needs only power: each recovery attempt takes a while, and only some of them find anything. Low power slows it down."
     }
   },
   "districts": {
@@ -714,6 +718,38 @@
     },
     "still_metal_b": {
       "name": "Still Metal, route B"
+    }
+  },
+  "dataPackets": {
+    "survey_log": {
+      "name": "Survey Log: Landing",
+      "desc": "The first survey of the ground the colony stands on.",
+      "text": "The first survey team set down on a dry morning and wrote only the facts: the ground was level, the water was bad, the sky was the colour of a pressed coin. They marked a point for the hub and went home. Nothing in the log says why that point was chosen. The coordinates are not the best ones in the area. They are the only ones the surveyors all agreed on without discussion."
+    },
+    "supply_audit": {
+      "name": "Supply Audit",
+      "desc": "A ledger of what was sent and what arrived.",
+      "text": "Every line in the audit balances. That is the strange part. Crates were counted out, crates were counted in, and not a single one went missing across a hundred trips. The auditor added a note in the margin: nothing this tidy has ever happened. They signed it, dated it, and asked that someone check whether the road was real."
+    },
+    "relay_notes": {
+      "name": "Relay Notes",
+      "desc": "Someone's private notes from the first relay station.",
+      "text": "The relay hums at night, a note below hearing. Mara says it is the cooling. Mara has also stopped sleeping in the east bunk. If you find this, tell whoever listens that the relay was never switched on; it only answered. I have written down every word it said. The pages are in the second drawer. Please do not read them aloud."
+    },
+    "site_report": {
+      "name": "Site Report: The Slow Ground",
+      "desc": "What the anomaly does to the places it touches.",
+      "text": "The anomalies are not storms and not machines. They are patient. A territory opens, stays a while, and folds shut as quietly as a hand closing. Nothing that was inside is damaged by this; things are only returned a little different. The report recommends leaving a light on at every site. It cannot say who the light is for."
+    },
+    "crew_roll": {
+      "name": "Crew Roll",
+      "desc": "A list of names, and one column that has been left blank.",
+      "text": "The roll lists four hundred and twelve names. Each has a role, a bunk, a ration card. The last column is headed 'Returned' and is empty for everyone. The compiler writes: I do not know if this means none of us came back, or that none of us ever left. Either way the ration cards are still being issued."
+    },
+    "final_memo": {
+      "name": "Final Memorandum",
+      "desc": "The last thing written before the records stopped.",
+      "text": "To whoever finds this: we did not abandon the colony. We stayed and the colony stayed with us, and somewhere along the way the difference stopped mattering. Keep building. Keep the lights on. The work is not the point and it is also the only point. If you have read this far, you have already begun to understand it."
     }
   }
 }

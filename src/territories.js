@@ -57,7 +57,8 @@ function spawn(tick, seq) {
   const resources = { common1, common2, district: pick(r, T.district), rare: pickRare(r, tick) };
   const n = db.prepare('SELECT COUNT(*) AS n FROM territories').get().n;
   const name = `${pick(r, T.names)} ${n + 1}`;
-  db.prepare('INSERT INTO territories (name, anomaly, resources, opens_tick, closes_tick) VALUES (?, ?, ?, ?, ?)').run(name, anomaly, JSON.stringify(resources), tick, tick + dur);
+  const dataSite = r() < T.dataSite.chance ? 1 : 0; // a data site sits on top of whatever else the territory holds
+  db.prepare('INSERT INTO territories (name, anomaly, resources, opens_tick, closes_tick, data_site) VALUES (?, ?, ?, ?, ?, ?)').run(name, anomaly, JSON.stringify(resources), tick, tick + dur, dataSite);
 }
 
 const openTerritories = (tick) => db.prepare('SELECT * FROM territories WHERE closes_tick > ? AND taken_by IS NULL ORDER BY closes_tick').all(tick);
@@ -281,6 +282,13 @@ function fieldOf(districtId) {
 }
 // A field version of a ground building only makes sense where the territory holds what it works on.
 function checkBuild(d, def) {
+  if (def.dataRecovery) {
+    const row = db.prepare('SELECT t.data_site FROM districts d JOIN territories t ON t.id = d.territory_id WHERE d.id = ?').get(d.id);
+    if (!row || !row.data_site) return `${def.name} needs a data site, and ${d.name} has none.`;
+    const queued = store.loadOrders(d.colony_id, d.id).some((o) => o.action_type === 'build' && o.data.type === 't_data');
+    if (queued || db.prepare('SELECT 1 FROM colony_buildings WHERE district_id = ? AND building_type = ?').get(d.id, 't_data')) return `There is already a ${def.name} here.`;
+    return null;
+  }
   const need = def.territory && def.territory.needs;
   if (!need) return null;
   const f = fieldOf(d.id);
@@ -314,7 +322,7 @@ function view(c, tick) {
   const anomaly = (k) => ({ key: k, ...T.anomalies[k] });
   const list = db.prepare('SELECT * FROM territories WHERE closes_tick > ? ORDER BY closes_tick').all(tick).map((t) => ({
     id: t.id, name: t.name, anomaly: anomaly(t.anomaly), resources: JSON.parse(t.resources), ticksLeft: t.closes_tick - tick,
-    taken: t.taken_by ? { mine: t.taken_by === c.id, station: t.taken_name } : null, destabilized: !!t.destabilized,
+    taken: t.taken_by ? { mine: t.taken_by === c.id, station: t.taken_name } : null, destabilized: !!t.destabilized, dataSite: !!t.data_site,
   }));
   return {
     max: D.max, buildCost: D.buildCost, buildTicks: D.buildTicks, levels: D.levels, deployTicks: D.deployTicks, returnTicks: D.returnTicks,
@@ -333,4 +341,61 @@ function view(c, tick) {
   };
 }
 
-module.exports = { advanceWorld, advanceColony, spawn, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, checkBuild, checkRecipe, view, shipsOf };
+// ---- data sites ---------------------------------------------------------------------------
+// A Data Recovery building runs attempts of `attemptTicks`, advancing by its efficiency each tick (so low power slows it).
+// Each finished attempt succeeds with `successChance`; `attemptsPerFragment` successes make one fragment, which the colony
+// keeps as a currency for unlocking data packets (lore). Nothing here touches the simulation.
+function advanceData(c, results, tick) {
+  const DS = T.dataSite;
+  for (const r of results) {
+    if (r.type !== 'territory') continue;
+    for (const b of store.loadBuildings(c.id, r.id)) {
+      if (b.type !== 't_data' || b.status !== 'active') continue;
+      const st = r.buildings && r.buildings.get ? r.buildings.get(b.id) : null;
+      const eff = st ? Math.max(0, Math.min(1, st.eff)) : 0;
+      if (eff <= 0) continue;
+      let prog = (b.dataProgress || 0) + eff;
+      while (prog >= DS.attemptTicks - 1e-9) {
+        prog -= DS.attemptTicks;
+        const roll = ms.rng(ms.hash(`data:${c.id}:${b.id}:${tick}:${Math.round(prog * 100)}`))();
+        if (roll >= DS.successChance) continue;
+        const row = db.prepare('SELECT data_successes FROM colonies WHERE id = ?').get(c.id);
+        const wins = row.data_successes + 1;
+        if (wins >= DS.attemptsPerFragment) {
+          db.prepare('UPDATE colonies SET data_successes = 0, data_fragments = data_fragments + 1, data_total = data_total + 1 WHERE id = ?').run(c.id);
+          store.addEvent(c.id, tick, 'good', 'A data fragment has been recovered.');
+          orbital.setFlag(c.id, 'dataFragment', tick);
+        } else {
+          db.prepare('UPDATE colonies SET data_successes = ? WHERE id = ?').run(wins, c.id);
+          store.addEvent(c.id, tick, 'info', `A recovery attempt found something (${wins} of ${DS.attemptsPerFragment} toward a fragment).`);
+        }
+      }
+      db.prepare('UPDATE colony_buildings SET data_progress = ? WHERE id = ?').run(prog, b.id);
+    }
+  }
+}
+
+// The packets: cost and wording are public; the text only once unlocked.
+function dataView(c) {
+  const row = db.prepare('SELECT data_fragments, data_successes, data_total FROM colonies WHERE id = ?').get(c.id);
+  const mine = new Set(db.prepare('SELECT packet_id FROM colony_data_packets WHERE colony_id = ?').all(c.id).map((x) => x.packet_id));
+  const DS = T.dataSite;
+  return {
+    unlocked: row.data_total > 0, fragments: row.data_fragments, total: row.data_total, successes: row.data_successes,
+    perFragment: DS.attemptsPerFragment, attemptTicks: DS.attemptTicks, successChance: DS.successChance,
+    packets: Object.entries(config.orbital.data.packets).map(([id, p]) => ({ id, name: p.name, desc: p.desc, cost: p.cost, unlocked: mine.has(id), text: mine.has(id) ? p.text : null })),
+  };
+}
+
+function unlockPacket(c, { packet }) {
+  const p = Object.prototype.hasOwnProperty.call(config.orbital.data.packets, packet) ? config.orbital.data.packets[packet] : null;
+  if (!p) return fail('Unknown data packet.');
+  if (db.prepare('SELECT 1 FROM colony_data_packets WHERE colony_id = ? AND packet_id = ?').get(c.id, packet)) return fail('You already have that packet.');
+  const row = db.prepare('SELECT data_fragments FROM colonies WHERE id = ?').get(c.id);
+  if (row.data_fragments < p.cost) return fail(`That packet costs ${p.cost} data fragment${p.cost === 1 ? '' : 's'}.`);
+  db.prepare('UPDATE colonies SET data_fragments = data_fragments - ? WHERE id = ?').run(p.cost, c.id);
+  db.prepare('INSERT INTO colony_data_packets (colony_id, packet_id) VALUES (?, ?)').run(c.id, packet);
+  return OK;
+}
+
+module.exports = { advanceWorld, advanceColony, advanceData, dataView, unlockPacket, spawn, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, checkBuild, checkRecipe, view, shipsOf };

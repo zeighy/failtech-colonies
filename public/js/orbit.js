@@ -194,7 +194,7 @@
     var inv = stationInv(), used = Object.keys(d.preload).reduce(function (n, r) { return n + d.preload[r]; }, 0);
     var h = '<div class="optcard on"><div class="top"><b>Deploy dropship ' + s.num + '</b><span class="dim">hold ' + fmt(used) + ' / ' + fmt(s.hold) + '</span></div>';
     if (!d.territory) return h + '<div class="dim">No territory is open right now.</div><div class="actions"><button class="btn" data-orbit="deploy-cancel">Cancel</button></div></div>';
-    h += '<div class="orow">' + sel('deploy-terr', open.map(function (t) { return [t.id, t.name + ' · ' + t.anomaly.name + ' · ' + t.ticksLeft + 't']; }), d.territory) + '</div>' +
+    h += '<div class="orow">' + sel('deploy-terr', open.map(function (t) { return [t.id, t.name + (t.dataSite ? ' · data site' : '') + ' · ' + t.anomaly.name + ' · ' + t.ticksLeft + 't']; }), d.territory) + '</div>' +
       '<div class="dim" style="font-size:11px;margin:6px 0">It lands in ' + ticks(sh.deployTicks) + ' with a construction kit (' + Object.keys(sh.starterKit).map(function (r) { return sh.starterKit[r] + ' ' + rn(r); }).join(', ') + '). Preload anything else from orbital storage:</div>';
     h += Object.keys(inv).filter(function (r) { return inv[r].amount >= 1; }).map(function (r) {
       return '<div class="orow"><span style="flex:1">' + esc(rn(r)) + ' <small class="dim">(' + fmt(inv[r].amount) + ')</small></span>' + num('preload', d.preload[r] || 0, 'data-res="' + r + '"') + '</div>';
@@ -206,7 +206,7 @@
     var a = t.anomaly, r = t.resources;
     return '<div class="terr' + (t.taken ? ' taken' : '') + '"><div class="top"><b>' + esc(t.name) + '</b><span class="' + (t.ticksLeft < 300 ? 'warn' : 'dim') + '">' + ticks(t.ticksLeft) + (t.destabilized ? ' · destabilised' : '') + '</span></div>' +
       '<div class="dim" style="font-size:11px"><b>' + esc(a.name) + '</b>: ' + esc(a.desc) + '</div>' +
-      '<div class="io" style="margin-top:4px">' + H.pill(r.common1, 'common') + H.pill(r.common2, 'common') + H.pill(r.district, 'district') + H.pill(r.rare, 'rare', 'out') + '</div>' +
+      '<div class="io" style="margin-top:4px">' + H.pill(r.common1, 'common') + H.pill(r.common2, 'common') + H.pill(r.district, 'district') + H.pill(r.rare, 'rare', 'out') + '</div>' + (t.dataSite ? '<div class="data-tag">' + H.icon('t_data', 12) + ' Data site: Data Recovery can be built here</div>' : '') +
       '<div class="dim" style="font-size:11px;margin-top:4px">Rare yield ×' + a.rareMult + (a.powerMult && a.powerMult < 1 ? ' · ship power ×' + a.powerMult : '') + ' · leaving late ' + a.lateDamage + '% damage' + (a.damagePerTick ? ' · ' + a.damagePerTick + '% damage every tick on the ground' : '') + '</div>' +
       (t.taken ? '<div class="' + (t.taken.mine ? 'good' : 'warn') + '" style="font-size:12px;margin-top:4px">' + (t.taken.mine ? 'Your dropship is here' : esc(t.taken.station) + ' is down there') + '</div>' : '') + '</div>';
   }

@@ -1240,6 +1240,52 @@
      "mood": "thoughtful"
     }
    }
+  },
+  "x15_fragment": {
+   "title": "Fragment",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "pell",
+     "text": [
+      "Commander. The rig on the territory has produced something. I would call it a fragment, because a fragment is what it is. It is also humming, which I mention because the tray is humming and I would like us to be in agreement."
+     ],
+     "mood": "afraid",
+     "next": "b"
+    },
+    "b": {
+     "who": "seven",
+     "text": [
+      "This node has logged one data fragment. It is incomplete. According to the index it is stored in a place the index does not list. The Office requires an entry for every fragment, and this node does not know which drawer."
+     ],
+     "mood": "thoughtful",
+     "next": "c"
+    },
+    "c": {
+     "who": "pell",
+     "text": [
+      "It wants others. Not company. Other pieces. Gather enough and we can assemble a full packet, and a packet can be read."
+     ],
+     "mood": "serious",
+     "next": "d"
+    },
+    "d": {
+     "who": "pell",
+     "text": [
+      "I would very much like to read it. I would also like it to be somebody else's responsibility. Neither of those is going to happen."
+     ],
+     "mood": "thoughtful",
+     "next": "e"
+    },
+    "e": {
+     "who": "seven",
+     "text": [
+      "Find more data sites, Commander. The Data screen is open on your terminal. This node asks that nobody reads a packet alone."
+     ],
+     "mood": "serious"
+    }
+   }
   }
  },
  "beats": [
@@ -2105,6 +2151,16 @@
      "The convoy is flying a strip of red on the lead truck tonight. Nobody told them to. Build another when you can. We will keep watching the sky."
     ]
    }
+  },
+  {
+   "id": "x15_fragment",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "dataFragment"
+   },
+   "delivery": "dialogue",
+   "scene": "x15_fragment"
   }
  ]
 }

@@ -507,6 +507,10 @@
     "t_tap": {
       "name": "Anomaly Tap",
       "desc": "Draws the territory's rare material out of the anomaly. Pick a recipe and it holds. What the material wants depends on what it is, and the first visits will teach that the slow way. A bigger plot runs a bigger batch."
+    },
+    "t_data": {
+      "name": "Data Recovery Rig",
+      "desc": "Works a data site. It needs only power. Each recovery attempt takes a long while and most find nothing, but the Office keeps asking, and the rig keeps answering. Low power slows it."
     }
   },
   "districts": {
@@ -988,6 +992,38 @@
     },
     "still_metal_b": {
       "name": "Graviton Metaloid, route B"
+    }
+  },
+  "dataPackets": {
+    "survey_log": {
+      "name": "Charter Survey, Annex 0",
+      "desc": "The first survey of the ground the Office chose.",
+      "text": "Annex 0 to the Charter, filed before the Lapse and never indexed. The surveyors set down on a dry morning and wrote only facts: the ground was level, the water was bad, the sky was the colour of a pressed coin. They marked a point for the hub and went home. Nothing in the annex explains why that point was chosen. The coordinates are not the best in the area. They are the only ones every surveyor agreed on without discussion. The Office has no form for a unanimous survey."
+    },
+    "supply_audit": {
+      "name": "Continuity Audit 4",
+      "desc": "A ledger of what was sent, and what arrived.",
+      "text": "Every line in Audit 4 balances. That is the strange part. Crates went out, crates came in, and in a hundred trips not one went missing. The auditor wrote in the margin: nothing this tidy has ever happened in the Office's history. They signed it, dated it, and asked that someone confirm the road was real. The reply is stapled to the back. It reads: Noted."
+    },
+    "relay_notes": {
+      "name": "Relay Station Night Notes",
+      "desc": "Someone's private notes from the first relay.",
+      "text": "The relay hums at night, a note just below hearing. Maren says it is the cooling. Maren has also stopped sleeping in the east bunk. If you find this, tell whoever is listening that the relay was never switched on. It only answered. I have written down everything it said. The pages are in the second drawer. Please do not read them aloud, and please, whatever you do, do not file them."
+    },
+    "site_report": {
+      "name": "Site Report: The Slow Ground",
+      "desc": "What the anomalies do to the places they touch.",
+      "text": "The anomalies are not storms and not machines. They are patient. A territory opens, stays a while, and folds shut as quietly as a hand closing. Nothing inside is harmed by this. Things are only returned a little different. The report recommends leaving a light on at every site and cannot say who the light is for. Pell's note on the cover reads: it is for whoever is coming back."
+    },
+    "crew_roll": {
+      "name": "Founding Roll",
+      "desc": "A list of names, and one column left blank.",
+      "text": "The roll lists four hundred and twelve names, each with a role, a bunk and a ration card. The last column is headed Returned and is empty for every row. The clerk wrote: I do not know whether this means none of us came back, or that none of us ever left. Either way the ration cards are still being issued, and somebody is still collecting them."
+    },
+    "final_memo": {
+      "name": "Memorandum 0: What Was Meant to Be Heard",
+      "desc": "The last thing written before the records stopped.",
+      "text": "To whoever recovers this: we did not abandon the colony. We stayed, and the colony stayed with us, and somewhere along the way the difference stopped mattering. Keep building. Keep the lights on. The Series-9 Beacon was never a message to somebody else. It was the Office learning to say its own name. The work is not the point, and it is also the only point. If you have read this far, you have already begun to understand it. Please file this under Continuity."
     }
   }
 }

@@ -539,3 +539,57 @@ test('territories: the rare resources are evened out, so a needed one is never m
   db.prepare('DELETE FROM territories').run();
   tick(1); // the world refills its pool for the tests that follow
 });
+
+test('data sites: about one territory in twenty has one, Data Recovery only builds on them and needs only power, and attempts pay out fragments that buy data packets', () => {
+  const DS = O.territories.dataSite;
+  // the roll
+  db.prepare('DELETE FROM territories').run();
+  for (let i = 0; i < 2000; i++) territories.spawn(now() + 1 + i, 0);
+  const sites = db.prepare('SELECT COUNT(*) AS n FROM territories WHERE data_site = 1').get().n;
+  assert.ok(sites > 2000 * DS.chance * 0.5 && sites < 2000 * DS.chance * 1.6, `${sites} data sites in 2000 territories`);
+  db.prepare('DELETE FROM territories').run();
+  tick(1);
+  // a landed ship on a territory without, then with, a data site
+  const c = launched('Deep Archive');
+  const ship = territories.shipsOf(c.id)[0];
+  const t = db.prepare("SELECT * FROM territories WHERE taken_by IS NULL AND closes_tick > ? ORDER BY closes_tick DESC LIMIT 1").get(now() + 400);
+  db.prepare('UPDATE territories SET data_site = 0 WHERE id = ?').run(t.id);
+  assert.deepEqual(actions.shipDeploy(c.uid, { ship: ship.id, territory: t.id }), { ok: true });
+  tick(O.dropships.deployTicks);
+  const land = db.prepare("SELECT * FROM districts WHERE colony_id = ? AND type = 'territory'").get(c.id);
+  assert.match(actions.build(c.uid, { ring: 1, slot: 0, type: 't_data', district: land.id }).error, /needs a data site/);
+  db.prepare('UPDATE territories SET data_site = 1 WHERE id = ?').run(t.id);
+  assert.equal(viewFor(c.uid).orbital.ships.territories.find((x) => x.id === t.id).dataSite, true);
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 0, type: 't_data', district: land.id }), { ok: true });
+  assert.match(actions.build(c.uid, { ring: 1, slot: 1, type: 't_data', district: land.id }).error, /already|in use/, 'one per site');
+  db.prepare('DELETE FROM colony_work_orders WHERE colony_id = ? AND district_id = ?').run(c.id, land.id);
+  db.prepare('DELETE FROM colony_buildings WHERE district_id = ?').run(land.id);
+  put(c, land.id, 1, 0, 't_data');
+  assert.equal(config.buildings.t_data.inputsPerTick.energy, 45);
+  // quick, certain attempts so the test is short
+  const saved = { ...DS }; Object.assign(DS, { attemptTicks: 5, successChance: 1, attemptsPerFragment: 2 });
+  try {
+    assert.equal(viewFor(c.uid).data.unlocked, false, 'the Data screen waits for the first fragment');
+    tick(4);
+    assert.equal(viewFor(c.uid).data.fragments, 0);
+    assert.equal(viewFor(c.uid).data.successes, 0, 'no attempt has finished yet');
+    tick(1);
+    assert.equal(viewFor(c.uid).data.successes, 1, 'one attempt found something');
+    tick(5);
+    const d = viewFor(c.uid).data;
+    assert.equal(d.fragments, 1);
+    assert.equal(d.unlocked, true);
+    assert.ok(orbital.flagsOf(db.prepare('SELECT * FROM colonies WHERE id = ?').get(c.id)).dataFragment !== undefined, 'the first fragment raises the story flag');
+    // packets: the text is only sent once it is unlocked
+    const cheap = d.packets.find((p) => p.cost === 1), dear = d.packets.find((p) => p.cost > 1);
+    assert.equal(cheap.text, null);
+    assert.match(actions.dataUnlock(c.uid, { packet: dear.id }).error, /costs/);
+    assert.match(actions.dataUnlock(c.uid, { packet: 'nope' }).error, /Unknown/);
+    assert.deepEqual(actions.dataUnlock(c.uid, { packet: cheap.id }), { ok: true });
+    const after = viewFor(c.uid).data;
+    assert.equal(after.fragments, 0);
+    assert.ok(after.packets.find((p) => p.id === cheap.id).text.length > 20);
+    assert.match(actions.dataUnlock(c.uid, { packet: cheap.id }).error, /already/);
+    assert.equal(require('../src/state').clientConfig().orbital.data.packets[cheap.id].text, undefined, 'the config never carries the lore');
+  } finally { Object.assign(DS, saved); }
+});

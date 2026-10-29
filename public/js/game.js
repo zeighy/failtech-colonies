@@ -70,14 +70,16 @@
     ]
   };
   var ORBIT_WS = { ostore: 1, omarket: 1, oterr: 1, oproject: 1 };
-  function groupsNow() { return inOrbit() ? GROUPS.orbit : GROUPS.ground; }
+  // The Data screen only exists once the first data fragment has been recovered.
+  var DATA_GROUP = { id: 'data', name: 'Data', icon: 't_data', tabs: [['data', 'Data', 't_data']] };
+  function groupsNow() { var g = inOrbit() ? GROUPS.orbit : GROUPS.ground; return S && S.data && S.data.unlocked ? g.concat([DATA_GROUP]) : g; }
   function tabLabel(t) { var ui = CFG.ui && CFG.ui.tabs; return (ui && ui[t[0]]) || (t[0] === 'hub' && !activeD().core ? 'District' : t[1]); }
   // Where a link that names a screen goes: a workspace, or one of the two overlays.
   function go(t) {
     if (t === 'comms' || t === 'log') { messages(t === 'log' ? 'history' : 'mail'); return; }
     if (t === 'site') { ws = null; renderAll(); return; }
     if (ORBIT_WS[t] && !inOrbit()) enterOrbit();
-    var g = GROUPS.ground.concat(GROUPS.orbit).filter(function (x) { return x.tabs.some(function (y) { return y[0] === t; }); })[0];
+    var g = GROUPS.ground.concat(GROUPS.orbit, [DATA_GROUP]).filter(function (x) { return x.tabs.some(function (y) { return y[0] === t; }); })[0];
     if (g) lastWs[g.id] = t;
     ws = t; renderAll();
   }
@@ -465,6 +467,10 @@
     if (sh) h2 += plainChip('Hold', fmt(sh.hold), '', '', 'Cargo the dropship can carry home') +
       (t ? plainChip('Closes in', t.ticksLeft + 't <small>' + clock(t.ticksLeft * S.tickMs) + '</small>', t.ticksLeft <= 6 ? 'bad' : t.ticksLeft <= 15 ? 'warn' : '', '', t.anomaly.name) : '') +
       plainChip('Hull', sh.integrity + '<small>%</small>', sh.integrity < 35 ? 'bad' : sh.integrity < 60 ? 'warn' : '', '', 'Dropship integrity');
+    if (t && t.dataSite) {
+      var rig = (S.buildings || []).filter(function (b) { return b.type === 't_data'; })[0];
+      h2 += plainChip('Data site', rig ? Math.floor(rig.dataProgress || 0) + ' <small>/ ' + S.data.attemptTicks + 't</small>' : '<span class="dim">no rig</span>', '', S.data.unlocked ? 'data' : '', rig ? 'A recovery attempt in progress' : 'Build Data Recovery here');
+    }
     return h2;
   }
   function newEvents() { return S.events.filter(function (e) { return e.id > bellSeen && e.kind !== 'info'; }); }
@@ -564,6 +570,41 @@
     return '<div class="wide">' + stockSwitch() + '<div class="p-title"><h3>Stockpile</h3><span class="dim" style="margin-left:auto">' + esc(activeD().core ? 'The colony' : activeD().name) + ' · ' + keys.length + ' kinds</span></div>' +
       '<table class="stock"><thead><tr><th>Resource</th><th>On hand</th><th>Net</th><th>Fill</th><th style="text-align:left">Status</th><th>Pin</th></tr></thead><tbody>' + keys.map(function (k) { return stockRow(k, true); }).join('') + '</tbody></table></div>';
   }
+  // ---- data: fragments recovered from data sites, spent on lore packets
+  function rigsList() {
+    var out = [];
+    S.districts.filter(function (d) { return d.type === 'territory'; }).forEach(function (d) {
+      var v = S.views[d.id];
+      (v ? v.buildings : []).filter(function (b) { return b.type === 't_data'; }).forEach(function (b) { out.push({ district: d, b: b }); });
+    });
+    return out;
+  }
+  function rigBlock(b) {
+    if (b.type !== 't_data') return '';
+    var D = S.data;
+    return '<div class="label sec">Recovery</div><dl class="kv"><dt>This attempt</dt><dd>' + Math.floor(b.dataProgress || 0) + ' / ' + D.attemptTicks + ' ticks</dd>' +
+      '<dt>Toward a fragment</dt><dd>' + D.successes + ' / ' + D.perFragment + ' successful attempts</dd></dl>' +
+      '<div class="dim" style="font-size:11px">Low power slows an attempt. About ' + Math.round(D.successChance * 100) + '% of attempts find something.</div>';
+  }
+  function dataTab() {
+    var D = S.data, rigs = rigsList();
+    var h = '<div class="p-title"><h3>Data</h3><span class="dim" style="margin-left:auto">' + D.total + ' fragment' + (D.total === 1 ? '' : 's') + ' recovered in all</span></div>' +
+      '<div class="data-bal"><div><span class="label">Fragments</span><b class="num">' + D.fragments + '</b></div><div class="grow"><span class="label">Next fragment</span><div class="meter wide"><i style="width:' + (D.successes / D.perFragment * 100).toFixed(0) + '%;background:var(--cyan)"></i></div>' +
+      '<small class="dim">' + D.successes + ' of ' + D.perFragment + ' successful attempts. An attempt takes ' + D.attemptTicks + ' ticks and about ' + Math.round(D.successChance * 100) + '% of them find something.</small></div></div>';
+    h += '<div class="sheet-h">Recovery rigs</div>';
+    h += rigs.length ? rigs.map(function (x) {
+      var st = STATUS[x.b.status] || STATUS.running;
+      return '<div class="ov-row"><div class="grow"><b>' + esc(x.district.name) + '</b><div class="dim" style="font-size:12px">Attempt ' + Math.floor(x.b.dataProgress || 0) + ' / ' + D.attemptTicks + ' ticks · <span class="' + st[1] + '">' + st[0] + '</span></div></div><div class="meter" style="width:120px"><i style="width:' + ((x.b.dataProgress || 0) / D.attemptTicks * 100).toFixed(0) + '%;background:var(--cyan)"></i></div></div>';
+    }).join('') : '<div class="dim" style="font-size:12px">No rig is working. Build Data Recovery in a territory that has a data site.</div>';
+    h += '<div class="sheet-h">Data packets</div>';
+    h += D.packets.map(function (p) {
+      var can = D.fragments >= p.cost;
+      return '<div class="packet' + (p.unlocked ? ' open' : '') + '"><div class="top"><b>' + esc(p.name) + '</b>' + (p.unlocked ? '<span class="good">Unlocked</span>' : '<span class="dim">' + p.cost + ' fragment' + (p.cost === 1 ? '' : 's') + '</span>') + '</div>' +
+        (p.unlocked ? '<div class="ptext">' + esc(p.text).split(/\n+/).map(function (t) { return '<p>' + t + '</p>'; }).join('') + '</div>' :
+          '<div class="dim" style="font-size:12px;margin:2px 0 8px">' + esc(p.desc) + '</div><button class="btn' + (can ? ' primary' : '') + '" data-act="dataunlock" data-packet="' + esc(p.id) + '"' + (can ? '' : ' disabled') + '>Unlock for ' + p.cost + '</button>') + '</div>';
+    }).join('');
+    return h;
+  }
   // construction/stock numbers interpolate between ticks
   function frameStock(f) {
     document.querySelectorAll('[data-sr]').forEach(function (row) {
@@ -612,6 +653,7 @@
     if (dockOpen && !gs.some(function (g) { return g.id === dockOpen; })) dockOpen = null;
     var h = gs.map(function (g) {
       var open = dockOpen === g.id, here = g.tabs.some(function (t) { return t[0] === ws; });
+      if (g.tabs.length === 1) { var t1 = g.tabs[0]; return '<div class="dg"><button class="dbtn" data-act="tab" data-tab="' + t1[0] + '" aria-pressed="' + (ws === t1[0]) + '">' + icon(t1[2], 16) + '<span>' + esc(tabLabel(t1)) + '</span></button></div>'; }
       return '<div class="dg' + (open ? ' open' : '') + '"><button class="dbtn grp" data-act="dock" data-g="' + g.id + '" aria-expanded="' + open + '" aria-pressed="' + (here && !open) + '">' + icon(g.icon, 16) + '<span>' + esc(g.name) + '</span>' + (open ? '' : groupBadge(g)) + '</button>' +
         (open ? g.tabs.map(function (t) {
           return '<button class="dbtn" data-act="tab" data-tab="' + t[0] + '" aria-pressed="' + (ws === t[0]) + '">' + icon(t[2], 16) + '<span>' + esc(tabLabel(t)) + '</span>' + tabBadge(t[0]) + '</button>';
@@ -627,7 +669,7 @@
   function wsHtml(t) {
     if (window.Orbit.panes[t]) return window.Orbit.panes[t]();
     return t === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : t === 'people' ? peopleTab() : t === 'districts' ? districtsTab() : t === 'logistics' ? logisticsPage() :
-      t === 'convoy' ? convoyTab() : t === 'exchange' ? exchangeTab() : t === 'missions' ? missionsTab() : t === 'stockpile' ? stockpileTab() : briefTab();
+      t === 'convoy' ? convoyTab() : t === 'exchange' ? exchangeTab() : t === 'missions' ? missionsTab() : t === 'stockpile' ? stockpileTab() : t === 'data' ? dataTab() : briefTab();
   }
   var lastSheetTabs = '', lastSheet = '';
   function renderSheet() {
@@ -751,7 +793,7 @@
       '<dt>Plot</dt><dd class="' + (b.plot < 0.999 ? 'bad' : 'good') + '">' + plotName(b.ring) + (b.plot < 0.999 ? ' · too small for ' + plotName2(d.minPlotSize) + ' · ×' + b.plot.toFixed(2) : (d.minPlotSize > 1 ? ' · fits' : '')) + '</dd>' +
       (d.workers ? '<dt>Crew</dt><dd class="' + (S.colony.staffing.ratio < 0.999 ? 'warn' : '') + '">' + d.workers + ' needed' + (S.colony.staffing.ratio < 0.999 ? ' · colony at ' + pct(S.colony.staffing.ratio) + ' staffed' : '') + '</dd>' : '') +
       (d.housing ? '<dt>Homes</dt><dd>+' + Math.floor(d.housing * b.plot) + ' people</dd><dt>Comfort</dt><dd class="' + (b.comfort > 0 ? 'good' : b.comfort < 0 ? 'bad' : 'dim') + '">' + (b.comfort > 0 ? '+' : '') + (b.comfort || 0) + '</dd>' : '') +
-      (b.mark ? '<dt>Hazard</dt><dd class="' + (b.mark === 'hit' ? 'bad' : 'warn') + '">' + MARK_TXT[b.mark] + (b.haz < 0.999 ? ' · ×' + b.haz.toFixed(2) : '') + '</dd>' : '') + '</dl>' +
+      (b.mark ? '<dt>Hazard</dt><dd class="' + (b.mark === 'hit' ? 'bad' : 'warn') + '">' + MARK_TXT[b.mark] + (b.haz < 0.999 ? ' · ×' + b.haz.toFixed(2) : '') + '</dd>' : '') + '</dl>' + rigBlock(b) +
       '<div class="label sec">Per tick at current efficiency</div><div class="io">' + ioPills(d, b.paused ? 0 : b.eff, b.mult * b.haz) + '</div>' +
       (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult) + ' storage each') + '</div>' : '') +
       (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult).toFixed(1) + '</span></div>' : '') +
@@ -1662,6 +1704,7 @@
     else if (a === 'dock') { dockOpen = dockOpen === el.dataset.g ? null : el.dataset.g; armDock(); renderDock(); }
     else if (a === 'desel') { sel = null; renderAll(); }
     else if (a === 'pin') togglePin(el.dataset.res)
+    else if (a === 'dataunlock') act('data-unlock', { packet: el.dataset.packet }, 'Data packet unlocked.')
     else if (a === 'msel') { msgSel[msgTab] = el.dataset.id; renderMessages(); }
     else if (a === 'wsclose') { ws = null; renderAll(); }
     else if (a === 'msgs') { closePop(); messages(el.dataset.t || 'mail'); }

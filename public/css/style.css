@@ -661,3 +661,15 @@ body.orbit-mode .dtab[aria-selected="true"], body.orbit-mode .dbtn[aria-pressed=
 #queue { overflow-x: auto; overflow-y: hidden; }
 .slot.clearing .cell { fill: rgba(255,255,255,.02); stroke: var(--warn); stroke-dasharray: 2 4; }
 .slot.clearing .tag { fill: var(--warn); }
+
+/* data sites */
+.data-tag { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 2px 9px; border-radius: 99px; border: 1px solid #2f6f62; color: #7fd6c2; background: rgba(127,214,194,.08); font-size: 11px; }
+.data-bal { display: flex; align-items: center; gap: 22px; padding: 14px 16px; background: var(--bg2); border: 1px solid var(--line); border-left: 3px solid var(--cyan); border-radius: var(--radius); margin: 8px 0 4px; }
+.data-bal b { display: block; font-size: 30px; line-height: 1.1; color: var(--cyan); }
+.data-bal .grow { flex: 1; min-width: 0; }
+.data-bal small { display: block; margin-top: 6px; font-size: 12px; }
+.packet { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel2); padding: 12px 14px; margin: 8px 0; }
+.packet .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.packet.open { border-left: 3px solid var(--cyan); }
+.packet .ptext { margin-top: 8px; color: var(--text); font-size: 13px; line-height: 1.6; }
+.packet .ptext p { margin: 0 0 8px; }

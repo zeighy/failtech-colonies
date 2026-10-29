@@ -27,7 +27,7 @@
 //   { type: 'campaignDone' }                 every Brief directive is done (the open-ended phase)
 //   { type: 'after', beat, delayTicks? }     some ticks after another beat was delivered
 //   { type: 'orbital', flag }                an orbit milestone (unlocked, staging, catapult, command, cycleDone, launched,
-//                                            ring2, ring3, deployed, rareReturned, shipSaved, shipLost, contributed, projectCompleted)
+//                                            ring2, ring3, deployed, rareReturned, shipSaved, shipLost, contributed, projectCompleted, dataFragment)
 const store = require('./db');
 const theme = require('./theme');
 const fs = require('fs');
@@ -44,7 +44,7 @@ const MOODS = ['happy', 'sad', 'angry', 'afraid', 'surprised', 'serious', 'thoug
 const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
 
 // Orbit milestones a beat can wait for (see src/orbital.js setFlag, and the launch site).
-const ORBITAL_FLAGS = ['unlocked', 'staging', 'catapult', 'command', 'cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted'];
+const ORBITAL_FLAGS = ['unlocked', 'staging', 'catapult', 'command', 'cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted', 'dataFragment'];
 const TRIGGERS = {
   start: () => [],
   directive: (t) => (DIRECTIVE_IDS.includes(t.id) ? [] : [`unknown directive "${t.id}"`]),

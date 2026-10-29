@@ -317,7 +317,8 @@ function migrate() {
       closes_tick INTEGER NOT NULL,
       taken_by INTEGER,
       taken_name TEXT,
-      destabilized INTEGER NOT NULL DEFAULT 0
+      destabilized INTEGER NOT NULL DEFAULT 0,
+      data_site INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS global_projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -362,6 +363,18 @@ function migrate() {
       qty INTEGER NOT NULL,
       buyer TEXT NOT NULL,
       seller TEXT NOT NULL
+    );
+  `);
+  // data sites: a territory can hold one, Data Recovery buildings work it, and fragments are kept per colony
+  for (const [tbl, col, ddl] of [['territories', 'data_site', 'INTEGER NOT NULL DEFAULT 0'], ['colony_buildings', 'data_progress', 'REAL NOT NULL DEFAULT 0'],
+    ['colonies', 'data_fragments', 'INTEGER NOT NULL DEFAULT 0'], ['colonies', 'data_successes', 'INTEGER NOT NULL DEFAULT 0'], ['colonies', 'data_total', 'INTEGER NOT NULL DEFAULT 0']]) {
+    if (!db.prepare(`SELECT 1 FROM pragma_table_info('${tbl}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${tbl} ADD COLUMN ${col} ${ddl}`);
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS colony_data_packets (
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      packet_id TEXT NOT NULL,
+      PRIMARY KEY (colony_id, packet_id)
     );
   `);
   if (!db.prepare("SELECT 1 FROM pragma_table_info('orbital_shipments') WHERE name = 'dest'").get()) db.exec("ALTER TABLE orbital_shipments ADD COLUMN dest TEXT NOT NULL DEFAULT 'station'");
@@ -506,7 +519,7 @@ function saveInventory(colonyId, inv, districtId = coreId(colonyId)) {
 
 function loadBuildings(colonyId, districtId = coreId(colonyId)) {
   const tick = Number(getMeta('global_tick', 0));
-  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, boost, level, recipe, recipe_ready_tick AS readyTick, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId)
+  return db.prepare('SELECT id, ring_index AS ring, slot_index AS slot, building_type AS type, status, boost, level, recipe, recipe_ready_tick AS readyTick, data_progress AS dataProgress, district_id AS districtId FROM colony_buildings WHERE district_id = ? ORDER BY id').all(districtId)
     .map((b) => ({ ...b, resetting: b.readyTick > tick }));
 }
 
