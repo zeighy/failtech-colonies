@@ -41,7 +41,8 @@
   var lastEventId = null;
   var shown = {};          // modals already shown (per page load)
   var connected = true;
-  var confirmKey = null, confirmTimer = null;
+  var confirmKey = null, confirmTimer = null, confirmAt = 0; // two-step buttons: the second click only counts after a short pause (not a double click)
+  var CONFIRM_DELAY = 700;
   var restarting = false;  // suppresses the collapse modal while a restart is in flight
   var slotEls = {};        // "r:s" -> {g, cell, ...}
   var ringLabels = {};     // ring -> svg text (plot size / locked notice)
@@ -1677,8 +1678,11 @@
     }
     else if (a === 'pcancel') { var pid = +el.dataset.id; pending = pending.filter(function (p) { return p.id !== pid; }); renderQueue(); renderRadar(); renderAlerts(); renderPanel(); }
     else if (a === 'demolish') {
-      if (confirmKey === el.dataset.key) { confirmKey = null; act('demolish', { ring: +el.dataset.ring, slot: +el.dataset.slot, district: activeId }); }
-      else { confirmKey = el.dataset.key; clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
+      if (confirmKey === el.dataset.key) {
+        if (Date.now() - confirmAt < CONFIRM_DELAY) return; // a double click: ignore it, stay armed
+        confirmKey = null; act('demolish', { ring: +el.dataset.ring, slot: +el.dataset.slot, district: activeId });
+      }
+      else { confirmKey = el.dataset.key; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
     }
     else if (a === 'cancel') { e.preventDefault(); act('cancel', { orderId: +el.dataset.id }); }
     else if (a === 'upgrade') act('upgrade', { district: activeId }, activeD().core ? 'Hub upgrade started.' : activeD().name + ' upgrade started.');

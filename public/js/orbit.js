@@ -10,7 +10,21 @@
     contrib: null,  // { ship, cargo: {res: qty} }
     name: ''
   };
-  var confirmJettison = null;
+  // Two-step buttons: the first click arms the button, and only a second, separate click a moment later confirms it.
+  // A second click that lands straight away (a double click) is ignored and leaves the button armed.
+  var armed = null, ARM_DELAY = 700, ARM_LIFE = 4000;
+  function isArmed(key) { return !!armed && armed.key === key && Date.now() - armed.at <= ARM_LIFE; }
+  function confirmClick(key) {
+    var now = Date.now();
+    if (isArmed(key)) {
+      if (now - armed.at < ARM_DELAY) return false;
+      armed = null; return true;
+    }
+    armed = { key: key, at: now };
+    H.redraw();
+    setTimeout(function () { if (armed && armed.key === key && Date.now() - armed.at >= ARM_LIFE) { armed = null; H.redraw(); } }, ARM_LIFE + 50);
+    return false;
+  }
 
   function init(host) { H = host; document.addEventListener('click', onClick); document.addEventListener('change', onChange); }
   var S = function () { return H.S(); };
@@ -129,7 +143,7 @@
       var key = 'j' + slot.idx;
       return '<div class="oslot" style="--c:' + (C().resources[slot.resource] || {}).color + '"><i></i><b>' + esc(rn(slot.resource)) + '</b><span class="num">' + fmt(r.amount) + ' <small>/ ' + fmt(s.cap) + '</small></span>' +
         '<small class="' + (r.net > 0.05 ? 'good' : r.net < -0.05 ? 'bad' : 'dim') + '">' + (Math.abs(r.net) < 0.05 ? '±0' : (r.net > 0 ? '+' : '−') + Math.abs(r.net).toFixed(1)) + '/t</small>' +
-        '<button class="btn danger" data-orbit="jettison" data-slot="' + slot.idx + '">' + (confirmJettison === key ? 'Confirm?' : 'Jettison') + '</button></div>';
+        '<button class="btn danger" data-orbit="jettison" data-slot="' + slot.idx + '">' + (isArmed('j' + slot.idx) ? 'Confirm?' : 'Jettison') + '</button></div>';
     }).join('');
     h += '<div class="dim" style="font-size:11px;margin-top:6px">Each slot holds one kind of resource. Anything that arrives without a slot is lost. Jettisoning empties a slot and frees it, but the slot then has to be rebuilt (' + Object.keys(C().orbital.storage.rebuildCost).map(function (r) { return C().orbital.storage.rebuildCost[r] + ' ' + rn(r); }).join(', ') + ' from orbital storage).</div>';
     if (s.next) h += '<div class="optcard" style="margin-top:8px"><div class="top"><b>Expand storage</b><span class="dim">' + s.next.slots + ' slots · ' + fmt(s.next.cap) + ' each</span></div>' + costLine(s.next.cost, have) + '<div class="actions"><button class="btn" data-orbit="storage-up">Expand</button></div></div>';
@@ -159,7 +173,7 @@
       '<div class="dim" style="font-size:11px">Integrity ' + s.integrity + '%' + (s.savedOnce ? ' · already escaped destruction once' : '') + ' · hold ' + fmt(s.hold) + ' · power ' + s.power + ' · links ' + s.linkRate + '/t</div>' + bar(s.integrity, 100, s.integrity < 30 ? 'bad' : s.integrity < 60 ? 'warn' : '');
     if (s.state === 'deployed' && s.territory) {
       h += '<div class="dim" style="font-size:12px;margin-top:6px">In <b>' + esc(s.territory.name) + '</b> · ' + esc(s.territory.anomaly.name) + ' closes in ' + ticks(s.territory.ticksLeft) + '</div>' +
-        '<div class="actions"><button class="btn primary" data-orbit="view" data-id="' + s.districtId + '">View territory</button><button class="btn" data-orbit="recall" data-ship="' + s.id + '">Fly back now</button></div>';
+        '<div class="actions"><button class="btn primary" data-orbit="view" data-id="' + s.districtId + '">View territory</button><button class="btn" data-orbit="recall" data-ship="' + s.id + '">' + (isArmed('r' + s.id) ? 'Confirm: fly back?' : 'Fly back now') + '</button></div>';
     }
     if (Object.keys(s.cargo || {}).length) h += '<div class="io" style="margin-top:6px">' + Object.keys(s.cargo).map(function (r) { return H.pill(r, s.cargo[r]); }).join('') + '</div>';
     if (s.state === 'docked') {
@@ -219,7 +233,7 @@
       var on = !!(s.plan && s.plan[r]);
       return '<label class="orow"><input type="checkbox" data-osel="plan" data-res="' + r + '"' + (on ? ' checked' : '') + '> <span style="flex:1">' + esc(rn(r)) + '</span><span class="num">' + fmt(inv[r].amount) + '</span></label>';
     }).join('');
-    h += '<div class="actions"><button class="btn primary" data-orbit="recall" data-ship="' + s.id + '">Fly back now</button></div>';
+    h += '<div class="actions"><button class="btn primary" data-orbit="recall" data-ship="' + s.id + '">' + (isArmed('r' + s.id) ? 'Confirm: fly back?' : 'Fly back now') + '</button></div>';
     // links to the station
     var links = S().routes.filter(function (r) { return r.fromDistrict === d.id || r.toDistrict === d.id; });
     h += '<div class="label sec">Links to the station · ' + links.length + ' of ' + sh.maxLinks + '</div>';
@@ -335,9 +349,7 @@
     } else if (a === 'enter-orbit') H.enterOrbit();
     else if (a === 'express') act('express-launch', { resource: draft.express.res, qty: draft.express.qty, dir: draft.express.dir }, draft.express.dir === 'down' ? 'Capsule away.' : 'Express launch away.');
     else if (a === 'jettison') {
-      var key = 'j' + el.dataset.slot;
-      if (confirmJettison !== key) { confirmJettison = key; H.redraw(); setTimeout(function () { if (confirmJettison === key) { confirmJettison = null; H.redraw(); } }, 3000); return; }
-      confirmJettison = null; act('jettison', { slot: +el.dataset.slot });
+      if (confirmClick('j' + el.dataset.slot)) act('jettison', { slot: +el.dataset.slot });
     } else if (a === 'rebuild') act('rebuild-slot', { slot: +el.dataset.slot });
     else if (a === 'storage-up') act('orbit-storage', {});
     else if (a === 'links-up') act('orbit-links', {});
@@ -359,7 +371,7 @@
     else if (a === 'deploy-go') {
       var dp = draft.deploy;
       act('ship-deploy', { ship: dp.ship, territory: dp.territory, preload: dp.preload }, 'Dropship away.').then(function (d) { if (d && d.ok) { draft.deploy = null; H.redraw(); } });
-    } else if (a === 'recall') act('ship-return', { ship: +el.dataset.ship }, 'The dropship is flying home.');
+    } else if (a === 'recall') { if (confirmClick('r' + el.dataset.ship)) act('ship-return', { ship: +el.dataset.ship }, 'The dropship is flying home.'); }
     else if (a === 'view') H.enter(+el.dataset.id);
     else if (a === 'mkt-post') { var m = draft.market; act('orbit-market', { resource: m.res, side: m.side, price: m.price, qty: m.qty, ttl: m.ttl }); }
     else if (a === 'mkt-cancel') act('orbit-market-cancel', { orderId: +el.dataset.id });
