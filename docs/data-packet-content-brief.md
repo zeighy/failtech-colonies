@@ -106,13 +106,65 @@ Anything you want shown or played, name it and send me the file. File names are 
 | **Background** | the scene's backdrop; a node can change it and it stays | JPG or WebP, 1920 x 1080, ideally under 400 KB |
 | **Image plate** | a picture shown over the stage for one node (a document, a photo, a map) | PNG, JPG or WebP, up to 1600 px on the long side |
 | **Portrait** (cast) | a character shown at the side | WebP with a transparent background, tall, around 800 x 1200, under 200 KB. Optional mood versions named `<name>_afraid.webp` etc. and an `<name>_avatar.webp` for the small round icon |
-| **Sound** | played once when the node appears (a voice line, a click, a tone) | OGG (Opus) or MP3, ideally under 1 MB |
-| **Music** | loops under the scene until another node changes it or says `stop` | OGG or MP3, a clean loop, ideally under 3 MB |
-| **Video** | plays full screen before the node's words, with a Continue button | MP4 (H.264 and AAC) or WebM, 1280 x 720 at most, ideally under 15 MB and a minute long |
+| **Sound** | played once when the node appears (a voice line, a click, a tone) | MP3 or M4A, ideally under 1 MB (see Providing audio and video) |
+| **Music** | loops under the scene until another node changes it or says `stop` | MP3 or M4A, a clean loop, ideally under 3 MB (see Providing audio and video) |
+| **Video** | plays full screen before the node's words, with a Continue button | MP4 (H.264 and AAC), 1280 x 720 at most, ideally under 15 MB and a minute long (see Providing audio and video) |
 
 Files live in the repository and go to the player as they are, so keep them small. If a file is missing the game just leaves it out until it exists, so you can write the scene first and add media later; mark in your script which files are still to come.
 
 The backgrounds that already exist, if you want to reuse them: `beacon_night`, `black_cut`, `catapult_launch`, `cliffside_reserve`, `colony_dusk`, `command_hub`, `freight_road`, `orbital_command`, `sanctuary_port` and `territory_landing` (all `.jpg`).
+
+### Providing audio and video
+
+**How to hand them over.** Send each clip as a normal file, named as in the script (for example `pk_p03_1_roll.mp3`), alongside the script. Any common source format is fine (WAV, FLAC, AIFF, MP3, M4A, OGG, MOV, MP4, MKV, WebM); I can convert and trim it for you, so you do not need to encode anything yourself. If you would rather deliver game-ready files, use the formats below. Always send the **highest quality original** if you have one, so I convert from that rather than from an already compressed copy.
+
+Alongside each clip, add a line to the script saying:
+
+- **Which node** it belongs to, and whether it is a **sound** (plays once), **music** (loops) or **video**.
+- A **transcript** of any speech in it (used for captions and checked against the scene's text, so what is shown and what is heard match).
+- For music: where the loop point is, if the clip is not already a clean loop.
+
+**What the player's browser can play.** The game uses the browser's own audio and video players, so the files must be formats browsers support. These are the safe choices:
+
+| | Best choice (works everywhere) | Also accepted |
+|---|---|---|
+| **Sound and music** | **MP3**, 128 kbps (stereo, or mono for speech at 96 kbps), 44.1 kHz. Or **M4A** (AAC) at 128 kbps | **OGG** (Vorbis or Opus): fine in Chrome, Edge and Firefox, but older Safari cannot play it, so use it only if you do not mind that; **WAV** works but is large |
+| **Video** | **MP4**: H.264 video, AAC audio, yuv420p, up to 1280 x 720 at 24 or 30 fps, with the "fast start" flag so it begins playing before it has fully downloaded | **WebM** (VP9 video, Opus audio): Chrome, Edge and Firefox play it, older Safari does not |
+
+The game accepts these file extensions: sound and music `.mp3 .ogg .opus .m4a .wav`; video `.mp4 .webm`. Anything else is rejected by the content check.
+
+**Sizes and lengths.**
+
+- **Sounds**: a few seconds to a minute; ideally under 1 MB.
+- **Music**: one to three minutes of a clean loop; ideally under 3 MB. Loops should start and end on the same level with no silence at either end, or the repeat will be audible. MP3 adds a tiny gap at the start and end, so for a tight loop send the original WAV and I will encode it as M4A or OGG.
+- **Speech**: record at a consistent level. Aim for roughly -16 LUFS (about the loudness of a podcast) for voice and a bit quieter, around -20 LUFS, for music, so music never covers a voice. I can normalise levels if they are uneven.
+- **Video**: up to about one minute, 1280 x 720 or smaller, ideally under 15 MB, with sound in the video itself (there is no separate subtitle track, so burn captions in if you need them). Keep the main action in the middle of the frame: the Continue button sits underneath it.
+
+**Playback behaviour to design around.**
+
+- Sound only starts after the player clicks or presses a key. A scene always starts from a click (the Play button), so it works, but a scene that begins with music is better than one that waits a minute before any.
+- A **sound** plays once when its node appears. **Music** keeps looping across the following nodes until another node changes it or says `stop`, and it stops when the scene ends or is minimised.
+- A **video** plays full screen *before* its node's words. The player can pause it or press Continue; the words appear when it ends or is continued.
+- There is no volume control inside a scene yet; the music plays at half volume. Tell me if you want one.
+
+**If you want to prepare files yourself**, these `ffmpeg` commands make files the game accepts (replace the names):
+
+```
+# sound or music, MP3 (works everywhere)
+ffmpeg -i input.wav -codec:a libmp3lame -b:a 128k -ar 44100 pk_p03_1_roll.mp3
+
+# sound or music, M4A (AAC)
+ffmpeg -i input.wav -codec:a aac -b:a 128k -ar 44100 pk_p03_1_roll.m4a
+
+# video, MP4 (works everywhere)
+ffmpeg -i input.mov -vf "scale=-2:720" -c:v libx264 -crf 24 -preset slow -pix_fmt yuv420p \
+  -c:a aac -b:a 128k -movflags +faststart pk_p03_1_tape.mp4
+
+# video, WebM (smaller, but not older Safari)
+ffmpeg -i input.mov -vf "scale=-2:720" -c:v libvpx-vp9 -b:v 0 -crf 33 -c:a libopus -b:a 96k pk_p03_1_tape.webm
+```
+
+I have checked that this version of the game plays a WebM video, an OGG sound and an MP3 music loop through a scene and returns to the words after the video ends. H.264 MP4 and M4A are standard browser formats, but the test browser I use has no H.264, so I have not seen those play here; they are the formats I recommend for real players.
 
 ## Canon and tone
 
