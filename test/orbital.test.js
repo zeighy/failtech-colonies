@@ -615,3 +615,36 @@ test('data sites: about one territory in twenty has one, Data Recovery only buil
     assert.equal(mp.level, 2); assert.equal(mp.texts.length, 2);
   } finally { Object.assign(DS, saved); }
 });
+
+test('data packets can be scenes: an inline cast, media, and nothing is sent until the part is unlocked', () => {
+  const story = require('../src/story');
+  const pk = config.orbital.data.packets.p01;
+  const keep = { scene: pk.scene, existing: story.story.scenes.pk_test };
+  story.story.scenes.pk_test = { title: 'Test', start: 'a', cast: { voice: { name: 'A Voice', color: '#aabbcc', side: 'left' } }, nodes: { a: { who: 'voice', text: ['Hello.'], next: 'b' }, b: { text: ['Bye.'], image: 'plate.png' } } };
+  pk.scene = 'pk_test';
+  try {
+    assert.deepEqual(story.validate(story.story, config), [], 'an inline cast and an image node are valid');
+    const c = launched('Archive');
+    db.prepare('UPDATE colonies SET data_fragments = 5, data_total = 1 WHERE id = ?').run(c.id);
+    assert.deepEqual(Object.keys(story.content(c.id).scenes).filter((k) => k === 'pk_test'), [], 'a sealed part sends no scene');
+    const rev0 = story.view(c.id).rev;
+    assert.deepEqual(actions.dataUnlock(c.uid, { packet: 'p01' }), { ok: true });
+    const content = story.content(c.id);
+    assert.ok(content.scenes.pk_test && content.scenes.pk_test.cast.voice, 'once unlocked the scene and its cast are sent');
+    assert.equal(content.beats['pkt:p01:1'].scene, 'pk_test');
+    assert.ok(story.view(c.id).rev > rev0, 'the client is told to refetch');
+    const mine = viewFor(c.uid).data.packets.find((p) => p.id === 'p01');
+    assert.deepEqual(mine.scenes, ['pkt:p01:1'], 'the Data screen gets a Play button for it');
+    // mistakes are caught
+    const bad = JSON.parse(JSON.stringify(story.story));
+    bad.scenes.pk_test.nodes.a.who = 'nobody';
+    bad.scenes.pk_test.nodes.b.audio = 'x.exe';
+    bad.scenes.pk_test.nodes.b.video = 'clip.mp3';
+    const probs = story.validate(bad, config).join('\n');
+    assert.match(probs, /unknown character "nobody"/);
+    assert.match(probs, /audio must be a plain audio file/);
+    assert.match(probs, /video must be a plain video file/);
+    pk.scene = 'missing';
+    assert.match(story.validate(story.story, config).join('\n'), /dataPackets\.p01\.scene: unknown scene/);
+  } finally { if (keep.scene === undefined) delete pk.scene; else pk.scene = keep.scene; delete story.story.scenes.pk_test; }
+});

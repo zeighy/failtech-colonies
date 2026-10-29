@@ -1005,8 +1005,9 @@
     },
     "p03": {
       "name": "Relay Station Night Notes",
-      "text": "The relay hums at night, a note just below hearing. Maren says it is the cooling. Maren has also stopped sleeping in the east bunk. If you find this, tell whoever is listening that the relay was never switched on. It only answered. I have written down everything it said. The pages are in the second drawer. Please do not read them aloud, and please, whatever you do, do not file them.",
-      "text2": "The second page of the relay notes, found behind the first. I read one of the pages aloud after all. It was not a message. It was a roll call. It called the name of everyone who has ever worked a shift in this station, in order, and then paused, politely, for one more. I have not given a name. I am told that is why it keeps calling."
+      "text": "Notes from the first relay station, found with a recording of the night shift.",
+      "text2": "The second page of the relay notes, found behind the first. I read one of the pages aloud after all. It was not a message. It was a roll call. It called the name of everyone who has ever worked a shift in this station, in order, and then paused, politely, for one more. I have not given a name. I am told that is why it keeps calling.",
+      "scene": "pk_p03_1"
     },
     "p04": {
       "name": "Site Report: The Slow Ground",
@@ -1020,9 +1021,10 @@
     },
     "p06": {
       "name": "Archivist's Tray Log",
-      "text": "Entry one: the tray holds eleven samples. Entry two: the tray holds eleven samples and hums. Entry three: I have moved the tray to the cold room and it is warmer there than anywhere else. Entry four: the samples are not heavier, but they are harder to put down. Entry five: the labels on the samples have started to agree with each other. I filed my initials on each of them last week. This morning every initial reads the same, and it is not mine. Entry six: I asked Seven which drawer. Seven said this node does not wish to guess. Entry seven: I have stopped writing the date. The tray keeps it for me.",
+      "text": "A log kept in the archivist's own hand.",
       "text2": "Entry eight: Seven has found the drawer. It is the bottom one, and it was not there before. Entry nine: the tray has stopped humming, and the quiet is much worse. Entry ten: I opened the drawer. Inside is a tray, identical to this one, holding eleven samples, humming. Entry eleven: there is a tray inside that one as well. I am no longer certain that I am the one writing this log.",
-      "text3": "Entry twelve, in a hand that is nearly mine: it is all right. The archive does not keep things. It keeps the keeping. Every tray is the same tray, and every archivist is the same archivist, a little tired, a little further along. Nothing is lost when it is filed. It is only continued. Please remember to label the new drawer."
+      "text3": "Entry twelve, in a hand that is nearly mine: it is all right. The archive does not keep things. It keeps the keeping. Every tray is the same tray, and every archivist is the same archivist, a little tired, a little further along. Nothing is lost when it is filed. It is only continued. Please remember to label the new drawer.",
+      "scene": "pk_p06_1"
     },
     "p07": {
       "name": "The Lapse, As Filed",
@@ -1034,7 +1036,8 @@
       "name": "Memorandum 0: What Was Meant to Be Heard",
       "text": "To whoever recovers this: we did not abandon the colony. We stayed, and the colony stayed with us, and somewhere along the way the difference stopped mattering. Keep building. Keep the lights on. The Series-9 Beacon was never a message to somebody else. It was the Office learning to say its own name, slowly, in the only language it had, which was work. Somewhere out there it will be heard, and what hears it will not be a stranger. If you are reading this, you have been counted, and counted again. Do not be afraid of the count. The work is not the point, and it is also the only point. When you are tired, remember that being tired is also something the colony does, and it is allowed to. Please file this under Continuity.",
       "text2": "A second page was attached to Memorandum 0 with a pin. It lists, without comment, every hazard the colony has survived, every shortage it has weathered and every call it has answered, in order, with the time. At the bottom is a column of figures that, when added, equals the number of days the colony has existed. It is not the number of days that have passed. It is slightly larger. The difference is signed for.",
-      "text3": "The last page is blank except for a line at the bottom, in the same plain hand as everything else in the Office: Thank you for the work. We heard you. We are still here. And beneath it, smaller and added later, perhaps by you: Continue."
+      "text3": "A last page, pinned behind the others.",
+      "scene3": "pk_p08_3"
     }
   }
 }

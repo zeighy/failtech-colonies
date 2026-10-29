@@ -391,7 +391,9 @@ function dataView(c) {
       const level = lv[id] || 0;
       const next = level < packetParts(p) ? { part: level + 1, ...p.costs[level] } : null;
       if (!level) return { id, level, next };                      // sealed: only what part 1 costs
-      return { id, level, of: packetParts(p), name: p.name, texts: Array.from({ length: level }, (_, i) => partText(p, i)), next };
+      // `scenes[i]` is the id of a story beat that plays part i as a scene, or null when it is only text
+      const story = require('./story');
+      return { id, level, of: packetParts(p), name: p.name, texts: Array.from({ length: level }, (_, i) => partText(p, i) || ''), scenes: Array.from({ length: level }, (_, i) => (story.packetScene(id, i + 1) ? story.packetBeat(id, i + 1) : null)), next };
     }),
   };
 }

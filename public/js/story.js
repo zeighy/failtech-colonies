@@ -50,7 +50,7 @@
   function callerOf(beatId) {
     var b = content && content.beats[beatId], sc = b && content.scenes[b.scene];
     var who = sc && sc.nodes[sc.start] && sc.nodes[sc.start].who;
-    return who && content.characters[who] ? content.characters[who] : null;
+    return who && (content.characters[who] || (sc.cast && sc.cast[who])) || null;
   }
   function avatar(ch) {
     var img = ch && (ch.avatar || ch.portrait);
@@ -102,7 +102,20 @@
   }
 
   function cur() { return p.scene.nodes[p.node]; }
-  function charOf(id) { return id && content.characters[id] ? content.characters[id] : null; }
+  // A scene may bring its own cast (a narrator, a voice on a recording) beside the shared characters.
+  function charOf(id) { return id && (content.characters[id] || (p && p.scene.cast && p.scene.cast[id])) || null; }
+  function asset(f) { return '/theme-assets/' + encodeURIComponent(f); }
+  // Sound and picture a node can carry: its own background, a plate (an image shown over the stage), a sound that plays once,
+  // music that loops until another node changes it, and a video that plays before the words.
+  function stopSound() { if (p && p.sfx) { try { p.sfx.pause(); } catch (e) { /* gone */ } p.sfx = null; } }
+  function stopMusic() { if (p && p.mus) { try { p.mus.pause(); } catch (e) { /* gone */ } p.mus = null; p.musFile = null; } }
+  function playSound(n) {
+    if (n.music && n.music !== p.musFile) {
+      stopMusic();
+      if (n.music !== 'stop') { p.musFile = n.music; p.mus = new Audio(asset(n.music)); p.mus.loop = true; p.mus.volume = 0.5; p.mus.play().catch(function () { /* needs a click first */ }); }
+    }
+    if (n.audio && p.sfxFor !== p.node) { stopSound(); p.sfxFor = p.node; p.sfx = new Audio(asset(n.audio)); p.sfx.play().catch(function () { /* needs a click first */ }); }
+  }
 
   function portrait(ch, active, mood) {
     if (!ch) return '';
@@ -122,7 +135,17 @@
     if (ch) p.last[ch.side === 'left' ? 'left' : 'right'] = { id: n.who, mood: n.mood };
     var text = n.text[p.i];
     var lastPassage = p.i >= n.text.length - 1;
-    var bg = p.scene.background ? ' style="background-image:url(/theme-assets/' + encodeURIComponent(p.scene.background) + ')"' : '';
+    if (n.background) p.bgFile = n.background; // a node can change the backdrop, and it stays until another does
+    var bgFile = p.bgFile || p.scene.background;
+    var bg = bgFile ? ' style="background-image:url(' + asset(bgFile) + ')"' : '';
+    if (n.video && p.videoDone !== p.node) {
+      el.innerHTML = '<div class="vn-bg"' + bg + '></div><div class="vn-shade"></div><div class="vn-video"><video src="' + asset(n.video) + '" controls autoplay playsinline></video>' +
+        '<button class="btn primary" data-story="videodone">Continue</button></div>';
+      var vd = el.querySelector('video');
+      if (vd) vd.addEventListener('ended', function () { if (p && p.node && p.videoDone !== p.node) { p.videoDone = p.node; draw(); } });
+      return;
+    }
+    playSound(n);
     var pend = view ? view.pending.length : 0;
     el.innerHTML =
       '<div class="vn-bg"' + bg + '></div><div class="vn-shade"></div>' +
@@ -133,6 +156,7 @@
         '<button class="btn" data-story="close">' + (p.replay ? 'Close' : 'Skip') + '</button>' +
         (!p.replay && pend > 1 ? '<button class="btn" data-story="skipall">Skip all (' + pend + ')</button>' : '') +
       '</div>' +
+      (n.image ? '<div class="vn-plate"><img alt="" src="' + asset(n.image) + '"></div>' : '') +
       '<div class="vn-stage"><div class="vn-side left">' + sideHtml(p.last.left, n) + '</div><div class="vn-side right">' + sideHtml(p.last.right, n) + '</div></div>' +
       '<div class="vn-box" data-story="advance" tabindex="0">' +
         (ch ? '<div class="vn-name" style="--c:' + esc(ch.color || '#ddd') + '">' + esc(ch.name) + (n.tag ? ' <em>' + esc(n.tag) + '</em>' : '') + (ch.title ? ' <small>' + esc(ch.title) + '</small>' : '') + '</div>' : '') +
@@ -170,6 +194,7 @@
 
   function advance() {
     if (!p) return;
+    if (cur().video && p.videoDone !== p.node) return; // the video plays first
     if (!p.full) { p.done ? p.done() : null; return; }
     var n = cur();
     if (p.i < n.text.length - 1) { p.i++; draw(); return; }
@@ -187,6 +212,7 @@
   function close() {
     if (!p) return;
     clearInterval(p.timer);
+    stopSound(); stopMusic();
     var el = document.getElementById('vn'); if (el) el.remove();
     p = null;
   }
@@ -204,6 +230,8 @@
   function minimize() {
     if (!p) return;
     clearInterval(p.timer);
+    if (p.mus) p.mus.pause();
+    var vv = document.querySelector('#vn video'); if (vv) vv.pause();
     p.min = true;
     var el = document.getElementById('vn'); if (el) el.style.display = 'none';
     renderDock();
@@ -212,6 +240,7 @@
     if (!p || !p.min) return;
     p.min = false;
     var el = document.getElementById('vn'); if (el) el.style.display = '';
+    if (p.mus) p.mus.play().catch(function () { /* ignore */ });
     draw(); renderDock();
   }
 
@@ -230,6 +259,7 @@
     if (a === 'advance') advance();
     else if (a === 'choose') choose(+el.dataset.i);
     else if (a === 'minimize') minimize();
+    else if (a === 'videodone') { if (p) { p.videoDone = p.node; draw(); } }
     else if (a === 'resume') resume();
     else if (a === 'hangup') finish(false);
     else if (a === 'close') { if (p.replay) finish(false); else finish(true); }

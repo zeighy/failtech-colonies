@@ -1286,6 +1286,146 @@
      "mood": "serious"
     }
    }
+  },
+  "pk_p03_1": {
+   "title": "Relay Station: Night Notes",
+   "background": "beacon_night.jpg",
+   "start": "a",
+   "cast": {
+    "maren": {
+     "name": "Maren Voss",
+     "title": "Relay technician",
+     "color": "#6FB7A8",
+     "side": "left"
+    },
+    "relay": {
+     "name": "The Relay",
+     "title": "Station 3",
+     "color": "#C9A227",
+     "side": "right"
+    }
+   },
+   "nodes": {
+    "a": {
+     "text": [
+      "The relay hums at night, a note just below hearing."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "maren",
+     "text": [
+      "It is the cooling. I keep telling them it is the cooling."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "text": [
+      "The pages below are in someone else's handwriting. Maren has stopped sleeping in the east bunk."
+     ],
+     "next": "d"
+    },
+    "d": {
+     "who": "relay",
+     "text": [
+      "Maren Voss. Aldous Pike. Irene Calloway. Tomas Wren."
+     ],
+     "next": "e"
+    },
+    "e": {
+     "text": [
+      "It pauses, politely, after the last name. It is waiting for one more."
+     ],
+     "next": "f"
+    },
+    "f": {
+     "text": [
+      "If you find this, tell whoever is listening that the relay was never switched on. It only answered.",
+      "Please do not read the pages aloud. And please, whatever you do, do not file them."
+     ]
+    }
+   }
+  },
+  "pk_p06_1": {
+   "title": "Archivist's Tray Log",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "cast": {
+    "log": {
+     "name": "Tray Log",
+     "title": "In the archivist's own hand",
+     "color": "#9B7FD1",
+     "side": "left"
+    }
+   },
+   "nodes": {
+    "a": {
+     "who": "log",
+     "text": [
+      "Entry one: the tray holds eleven samples.",
+      "Entry two: the tray holds eleven samples and hums.",
+      "Entry three: I have moved the tray to the cold room and it is warmer there than anywhere else."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "log",
+     "text": [
+      "Entry four: the samples are not heavier, but they are harder to put down.",
+      "Entry five: the labels on the samples have started to agree with each other. I filed my initials on each of them last week. This morning every initial reads the same, and it is not mine."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "who": "log",
+     "text": [
+      "Entry six: I asked Seven which drawer. Seven said this node does not wish to guess.",
+      "Entry seven: I have stopped writing the date. The tray keeps it for me."
+     ]
+    }
+   }
+  },
+  "pk_p08_3": {
+   "title": "Memorandum 0: The Last Page",
+   "background": "colony_dusk.jpg",
+   "start": "a",
+   "cast": {
+    "office": {
+     "name": "The Office",
+     "title": "Memorandum 0",
+     "color": "#C9A227",
+     "side": "left"
+    }
+   },
+   "nodes": {
+    "a": {
+     "text": [
+      "The last page is blank except for a line at the bottom, in the same plain hand as everything else in the Office."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "office",
+     "text": [
+      "Thank you for the work.",
+      "We heard you.",
+      "We are still here."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "text": [
+      "And beneath it, smaller, and added later. Perhaps by you."
+     ],
+     "next": "d"
+    },
+    "d": {
+     "who": "office",
+     "text": [
+      "Continue."
+     ]
+    }
+   }
   }
  },
  "beats": [

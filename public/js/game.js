@@ -608,7 +608,8 @@
       if (!p.level) return '<div class="packet sealed"><div class="top"><b>' + icon('lock', 14) + ' Sealed packet</b><span class="dim">' + cost + '</span></div>' +
         '<div class="psize" title="Size, from the cost"><i style="width:' + Math.round(n.fragments / biggest * 100) + '%"></i></div>' + btn + '</div>';
       return '<div class="packet open"><div class="top"><b>' + esc(p.name) + '</b>' + (p.of > 1 ? '<span class="dim">Part ' + p.level + ' of ' + p.of + '</span>' : '<span class="good">Unlocked</span>') + '</div>' +
-        p.texts.map(function (t, i) { return '<div class="ptext">' + (p.of > 1 ? '<div class="label">Part ' + (i + 1) + '</div>' : '') + esc(t).split(/\n+/).map(function (x) { return '<p>' + x + '</p>'; }).join('') + '</div>'; }).join('') +
+        p.texts.map(function (t, i) { return '<div class="ptext">' + (p.of > 1 ? '<div class="label">Part ' + (i + 1) + '</div>' : '') + (t ? esc(t).split(/\n+/).map(function (x) { return '<p>' + x + '</p>'; }).join('') : '') +
+          (p.scenes[i] ? '<button class="btn primary" data-story="scene" data-beat="' + esc(p.scenes[i]) + '" style="margin-top:6px">' + icon('play', 12) + ' Play</button>' : '') + '</div>'; }).join('') +
         (n ? '<div class="pmore"><div class="grow"><b>More inside</b> <span class="dim">Part ' + n.part + ' of ' + p.of + '</span><div style="margin-top:4px">' + cost + '</div></div>' + btn + '</div>' : (p.of > 1 ? '<div class="good" style="font-size:12px;margin-top:6px">Complete</div>' : '')) + '</div>';
     }).join('');
     return h;
