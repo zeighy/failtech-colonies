@@ -3309,7 +3309,7 @@
           "cap": 2000
         },
         "2": {
-          "slots": 8,
+          "slots": 9,
           "cap": 4000,
           "cost": {
             "frames": 200,
@@ -3317,7 +3317,7 @@
           }
         },
         "3": {
-          "slots": 10,
+          "slots": 12,
           "cap": 8000,
           "cost": {
             "frames": 300,
@@ -3630,7 +3630,7 @@
         "2": 20,
         "3": 12,
         "4": 6,
-        "5": 4
+        "5": 1
       },
       "makerSpread": 0.08,
       "band": [
@@ -3663,8 +3663,8 @@
           "desc": "Map the anomalies from orbit with a lattice of sensors.",
           "faction": "meridian",
           "needs": {
-            "lattice_cores": 20,
-            "resonators": 15
+            "lattice_cores": 40,
+            "resonators": 30
           },
           "bonus": {
             "kind": "efficiency",
@@ -3682,7 +3682,7 @@
           "desc": "A vault in orbit for every seed line that survived the Lapse.",
           "faction": "verdant",
           "needs": {
-            "chiral_serum": 20,
+            "chiral_serum": 40,
             "preserves": 120
           },
           "bonus": {
@@ -3702,7 +3702,7 @@
           "desc": "Drive a shaft deep enough to find out what is under the anomalies.",
           "faction": "cinder",
           "needs": {
-            "null_alloy": 20,
+            "null_alloy": 40,
             "tool_steel": 150
           },
           "bonus": {
@@ -3723,8 +3723,8 @@
           "desc": "Listen to the hum with something built to hear it.",
           "faction": null,
           "needs": {
-            "phase_cells": 15,
-            "still_frames": 15
+            "phase_cells": 30,
+            "still_frames": 30
           },
           "bonus": {
             "kind": "drip",
@@ -3738,8 +3738,8 @@
           "desc": "A mast in orbit that every station can talk through.",
           "faction": "meridian",
           "needs": {
-            "resonators": 20,
-            "phase_cells": 15
+            "resonators": 40,
+            "phase_cells": 30
           },
           "bonus": {
             "kind": "efficiency",
@@ -3759,8 +3759,8 @@
           "desc": "A shared garden in orbit, grown from what the anomalies left behind.",
           "faction": "verdant",
           "needs": {
-            "chiral_serum": 20,
-            "still_frames": 15
+            "chiral_serum": 40,
+            "still_frames": 30
           },
           "bonus": {
             "kind": "efficiency",
@@ -3778,8 +3778,8 @@
           "desc": "Anchor the relay with a mass heavy enough to hold everything else in place.",
           "faction": "cinder",
           "needs": {
-            "null_alloy": 20,
-            "lattice_cores": 15
+            "null_alloy": 40,
+            "lattice_cores": 30
           },
           "bonus": {
             "kind": "efficiency",

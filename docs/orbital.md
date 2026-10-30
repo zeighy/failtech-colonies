@@ -35,7 +35,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
 - **Storage is slot-limited.** Each slot holds one resource, up to the level's cap.
   - Every tick the largest stocks claim slots first (`orbital.enforceSlots`). Anything left without a slot is lost, with a warning in the log.
   - Jettisoning empties a slot and removes the routes that carry that resource. The slot must then be rebuilt before it can be used again.
-  - Storage upgrades add slots and raise the cap.
+  - Storage upgrades add three slots each and raise the cap: 6, then 9, then 12 slots (3 more is one rare, one rare and one orbital good), because with the rebuild materials and power cells each taking a slot a six-slot store left too little room for a manufacturing run.
 - **Orbital links** are ordinary routes between the Core and the station, in either direction. There are 4 at level 1, upgradable in count and rate. Rare resources never travel by link; they only come home by dropship.
 - **Express launch** sends up to 400 of one resource from the Core for fuel. It arrives in 12 ticks and has a long cooldown, so it is for emergencies, not supply.
 - **Express drop** is the other way: up to 400 of one resource from orbital storage to the Core, for a capsule (10 fittings from orbital storage) and no fuel. It needs the Command Center running and shares the express slot and cooldown with launches.
@@ -89,7 +89,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
 ## Orbital market
 
 - This market is separate from the ground exchange. It trades only trade goods (`trade` or `orbitalTrade`), straight from orbital storage, and every order shows the station that posted it.
-- Market makers post a small bid and ask per good around the ground reference price every 240 ticks. They never trade with each other. They set the price band and a suggestion; they are not a shop.
+- Market makers post a small bid and ask per good around the ground reference price every 240 ticks. The orbital-only goods are posted one at a time (the foundry is how you make them; the market is a stopgap, not a way round a project), other goods in larger lots. They never trade with each other. They set the price band and a suggestion; they are not a shop.
 - Matching:
   - Price first, then time, at the resting order's price.
   - Sellers pay a 4% fee.
