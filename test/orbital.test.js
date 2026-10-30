@@ -648,3 +648,16 @@ test('data packets can be scenes: an inline cast, media, and nothing is sent unt
     assert.match(story.validate(story.story, config).join('\n'), /dataPackets\.p01\.scene: unknown scene/);
   } finally { if (keep.scene === undefined) delete pk.scene; else pk.scene = keep.scene; delete story.story.scenes.pk_test; }
 });
+
+test('orbital storage tops up to the slots its level gives, so a change to the slot counts reaches stores upgraded earlier', () => {
+  const c = launched('Old Store');
+  db.prepare('UPDATE stations SET storage_level = 3 WHERE colony_id = ?').run(c.id);
+  db.prepare('DELETE FROM orbital_slots WHERE colony_id = ? AND idx >= 6').run(c.id);
+  db.prepare("UPDATE orbital_slots SET resource_id = 'frames' WHERE colony_id = ? AND idx = 0").run(c.id);
+  assert.equal(orbital.slots(c.id).length, 6, 'the store was made with six rows');
+  tick(1);
+  const rows = orbital.slots(c.id);
+  assert.equal(rows.length, O.storage.levels['3'].slots, 'it now has what level 3 gives');
+  assert.equal(rows[0].resource, 'frames', 'what was in the old slots stays');
+  assert.equal(viewFor(c.uid).orbital.station.storage.slots.length, O.storage.levels['3'].slots, 'and the view shows them');
+});

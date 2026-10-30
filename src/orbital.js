@@ -62,6 +62,10 @@ function ensureSlots(colonyId, count) {
 // Bring a station stockpile in line with its slots: a resource with no slot takes a free one if there is one, otherwise it
 // is lost; nothing holds more than the slot capacity. Mutates `inv`; returns [{resource, qty}] lost.
 function enforceSlots(colonyId, inv, cap) {
+  // Slots are rows made when a store is upgraded, so a change to how many slots a level has (or a store upgraded before it)
+  // would never show up. Top the rows up to what the level now gives, every tick.
+  const st = stationOf(colonyId);
+  if (st) ensureSlots(colonyId, storageLevel(st).slots);
   const all = slots(colonyId);
   const held = new Map(all.filter((s) => s.resource).map((s) => [s.resource, s]));
   const free = all.filter((s) => !s.resource && s.state === 'open');
