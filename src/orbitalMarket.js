@@ -7,6 +7,7 @@
 // suggestion; they are not a shop. Matching is price first, then time, at the resting order's price; a fee comes off the
 // seller's proceeds. Sells are held from storage when posted and buys hold their credits, so nothing is spent twice.
 const store = require('./db');
+const credits = require('./credits');
 const ms = require('./marketsim');
 const orbital = require('./orbital');
 const { own, toInt, toNum } = require('./validate');
@@ -57,9 +58,11 @@ function match(res, tick) {
     const [b, a] = pair;
     const price = a.id < b.id ? a.price : b.price; // the older order sets the price
     const q = Math.min(a.remaining, b.remaining);
+    let brokerage = 0;
     if (b.colony_id) {
       toStation(b.colony_id, res, q);
       credit(b.colony_id, q * (b.price - price)); // a buy held its own limit price; return the difference
+      brokerage = credits.chargeBuy(b.colony_id, tick, Math.round(q * price));
     }
     if (a.colony_id) credit(a.colony_id, q * price * (1 - M.feeRate));
     for (const o of [a, b]) {
@@ -68,7 +71,7 @@ function match(res, tick) {
     }
     db.prepare('INSERT INTO orbital_trades (tick, resource_id, price, qty, buyer, seller) VALUES (?, ?, ?, ?, ?, ?)').run(tick, res, price, q, b.station_name, a.station_name);
     const name = config.resources[res].name;
-    if (b.colony_id) store.addEvent(b.colony_id, tick, 'good', `Orbital market: bought ${q} ${name} from ${a.station_name} at ${price} cr.`);
+    if (b.colony_id) store.addEvent(b.colony_id, tick, 'good', `Orbital market: bought ${q} ${name} from ${a.station_name} at ${price} cr${brokerage ? `, plus ${brokerage} cr brokerage` : ''}.`);
     if (a.colony_id) store.addEvent(a.colony_id, tick, 'good', `Orbital market: sold ${q} ${name} to ${b.station_name} at ${price} cr.`);
   }
 }

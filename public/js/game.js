@@ -776,7 +776,7 @@
       var d = CFG.buildings[o.data.type];
       return '<div class="p-title" style="--c:' + d.color + '">' + icon(o.data.type, 22) + '<h3>' + esc(d.name) + '</h3></div><div class="label">' + head + ' · under construction</div>' +
         '<p class="p-desc">' + o.remaining + ' tick' + (o.remaining === 1 ? '' : 's') + ' remaining.</p>' +
-        '<div class="actions"><button class="btn danger" data-act="cancel" data-id="' + o.id + '">Cancel &amp; refund</button></div>';
+        '<div class="actions">' + rushBtn(S.orders.filter(function (x) { return x.id === o.id; })[0] || { id: o.id, rush: 0 }) + '<button class="btn danger" data-act="cancel" data-id="' + o.id + '">Cancel &amp; refund</button></div>';
     }
     if (b) return builtPanel(b, head);
     var lk = lockAt(r, s);
@@ -784,6 +784,13 @@
     return buildMenu(r, s, head);
   }
 
+  // Rush: pay credits to finish a work order on the next tick (two clicks, like the other costly buttons).
+  function rushBtn(o, cls) {
+    if (!o.rush) return '';
+    var armedNow = confirmKey === 'rush:' + o.id, can = S.colony.credits >= o.rush;
+    return '<button class="btn ' + (cls || '') + '" data-act="rush" data-id="' + o.id + '"' + (can ? '' : ' disabled') + ' title="Finish this on the next tick. Each rush in a day costs 20% more than the one before.">' +
+      (armedNow ? 'Confirm: ' : 'Rush: ') + fmt(o.rush) + ' cr</button>';
+  }
   var MARK_TXT = { hit: 'Hurt by the current hazard', upkeep: 'Paying the hazard\'s maintenance cost', risk: 'In the forecast hazard\'s path' };
   var STATUS = {
     running: ['Running', 'good'], paused: ['Paused', 'dim'], no_power: ['No power', 'bad'], low_power: ['Low power', 'warn'],
@@ -1286,6 +1293,15 @@
     });
     return { qty: got, avg: got ? cost / got : 0, total: cost };
   }
+  // The soft limit on heavy buying: say where the colony stands, and only make a fuss once it has started to cost.
+  function brokerNote() {
+    var b = S.economy && S.economy.brokerage;
+    if (!b) return '';
+    var pctUsed = Math.min(100, b.spent / b.allowance * 100);
+    if (b.rate > 0) return '<div class="note warn">Heavy buying: you have spent ' + fmt(b.spent) + ' of your ' + fmt(b.allowance) + ' cr daily allowance, so purchases here carry +' + Math.round(b.rate * 100) + '% brokerage. It eases as the day rolls on.</div>';
+    if (pctUsed < 50) return '';
+    return '<div class="note">Buying today: ' + fmt(b.spent) + ' of ' + fmt(b.allowance) + ' cr. Past that, purchases carry a brokerage surcharge.</div>';
+  }
   function exchangeTab() {
     var E = S.exchange, X = CFG.exchange;
     if (!E.unlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>The exchange opens at hub level ' + X.unlockCoreLevel + '.</div></div><div class="note">A place to name your own price: post buy and sell orders against traders, and against anyone else who turns up. Grow the hub first.</div>';
@@ -1297,7 +1313,7 @@
     var maxQ = mk.side === 'sell' ? Math.min(X.maxQty, dstock) : X.maxQty;
     mk.qty = clamp(mk.qty, 1, Math.max(1, maxQ));
     var ev = x.event ? '<span class="chip-ev ' + x.event.kind + '">' + (x.event.kind === 'shortage' ? 'SHORTAGE' : 'GLUT') + ' · ' + x.event.ticksLeft + 't</span>' : '';
-    var h = '<label class="selrow">Market<select data-sel="m:res">' + Object.keys(CFG.resources).filter(function (k) {
+    var h = brokerNote() + '<label class="selrow">Market<select data-sel="m:res">' + Object.keys(CFG.resources).filter(function (k) {
       var d = CFG.resources[k]; if (d.trade) return !!S.freeport; return !(d.showFromHub && d.showFromHub > S.colony.hubLevel + 1 && k !== mk.res);
     }).map(function (k) { return '<option value="' + k + '"' + (k === mk.res ? ' selected' : '') + '>' + esc(CFG.resources[k].name) + ' · ' + mp(E.resources[k].ref) + ' cr</option>'; }).join('') + '</select></label>';
     h += '<div class="mk-head" style="--c:' + r.color + '"><div><div class="big num">' + mp(x.ref) + ' <small>cr</small></div><div class="dim" style="font-size:11px">market price' + (Math.abs(x.trend) >= 0.01 ? ' · ' + (x.trend > 0 ? '▲' : '▼') + Math.abs(Math.round(x.trend * 100)) + '%' : '') + '</div></div>' + spark(x.hist, r.color) + ev + '</div>';
@@ -1460,7 +1476,7 @@
 
   function expressTab() {
     var x = S.express, c = S.colony;
-    var h = '<p class="p-desc">A special trip you dispatch yourself. It arrives in ' + x.travelTicks + ' ticks (' + clock(x.travelTicks * S.tickMs) + '), but costs a fee, pays ×' + x.sellMult + ' when buying your goods, charges ×' + x.buyMult + ' when selling to you, and carries less than the scheduled convoy. Goods and credits are held until it arrives.</p>';
+    var h = brokerNote() + '<p class="p-desc">A special trip you dispatch yourself. It arrives in ' + x.travelTicks + ' ticks (' + clock(x.travelTicks * S.tickMs) + '), but costs a fee, pays ×' + x.sellMult + ' when buying your goods, charges ×' + x.buyMult + ' when selling to you, and carries less than the scheduled convoy. Goods and credits are held until it arrives.</p>';
     if (x.active) {
       var line = function (o, verb) {
         return Object.keys(o).map(function (r) { return verb + ' ' + o[r].qty + ' ' + esc(CFG.resources[r].name); }).join(', ');
@@ -1553,7 +1569,7 @@
       var name = o.kind === 'build' ? tag + 'Build ' + CFG.buildings[o.data.type].name : o.kind === 'found' ? 'Found ' + CFG.districtTypes[o.data.type].name : o.kind === 'expand' ? tag + 'Expand ' + CFG.buildings[o.data.type].name + ' → ' + o.data.level : (o.dname || 'Hub') + ' upgrade → L' + o.data.level;
       var where = o.kind === 'build' || o.kind === 'expand' ? 'R' + o.data.ring + '·' + (o.data.slot + 1) : '';
       h += '<div class="order" data-id="' + o.id + '"><button class="x" data-act="cancel" data-id="' + o.id + '" title="Cancel & refund" aria-label="Cancel order">×</button>' +
-        '<div class="row"><span>' + esc(name) + '</span><small class="num">' + (where ? where + ' · ' : '') + o.remaining + 't</small></div><div class="bar"><i></i></div></div>';
+        '<div class="row"><span>' + esc(name) + '</span><small class="num">' + (where ? where + ' · ' : '') + o.remaining + 't</small></div><div class="bar"><i></i></div>' + (o.rush ? '<div style="margin-top:6px">' + rushBtn(o, 'rushq') + '</div>' : '') + '</div>';
     });
     if (pending.length) {
       var chips = pending.map(function (p) {
@@ -1711,6 +1727,13 @@
     var sh = e.shiftKey ? 10 : 1; // hold Shift for bigger steps
     if (a === 'tab') { e.preventDefault(); if (dockOpen && el.classList.contains('dbtn')) armDock(6000); if (el.dataset.tab === ws && el.classList.contains('dbtn')) { ws = null; renderAll(); } else go(el.dataset.tab); }
     else if (a === 'dock') { dockOpen = dockOpen === el.dataset.g ? null : el.dataset.g; armDock(); renderDock(); }
+    else if (a === 'rush') {
+      var rkey = 'rush:' + el.dataset.id;
+      if (confirmKey === rkey) {
+        if (Date.now() - confirmAt < CONFIRM_DELAY) return; // a double click only arms it
+        confirmKey = null; act('rush', { orderId: +el.dataset.id }, 'Rushed.');
+      } else { confirmKey = rkey; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); renderQueue(); }, 4000); renderPanel(); renderQueue(); }
+    }
     else if (a === 'desel') { sel = null; renderAll(); }
     else if (a === 'pin') togglePin(el.dataset.res)
     else if (a === 'dataunlock') act('data-unlock', { packet: el.dataset.packet }, 'Data packet unlocked.')
@@ -1980,7 +2003,7 @@
   }
   window.Orbit.init({
     S: function () { return S; }, CFG: function () { return CFG; }, act: act, esc: esc, fmt: fmt, icon: icon, pill: pill, toast: toast,
-    enter: function (id) { enter(id); }, enterOrbit: enterOrbit, activeD: activeD, redraw: function () { if (S) { lastPanel = ''; lastSheet = ''; renderPanel(); } }
+    brokerage: brokerNote, enter: function (id) { enter(id); }, enterOrbit: enterOrbit, activeD: activeD, redraw: function () { if (S) { lastPanel = ''; lastSheet = ''; renderPanel(); } }
   });
   window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, changed: function () { if (S) { renderTop(); renderPanel(); renderPop(); renderMessages(); } } });
   api('config').then(function (cfg) {

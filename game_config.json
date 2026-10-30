@@ -2930,6 +2930,21 @@
       }
     }
   },
+  "credits": {
+    "windowTicks": 5760,
+    "brokerage": {
+      "allowancePerHubLevel": 100000,
+      "tiers": [
+        { "over": 1, "rate": 0.1 },
+        { "over": 2, "rate": 0.25 },
+        { "over": 4, "rate": 0.5 }
+      ]
+    },
+    "rush": {
+      "perTick": { "build": 200, "expand": 400, "upgrade": 500, "found": 600 },
+      "surgePerRush": 0.2
+    }
+  },
   "tradeWorks": {
     "batchByPlot": {
       "1": 1,
@@ -3312,6 +3327,7 @@
           "slots": 9,
           "cap": 4000,
           "cost": {
+            "credits": 250000,
             "frames": 200,
             "fittings": 120
           }
@@ -3320,6 +3336,7 @@
           "slots": 12,
           "cap": 8000,
           "cost": {
+            "credits": 600000,
             "frames": 300,
             "fittings": 200,
             "still_frames": 30
@@ -3341,6 +3358,7 @@
           "count": 6,
           "rate": 40,
           "cost": {
+            "credits": 150000,
             "fittings": 200,
             "modules": 100
           }
@@ -3349,6 +3367,7 @@
           "count": 8,
           "rate": 60,
           "cost": {
+            "credits": 400000,
             "fittings": 300,
             "phase_cells": 30
           }
@@ -3371,6 +3390,7 @@
     "dropships": {
       "max": 3,
       "buildCost": {
+        "credits": 300000,
         "frames": 600,
         "fittings": 400,
         "modules": 300,
@@ -3388,6 +3408,7 @@
           "hold": 1000,
           "linkRate": 25,
           "cost": {
+            "credits": 250000,
             "frames": 200,
             "fittings": 150,
             "power_cells": 80
@@ -3398,6 +3419,7 @@
           "hold": 1600,
           "linkRate": 40,
           "cost": {
+            "credits": 600000,
             "frames": 350,
             "fittings": 250,
             "modules": 120

@@ -281,11 +281,16 @@ function arrivals(c, inv, tick, coreInv) {
 }
 
 // ---- storage and link upgrades, jettison, rebuild ----------------------------------------
+// `cost` may carry `credits` beside the goods; the goods come out of orbital storage and the credits out of the treasury.
 function payFromStation(c, st, cost) {
+  const { credits = 0, ...goods } = cost;
   const inv = store.loadInventory(c.id, st.district_id);
-  for (const [r, q] of Object.entries(cost)) if ((inv[r] || 0) < q) return `Not enough ${config.resources[r].name} in orbital storage (${q} needed).`;
-  for (const [r, q] of Object.entries(cost)) inv[r] -= q;
+  const have = db.prepare('SELECT credits FROM colonies WHERE id = ?').get(c.id).credits;
+  if (have < credits) return `Not enough credits: ${credits} cr needed.`;
+  for (const [r, q] of Object.entries(goods)) if ((inv[r] || 0) < q) return `Not enough ${config.resources[r].name} in orbital storage (${q} needed).`;
+  for (const [r, q] of Object.entries(goods)) inv[r] -= q;
   store.saveInventory(c.id, inv, st.district_id);
+  if (credits) db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(credits, c.id);
   return null;
 }
 

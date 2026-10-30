@@ -5,6 +5,7 @@ const store = require('./db');
 const shutdown = require('./shutdown');
 const orbital = require('./orbital');
 const territories = require('./territories');
+const credits = require('./credits');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const hazards = require('./hazards');
@@ -218,6 +219,7 @@ const processTickTx = db.transaction((tickTime) => {
   market.advance(globalTick); // quotes, matching and expiry happen before any colony ticks, so settlements are in its stock
   // the shared orbital world: territories open and close, the global project moves on, the orbital market makers refresh
   territories.advanceWorld(globalTick);
+  credits.prune(globalTick);
   projects.advanceWorld(globalTick, tickTime, TICK_MS);
   orbitalMarket.advance(globalTick);
   for (const c of db.prepare("SELECT * FROM colonies WHERE status = 'active'").all()) tickColony(c, globalTick, tickTime);

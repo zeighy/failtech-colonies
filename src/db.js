@@ -371,6 +371,13 @@ function migrate() {
     if (!db.prepare(`SELECT 1 FROM pragma_table_info('${tbl}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${tbl} ADD COLUMN ${col} ${ddl}`);
   }
   db.exec(`
+    CREATE TABLE IF NOT EXISTS credit_ledger (
+      colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+      tick INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      amount INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS credit_ledger_window ON credit_ledger (colony_id, kind, tick);
     CREATE TABLE IF NOT EXISTS colony_data_packets (
       colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
       packet_id TEXT NOT NULL,
