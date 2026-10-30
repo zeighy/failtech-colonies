@@ -90,6 +90,36 @@ Only text fields can be replaced; costs, recipes and rates cannot be touched by 
 A trigger looks at the colony's current state, so a beat can be late but never missed. A colony that has already passed
 several triggers gets its backlog in script order, one beat at a time (see Pacing), and the call card offers "Skip all".
 
+## Scenes with their own cast and media
+
+A scene can bring its **own cast** and carry **images, sound and video**, which is how data packets are told (they need not use the shared characters at all), but any scene can use them.
+
+```json
+"pk_example": {
+  "title": "Relay Station: Night Notes",
+  "background": "beacon_night.jpg",
+  "start": "a",
+  "cast": { "maren": { "name": "Maren Voss", "title": "Relay technician", "color": "#6FB7A8", "side": "left", "portrait": "maren.webp" } },
+  "nodes": {
+    "a": { "text": ["No `who` means narration."], "image": "plate.jpg", "next": "b" },
+    "b": { "who": "maren", "text": ["A line from a cast member."], "audio": "clip.ogg", "next": "c" },
+    "c": { "text": ["Changes the backdrop from here on."], "background": "cellar.jpg", "music": "hum.ogg", "video": "tape.mp4" }
+  }
+}
+```
+
+- `cast`: characters that exist only in this scene (same fields as `characters`; a cast id may not repeat a shared character). Portraits and moods work the same way; with no portrait the game shows initials.
+- Node media, all plain file names in `assets/`, each checked for its file type (`check-content` lists any that are missing and the game simply leaves them out until the file exists):
+  - `background`: an image that replaces the scene's backdrop from this node on. `image`: a plate shown over the stage for this node only.
+  - `audio`: a sound played once when the node is shown (`.mp3 .ogg .opus .m4a .wav`). `music`: a loop that continues across nodes until another node sets `music` or `"stop"`; it stops when the scene ends or is minimised.
+  - `video`: (`.mp4 .webm`) plays full screen before the node's words, with controls and a Continue button; the text follows when it ends or is continued.
+- Browsers only start sound after a click or key press. A scene always starts from one, so this is normally fine.
+- Keep media small. Files live in the repository (`content/<theme>/assets/`) and are sent to the player as they are.
+
+### Data packets as scenes
+
+A packet part can be played as a scene: in `theme.json`, `dataPackets.<id>` takes `scene`, `scene2`, `scene3` (ids of scenes in `story.json`) beside its `text`, `text2`, `text3`. A part may have text only, a scene only, or both (the text is then a short caption above a Play button). The scene is not sent to the player until that part is unlocked.
+
 ## Artwork
 
 `portrait` and `avatar` (characters) and `background` (scenes) name files in `content/<theme>/assets/`. A file that is not there yet is

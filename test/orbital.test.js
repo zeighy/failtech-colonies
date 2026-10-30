@@ -518,3 +518,133 @@ test('the gentle anomalies last longer than any other and pay for it, in extract
   const power = viewFor(c.uid).views[land.id].energy.supply;
   assert.equal(power, Math.round(O.dropships.levels[1].power * an.gloam.powerMult), 'Gloam thins the ship\'s power');
 });
+
+test('territories: the rare resources are evened out, so a needed one is never missing for long and none runs away', () => {
+  const t = now() + 1;
+  db.prepare('DELETE FROM territories').run();
+  const rares = () => db.prepare('SELECT resources FROM territories WHERE taken_by IS NULL AND closes_tick > ?').all(t).map((x) => JSON.parse(x.resources).rare);
+  for (let i = 0; i < O.territories.minAvailable; i++) territories.spawn(t, i);
+  assert.equal(new Set(rares()).size, O.territories.minAvailable, 'seven open territories hold seven different rares');
+  const made = {};
+  for (let i = 0; i < 400; i++) {
+    const open = db.prepare('SELECT id FROM territories WHERE taken_by IS NULL AND closes_tick > ?').all(t);
+    db.prepare('DELETE FROM territories WHERE id = ?').run(open[(i * 7919) % open.length].id); // someone takes one, or it closes
+    territories.spawn(t, 100 + i);
+    assert.equal(new Set(rares()).size, O.territories.minAvailable, `round ${i}: still all different`);
+    const latest = JSON.parse(db.prepare('SELECT resources FROM territories ORDER BY id DESC LIMIT 1').get().resources).rare;
+    made[latest] = (made[latest] || 0) + 1;
+  }
+  const counts = O.territories.rare.map((r) => made[r] || 0);
+  assert.ok(Math.max(...counts) - Math.min(...counts) <= 40, `every rare keeps coming up: ${counts}`);
+  db.prepare('DELETE FROM territories').run();
+  tick(1); // the world refills its pool for the tests that follow
+});
+
+test('data sites: about one territory in twenty has one, Data Recovery only builds on them and needs only power, and attempts pay out fragments that buy data packets', () => {
+  const DS = O.territories.dataSite;
+  // the roll
+  db.prepare('DELETE FROM territories').run();
+  for (let i = 0; i < 2000; i++) territories.spawn(now() + 1 + i, 0);
+  const sites = db.prepare('SELECT COUNT(*) AS n FROM territories WHERE data_site = 1').get().n;
+  assert.ok(sites > 2000 * DS.chance * 0.5 && sites < 2000 * DS.chance * 1.6, `${sites} data sites in 2000 territories`);
+  db.prepare('DELETE FROM territories').run();
+  tick(1);
+  // a landed ship on a territory without, then with, a data site
+  const c = launched('Deep Archive');
+  const ship = territories.shipsOf(c.id)[0];
+  const t = db.prepare("SELECT * FROM territories WHERE taken_by IS NULL AND closes_tick > ? ORDER BY closes_tick DESC LIMIT 1").get(now() + 400);
+  db.prepare('UPDATE territories SET data_site = 0 WHERE id = ?').run(t.id);
+  assert.deepEqual(actions.shipDeploy(c.uid, { ship: ship.id, territory: t.id }), { ok: true });
+  tick(O.dropships.deployTicks);
+  const land = db.prepare("SELECT * FROM districts WHERE colony_id = ? AND type = 'territory'").get(c.id);
+  assert.match(actions.build(c.uid, { ring: 1, slot: 0, type: 't_data', district: land.id }).error, /needs a data site/);
+  db.prepare('UPDATE territories SET data_site = 1 WHERE id = ?').run(t.id);
+  assert.equal(viewFor(c.uid).orbital.ships.territories.find((x) => x.id === t.id).dataSite, true);
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 0, type: 't_data', district: land.id }), { ok: true });
+  assert.match(actions.build(c.uid, { ring: 1, slot: 1, type: 't_data', district: land.id }).error, /already|in use/, 'one per site');
+  db.prepare('DELETE FROM colony_work_orders WHERE colony_id = ? AND district_id = ?').run(c.id, land.id);
+  db.prepare('DELETE FROM colony_buildings WHERE district_id = ?').run(land.id);
+  put(c, land.id, 1, 0, 't_data');
+  assert.equal(config.buildings.t_data.inputsPerTick.energy, 45);
+  // quick, certain attempts so the test is short
+  const saved = { ...DS }; Object.assign(DS, { attemptTicks: 5, successChance: 1, attemptsPerFragment: 2 });
+  try {
+    assert.equal(viewFor(c.uid).data.unlocked, false, 'the Data screen waits for the first fragment');
+    tick(4);
+    assert.equal(viewFor(c.uid).data.fragments, 0);
+    assert.equal(viewFor(c.uid).data.successes, 0, 'no attempt has finished yet');
+    tick(1);
+    assert.equal(viewFor(c.uid).data.successes, 1, 'one attempt found something');
+    tick(5);
+    const d = viewFor(c.uid).data;
+    assert.equal(d.fragments, 1);
+    assert.equal(d.unlocked, true);
+    assert.ok(orbital.flagsOf(db.prepare('SELECT * FROM colonies WHERE id = ?').get(c.id)).dataFragment !== undefined, 'the first fragment raises the story flag');
+    // packets: a sealed one shows only its cost; later parts also cost orbital goods from the station
+    const cheap = d.packets.find((p) => p.next.fragments === 1), dear = d.packets.find((p) => p.next.fragments > 1);
+    assert.deepEqual(Object.keys(cheap).sort(), ['id', 'level', 'next'], 'a sealed packet shows only its cost');
+    assert.deepEqual(Object.keys(cheap.next).sort(), ['fragments', 'part'], 'and part one needs nothing but fragments');
+    assert.ok(d.packets.some((p) => p.next.fragments >= 4), 'longer packets cost more');
+    assert.match(actions.dataUnlock(c.uid, { packet: dear.id }).error, /costs/);
+    assert.match(actions.dataUnlock(c.uid, { packet: 'nope' }).error, /Unknown/);
+    assert.deepEqual(actions.dataUnlock(c.uid, { packet: cheap.id }), { ok: true });
+    const after = viewFor(c.uid).data;
+    assert.equal(after.fragments, 0);
+    const opened = after.packets.find((p) => p.id === cheap.id);
+    assert.ok(opened.name && opened.texts[0].length > 20);
+    assert.match(actions.dataUnlock(c.uid, { packet: cheap.id }).error, /already unlocked all/, 'a one-part packet is finished');
+    assert.equal(require('../src/state').clientConfig().orbital.data, undefined, 'the config never carries the packets');
+    // a packet with more parts: part two needs fragments and goods from orbital storage
+    const multi = Object.entries(config.orbital.data.packets).find(([, p]) => p.costs.length > 2)[0];
+    const costs = config.orbital.data.packets[multi].costs;
+    db.prepare('UPDATE colonies SET data_fragments = 99 WHERE id = ?').run(c.id);
+    assert.deepEqual(actions.dataUnlock(c.uid, { packet: multi }), { ok: true });
+    let mp = viewFor(c.uid).data.packets.find((p) => p.id === multi);
+    assert.equal(mp.level, 1); assert.equal(mp.of, costs.length); assert.equal(mp.texts.length, 1);
+    assert.deepEqual(Object.keys(mp.next.goods).sort(), Object.keys(costs[1].goods).sort(), 'the next part names its goods');
+    assert.match(actions.dataUnlock(c.uid, { packet: multi }).error, /Not enough .* in orbital storage/);
+    const sinv = store.loadInventory(c.id, c.station.district_id);
+    for (const [r, q] of Object.entries(costs[1].goods)) sinv[r] = q + 1;
+    store.saveInventory(c.id, sinv, c.station.district_id);
+    const frags = viewFor(c.uid).data.fragments;
+    assert.deepEqual(actions.dataUnlock(c.uid, { packet: multi }), { ok: true });
+    assert.equal(viewFor(c.uid).data.fragments, frags - costs[1].fragments);
+    const sinv2 = store.loadInventory(c.id, c.station.district_id);
+    for (const r of Object.keys(costs[1].goods)) assert.equal(sinv2[r], 1, 'the goods were paid from the station');
+    mp = viewFor(c.uid).data.packets.find((p) => p.id === multi);
+    assert.equal(mp.level, 2); assert.equal(mp.texts.length, 2);
+  } finally { Object.assign(DS, saved); }
+});
+
+test('data packets can be scenes: an inline cast, media, and nothing is sent until the part is unlocked', () => {
+  const story = require('../src/story');
+  const pk = config.orbital.data.packets.p01;
+  const keep = { scene: pk.scene, existing: story.story.scenes.pk_test };
+  story.story.scenes.pk_test = { title: 'Test', start: 'a', cast: { voice: { name: 'A Voice', color: '#aabbcc', side: 'left' } }, nodes: { a: { who: 'voice', text: ['Hello.'], next: 'b' }, b: { text: ['Bye.'], image: 'plate.png' } } };
+  pk.scene = 'pk_test';
+  try {
+    assert.deepEqual(story.validate(story.story, config), [], 'an inline cast and an image node are valid');
+    const c = launched('Archive');
+    db.prepare('UPDATE colonies SET data_fragments = 5, data_total = 1 WHERE id = ?').run(c.id);
+    assert.deepEqual(Object.keys(story.content(c.id).scenes).filter((k) => k === 'pk_test'), [], 'a sealed part sends no scene');
+    const rev0 = story.view(c.id).rev;
+    assert.deepEqual(actions.dataUnlock(c.uid, { packet: 'p01' }), { ok: true });
+    const content = story.content(c.id);
+    assert.ok(content.scenes.pk_test && content.scenes.pk_test.cast.voice, 'once unlocked the scene and its cast are sent');
+    assert.equal(content.beats['pkt:p01:1'].scene, 'pk_test');
+    assert.ok(story.view(c.id).rev > rev0, 'the client is told to refetch');
+    const mine = viewFor(c.uid).data.packets.find((p) => p.id === 'p01');
+    assert.deepEqual(mine.scenes, ['pkt:p01:1'], 'the Data screen gets a Play button for it');
+    // mistakes are caught
+    const bad = JSON.parse(JSON.stringify(story.story));
+    bad.scenes.pk_test.nodes.a.who = 'nobody';
+    bad.scenes.pk_test.nodes.b.audio = 'x.exe';
+    bad.scenes.pk_test.nodes.b.video = 'clip.mp3';
+    const probs = story.validate(bad, config).join('\n');
+    assert.match(probs, /unknown character "nobody"/);
+    assert.match(probs, /audio must be a plain audio file/);
+    assert.match(probs, /video must be a plain video file/);
+    pk.scene = 'missing';
+    assert.match(story.validate(story.story, config).join('\n'), /dataPackets\.p01\.scene: unknown scene/);
+  } finally { if (keep.scene === undefined) delete pk.scene; else pk.scene = keep.scene; delete story.story.scenes.pk_test; }
+});

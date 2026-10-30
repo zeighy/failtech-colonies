@@ -246,6 +246,26 @@
      ]
     }
    }
+  },
+  "x15_fragment": {
+   "title": "Fragment",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "The recovery rig found a data fragment. One fragment is not enough to read anything. Gather more and the records can be assembled into a packet.",
+      "A Data screen has opened on your terminal. Look for more data sites in the territories."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "signal",
+     "text": [
+      "More. Keep looking."
+     ]
+    }
+   }
   }
  },
  "beats": [
@@ -505,6 +525,16 @@
      "Whatever it makes may be worth bringing back down. The colony's buildings were laid out to grow taller than they are."
     ]
    }
+  },
+  {
+   "id": "x15_fragment",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "dataFragment"
+   },
+   "delivery": "dialogue",
+   "scene": "x15_fragment"
   }
  ]
 }

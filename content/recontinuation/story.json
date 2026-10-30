@@ -1240,6 +1240,915 @@
      "mood": "thoughtful"
     }
    }
+  },
+  "x15_fragment": {
+   "title": "Fragment",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "pell",
+     "text": [
+      "Commander. The rig on the territory has produced something. I would call it a fragment, because a fragment is what it is. It is also humming, which I mention because the tray is humming and I would like us to be in agreement."
+     ],
+     "mood": "afraid",
+     "next": "b"
+    },
+    "b": {
+     "who": "seven",
+     "text": [
+      "This node has logged one data fragment. It is incomplete. According to the index it is stored in a place the index does not list. The Office requires an entry for every fragment, and this node does not know which drawer."
+     ],
+     "mood": "thoughtful",
+     "next": "c"
+    },
+    "c": {
+     "who": "pell",
+     "text": [
+      "It wants others. Not company. Other pieces. Gather enough and we can assemble a full packet, and a packet can be read."
+     ],
+     "mood": "serious",
+     "next": "d"
+    },
+    "d": {
+     "who": "pell",
+     "text": [
+      "I would very much like to read it. I would also like it to be somebody else's responsibility. Neither of those is going to happen."
+     ],
+     "mood": "thoughtful",
+     "next": "e"
+    },
+    "e": {
+     "who": "seven",
+     "text": [
+      "Find more data sites, Commander. The Data screen is open on your terminal. This node asks that nobody reads a packet alone."
+     ],
+     "mood": "serious"
+    }
+   }
+  },
+  "pk_p03_1": {
+   "cast": {
+    "maren": {
+     "name": "Maren Voss",
+     "title": "Relay technician",
+     "color": "#6FB7A8",
+     "side": "left"
+    },
+    "relay": {
+     "name": "The Relay",
+     "title": "Station 3",
+     "color": "#E8E1CF",
+     "side": "right"
+    }
+   },
+   "title": "Relay Station: Night Notes",
+   "background": "beacon_night.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "text": [
+      "The relay station stands at the foot of the old mast, a squat concrete box with one lit window. The hum comes from inside. You feel it in your teeth before you hear it.",
+      "Maren Voss keeps the night watch. She has kept it for some time. She has not been relieved."
+     ],
+     "music": "pk_p03_1_hum.mp3",
+     "next": "b"
+    },
+    "b": {
+     "text": [
+      "You are the Commander. Good. Someone should see this who is not me. Sit. Do not touch the dial.",
+      "It is not a transmitter, whatever the plate says. It never speaks first. It answers, only when asked, and only in the order it is asked."
+     ],
+     "who": "maren",
+     "mood": "serious",
+     "next": "c"
+    },
+    "c": {
+     "text": [
+      "A speaker grille. A brass microphone on a cord. A log of pages held down with a stone, each the colour of weak tea."
+     ],
+     "next": "d"
+    },
+    "d": {
+     "text": [
+      "I ask it small things. The time. The weather. Whether the mast is bearing. It has been right about the weather every time, which I do not like.",
+      "It is also right about questions I have not asked yet."
+     ],
+     "who": "maren",
+     "mood": "thoughtful",
+     "next": "e"
+    },
+    "e": {
+     "text": [
+      "She turns a page towards you. The question at the top is in her handwriting. The answer beneath is in someone else's, though the ink is the same.",
+      "The date on the answer is the day before the question."
+     ],
+     "image": "pk_p03_1_page.jpg",
+     "next": "f"
+    },
+    "f": {
+     "text": [
+      "It is the cooling. I keep telling them it is the cooling. Cold air in the ducts. Resonance. Rooms hum.",
+      "Then it does the roll."
+     ],
+     "who": "maren",
+     "mood": "afraid",
+     "next": "g"
+    },
+    "g": {
+     "text": [
+      "Maren Voss. Aldous Pike. Irene Calloway. Tomas Wren.",
+      "Dorothea Hale. Nadir Osei. Marguerite Lind."
+     ],
+     "who": "relay",
+     "audio": "pk_p03_1_roll.mp3",
+     "next": "h"
+    },
+    "h": {
+     "text": [
+      "The first four are the station roster. Aldous went out for water and did not come back. Irene is asleep upstairs, I think. Tomas I have not seen since the shift change.",
+      "The rest I do not know. The list is longer every night."
+     ],
+     "who": "maren",
+     "mood": "afraid",
+     "next": "i"
+    },
+    "i": {
+     "text": [
+      "She holds the microphone out to you. The grille is waiting."
+     ],
+     "choices": [
+      {
+       "label": "Ask the Relay who the roll is for",
+       "next": "j1"
+      },
+      {
+       "label": "Ask the Relay what it is counting",
+       "next": "j2"
+      },
+      {
+       "label": "Say nothing",
+       "next": "j3"
+      }
+     ]
+    },
+    "j1": {
+     "text": [
+      "The roll is for all who are to be accounted for."
+     ],
+     "who": "relay",
+     "next": "k"
+    },
+    "j2": {
+     "text": [
+      "It counts those assigned to this station. It also counts those assigned afterwards."
+     ],
+     "who": "relay",
+     "next": "k"
+    },
+    "j3": {
+     "text": [
+      "The grille stays closed. After a while the hum shifts pitch, as if it had been waiting for a question and was making do."
+     ],
+     "next": "k"
+    },
+    "k": {
+     "text": [
+      "A count is supposed to end when the number matches the number present. That is what a count is for.",
+      "Tonight it did not end. It reached my name, went on, and then read my name again."
+     ],
+     "who": "maren",
+     "mood": "serious",
+     "next": "l"
+    },
+    "l": {
+     "text": [
+      "Maren Voss."
+     ],
+     "who": "relay",
+     "next": "m"
+    },
+    "m": {
+     "text": [
+      "Two voices say it. One is the relay. The other is the grille's echo, or a second voice in a cleaner room, saying it half a second late."
+     ],
+     "next": "n"
+    },
+    "n": {
+     "text": [
+      "Seven will file that as a duplicate entry. I have been trying to decide whether that would be a comfort."
+     ],
+     "who": "maren",
+     "mood": "afraid",
+     "next": "o"
+    },
+    "o": {
+     "text": [
+      "The hum settles. The grille closes. In the margin of the log, beside her name, a single tally mark has appeared in pen. No one has touched the pen."
+     ]
+    }
+   }
+  },
+  "pk_p06_1": {
+   "title": "The Tray",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "text": [
+      "The archive is a long room of grey boxes and shelves that lean a little towards each other. One lamp is lit. In its light, on a desk cleared of everything else, sits a shallow wooden tray.",
+      "You can hear it before you see it. A low, even note, like a held breath in a cathedral far away."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "text": [
+      "Commander. Forgive the state of the room. I tidy when I am frightened, and it has not been this tidy in years.",
+      "I asked you here because Seven will not come. It says the tray is an inventory, and inventories do not need witnesses."
+     ],
+     "who": "pell",
+     "mood": "afraid",
+     "next": "c"
+    },
+    "c": {
+     "text": [
+      "This node confirms that the tray is an inventory. This node also confirms that it declined the invitation."
+     ],
+     "who": "seven",
+     "mood": "serious",
+     "next": "d"
+    },
+    "d": {
+     "text": [
+      "A tray lined in grey felt and divided into small cells. In each cell, a sample: soil, ash, a chip of glass, water in a thimble, a single seed. Each cell has a paper label in a careful hand."
+     ],
+     "image": "pk_p06_1_tray.jpg",
+     "next": "e"
+    },
+    "e": {
+     "text": [
+      "I began it in the first season. One sample from every place the ground opened. If I cannot say what happened, I can at least keep what is left.",
+      "It is the only method I have. An archivist cannot explain. He can only keep things in an order and hope the order says something."
+     ],
+     "who": "pell",
+     "mood": "thoughtful",
+     "next": "f"
+    },
+    "f": {
+     "text": [
+      "He lifts the lid. The room goes quiet. He lowers it, and the note begins again, low and level, as though it had only paused to let him finish."
+     ],
+     "next": "g"
+    },
+    "g": {
+     "text": [
+      "Open, silence. Closed, that. It does not matter where I put it. The cellar, the roof, the Black Cut. I have carried it across the whole territory, and it hums when it is shut."
+     ],
+     "who": "pell",
+     "mood": "afraid",
+     "next": "h"
+    },
+    "h": {
+     "text": [
+      "This node notes that the tray is made of wood, felt and glass. None of these is known to hum."
+     ],
+     "who": "seven",
+     "next": "i"
+    },
+    "i": {
+     "text": [
+      "I recorded it. Forgive me, I am about to ask something odd. Would you listen?"
+     ],
+     "who": "pell",
+     "mood": "serious",
+     "choices": [
+      {
+       "label": "Listen to the recording",
+       "next": "j1"
+      },
+      {
+       "label": "Ask what the hum is",
+       "next": "j2"
+      }
+     ]
+    },
+    "j1": {
+     "text": [
+      "A recording plays: the hum, flat and patient. Somewhere in it a spoon falls on a stone floor. The clip ends and begins again. The hum is the same. The spoon falls again, at the same instant.",
+      "Pell has gone pale. He did not drop a spoon twice."
+     ],
+     "audio": "pk_p06_1_hum.mp3",
+     "next": "k"
+    },
+    "j2": {
+     "text": [
+      "I do not know. It began as a hum. I think, lately, that it has begun to remember. I have a recording, if you would rather hear it."
+     ],
+     "who": "pell",
+     "mood": "thoughtful",
+     "next": "k"
+    },
+    "k": {
+     "text": [
+      "It is not a loop. I have checked the machine. The spoon was real, one afternoon, in the next room. The tray heard it. The tray keeps it. It has been keeping everything it hears."
+     ],
+     "who": "pell",
+     "mood": "afraid",
+     "next": "l"
+    },
+    "l": {
+     "text": [
+      "The door opens. Dr. Noor Haddad comes in with mud to her knees and a paper packet of seed in one hand. She stops at the sound and does not look surprised."
+     ],
+     "next": "m"
+    },
+    "m": {
+     "text": [
+      "Ansel. You have my seed in a box that sings."
+     ],
+     "who": "noor",
+     "mood": "serious",
+     "next": "n"
+    },
+    "n": {
+     "text": [
+      "I am sorry. They were safest there. I thought they were safest there."
+     ],
+     "who": "pell",
+     "mood": "sad",
+     "next": "o"
+    },
+    "o": {
+     "text": [
+      "They were not safe. They were interested. Look."
+     ],
+     "who": "noor",
+     "mood": "thoughtful",
+     "next": "p"
+    },
+    "p": {
+     "text": [
+      "In one cell a seed has split. It has not grown. A single thread of green, pale as breath, has pushed out of it and bent. It does not point at the lamp. It points at the lid's hinge."
+     ],
+     "next": "q"
+    },
+    "q": {
+     "text": [
+      "Seeds lean towards the light. These lean towards the hum. I do not think the hum is a sound, Ansel. I think it is closer to an instruction."
+     ],
+     "who": "noor",
+     "next": "r"
+    },
+    "r": {
+     "text": [
+      "An instruction to what?"
+     ],
+     "who": "pell",
+     "mood": "afraid",
+     "next": "s"
+    },
+    "s": {
+     "text": [
+      "To grow. Or to stop. Seeds do not say."
+     ],
+     "who": "noor",
+     "mood": "serious",
+     "next": "t"
+    },
+    "t": {
+     "text": [
+      "This node requests a moment to file that distinction."
+     ],
+     "who": "seven",
+     "next": "u"
+    },
+    "u": {
+     "text": [
+      "Pell takes the last label from the tray and holds it under the lamp. His hand is not steady. The writing is his. He reads it twice before he speaks."
+     ],
+     "next": "v"
+    },
+    "v": {
+     "text": [
+      "\"Ash, from the Commander's coat, on the day this tray is opened for the last time.\" The date is not one that has happened.",
+      "I did not write that. I wrote it. I know my hand."
+     ],
+     "who": "pell",
+     "mood": "afraid",
+     "next": "w"
+    },
+    "w": {
+     "text": [
+      "This node observes that two statements need not be contradictory. They are a filing difficulty."
+     ],
+     "who": "seven",
+     "mood": "thoughtful",
+     "next": "x"
+    },
+    "x": {
+     "text": [
+      "Or a kindness, Ansel. Someone has been leaving you notes."
+     ],
+     "who": "noor",
+     "mood": "thoughtful",
+     "next": "y"
+    },
+    "y": {
+     "text": [
+      "He closes the lid. The hum returns. For a moment it matches the breath of everyone in the room. Then, slowly, it does not."
+     ]
+    }
+   }
+  },
+  "pk_p08_3": {
+   "title": "The Last Page",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "text": [
+      "Night at the Command Hub. The kettle is cold. The map on the wall has more pins than it did. Everyone is here, and no one has sat down.",
+      "On the table is a single sheet of paper. Nobody has touched it."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "text": [
+      "Commander. Memorandum 0 is stated to have eleven pages. This is a twelfth. It was not in the file. It was in the room with the paper."
+     ],
+     "who": "seven",
+     "mood": "serious",
+     "next": "c"
+    },
+    "c": {
+     "text": [
+      "I searched the file twice. It is not listed. It is the right stock, and the right typeface."
+     ],
+     "who": "vane",
+     "next": "d"
+    },
+    "d": {
+     "text": [
+      "The page is typed. At the foot there is a line in ink, not typed, in a hand like a tired pen drawn across a ledger."
+     ],
+     "image": "pk_p08_3_page.jpg",
+     "next": "e"
+    },
+    "e": {
+     "text": [
+      "Read it out, then. We are all stood here."
+     ],
+     "who": "mags",
+     "mood": "serious",
+     "next": "f"
+    },
+    "f": {
+     "text": [
+      "This node will read it. This node asks that no one interrupt. Interruptions will be filed."
+     ],
+     "who": "seven",
+     "next": "g"
+    },
+    "g": {
+     "text": [
+      "Seven reads, and the room listens. The page does not say what happened. It says that the Office has been told many answers and has kept none of them. It says that the world is here, whatever the cause.",
+      "It says that so are you."
+     ],
+     "next": "h"
+    },
+    "h": {
+     "text": [
+      "Then the earlier beacon asked something and this is the answer. Or it is the echo of the asking. I would very much like it to be the echo."
+     ],
+     "who": "pell",
+     "mood": "afraid",
+     "next": "i"
+    },
+    "i": {
+     "text": [
+      "Or someone pulled the wrong lever and no one will say who. I have buried men for less. A reactor ran six months on nothing at Pit Nine. Do not tell me that was weather."
+     ],
+     "who": "mags",
+     "mood": "angry",
+     "next": "j"
+    },
+    "j": {
+     "text": [
+      "Or it is tending. You do not clear a field gently, and you do not ask the weeds."
+     ],
+     "who": "noor",
+     "mood": "thoughtful",
+     "next": "k"
+    },
+    "k": {
+     "text": [
+      "Or nothing is lost, only late. I have had freight forty days overdue turn up in perfect order. Maybe the world is on the ramp."
+     ],
+     "who": "raf",
+     "mood": "thoughtful",
+     "next": "l"
+    },
+    "l": {
+     "text": [
+      "Or we are being audited, and the ground is the auditor, and it has been very patient about the shift changes."
+     ],
+     "who": "vane",
+     "mood": "serious",
+     "next": "m"
+    },
+    "m": {
+     "text": [
+      "This node's position remains that the lapse is a lapse in the record. This node notes that it is the only position that has not been contradicted. This node notes that this is a poor reason to hold it."
+     ],
+     "who": "seven",
+     "mood": "thoughtful",
+     "next": "n"
+    },
+    "n": {
+     "text": [
+      "The Signal has settled on the back of a chair. It does not offer a theory. It tilts its head, once, towards the page, and then towards the door, as if it had heard something in the corridor."
+     ],
+     "next": "o"
+    },
+    "o": {
+     "text": [
+      "There is a line at the foot. In ink. Seven did not read it."
+     ],
+     "who": "pell",
+     "mood": "thoughtful",
+     "choices": [
+      {
+       "label": "Ask Seven to read the last line",
+       "next": "p1"
+      },
+      {
+       "label": "Leave it unread",
+       "next": "p2"
+      }
+     ]
+    },
+    "p1": {
+     "text": [
+      "\"If you are asked, say that you are present.\""
+     ],
+     "who": "seven",
+     "audio": "pk_p08_3_director.mp3",
+     "next": "q1"
+    },
+    "p2": {
+     "text": [
+      "Filed as unread, by instruction. This node will keep the line. This node will not read it unless asked."
+     ],
+     "who": "seven",
+     "mood": "serious",
+     "next": "q2"
+    },
+    "q1": {
+     "text": [
+      "No one speaks. Raf looks at his hands. Noor takes a breath as if to answer something and does not. The hum from the beacon, which has been so faint all evening, can now be heard through the floor."
+     ],
+     "next": "r"
+    },
+    "q2": {
+     "text": [
+      "No one speaks. The hum from the beacon, which has been so faint all evening, can now be heard through the floor. The line at the foot of the page is very small and very black."
+     ],
+     "next": "r"
+    },
+    "r": {
+     "text": [
+      "I do not like it when a page is patient."
+     ],
+     "who": "vane",
+     "mood": "serious",
+     "next": "s"
+    },
+    "s": {
+     "text": [
+      "Outside, the hub bell rings the shift change. Far off, across the territory, the ground begins to close. It always does. It has never once been late."
+     ],
+     "audio": "pk_p08_3_bell.mp3",
+     "next": "t"
+    },
+    "t": {
+     "text": [
+      "Do you suppose it listens for the bell? Or do we ring it because it has already begun?"
+     ],
+     "who": "noor",
+     "mood": "thoughtful",
+     "next": "u"
+    },
+    "u": {
+     "text": [
+      "That is precisely what I have been trying not to ask."
+     ],
+     "who": "pell",
+     "next": "v"
+    },
+    "v": {
+     "text": [
+      "Commander. This node records that the Brief is complete, that the beacon continues to transmit, and that the colony is present."
+     ],
+     "who": "seven",
+     "mood": "serious",
+     "next": "w"
+    },
+    "w": {
+     "text": [
+      "Continuity is preserved. This node does not know of what."
+     ],
+     "who": "seven",
+     "mood": "thoughtful"
+    }
+   }
+  },
+  "pk_p06_3": {
+   "title": "The Chord",
+   "background": "beacon_night.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "text": [
+      "Night at the beacon. The antenna is dark against the stars and the receiver shed has one window lit. Ansel Pell crosses the dirt carrying a wooden tray against his chest, the way you carry a sleeping child."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "text": [
+      "I would not have asked you out here for anything smaller. Seven has granted me twenty minutes."
+     ],
+     "who": "pell",
+     "mood": "afraid",
+     "next": "c"
+    },
+    "c": {
+     "text": [
+      "This node has granted nine."
+     ],
+     "who": "seven",
+     "next": "d"
+    },
+    "d": {
+     "text": [
+      "In the shed, the receiver's speaker carries the hum from outside: low and wide, with nothing in it that sounds like a voice. Pell sets the tray on the console and leaves the lid shut. Two hums fill the room."
+     ],
+     "next": "e"
+    },
+    "e": {
+     "text": [
+      "Listen. They disagree. They beat against each other, slowly, like two clocks that were once the same clock.",
+      "Now, listen. They are leaning together."
+     ],
+     "who": "pell",
+     "mood": "thoughtful",
+     "next": "f"
+    },
+    "f": {
+     "text": [
+      "The beats slow. Slow again. Stop. One note remains, held, in the quiet of a room where something large has paused."
+     ],
+     "audio": "pk_p06_3_tone.mp3",
+     "next": "g"
+    },
+    "g": {
+     "text": [
+      "This node did not expect that. This node is not certain that it expected anything."
+     ],
+     "who": "seven",
+     "mood": "surprised",
+     "next": "h"
+    },
+    "h": {
+     "text": [
+      "The Signal is on the rail by the window, a skein of static in the rough shape of a bird. It tilts its head. It is not looking at the tray. It is looking past the roof, at the place the note seems to come from."
+     ],
+     "next": "i"
+    },
+    "i": {
+     "text": [
+      "It has not made a sound. It never does."
+     ],
+     "who": "pell",
+     "mood": "serious",
+     "next": "j"
+    },
+    "j": {
+     "text": [
+      "The note falls by one small step, as if answering a step it had been given. No one has given it one."
+     ],
+     "next": "k"
+    },
+    "k": {
+     "text": [
+      "I found a record, Commander. An earlier beacon, built long before the Lapse and destroyed. The word \"silent\" appears in it three times.",
+      "I think that this is what the word meant. I think it was an instruction, not a description."
+     ],
+     "who": "pell",
+     "mood": "afraid",
+     "next": "l"
+    },
+    "l": {
+     "text": [
+      "This node records Archivist Pell's hypothesis. This node records that it is not evidence."
+     ],
+     "who": "seven",
+     "mood": "serious",
+     "next": "m"
+    },
+    "m": {
+     "text": [
+      "No. It is a worry with a footnote."
+     ],
+     "who": "pell",
+     "mood": "sad",
+     "next": "n"
+    },
+    "n": {
+     "text": [
+      "Pell's hand rests on the lid. He looks at you."
+     ],
+     "choices": [
+      {
+       "label": "Open the tray",
+       "next": "o1"
+      },
+      {
+       "label": "Keep it closed",
+       "next": "o2"
+      }
+     ]
+    },
+    "o1": {
+     "text": [
+      "Pell lifts the lid. The tray falls silent. The receiver's hum does not. It goes on alone, a little louder, like a guest who has not noticed the host stop speaking."
+     ],
+     "next": "p"
+    },
+    "o2": {
+     "text": [
+      "Pell keeps his hand flat on the lid. The tray holds its note. The receiver's hum moves to meet it and stays there, patient, like something that has all night."
+     ],
+     "next": "p"
+    },
+    "p": {
+     "text": [
+      "The Signal ruffles, a brief flicker of interference, and goes still again, facing the sky."
+     ],
+     "next": "q"
+    },
+    "q": {
+     "text": [
+      "Whatever it is, it knows the tray. And whatever the tray is, it knew the sky."
+     ],
+     "who": "pell",
+     "mood": "thoughtful",
+     "next": "r"
+    },
+    "r": {
+     "text": [
+      "This node will file this under Continuity. This node does not know under what heading."
+     ],
+     "who": "seven"
+    }
+   }
+  },
+  "pk_p07_2": {
+   "title": "The Room With the Paper",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "text": [
+      "Deep in the Colorado facility there is a corridor the plans do not show. Hesper Vane walks it with a lantern, counting doors. She stops at one that should be a wall."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "text": [
+      "The inventory found it. I do not trust doors, Commander. I trust lists. I came for the list."
+     ],
+     "who": "vane",
+     "mood": "serious",
+     "next": "c"
+    },
+    "c": {
+     "text": [
+      "This node has no access record for this room. This node has no record of the corridor."
+     ],
+     "who": "seven",
+     "next": "d"
+    },
+    "d": {
+     "text": [
+      "Paper. Every wall, floor to ceiling, pinned in rows: single sheets, each the Office's daily log. A table. A stool. A pen that someone has set down square to the edge."
+     ],
+     "image": "pk_p07_2_wall.jpg",
+     "next": "e"
+    },
+    "e": {
+     "text": [
+      "They are in order. Before, and after. I started at the left and tried to find where the Lapse falls."
+     ],
+     "who": "vane",
+     "mood": "thoughtful",
+     "next": "f"
+    },
+    "f": {
+     "text": [
+      "She runs a finger along a row. The sheets are dated in a steady hand. Then, between one sheet and the next, the dates stop. The sheets continue. Each is headed with a single word: Continued."
+     ],
+     "next": "g"
+    },
+    "g": {
+     "text": [
+      "That is where it should be. \"Continued.\" Every sheet from there to here. Nobody lived those days, Commander. Or somebody did, and no one wrote them down but whoever wrote these."
+     ],
+     "who": "vane",
+     "mood": "thoughtful",
+     "next": "h"
+    },
+    "h": {
+     "text": [
+      "This node is unable to confirm that the entries are false. This node is unable to confirm that they are not."
+     ],
+     "who": "seven",
+     "mood": "thoughtful",
+     "next": "i"
+    },
+    "i": {
+     "text": [
+      "The last sheet is pinned at the end of the last row. It is dated today. It lists those present: a quartermaster, a node, a Commander. Beneath each name, a line of speech."
+     ],
+     "next": "j"
+    },
+    "j": {
+     "text": [
+      "\"Quartermaster: I came for the list.\" I said that a minute ago. The next line is, \"This is not a clerk.\"",
+      "I was about to say that."
+     ],
+     "who": "vane",
+     "mood": "surprised",
+     "next": "k"
+    },
+    "k": {
+     "text": [
+      "I am not going to say it."
+     ],
+     "who": "vane",
+     "mood": "serious",
+     "choices": [
+      {
+       "label": "Read the next line aloud",
+       "next": "l1"
+      },
+      {
+       "label": "Cover the sheet",
+       "next": "l2"
+      }
+     ]
+    },
+    "l1": {
+     "text": [
+      "The line below hers is headed \"Commander\". It is ruled and blank, long enough for one sentence. It is waiting politely."
+     ],
+     "next": "m"
+    },
+    "l2": {
+     "text": [
+      "Vane lays her palm flat over the sheet. Under her hand, faintly, something is being written."
+     ],
+     "next": "m"
+    },
+    "m": {
+     "text": [
+      "My first theory is a clerk. Someone outside the building, keeping the minutes since before the Office existed. My second is that it is not outside."
+     ],
+     "who": "vane",
+     "mood": "thoughtful",
+     "next": "n"
+    },
+    "n": {
+     "text": [
+      "This node proposes a third. The room is the Office's own error log. Every error is eventually filed. This is where they go."
+     ],
+     "who": "seven",
+     "mood": "thoughtful",
+     "next": "o"
+    },
+    "o": {
+     "text": [
+      "That is the worst of the three. It is also the most likely, and I resent it."
+     ],
+     "who": "vane",
+     "mood": "serious",
+     "next": "p"
+    },
+    "p": {
+     "text": [
+      "They leave the door as they found it, a hand's width open. In the morning Seven will report that the corridor is on the plans. The plans are dated a year ago."
+     ]
+    }
+   }
   }
  },
  "beats": [
@@ -2105,6 +3014,16 @@
      "The convoy is flying a strip of red on the lead truck tonight. Nobody told them to. Build another when you can. We will keep watching the sky."
     ]
    }
+  },
+  {
+   "id": "x15_fragment",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "dataFragment"
+   },
+   "delivery": "dialogue",
+   "scene": "x15_fragment"
   }
  ]
 }

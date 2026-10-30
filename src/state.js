@@ -48,7 +48,7 @@ function clientConfig() {
     }])),
     orbitalRecipeBook: sim.recipeBook(config, config.buildings.orbital_foundry),
     tapRecipes: config.tapRecipes,
-    orbital: config.orbital,
+    orbital: { ...config.orbital, data: undefined }, // (data packets travel in the view, and only what the player has unlocked)
     logistics: config.logistics,
     expansion: config.expansion,
     popConsumption: config.global.populationConsumptionPerTick,
@@ -195,7 +195,7 @@ function viewFor(userId, now = Date.now()) {
           boost: b.boost ? (st.boost || 'starved') : null,
           level: b.level || 1, xscale: st.xscale || 1,
           xnext: config.buildings[b.type].expand && (b.level || 1) < xmax ? { level: (b.level || 1) + 1, cost: sim.expansionCost(config, config.buildings[b.type], (b.level || 1) + 1), ticks: config.expansion.ticks[(b.level || 1) + 1], scale: config.expansion.scale[(b.level || 1) + 1], crew: config.expansion.crew[(b.level || 1) + 1] } : null,
-          recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
+          dataProgress: b.type === 't_data' ? Math.round((b.dataProgress || 0) * 10) / 10 : undefined, recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
           resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type, config.buildings[b.type]) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
       }),
       orders: dOrders.map((o) => ({ id: o.id, kind: o.action_type, data: o.data, remaining: o.ticks_remaining, total: o.ticks_total })),
@@ -328,6 +328,7 @@ function viewFor(userId, now = Date.now()) {
   };
   view.exchange = exchangeView(c, t.globalTick);
   view.missions = missions.view(c, t.globalTick);
+  view.data = territories.dataView(c);
   view.orbital = orbital.view(c, t.globalTick, { flows: Object.fromEntries(routeFlows.map((f) => [f.route.id, f.qty])) });
   if (view.orbital.station) {
     view.orbital.ships = territories.view(c, t.globalTick);

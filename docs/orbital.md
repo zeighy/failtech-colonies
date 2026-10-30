@@ -35,7 +35,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
 - **Storage is slot-limited.** Each slot holds one resource, up to the level's cap.
   - Every tick the largest stocks claim slots first (`orbital.enforceSlots`). Anything left without a slot is lost, with a warning in the log.
   - Jettisoning empties a slot and removes the routes that carry that resource. The slot must then be rebuilt before it can be used again.
-  - Storage upgrades add slots and raise the cap.
+  - Storage upgrades add three slots each and raise the cap: 6, then 9, then 12 slots (3 more is one rare, one rare and one orbital good), because with the rebuild materials and power cells each taking a slot a six-slot store left too little room for a manufacturing run.
 - **Orbital links** are ordinary routes between the Core and the station, in either direction. There are 4 at level 1, upgradable in count and rate. Rare resources never travel by link; they only come home by dropship.
 - **Express launch** sends up to 400 of one resource from the Core for fuel. It arrives in 12 ticks and has a long cooldown, so it is for emergencies, not supply.
 - **Express drop** is the other way: up to 400 of one resource from orbital storage to the Core, for a capsule (10 fittings from orbital storage) and no fuel. It needs the Command Center running and shares the express slot and cooldown with launches.
@@ -45,8 +45,15 @@ Orbit is where colonies stop being separate games. Every station shares the same
 - **Territories** are a shared world pool (`territories.advanceWorld`).
   - At least 7 are open at any time. A taken territory is replaced after a short delay.
   - Each territory has an anomaly that sets its lifetime, a rare-resource multiplier and its risk. Two of them are the gentle ones for someone learning the ropes: **Lull** stays open 2 to 5 days at the cost of a ×0.6 rare yield, and **Gloam** stays open 1.5 to 3.5 days at the cost of ×0.7 ship power (`powerMult`). Both do little damage if the ship is late.
+  - **The rare is evened out.** A new territory's rare is picked at random from the rares that are least represented among the territories open right now, so with seven open they are always seven different rares, a rare another player just took is the first to come back, and every rare still comes up equally often over time. (Pure chance left a needed rare missing for long stretches.)
   - Each territory has two common resources (of Reclaim, Aquifer Draw and Raw Ink), one district resource (Raw Ore or Crude) and one rare resource. That makes 6 combinations of what the ground gives, and which rare resources can be extracted from them varies (see the Anomaly Tap below).
   - A territory has three rings (3 Small, 5 Medium and 7 Large plots), all open from the start. Power is what limits how much of it a player can use, until the dropship is upgraded. A fourth ring is a planned expansion.
+- **Data sites.** About one territory in twenty (`orbital.territories.dataSite.chance`) also has a data site, rolled on top of its resources and shown as a tag in the territory list.
+  - **Data Recovery** (`t_data`) can only be built in a territory with a data site, one per territory, and needs nothing but 45 power (no crew, no inputs). Each attempt takes 60 ticks of full-power work; low power slows it in proportion.
+  - Each finished attempt succeeds about 8% of the time. 7 successful attempts make one **data fragment**. The expected time is about 87 attempts, roughly 5,000 ticks at full power; all of these numbers are in `dataSite` in `game_config.json`.
+  - Fragments need no storage. They are a per-colony currency spent on **data packets** (`orbital.data.packets`: eight, with opaque ids `p01` to `p08`). A packet unlocks in **parts**: `costs[0]` is its first part, paid in fragments only; each further part (the larger packets have two or three) costs fragments **and a few orbital goods** (`goods`, two kinds per part, paid from the station's orbital storage), so reading everything takes expeditions and the foundry as well as data sites. Part n's text is `text` (part 1), `text2`, `text3`; names and texts are themed in `dataPackets` in `theme.json`. Costs are 1 to 6 fragments for a first part and grow with the length of the text; the whole set costs 49 fragments plus the goods.
+  - A sealed packet shows only its cost, which hints at its size. Once part 1 is unlocked the packet shows its name, how many parts it has and what the next part costs. Names and texts are never sent to the client for parts that are still sealed. Packets only unlock lore and change nothing else. Any part can be played as a visual-novel style scene instead of, or as well as, text (see "Scenes with their own cast and media" in `docs/story.md`).
+  - The **Data** screen appears in the dock once the first fragment has been recovered, and the first fragment sets the story flag `dataFragment` (a short call encourages the player to find more).
 - **Deploying** a docked dropship to a territory:
   - It lands after 15 ticks with a small construction kit plus anything preloaded from orbital storage.
   - The territory becomes a district of type `territory`. Its storage is the ship's hold and its power is the ship's power.
@@ -82,7 +89,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
 ## Orbital market
 
 - This market is separate from the ground exchange. It trades only trade goods (`trade` or `orbitalTrade`), straight from orbital storage, and every order shows the station that posted it.
-- Market makers post a small bid and ask per good around the ground reference price every 240 ticks. They never trade with each other. They set the price band and a suggestion; they are not a shop.
+- Market makers post a small bid and ask per good around the ground reference price every 240 ticks. The orbital-only goods are posted one at a time (the foundry is how you make them; the market is a stopgap, not a way round a project), other goods in larger lots. They never trade with each other. They set the price band and a suggestion; they are not a shop.
 - Matching:
   - Price first, then time, at the resting order's price.
   - Sellers pay a 4% fee.

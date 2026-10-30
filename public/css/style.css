@@ -661,3 +661,27 @@ body.orbit-mode .dtab[aria-selected="true"], body.orbit-mode .dbtn[aria-pressed=
 #queue { overflow-x: auto; overflow-y: hidden; }
 .slot.clearing .cell { fill: rgba(255,255,255,.02); stroke: var(--warn); stroke-dasharray: 2 4; }
 .slot.clearing .tag { fill: var(--warn); }
+
+/* data sites */
+.data-tag { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 2px 9px; border-radius: 99px; border: 1px solid #2f6f62; color: #7fd6c2; background: rgba(127,214,194,.08); font-size: 11px; }
+.data-bal { display: flex; align-items: center; gap: 22px; padding: 14px 16px; background: var(--bg2); border: 1px solid var(--line); border-left: 3px solid var(--cyan); border-radius: var(--radius); margin: 8px 0 4px; }
+.data-bal b { display: block; font-size: 30px; line-height: 1.1; color: var(--cyan); }
+.data-bal .grow { flex: 1; min-width: 0; }
+.data-bal small { display: block; margin-top: 6px; font-size: 12px; }
+.packet { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel2); padding: 12px 14px; margin: 8px 0; }
+.packet .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.packet.open { border-left: 3px solid var(--cyan); }
+.packet .ptext { margin-top: 8px; color: var(--text); font-size: 13px; line-height: 1.6; }
+.packet .ptext p { margin: 0 0 8px; }
+.packet.sealed .psize { height: 4px; background: #1d252c; border-radius: 2px; margin: 8px 0 10px; overflow: hidden; }
+.packet.sealed .psize i { display: block; height: 100%; background: var(--cyan); opacity: .6; }
+.packet .ptext + .ptext { border-top: 1px dashed var(--line2); margin-top: 10px; padding-top: 10px; }
+.packet .ptext .label { margin-bottom: 4px; color: var(--cyan); }
+.packet .pmore { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--line2); border-radius: var(--radius); background: rgba(127,214,194,.04); }
+.packet .pmore .grow { flex: 1; min-width: 0; }
+
+/* scene media: a plate over the stage, and a video before the words */
+.vn-plate { position: absolute; inset: 56px 0 190px 0; display: grid; place-items: center; pointer-events: none; z-index: 1; padding: 0 16px; }
+.vn-plate img { max-width: min(900px, 94%); max-height: 100%; object-fit: contain; border-radius: 6px; box-shadow: 0 20px 80px rgba(0,0,0,.7); animation: fade .35s; }
+.vn-video { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 56px 16px 24px; background: rgba(0,0,0,.6); }
+.vn-video video { max-width: min(1100px, 96%); max-height: 74vh; background: #000; border-radius: 6px; box-shadow: 0 20px 80px rgba(0,0,0,.8); }

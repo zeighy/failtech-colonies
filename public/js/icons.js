@@ -53,6 +53,7 @@
     orbital_command: '<circle cx="12" cy="13" r="3"/><path d="M5 21a9 9 0 0 1 14 0M4 9a11 11 0 0 1 16 0M7.5 11.5a6 6 0 0 1 9 0"/>',
     klein_reactor: '<circle cx="12" cy="12" r="7"/><path d="M12 5v14M5.9 8.5l12.2 7M18.1 8.5l-12.2 7"/>',
     orbital_foundry: '<path d="M4 20h16M6 20V10l6-5 6 5v10"/><path d="M9 20v-5h6v5M12 5V2"/>',
+    t_data: '<rect x="4" y="5" width="16" height="5" rx="1.5"/><rect x="4" y="14" width="16" height="5" rx="1.5"/><path d="M8 7.5h.01M8 16.5h.01M12 10v4"/>',
     t_tap: '<path d="M12 2l3 6 6 1-4.5 4 1 6.5L12 16l-5.5 3.5 1-6.5L3 9l6-1z"/>',
     orbit: '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-25 12 12)"/>',
     ship: '<path d="M12 2l4 8v8l-4 3-4-3v-8z"/><path d="M8 14l-3 3M16 14l3 3"/>',

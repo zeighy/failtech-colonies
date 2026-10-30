@@ -27,7 +27,7 @@
 //   { type: 'campaignDone' }                 every Brief directive is done (the open-ended phase)
 //   { type: 'after', beat, delayTicks? }     some ticks after another beat was delivered
 //   { type: 'orbital', flag }                an orbit milestone (unlocked, staging, catapult, command, cycleDone, launched,
-//                                            ring2, ring3, deployed, rareReturned, shipSaved, shipLost, contributed, projectCompleted)
+//                                            ring2, ring3, deployed, rareReturned, shipSaved, shipLost, contributed, projectCompleted, dataFragment)
 const store = require('./db');
 const theme = require('./theme');
 const fs = require('fs');
@@ -40,11 +40,14 @@ const FILE = /^[a-z0-9][a-z0-9._-]{0,63}$/i;
 const COLOR = /^#[0-9a-f]{3,8}$/i;
 // The fixed set of moods a portrait can come in. A mood image is <portrait name>_<mood>.png beside the portrait, so
 // mags.png has mags_happy.png, mags_sad.png and so on. Missing ones fall back to the default (neutral) portrait.
+// Media a scene node can carry, by what the file must be.
+const MEDIA_EXT = { image: /\.(png|jpe?g|webp|gif)$/i, audio: /\.(mp3|ogg|opus|m4a|wav)$/i, video: /\.(mp4|webm)$/i };
+const MEDIA_FIELDS = [['background', 'image'], ['image', 'image'], ['audio', 'audio'], ['music', 'audio'], ['video', 'video']];
 const MOODS = ['happy', 'sad', 'angry', 'afraid', 'surprised', 'serious', 'thoughtful'];
 const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
 
 // Orbit milestones a beat can wait for (see src/orbital.js setFlag, and the launch site).
-const ORBITAL_FLAGS = ['unlocked', 'staging', 'catapult', 'command', 'cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted'];
+const ORBITAL_FLAGS = ['unlocked', 'staging', 'catapult', 'command', 'cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted', 'dataFragment'];
 const TRIGGERS = {
   start: () => [],
   directive: (t) => (DIRECTIVE_IDS.includes(t.id) ? [] : [`unknown directive "${t.id}"`]),
@@ -66,24 +69,34 @@ function validate(story, cfg = config) {
   const out = [];
   const bad = (where, msg) => out.push(`${where}: ${msg}`);
   if (!isPlain(story.characters) || !isPlain(story.scenes) || !Array.isArray(story.beats)) { bad('story.json', 'needs "characters" and "scenes" objects and a "beats" list'); return out; }
-  for (const [id, ch] of Object.entries(story.characters)) {
-    const w = `characters.${id}`;
-    if (!nonEmpty(ch.name)) bad(w, 'needs a name');
+  const checkChar = (w, ch) => {
+    if (!isPlain(ch) || !nonEmpty(ch.name)) { bad(w, 'needs a name'); return; }
     for (const f of ['portrait', 'avatar']) if (ch[f] !== undefined && !(typeof ch[f] === 'string' && FILE.test(ch[f]))) bad(w, `${f} must be a plain file name in assets/`);
     if (ch.color !== undefined && !COLOR.test(ch.color)) bad(w, 'color must look like #aabbcc');
     if (ch.side !== undefined && !['left', 'right'].includes(ch.side)) bad(w, 'side must be left or right');
-  }
-  const who = (w, id) => { if (id !== null && id !== undefined && !own(story.characters, id)) bad(w, `unknown character "${id}"`); };
+  };
+  for (const [id, ch] of Object.entries(story.characters)) checkChar(`characters.${id}`, ch);
+  // `sc` is the scene being checked: a scene may bring its own cast (a narrator, a voice on a recording) beside the shared one.
+  const who = (w, id, sc) => { if (id !== null && id !== undefined && !own(story.characters, id) && !(sc && isPlain(sc.cast) && own(sc.cast, id))) bad(w, `unknown character "${id}"`); };
   for (const [id, sc] of Object.entries(story.scenes)) {
     const w = `scenes.${id}`;
     if (!isPlain(sc.nodes) || !own(sc.nodes, sc.start)) { bad(w, '"start" must name one of its nodes'); continue; }
     if (sc.background !== undefined && !(typeof sc.background === 'string' && FILE.test(sc.background))) bad(w, 'background must be a plain file name in assets/');
+    if (sc.cast !== undefined) {
+      if (!isPlain(sc.cast)) bad(w, '"cast" must be an object of characters');
+      else for (const [cid, ch] of Object.entries(sc.cast)) { if (own(story.characters, cid)) bad(w, `cast "${cid}" is already a shared character`); checkChar(`${w}.cast.${cid}`, ch); }
+    }
     const reach = new Set();
     const walk = (n) => { if (reach.has(n) || !own(sc.nodes, n)) return; reach.add(n); const node = sc.nodes[n]; if (node.next) walk(node.next); (node.choices || []).forEach((c) => walk(c.next)); };
     walk(sc.start);
     for (const [nid, node] of Object.entries(sc.nodes)) {
       const nw = `${w}.${nid}`;
-      who(nw, node.who);
+      who(nw, node.who, sc);
+      for (const [f, kind] of MEDIA_FIELDS) {
+        const v = node[f];
+        if (v === undefined || (f === 'music' && v === 'stop')) continue;
+        if (!(typeof v === 'string' && FILE.test(v) && MEDIA_EXT[kind].test(v))) bad(nw, `${f} must be a plain ${kind} file name in assets/`);
+      }
       if (node.tag !== undefined && !nonEmpty(node.tag)) bad(nw, 'tag must be text');
       if (node.mood !== undefined && node.mood !== 'neutral' && !MOODS.includes(node.mood)) bad(nw, `mood must be neutral or one of ${MOODS.join(', ')}`);
       if (node.prompt !== undefined && !nonEmpty(node.prompt)) bad(nw, 'prompt must be text');
@@ -97,6 +110,9 @@ function validate(story, cfg = config) {
       }
       if (!reach.has(nid)) bad(nw, 'can never be reached from the scene start');
     }
+  }
+  for (const [pid, pk] of Object.entries((cfg.orbital && cfg.orbital.data && cfg.orbital.data.packets) || {})) {
+    for (const k of ['scene', 'scene2', 'scene3']) if (pk[k] !== undefined && !own(story.scenes, pk[k])) bad(`dataPackets.${pid}.${k}`, `unknown scene "${pk[k]}"`);
   }
   const seen = new Set();
   const ids = new Set(story.beats.map((b) => b && b.id));
@@ -127,6 +143,10 @@ function dropMissingArt(story) {
   const have = (f) => fs.existsSync(path.join(theme.dir(), 'assets', f));
   for (const [id, ch] of Object.entries(story.characters)) for (const f of ['portrait', 'avatar']) if (ch[f] && FILE.test(ch[f]) && !have(ch[f])) { notes.push(`characters.${id}: ${f} "${ch[f]}" is not in assets/ yet`); delete ch[f]; }
   for (const [id, sc] of Object.entries(story.scenes)) if (sc.background && FILE.test(sc.background) && !have(sc.background)) { notes.push(`scenes.${id}: background "${sc.background}" is not in assets/ yet`); delete sc.background; }
+  for (const [id, sc] of Object.entries(story.scenes)) {
+    for (const [cid, ch] of Object.entries(sc.cast || {})) for (const f of ['portrait', 'avatar']) if (ch[f] && FILE.test(ch[f]) && !have(ch[f])) { notes.push(`scenes.${id}.cast.${cid}: ${f} "${ch[f]}" is not in assets/ yet`); delete ch[f]; }
+    for (const [nid, nd] of Object.entries(sc.nodes)) for (const [f] of MEDIA_FIELDS) if (nd[f] && !(f === 'music' && nd[f] === 'stop') && !have(nd[f])) { notes.push(`scenes.${id}.${nid}: ${f} "${nd[f]}" is not in assets/ yet`); delete nd[f]; }
+  }
   // Which mood portraits exist, and which moods the script asks for that are not drawn yet.
   const used = {};
   for (const sc of Object.values(story.scenes)) for (const nd of Object.values(sc.nodes)) if (nd.who && nd.mood && nd.mood !== 'neutral') (used[nd.who] = used[nd.who] || new Set()).add(nd.mood);
@@ -136,6 +156,15 @@ function dropMissingArt(story) {
     const ext = path.extname(ch.portrait), base = ch.portrait.slice(0, -ext.length);
     for (const m of MOODS) if (have(`${base}_${m}${ext}`)) ch.moodArt[m] = `${base}_${m}${ext}`;
     for (const m of used[id] || []) if (!ch.moodArt[m]) notes.push(`characters.${id}: mood "${m}" is used in a scene but "${base}_${m}${ext}" is not in assets/ yet`);
+  }
+  for (const [sid, sc] of Object.entries(story.scenes)) {
+    for (const [cid, ch] of Object.entries(sc.cast || {})) {
+      ch.moodArt = {};
+      if (!ch.portrait) continue;
+      const ext = path.extname(ch.portrait), base = ch.portrait.slice(0, -ext.length);
+      for (const m of MOODS) if (have(`${base}_${m}${ext}`)) ch.moodArt[m] = `${base}_${m}${ext}`;
+      for (const nd of Object.values(sc.nodes)) if (nd.who === cid && nd.mood && nd.mood !== 'neutral' && !ch.moodArt[nd.mood]) notes.push(`scenes.${sid}.cast.${cid}: mood "${nd.mood}" is used but "${base}_${nd.mood}${ext}" is not in assets/ yet`);
+    }
   }
   return notes;
 }
@@ -212,6 +241,22 @@ function evaluate(colonyId, view, done, campaignDone, tick) {
 
 // What the live view carries: light metadata only. The text is fetched from /api/story once it has been delivered, so
 // the full script never travels to a player ahead of time.
+// Data packets: each unlocked part may be a scene in story.json (named by the packet's scene, scene2, scene3). It is
+// played like a call that is already answered, as a beat the colony was never sent, so the text only travels once unlocked.
+const packetScene = (pid, part) => {
+  const pk = (config.orbital && config.orbital.data && config.orbital.data.packets || {})[pid];
+  const id = pk && pk[part === 1 ? 'scene' : `scene${part}`];
+  return id && story.scenes[id] ? id : null;
+};
+const packetBeat = (pid, part) => `pkt:${pid}:${part}`;
+function unlockedPacketScenes(colonyId) {
+  const out = [];
+  for (const r of db.prepare('SELECT packet_id, level FROM colony_data_packets WHERE colony_id = ?').all(colonyId)) {
+    for (let part = 1; part <= r.level; part++) { const scene = packetScene(r.packet_id, part); if (scene) out.push({ beat: packetBeat(r.packet_id, part), scene }); }
+  }
+  return out;
+}
+
 function view(colonyId) {
   const rows = db.prepare('SELECT beat_id, tick, seen FROM story_beats WHERE colony_id = ? ORDER BY tick, rowid').all(colonyId);
   const items = rows.filter((r) => beatOf.has(r.beat_id)).map((r) => {
@@ -228,7 +273,7 @@ function view(colonyId) {
     items,
     pending: items.filter((i) => i.kind === 'dialogue' && !i.seen).map((i) => i.id),
     unreadMail: items.filter((i) => i.kind === 'mail' && !i.seen).length,
-    rev: items.length,
+    rev: items.length + unlockedPacketScenes(colonyId).length,
   };
 }
 
@@ -243,6 +288,7 @@ function content(colonyId) {
     beats[b.id] = b.delivery === 'mail' ? { kind: 'mail', mail: b.mail, scene: sceneId || null } : { kind: 'dialogue', scene: sceneId };
     if (sceneId) scenes[sceneId] = story.scenes[sceneId];
   }
+  for (const x of unlockedPacketScenes(colonyId)) { beats[x.beat] = { kind: 'dialogue', scene: x.scene, packet: true }; scenes[x.scene] = story.scenes[x.scene]; }
   return { characters: story.characters, beats, scenes, theme: theme.themeId() };
 }
 
@@ -258,4 +304,4 @@ function markSeen(colonyId, beatId, all) {
   return n;
 }
 
-module.exports = { MOODS, evaluate, view, content, markSeen, validate, fires, story, problems, notes, beatOf, TRIGGERS };
+module.exports = { packetScene, packetBeat, MOODS, evaluate, view, content, markSeen, validate, fires, story, problems, notes, beatOf, TRIGGERS };

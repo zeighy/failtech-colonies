@@ -438,6 +438,7 @@ const rebuildSlot = guarded((c, args) => orbital.rebuildSlot(c, args));
 const shipDeploy = guarded((c, args) => territories.deploy(c, args, tickNow()));
 const shipPlan = guarded((c, args) => territories.setPlan(c, args));
 const shipReturn = guarded((c, args) => territories.returnShip(c, args, tickNow()));
+const dataUnlock = guarded((c, args) => territories.unlockPacket(c, args || {}));
 const shipBuild = guarded((c) => territories.buildShip(c, tickNow()));
 const shipUpgrade = guarded((c, args) => territories.upgradeShip(c, args));
 const shipRepair = guarded((c, args) => territories.repairShip(c, args));
@@ -478,4 +479,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

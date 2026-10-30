@@ -197,6 +197,7 @@ function tickColony(c, globalTick, tickTime) {
   const stationR = full.districts.find((r) => r.type === 'station');
   if (stationR) {
     territories.advanceColony(c, stationR.inventory, globalTick);
+    territories.advanceData(c, full.districts, globalTick);
     projects.advanceColony(c, stationR.inventory, globalTick);
     orbital.arrivals(c, stationR.inventory, globalTick, inventory);
     for (const l of orbital.enforceSlots(c.id, stationR.inventory, stationR.cap)) {

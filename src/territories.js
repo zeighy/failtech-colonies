@@ -35,6 +35,17 @@ function pickWeighted(r, table) {
   return entries[0][0];
 }
 
+// The rare resource is random, but evened out: it comes from whichever rares are least represented among the territories
+// open right now. Pure chance would too often leave a rare missing for a long time (and a long-lived anomaly keeps a
+// lucky streak on screen for days), which stalls a player who needs it. Every rare still comes up equally often overall.
+function pickRare(r, tick) {
+  const have = Object.fromEntries(T.rare.map((x) => [x, 0]));
+  for (const t of openTerritories(tick)) { const k = parse(t.resources, {}).rare; if (k in have) have[k]++; }
+  const least = Math.min(...Object.values(have));
+  const pool = T.rare.filter((x) => have[x] === least);
+  return pool[Math.floor(r() * pool.length) % pool.length];
+}
+
 function spawn(tick, seq) {
   const r = ms.rng(ms.hash(`territory:${tick}:${seq}:${db.prepare('SELECT COUNT(*) AS n FROM territories').get().n}`));
   const anomaly = pickWeighted(r, T.anomalies);
@@ -43,10 +54,11 @@ function spawn(tick, seq) {
   const commons = [...T.common];
   const common1 = commons.splice(Math.floor(r() * commons.length), 1)[0];
   const common2 = pick(r, commons);
-  const resources = { common1, common2, district: pick(r, T.district), rare: pick(r, T.rare) };
+  const resources = { common1, common2, district: pick(r, T.district), rare: pickRare(r, tick) };
   const n = db.prepare('SELECT COUNT(*) AS n FROM territories').get().n;
   const name = `${pick(r, T.names)} ${n + 1}`;
-  db.prepare('INSERT INTO territories (name, anomaly, resources, opens_tick, closes_tick) VALUES (?, ?, ?, ?, ?)').run(name, anomaly, JSON.stringify(resources), tick, tick + dur);
+  const dataSite = r() < T.dataSite.chance ? 1 : 0; // a data site sits on top of whatever else the territory holds
+  db.prepare('INSERT INTO territories (name, anomaly, resources, opens_tick, closes_tick, data_site) VALUES (?, ?, ?, ?, ?, ?)').run(name, anomaly, JSON.stringify(resources), tick, tick + dur, dataSite);
 }
 
 const openTerritories = (tick) => db.prepare('SELECT * FROM territories WHERE closes_tick > ? AND taken_by IS NULL ORDER BY closes_tick').all(tick);
@@ -270,6 +282,13 @@ function fieldOf(districtId) {
 }
 // A field version of a ground building only makes sense where the territory holds what it works on.
 function checkBuild(d, def) {
+  if (def.dataRecovery) {
+    const row = db.prepare('SELECT t.data_site FROM districts d JOIN territories t ON t.id = d.territory_id WHERE d.id = ?').get(d.id);
+    if (!row || !row.data_site) return `${def.name} needs a data site, and ${d.name} has none.`;
+    const queued = store.loadOrders(d.colony_id, d.id).some((o) => o.action_type === 'build' && o.data.type === 't_data');
+    if (queued || db.prepare('SELECT 1 FROM colony_buildings WHERE district_id = ? AND building_type = ?').get(d.id, 't_data')) return `There is already a ${def.name} here.`;
+    return null;
+  }
   const need = def.territory && def.territory.needs;
   if (!need) return null;
   const f = fieldOf(d.id);
@@ -303,7 +322,7 @@ function view(c, tick) {
   const anomaly = (k) => ({ key: k, ...T.anomalies[k] });
   const list = db.prepare('SELECT * FROM territories WHERE closes_tick > ? ORDER BY closes_tick').all(tick).map((t) => ({
     id: t.id, name: t.name, anomaly: anomaly(t.anomaly), resources: JSON.parse(t.resources), ticksLeft: t.closes_tick - tick,
-    taken: t.taken_by ? { mine: t.taken_by === c.id, station: t.taken_name } : null, destabilized: !!t.destabilized,
+    taken: t.taken_by ? { mine: t.taken_by === c.id, station: t.taken_name } : null, destabilized: !!t.destabilized, dataSite: !!t.data_site,
   }));
   return {
     max: D.max, buildCost: D.buildCost, buildTicks: D.buildTicks, levels: D.levels, deployTicks: D.deployTicks, returnTicks: D.returnTicks,
@@ -322,4 +341,84 @@ function view(c, tick) {
   };
 }
 
-module.exports = { advanceWorld, advanceColony, spawn, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, checkBuild, checkRecipe, view, shipsOf };
+// ---- data sites ---------------------------------------------------------------------------
+// A Data Recovery building runs attempts of `attemptTicks`, advancing by its efficiency each tick (so low power slows it).
+// Each finished attempt succeeds with `successChance`; `attemptsPerFragment` successes make one fragment, which the colony
+// keeps as a currency for unlocking data packets (lore). Nothing here touches the simulation.
+function advanceData(c, results, tick) {
+  const DS = T.dataSite;
+  for (const r of results) {
+    if (r.type !== 'territory') continue;
+    for (const b of store.loadBuildings(c.id, r.id)) {
+      if (b.type !== 't_data' || b.status !== 'active') continue;
+      const st = r.buildings && r.buildings.get ? r.buildings.get(b.id) : null;
+      const eff = st ? Math.max(0, Math.min(1, st.eff)) : 0;
+      if (eff <= 0) continue;
+      let prog = (b.dataProgress || 0) + eff;
+      while (prog >= DS.attemptTicks - 1e-9) {
+        prog -= DS.attemptTicks;
+        const roll = ms.rng(ms.hash(`data:${c.id}:${b.id}:${tick}:${Math.round(prog * 100)}`))();
+        if (roll >= DS.successChance) continue;
+        const row = db.prepare('SELECT data_successes FROM colonies WHERE id = ?').get(c.id);
+        const wins = row.data_successes + 1;
+        if (wins >= DS.attemptsPerFragment) {
+          db.prepare('UPDATE colonies SET data_successes = 0, data_fragments = data_fragments + 1, data_total = data_total + 1 WHERE id = ?').run(c.id);
+          store.addEvent(c.id, tick, 'good', 'A data fragment has been recovered.');
+          orbital.setFlag(c.id, 'dataFragment', tick);
+        } else {
+          db.prepare('UPDATE colonies SET data_successes = ? WHERE id = ?').run(wins, c.id);
+          store.addEvent(c.id, tick, 'info', `A recovery attempt found something (${wins} of ${DS.attemptsPerFragment} toward a fragment).`);
+        }
+      }
+      db.prepare('UPDATE colony_buildings SET data_progress = ? WHERE id = ?').run(prog, b.id);
+    }
+  }
+}
+
+// A packet unlocks in parts. Part 1 costs fragments; later parts cost fragments and a few orbital goods from the station, so
+// reading everything takes expeditions and the foundry as well as data sites. A sealed part shows only its cost.
+const packetParts = (p) => p.costs.length;
+const partText = (p, i) => p[i === 0 ? 'text' : `text${i + 1}`];
+
+function dataView(c) {
+  const row = db.prepare('SELECT data_fragments, data_successes, data_total FROM colonies WHERE id = ?').get(c.id);
+  const lv = Object.fromEntries(db.prepare('SELECT packet_id, level FROM colony_data_packets WHERE colony_id = ?').all(c.id).map((x) => [x.packet_id, x.level]));
+  const DS = T.dataSite;
+  return {
+    unlocked: row.data_total > 0, fragments: row.data_fragments, total: row.data_total, successes: row.data_successes,
+    perFragment: DS.attemptsPerFragment, attemptTicks: DS.attemptTicks, successChance: DS.successChance,
+    packets: Object.entries(config.orbital.data.packets).map(([id, p]) => {
+      const level = lv[id] || 0;
+      const next = level < packetParts(p) ? { part: level + 1, ...p.costs[level] } : null;
+      if (!level) return { id, level, next };                      // sealed: only what part 1 costs
+      // `scenes[i]` is the id of a story beat that plays part i as a scene, or null when it is only text
+      const story = require('./story');
+      return { id, level, of: packetParts(p), name: p.name, texts: Array.from({ length: level }, (_, i) => partText(p, i) || ''), scenes: Array.from({ length: level }, (_, i) => (story.packetScene(id, i + 1) ? story.packetBeat(id, i + 1) : null)), next };
+    }),
+  };
+}
+
+function unlockPacket(c, { packet }) {
+  const p = Object.prototype.hasOwnProperty.call(config.orbital.data.packets, packet) ? config.orbital.data.packets[packet] : null;
+  if (!p) return fail('Unknown data packet.');
+  const row = db.prepare('SELECT level FROM colony_data_packets WHERE colony_id = ? AND packet_id = ?').get(c.id, packet);
+  const level = row ? row.level : 0;
+  if (level >= packetParts(p)) return fail('You have already unlocked all of that packet.');
+  const cost = p.costs[level];
+  const have = db.prepare('SELECT data_fragments FROM colonies WHERE id = ?').get(c.id).data_fragments;
+  if (have < cost.fragments) return fail(`That costs ${cost.fragments} data fragment${cost.fragments === 1 ? '' : 's'}.`);
+  const goods = cost.goods || {};
+  let inv = null; let did = null;
+  if (Object.keys(goods).length) {
+    const st = orbital.stationOf(c.id);
+    if (!st) return fail('The goods for this part are paid from orbital storage, and there is no station.');
+    did = st.district_id; inv = store.loadInventory(c.id, did);
+    for (const [r, q] of Object.entries(goods)) if ((inv[r] || 0) < q) return fail(`Not enough ${config.resources[r].name} in orbital storage: ${q} needed.`);
+  }
+  db.prepare('UPDATE colonies SET data_fragments = data_fragments - ? WHERE id = ?').run(cost.fragments, c.id);
+  if (inv) { for (const [r, q] of Object.entries(goods)) inv[r] -= q; store.saveInventory(c.id, inv, did); }
+  db.prepare('INSERT INTO colony_data_packets (colony_id, packet_id, level) VALUES (?, ?, 1) ON CONFLICT (colony_id, packet_id) DO UPDATE SET level = level + 1').run(c.id, packet);
+  return OK;
+}
+
+module.exports = { advanceWorld, advanceColony, advanceData, dataView, unlockPacket, spawn, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, checkBuild, checkRecipe, view, shipsOf };
