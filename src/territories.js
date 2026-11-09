@@ -238,7 +238,7 @@ function buildShip(c, tick) {
   const bad = orbital.payFromStation(c, st, D.buildCost);
   if (bad) return fail(bad);
   const num = [1, 2, 3, 4, 5, 6].find((n) => !ships.some((s) => s.num === n));
-  db.prepare("INSERT INTO dropships (colony_id, num, level, integrity, state, until_tick, invested) VALUES (?, ?, 1, 100, 'building', ?, ?)").run(c.id, num, tick + D.buildTicks, JSON.stringify(D.buildCost));
+  db.prepare("INSERT INTO dropships (colony_id, num, level, integrity, state, until_tick, invested) VALUES (?, ?, 1, 100, 'building', ?, ?)").run(c.id, num, tick + D.buildTicks, JSON.stringify(Object.fromEntries(Object.entries(D.buildCost).filter(([r]) => r !== 'credits'))));
   return OK;
 }
 
@@ -252,7 +252,7 @@ function upgradeShip(c, { ship }) {
   const bad = orbital.payFromStation(c, st, next.cost);
   if (bad) return fail(bad);
   const inv = parse(s.invested, {});
-  for (const [r, q] of Object.entries(next.cost)) inv[r] = (inv[r] || 0) + q;
+  for (const [r, q] of Object.entries(next.cost)) if (r !== 'credits') inv[r] = (inv[r] || 0) + q; // credits are not part of what a repair is worth
   db.prepare('UPDATE dropships SET level = level + 1, invested = ? WHERE id = ?').run(JSON.stringify(inv), s.id);
   return OK;
 }

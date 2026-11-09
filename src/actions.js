@@ -8,6 +8,7 @@ const territories = require('./territories');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const missions = require('./missions');
+const credits = require('./credits');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
 const { db, config } = store;
@@ -181,6 +182,21 @@ const setBoost = guarded((c, { ring, slot, enabled, district }) => {
   if (!b) return fail('Nothing there.');
   if (!config.buildings[b.building_type].optional) return fail('This building has no optional input.');
   db.prepare('UPDATE colony_buildings SET boost = ? WHERE id = ?').run(enabled ? 1 : 0, b.id);
+  return OK;
+});
+
+// Pay credits to finish a work order on the next tick. The price rises with every rush in the last day (see credits.js).
+const rushOrder = guarded((c, { orderId }) => {
+  const oid = toInt(orderId);
+  const o = Number.isNaN(oid) ? undefined : store.loadOrders(c.id).find((x) => x.id === oid);
+  if (!o) return fail('That order no longer exists.');
+  if (o.ticks_remaining <= 1) return fail('That order is already finishing.');
+  const tick = tickNow();
+  const cost = credits.rushCost(c.id, o.action_type, o.ticks_remaining, tick);
+  if (c.credits < cost) return fail(`Rushing this costs ${cost} cr.`);
+  db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(cost, c.id);
+  db.prepare('UPDATE colony_work_orders SET ticks_remaining = 1 WHERE id = ?').run(o.id);
+  credits.record(c.id, 'rush', tick, cost);
   return OK;
 });
 
@@ -414,12 +430,14 @@ const expressTrip = guarded((c, { sell = {}, buy = {} }) => {
   }
   if (!Object.keys(sellOut).length && !Object.keys(buyOut).length) return fail('Nothing to send or fetch.');
   const fee = sim.expressFee(config, c.hub_level);
-  if (c.credits + 0 < spend + fee) return fail(`Not enough credits: the trip costs ${fee} cr plus ${spend} cr of goods.`);
+  const brokerage = Math.round(spend * credits.brokerageRate(c.id, tick)); // the soft limit on heavy buying (credits.js)
+  if (c.credits + 0 < spend + fee + brokerage) return fail(`Not enough credits: the trip costs ${fee} cr plus ${spend} cr of goods${brokerage ? ` and ${brokerage} cr brokerage` : ''}.`);
   // Hold the goods and the money now.
   const up = db.prepare('UPDATE colony_inventory SET amount = amount - ? WHERE district_id = ? AND resource_id = ?');
   const coreDistrict = store.coreId(c.id);
   for (const [res, s] of Object.entries(sellOut)) up.run(s.qty, coreDistrict, res);
-  db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(spend + fee, c.id);
+  db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(spend + fee + brokerage, c.id);
+  if (spend > 0) credits.record(c.id, 'buy', tick, spend);
   db.prepare('INSERT INTO colony_express (colony_id, dispatched_tick, arrives_tick, sell, buy) VALUES (?, ?, ?, ?, ?)')
     .run(c.id, tick, tick + x.travelTicks, JSON.stringify(sellOut), JSON.stringify(buyOut));
   store.addEvent(c.id, tick, 'info', `Express convoy dispatched (fee ${fee} cr). Arrives in ${x.travelTicks} ticks.`);
@@ -479,4 +497,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

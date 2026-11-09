@@ -34,7 +34,11 @@
   var fmt = function (n) { return H.fmt(n); };
   var rn = function (r) { return (C().resources[r] || { name: r }).name; };
   function costLine(cost, have) {
-    return '<div class="io">' + Object.keys(cost || {}).map(function (r) { return H.pill(r, cost[r], have && (have[r] || 0) < cost[r] ? 'no' : ''); }).join('') + '</div>';
+    // credits are paid from the treasury, not from orbital storage
+    return '<div class="io">' + Object.keys(cost || {}).map(function (r) {
+      if (r === 'credits') return '<span class="pill ' + (S().colony.credits < cost[r] ? 'no' : '') + '" style="--c:var(--amber)"><i></i>' + fmt(cost[r]) + ' cr</span>';
+      return H.pill(r, cost[r], have && (have[r] || 0) < cost[r] ? 'no' : '');
+    }).join('') + '</div>';
   }
   function bar(v, max, cls) { return '<div class="meter wide"><i class="' + (cls || '') + '" style="width:' + Math.max(0, Math.min(100, max ? v / max * 100 : 0)).toFixed(1) + '%"></i></div>'; }
   function num(kind, val, extra) { return '<input class="numin onum" type="text" inputmode="decimal" autocomplete="off" data-onum="' + kind + '" ' + (extra || '') + ' value="' + esc(String(val)) + '" aria-label="Amount">'; }
@@ -261,7 +265,7 @@
     if (d.price === null) d.price = g.reference;
     var inv = stationInv();
     var row = function (o) { return '<tr class="' + (o.mine ? 'mine' : '') + '"><td>' + esc(o.maker ? 'Market maker' : o.station) + '</td><td class="num">' + o.price.toFixed(2) + '</td><td class="num">' + fmt(o.qty) + '</td></tr>'; };
-    var h = '<div class="label sec">Orbital market</div><div class="dim" style="font-size:11px;margin-bottom:6px">Trade goods made in the orbital foundry, between stations, straight from orbital storage. Market makers post a little at the reference price every ' + ticks(m.refreshTicks) + ' (next in ' + ticks(m.nextRefresh) + '). Sellers pay a ' + Math.round(m.feeRate * 100) + '% fee.</div>' +
+    var h = H.brokerage() + '<div class="label sec">Orbital market</div><div class="dim" style="font-size:11px;margin-bottom:6px">Trade goods made in the orbital foundry, between stations, straight from orbital storage. Market makers post a little at the reference price every ' + ticks(m.refreshTicks) + ' (next in ' + ticks(m.nextRefresh) + '). Sellers pay a ' + Math.round(m.feeRate * 100) + '% fee.</div>' +
       '<div class="orow">' + sel('mkt-res', m.goods.map(function (x) { return [x.resource, rn(x.resource) + (x.orbitalOnly ? ' ✦' : '')]; }), d.res) + '</div>' +
       '<dl class="kv"><dt>Reference</dt><dd>' + g.reference.toFixed(2) + ' cr</dd><dt>Accepted range</dt><dd>' + g.band[0].toFixed(2) + ' to ' + g.band[1].toFixed(2) + ' cr</dd><dt>In storage</dt><dd>' + fmt(inv[d.res] ? inv[d.res].amount : 0) + '</dd></dl>' +
       '<div class="book"><div><div class="label">Bids</div><table>' + (g.bids.map(row).join('') || '<tr><td class="dim">none</td></tr>') + '</table></div>' +

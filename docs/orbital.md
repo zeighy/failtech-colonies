@@ -35,6 +35,7 @@ Orbit is where colonies stop being separate games. Every station shares the same
 - **Storage is slot-limited.** Each slot holds one resource, up to the level's cap.
   - Every tick the largest stocks claim slots first (`orbital.enforceSlots`). Anything left without a slot is lost, with a warning in the log.
   - Jettisoning empties a slot and removes the routes that carry that resource. The slot must then be rebuilt before it can be used again.
+  - Storage and link upgrades, and building or upgrading a dropship, cost credits (`credits` inside the level's `cost`) as well as goods. Credits come out of the treasury and goods out of orbital storage; the credits are never counted in a dropship's repair value.
   - Storage upgrades add three slots each and raise the cap: 6, then 9, then 12 slots (3 more is one rare, one rare and one orbital good), because with the rebuild materials and power cells each taking a slot a six-slot store left too little room for a manufacturing run.
 - **Orbital links** are ordinary routes between the Core and the station, in either direction. There are 4 at level 1, upgradable in count and rate. Rare resources never travel by link; they only come home by dropship.
 - **Express launch** sends up to 400 of one resource from the Core for fuel. It arrives in 12 ticks and has a long cooldown, so it is for emergencies, not supply.

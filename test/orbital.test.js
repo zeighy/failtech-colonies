@@ -661,3 +661,21 @@ test('orbital storage tops up to the slots its level gives, so a change to the s
   assert.equal(rows[0].resource, 'frames', 'what was in the old slots stays');
   assert.equal(viewFor(c.uid).orbital.station.storage.slots.length, O.storage.levels['3'].slots, 'and the view shows them');
 });
+
+test('orbital upgrades and dropships cost credits as well as goods, taken from the treasury', () => {
+  const c = launched('Counting House');
+  const next = O.storage.levels['2'];
+  assert.ok(next.cost.credits > 0, 'the config puts credits on the storage upgrade');
+  const inv = store.loadInventory(c.id, c.station.district_id);
+  for (const [r, q] of Object.entries(next.cost)) if (r !== 'credits') inv[r] = q + 5;
+  store.saveInventory(c.id, inv, c.station.district_id);
+  db.prepare('UPDATE colonies SET credits = ? WHERE id = ?').run(next.cost.credits - 1, c.id);
+  assert.match(actions.orbitalStorageUpgrade(c.uid, {}).error, /Not enough credits/);
+  db.prepare('UPDATE colonies SET credits = ? WHERE id = ?').run(next.cost.credits + 100, c.id);
+  assert.deepEqual(actions.orbitalStorageUpgrade(c.uid, {}), { ok: true });
+  assert.equal(db.prepare('SELECT credits FROM colonies WHERE id = ?').get(c.id).credits, 100, 'the credits were paid');
+  const left = store.loadInventory(c.id, c.station.district_id);
+  for (const r of Object.keys(next.cost)) if (r !== 'credits') assert.equal(left[r], 5, `${r} was paid from orbital storage`);
+  // a dropship's repair bill never includes credits
+  assert.ok(!('credits' in (JSON.parse(db.prepare('SELECT invested FROM dropships WHERE colony_id = ?').get(c.id).invested))));
+});

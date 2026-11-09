@@ -6,6 +6,7 @@
 const sim = require('./sim');
 const ms = require('./marketsim');
 const store = require('./db');
+const credits = require('./credits');
 const { own, toInt, toNum } = require('./validate');
 const { db, config } = store;
 
@@ -94,7 +95,8 @@ function match(res, tick) {
       if (b.qty === 0 && b.escrow > 0) { addCredits(b.colony_id, b.escrow); b.escrow = 0; }
       if (refund) addCredits(b.colony_id, refund);
       addStock(b.district_id, res, q);
-      log(b.colony_id, tick, 'good', `Exchange: bought ${q} ${name} at ${fmtP(price)} cr each (${cost} cr).`);
+      const extra = credits.chargeBuy(b.colony_id, tick, cost); // a heavy buyer pays a brokerage surcharge (see credits.js)
+      log(b.colony_id, tick, 'good', `Exchange: bought ${q} ${name} at ${fmtP(price)} cr each (${cost} cr${extra ? `, plus ${extra} cr brokerage` : ''}).`);
     }
     // seller
     if (s.owner === 'player') {

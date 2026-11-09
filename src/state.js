@@ -11,6 +11,7 @@ const story = require('./story');
 const shutdown = require('./shutdown');
 const orbital = require('./orbital');
 const territories = require('./territories');
+const credits = require('./credits');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const { db, config } = store;
@@ -198,7 +199,7 @@ function viewFor(userId, now = Date.now()) {
           dataProgress: b.type === 't_data' ? Math.round((b.dataProgress || 0) * 10) / 10 : undefined, recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
           resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type, config.buildings[b.type]) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
       }),
-      orders: dOrders.map((o) => ({ id: o.id, kind: o.action_type, data: o.data, remaining: o.ticks_remaining, total: o.ticks_total })),
+      orders: dOrders.map((o) => ({ id: o.id, kind: o.action_type, data: o.data, remaining: o.ticks_remaining, total: o.ticks_total, rush: o.ticks_remaining > 1 ? credits.rushCost(c.id, o.action_type, o.ticks_remaining, t.globalTick) : 0 })),
     };
   };
   const views = {};
@@ -329,6 +330,7 @@ function viewFor(userId, now = Date.now()) {
   view.exchange = exchangeView(c, t.globalTick);
   view.missions = missions.view(c, t.globalTick);
   view.data = territories.dataView(c);
+  view.economy = credits.view(c.id, c.hub_level, t.globalTick);
   view.orbital = orbital.view(c, t.globalTick, { flows: Object.fromEntries(routeFlows.map((f) => [f.route.id, f.qty])) });
   if (view.orbital.station) {
     view.orbital.ships = territories.view(c, t.globalTick);
