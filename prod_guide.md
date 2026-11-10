@@ -300,6 +300,30 @@ Anything can be built here except the extractors of the other districts. License
 | Donstand-Pattern Modules (modules) | 2 Spine Frames, 1 Artisanal Goods, 2 Polymer Stock, 18 power | 1 Donstand-Pattern Modules |
 **Missions:** 3 postings at a time, each offered in the name of every faction (fill one and the others lapse), lasting 160-320 ticks, refreshing every 25. Rewards are 1.3× market value plus standing. Factions: Black Industries Remnant (cinder) wants Tool Steel, Hard-Spec Instruments, Vintage Curios, Heritage Masterworks; Cliffside Accord (verdant) wants Heritage Preserves, Cliffside Tinctures, Mycelial Stimulants, Apex Field Kits, Artisanal Goods; Ammano Transit (meridian) wants Cast Plastics, Artisanal Goods, Vintage Curios, Hard-Spec Instruments, Heritage Masterworks.
 
+## **14b. Requisitions**
+From Core level 2, 2 requests at a time for ordinary goods, each a set amount within 140-260 ticks, delivered in full from the Core. Only goods the colony's own places can make are asked for, and amounts grow 40% per Core level past the level a good first appears at. A filled requisition pays 1.8× the convoy's selling price and lends a boon; one that lapses is replaced 30 ticks later.
+| Good | From Core level | Amount |
+| --- | --- | --- |
+| Hard-Spec Parts | 2 | 50-100 |
+| Filtrate | 2 | 150-300 |
+| Nutrient Paste | 2 | 150-300 |
+| Print Stock | 2 | 30-60 |
+| Heavy Meals | 3 | 80-160 |
+| Spine Alloy | 3 | 30-60 |
+| Ingots | 4 | 70-140 |
+| Refined Fuel | 4 | 70-140 |
+| Reagent Stock | 4 | 40-80 |
+| Polymer Stock | 4 | 50-100 |
+| Phononic Circuits | 4 | 20-40 |
+| Soil Primer | 5 | 40-80 |
+| HTR Patches | 5 | 25-50 |
+| Klein Cells | 5 | 8-16 |
+| Boon | Lasts | Effect |
+| --- | --- | --- |
+| Seconded Work Crews | 150 ticks | The Office lends hands. Work under way moves one extra cycle every third cycle. |
+| Priority Run Slot | 200 ticks | The logistics run carries a quarter more of everything, for now. |
+Earning a boon that is already running adds to the time left.
+
 ## **15. The Beacon**
 Build the Series-9 Beacon (only one; it wants a Colossal plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **25 signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes The Sanctuary Port available.
 

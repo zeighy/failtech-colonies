@@ -86,7 +86,7 @@
   function tabLocked(id) {
     if (id === 'districts' || id === 'logistics') return !S.districtsUnlocked;
     if (id === 'exchange') return !S.exchange.unlocked;
-    if (id === 'missions') return !S.freeport;
+    if (id === 'missions') return !S.freeport && !(S.requisitions && S.requisitions.unlocked);
     return false;
   }
   // Where a link that names a screen goes: the map, a workspace, or one of the two overlays. Surface screens open on the
@@ -758,6 +758,7 @@
   function tabBadge(t) {
     if (t === 'brief') { var a = briefAlert(); return a ? '<span class="dotb ' + a + '" title="Needs a look"></span>' : ''; }
     if (t === 'stockpile') { var n = stockAttention().length; return n ? '<em class="warn">' + n + '</em>' : ''; }
+    if (t === 'missions') { var rq = reqReady().length; return rq ? '<span class="dotb good" title="A requisition can be delivered"></span>' : ''; }
     var f = readyFlags();
     if (t === 'hub' && f.up) return '<span class="dotb good" title="An upgrade is affordable"></span>';
     if (t === 'districts' && f.found) return '<span class="dotb good" title="A district can be founded"></span>';
@@ -880,6 +881,8 @@
       var sh = Object.keys(o.waiting.short);
       if (sh.length) out.push(['warn', 'The work queue ' + (o.dname ? 'in ' + o.dname : 'in the Core') + ' is waiting for ' + sh.map(function (r) { return fmt(o.waiting.short[r]) + ' ' + CFG.resources[r].name; }).join(', '), '', o.did]);
     });
+    var rq = reqReady();
+    if (rq.length) out.push(['good', rq.length === 1 ? 'A requisition can be delivered: ' + fmt(rq[0].qty) + ' ' + CFG.resources[rq[0].good].name : rq.length + ' requisitions can be delivered', 'missions']);
     var f = readyFlags();
     if (f.up) out.push(['good', 'An upgrade is affordable', 'hub']);
     if (f.found) out.push(['good', 'A district can be founded', 'districts']);
@@ -1683,8 +1686,43 @@
   }
 
   // ---- missions -----------------------------------------------------------------
+  // Requisitions: requests for ordinary goods, delivered from the Core, from an early hub level.
+  function reqReady() {
+    var Q = S.requisitions;
+    return Q && Q.unlocked ? Q.open.filter(function (q) { return S.coreRes[q.good].amount >= q.qty; }) : [];
+  }
+  function boonPills() {
+    var Q = S.requisitions, B = CFG.requisitions ? CFG.requisitions.boons : {};
+    return Object.keys(B).filter(function (k) { return Q.boons[k] > 0; }).map(function (k) {
+      return '<span class="pill out" title="' + esc(B[k].desc) + '"><i style="background:var(--good)"></i>' + esc(B[k].name) + ' · ' + Q.boons[k] + 't</span>';
+    }).join('');
+  }
+  function requisitionsBlock() {
+    var Q = S.requisitions, B = CFG.requisitions ? CFG.requisitions.boons : {};
+    if (!Q || !CFG.requisitions) return '';
+    if (!Q.unlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>Requisitions start at hub level ' + Q.unlockHubLevel + '.</div></div>';
+    var on = boonPills();
+    var h = '<div class="p-title">' + icon('flag', 22) + '<h3>Requisitions</h3><span class="dim" style="margin-left:auto">' + Q.filled + ' filled</span></div>' +
+      '<div class="note">' + esc((CFG.ui && CFG.ui.requisitionsNote) || 'Requests for ordinary goods, a set amount by a set time. Deliver the full amount from the Core: it pays above the convoy\'s price and lends the colony a hand for a while. One that lapses is simply replaced.') + '</div>' +
+      (on ? '<div class="label sec">In effect</div><div class="io">' + on + '</div>' : '');
+    if (!Q.open.length) h += '<div class="dim" style="margin-top:10px">Nothing is being asked for right now. New requisitions arrive soon.</div>';
+    Q.open.forEach(function (q) {
+      var g = CFG.resources[q.good], have = Math.floor(S.coreRes[q.good].amount), enough = have >= q.qty, b = B[q.boon] || { name: q.boon, desc: '' };
+      h += '<div class="mission"><div class="rhead"><b>' + esc(q.title) + '</b><span class="dim num">' + q.ticksLeft + 't left</span></div>' +
+        '<div class="offer" style="--c:' + g.color + '"><div class="want"><b class="num">' + fmt(q.qty) + '</b> ' + esc(g.name) + ' <span class="' + (enough ? 'good' : 'dim') + '" style="font-size:11px">(' + fmt(have) + ' in the Core)</span></div>' +
+        '<div class="meter" style="margin:2px 0 4px"><i style="width:' + clamp(have / q.qty * 100, 0, 100).toFixed(0) + '%;background:' + (enough ? 'var(--good)' : 'var(--warn)') + '"></i></div>' +
+        '<div class="pay"><span class="pill out"><i style="background:var(--good)"></i>' + fmt(q.reward) + ' cr</span><span class="pill" title="' + esc(b.desc) + '"><i style="background:var(--amber)"></i>' + esc(b.name) + '</span>' +
+        '<button class="btn' + (enough ? ' primary' : '') + '" data-act="reqfill" data-id="' + q.id + '"' + (enough ? '' : ' disabled') + '>Deliver</button></div>' +
+        '<div class="dim" style="font-size:11px">' + esc(b.desc) + '</div></div></div>';
+    });
+    return h;
+  }
   function missionsTab() {
-    if (!S.freeport) return '<div class="empty-state">' + icon('lock', 36) + '<div>Missions come from the Free Port.</div></div><div class="note">Once the Beacon is built and the Free Port founded, factions start posting requests for trade goods. Filling them pays above market and builds your standing.</div>';
+    var req = requisitionsBlock();
+    if (!S.freeport) return req + '<div class="sheet-h">Missions</div><div class="note">' + icon('lock', 12) + ' Missions come from the Free Port. Once the Beacon is built and the Free Port founded, factions start posting requests for trade goods. Filling them pays above market and builds your standing.</div>';
+    return req + '<div class="sheet-h">Missions</div>' + factionMissions();
+  }
+  function factionMissions() {
     var M = S.missions, F = CFG.missions.factions;
     function rankOf(k, pts) { var r = null; (F[k].ranks || []).forEach(function (x) { if (pts >= x.min) r = x.name; }); return r; }
     if (msrc === null || !S.views[msrc]) msrc = S.districts.filter(function (d) { return d.type === 'freeport'; })[0].id;
@@ -1787,6 +1825,7 @@
   function scheduledTab() {
     var h = (activeD().core ? '' : '<div class="note">Convoys and express trips deal with the <b>Core</b> stockpile. Ship goods there from this district in the Districts tab.</div>') +
       '<div class="convoy-head"><div class="label">Next convoy in</div><div class="big num" data-f="convoy">–</div><div class="dim" style="font-size:11px" data-f="convoyTicks"></div></div>' +
+      (S.requisitions && S.requisitions.boons && S.requisitions.boons.convoy > 0 ? '<div class="note good">' + esc(CFG.requisitions.boons.convoy.name) + ': ' + esc(CFG.requisitions.boons.convoy.desc) + ' ' + S.requisitions.boons.convoy + ' ticks left.</div>' : '') +
       '<p class="p-desc">Standing orders repeat every convoy at that convoy\'s prices. The trade limit per resource grows with your hub level (currently ×' + (CFG.hubLevels[S.colony.hubLevel].convoyCapMult || 1) + '). Prices drift from convoy to convoy; the figures below are what the <b>next</b> convoy will pay and charge, and the arrows show the change from the last one.</p>';
     var net = 0;
     Object.keys(CFG.resources).forEach(function (k) {
@@ -1916,7 +1955,8 @@
       return '<div class="pend" data-id="' + p.id + '"><span>' + esc(p.label) + '</span><button class="x" data-act="pcancel" data-id="' + p.id + '" title="Discard (not sent yet)" aria-label="Discard queued action">×</button></div>';
     }).join('');
     if (bare) return (chips ? '<div class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Not sent yet' : 'Offline · waiting to send') + '</div>' + chips : '') + h;
-    h = '<span class="label">Work queue</span>' + (S.allOrders.length ? h : '<span class="queue-empty">Nothing queued. Click a free plot to build; each place builds one thing at a time.</span>');
+    var crews = S.requisitions && S.requisitions.boons && S.requisitions.boons.crews > 0 ? '<span class="q-boon" title="' + esc(CFG.requisitions.boons.crews.desc) + '">' + esc(CFG.requisitions.boons.crews.name) + ' · ' + S.requisitions.boons.crews + 't</span>' : '';
+    h = '<span class="label">Work queue</span>' + crews + (S.allOrders.length ? h : '<span class="queue-empty">Nothing queued. Click a free plot to build; each place builds one thing at a time.</span>');
     if (chips) h = '<span class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Not sent yet' : 'Offline · waiting to send') + '</span>' + chips + '<span class="queue-sep"></span>' + h;
     return h;
   }
@@ -2155,6 +2195,7 @@
     else if (a === 'procset') { recipePick = null; act('recipe', { ring: +el.dataset.ring, slot: +el.dataset.slot, recipe: el.dataset.rec || null, district: activeId }, 'Retooling started.'); }
     else if (a === 'recset') { var rcp = el.dataset.rec; recipePick = null; act('recipe', { ring: +el.dataset.ring, slot: +el.dataset.slot, recipe: rcp, district: activeId }, 'Recipe set.'); }
     else if (a === 'shield') act('shield', { enabled: !(S.hazard && S.hazard.shield && S.hazard.shield.enabled) });
+    else if (a === 'reqfill') act('requisition', { id: +el.dataset.id }, 'Requisition delivered.');
     else if (a === 'mfill') act('mission', { id: +el.dataset.id, faction: el.dataset.faction, district: msrc || activeId }, 'Mission filled.');
     else if (a === 'mkside') { mk.side = el.dataset.side; mk.price = null; renderPanel(); }
     else if (a === 'mkqty') {

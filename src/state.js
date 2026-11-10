@@ -13,6 +13,7 @@ const orbital = require('./orbital');
 const territories = require('./territories');
 const credits = require('./credits');
 const queue = require('./queue');
+const requisitions = require('./requisitions');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const { db, config } = store;
@@ -67,6 +68,7 @@ function clientConfig() {
     convoyIntervalTicks: config.global.convoyIntervalTicks,
     demolishRefund: config.global.demolishRefund,
     production: config.production,
+    requisitions: config.requisitions ? { unlockHubLevel: config.requisitions.unlockHubLevel, boons: config.requisitions.boons } : null,
     buildQueue: { max: queue.max, replaceTimeMult: queue.replaceTimeMult },
     failureThresholdTicks: config.global.moraleFailureThresholdTicks,
   };
@@ -308,7 +310,8 @@ function viewFor(userId, now = Date.now()) {
     prices[res] = { buy: now_[res].buy, sell: now_[res].sell, trend: now_[res].mult / before[res].mult - 1, mult: now_[res].mult };
   }
   const limits = {};
-  for (const res of Object.keys(config.resources)) limits[res] = sim.convoyLimit(config, c.hub_level, res);
+  const cmult = requisitions.convoyMult(c, t.globalTick);
+  for (const res of Object.keys(config.resources)) limits[res] = Math.floor(sim.convoyLimit(config, c.hub_level, res) * cmult);
   view.market = { prices, limits };
 
   if (hazard) {
@@ -354,6 +357,7 @@ function viewFor(userId, now = Date.now()) {
   };
   view.exchange = exchangeView(c, t.globalTick);
   view.missions = missions.view(c, t.globalTick);
+  view.requisitions = requisitions.view(c, t.globalTick);
   view.data = territories.dataView(c);
   view.economy = credits.view(c.id, c.hub_level, t.globalTick);
   view.orbital = orbital.view(c, t.globalTick, { flows: Object.fromEntries(routeFlows.map((f) => [f.route.id, f.qty])) });

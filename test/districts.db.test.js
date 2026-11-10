@@ -77,7 +77,7 @@ test('migration: a pre-district database keeps every colony, stockpile, building
     }));
   `], { env: { ...process.env, DB_PATH: file }, encoding: 'utf8' });
   const r = JSON.parse(out.trim().split('\n').pop());
-  assert.equal(r.version, 17);
+  assert.equal(r.version, 18);
   assert.deepEqual(r.districts, [
     { colony_id: 1, type: 'core', level: 3, name: 'The Core' },
     { colony_id: 2, type: 'core', level: 1, name: 'The Core' },
@@ -100,7 +100,7 @@ test('migration is idempotent: opening an up-to-date database again changes noth
   const run = () => JSON.parse(execFileSync(process.execPath, ['-e', script.replace("'c','x'", `'c${Math.random()}','x'`)], { env: { ...process.env, DB_PATH: file }, encoding: 'utf8' }).trim().split('\n').pop());
   const first = run();
   const second = run();
-  assert.equal(first.v, 17);
+  assert.equal(first.v, 18);
   assert.equal(second.n, first.n + 1, 'only the new colony gets a district');
 });
 

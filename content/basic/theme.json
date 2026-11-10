@@ -393,6 +393,16 @@
       "desc": "A road-and-rail company that buys finished goods by the crate."
     }
   },
+  "boons": {
+    "crews": {
+      "name": "Loaned work crews",
+      "desc": "Work under way moves one extra tick every third tick."
+    },
+    "convoy": {
+      "name": "Priority convoy slot",
+      "desc": "The convoy carries a quarter more of everything."
+    }
+  },
   "recipes": {
     "curios": {
       "name": "Salvage Curios"
@@ -555,6 +565,16 @@
     "Caravan manifest",
     "Harbour tender",
     "Quartermaster's request"
+  ],
+  "requisitionTitles": [
+    "Standing requisition",
+    "Supply call",
+    "Stores request",
+    "Relief consignment",
+    "Field order",
+    "Depot shortfall",
+    "Convoy manifest gap",
+    "Emergency stores"
   ],
   "directives": {
     "power": {

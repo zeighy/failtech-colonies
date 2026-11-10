@@ -4600,5 +4600,140 @@
   },
   "production": {
     "switchTicks": 10
+  },
+  "requisitions": {
+    "unlockHubLevel": 2,
+    "slots": 2,
+    "durationTicks": [
+      140,
+      260
+    ],
+    "refreshTicks": 30,
+    "payMult": 1.8,
+    "growthPerLevel": 0.4,
+    "titles": [
+      "Standing requisition",
+      "Supply call",
+      "Stores request",
+      "Relief consignment",
+      "Field order",
+      "Depot shortfall",
+      "Convoy manifest gap",
+      "Emergency stores"
+    ],
+    "goods": {
+      "machined_parts": {
+        "from": 2,
+        "qty": [
+          50,
+          100
+        ]
+      },
+      "clean_water": {
+        "from": 2,
+        "qty": [
+          150,
+          300
+        ]
+      },
+      "rations": {
+        "from": 2,
+        "qty": [
+          150,
+          300
+        ]
+      },
+      "building_materials": {
+        "from": 2,
+        "qty": [
+          30,
+          60
+        ]
+      },
+      "meals": {
+        "from": 3,
+        "qty": [
+          80,
+          160
+        ]
+      },
+      "alloys": {
+        "from": 3,
+        "qty": [
+          30,
+          60
+        ]
+      },
+      "ingots": {
+        "from": 4,
+        "qty": [
+          70,
+          140
+        ]
+      },
+      "fuel": {
+        "from": 4,
+        "qty": [
+          70,
+          140
+        ]
+      },
+      "reagents": {
+        "from": 4,
+        "qty": [
+          40,
+          80
+        ]
+      },
+      "polymers": {
+        "from": 4,
+        "qty": [
+          50,
+          100
+        ]
+      },
+      "circuits": {
+        "from": 4,
+        "qty": [
+          20,
+          40
+        ]
+      },
+      "fertiliser": {
+        "from": 5,
+        "qty": [
+          40,
+          80
+        ]
+      },
+      "medicine": {
+        "from": 5,
+        "qty": [
+          25,
+          50
+        ]
+      },
+      "power_cells": {
+        "from": 5,
+        "qty": [
+          8,
+          16
+        ]
+      }
+    },
+    "boons": {
+      "crews": {
+        "name": "Loaned work crews",
+        "desc": "Work under way moves one extra tick every third tick.",
+        "ticks": 150,
+        "everyTicks": 3
+      },
+      "convoy": {
+        "name": "Priority convoy slot",
+        "desc": "The convoy carries a quarter more of everything.",
+        "ticks": 200,
+        "limitMult": 1.25
+      }
+    }
   }
 }

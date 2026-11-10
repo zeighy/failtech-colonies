@@ -35,6 +35,7 @@ const SECTIONS = {
   districts: [(c) => c.districtTypes, ['name', 'desc']],
   hazards: [(c) => c.hazards.types, ['name', 'desc']],
   factions: [(c) => c.missions.factions, ['name', 'desc']],
+  boons: [(c) => (c.requisitions ? c.requisitions.boons : {}), ['name', 'desc']],
   recipes: [(c) => c.recipes, ['name']],
   // alternative recipes of production buildings, keyed building.recipe (foundry.ingot_charge)
   processes: [(c) => Object.fromEntries(Object.entries(c.buildings).flatMap(([b, def]) => Object.entries(def.alternatives || {}).map(([a, alt]) => [`${b}.${a}`, alt]))), ['name', 'desc']],
@@ -74,6 +75,10 @@ function apply(config, theme) {
   if (Array.isArray(theme.territoryNames) && theme.territoryNames.length && config.orbital) {
     if (theme.territoryNames.every((t) => typeof t === 'string' && t.trim())) config.orbital.territories.names = theme.territoryNames;
     else problems.push('theme.territoryNames: must be a list of non-empty text');
+  }
+  if (Array.isArray(theme.requisitionTitles) && theme.requisitionTitles.length && config.requisitions) {
+    if (theme.requisitionTitles.every((t) => typeof t === 'string' && t.trim())) config.requisitions.titles = theme.requisitionTitles;
+    else problems.push('theme.requisitionTitles: must be a list of non-empty text');
   }
   if (Array.isArray(theme.missionTitles) && theme.missionTitles.length) {
     if (theme.missionTitles.every((t) => typeof t === 'string' && t.trim())) config.missions.titles = theme.missionTitles;

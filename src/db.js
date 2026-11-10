@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -443,6 +443,26 @@ migrate();
 for (const [table, col, ddl] of [['colony_work_orders', 'state', "TEXT NOT NULL DEFAULT 'active'"], ['colony_work_orders', 'position', 'INTEGER NOT NULL DEFAULT 0'], ['colony_routes', 'target', 'INTEGER NOT NULL DEFAULT 0']]) {
   if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
 }
+
+// v18 (additive): requisitions (requests for ordinary goods from an early hub level) and the boons they lend.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS requisitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    slot INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    good TEXT NOT NULL,
+    qty INTEGER NOT NULL,
+    reward INTEGER NOT NULL,
+    boon TEXT NOT NULL,
+    created_tick INTEGER NOT NULL,
+    expires_tick INTEGER NOT NULL,
+    closed_tick INTEGER,
+    status TEXT NOT NULL DEFAULT 'open'        -- open | done | expired
+  );
+`);
+if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'boons'").get()) db.exec("ALTER TABLE colonies ADD COLUMN boons TEXT NOT NULL DEFAULT '{}'");
+db.pragma(`user_version = ${SCHEMA_VERSION}`);
 
 // ---- meta -----------------------------------------------------------------
 const getMeta = (k, fallback = null) => {

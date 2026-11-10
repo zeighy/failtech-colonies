@@ -7,6 +7,7 @@ const orbital = require('./orbital');
 const territories = require('./territories');
 const credits = require('./credits');
 const queue = require('./queue');
+const requisitions = require('./requisitions');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const hazards = require('./hazards');
@@ -41,6 +42,7 @@ function loadDistricts(c) {
 
 function tickColony(c, globalTick, tickTime) {
   missions.advance(c, globalTick);
+  requisitions.advance(c, globalTick);
   const districts = loadDistricts(c);
   const core = districts.find((d) => d.type === 'core');
   const hazard = store.loadHazard(c.id);
@@ -78,10 +80,11 @@ function tickColony(c, globalTick, tickTime) {
   if (res.won && !c.won) ev('good', 'THE BEACON HAS REACHED THE WORLD. Transmission complete. Mission accomplished.');
 
   // Work orders under way (the ones still waiting in a queue are dealt with below)
+  const pace = 1 + requisitions.crewBonus(c, globalTick); // loaned work crews move the work on an extra tick now and then
   for (const o of store.loadOrders(c.id)) {
     if (o.state === 'queued') continue;
-    if (o.ticks_remaining > 1) {
-      db.prepare('UPDATE colony_work_orders SET ticks_remaining = ticks_remaining - 1 WHERE id = ?').run(o.id);
+    if (o.ticks_remaining > pace) {
+      db.prepare('UPDATE colony_work_orders SET ticks_remaining = ticks_remaining - ? WHERE id = ?').run(pace, o.id);
       continue;
     }
     const d = districts.find((x) => x.id === o.district_id) || core; // orders from before districts belong to the Core
@@ -142,7 +145,7 @@ function tickColony(c, globalTick, tickTime) {
   // Convoy
   if (globalTick % config.global.convoyIntervalTicks === 0) {
     const k = globalTick / config.global.convoyIntervalTicks;
-    const out = sim.runConvoy(config, { hubLevel, inventory, credits, cap: res.cap }, store.loadContracts(c.id), sim.marketPrices(config, k));
+    const out = sim.runConvoy(config, { hubLevel, inventory, credits, cap: res.cap, limitMult: requisitions.convoyMult(c, globalTick) }, store.loadContracts(c.id), sim.marketPrices(config, k));
     inventory = out.inventory;
     credits = out.credits;
     ev('info', 'The convoy has arrived.');

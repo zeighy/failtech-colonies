@@ -10,6 +10,7 @@ const orbitalMarket = require('./orbitalMarket');
 const missions = require('./missions');
 const credits = require('./credits');
 const queue = require('./queue');
+const requisitions = require('./requisitions');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
 const { db, config } = store;
@@ -367,6 +368,9 @@ const missionFill = guarded((c, { id, faction, district }) => {
   return missions.fill(c, { id: toInt(id), faction, district: d }, Number(store.getMeta('global_tick', 0)));
 });
 
+// Deliver a requisition in full from the Core.
+const requisitionFill = guarded((c, { id }) => requisitions.fill(c, { id: toInt(id) }, tickNow()));
+
 // ---- the exchange -------------------------------------------------------------------------
 const marketPost = guarded((c, args) => {
   const d = districtFor(c, args.district);
@@ -447,7 +451,7 @@ const setContract = guarded((c, { resource, side, amount }) => {
   if (side !== 'export' && side !== 'import') return fail('Bad contract side.');
   amount = Math.floor(toNum(amount));
   if (!Number.isFinite(amount) || amount < 0) return fail('Bad amount.');
-  amount = Math.min(amount, sim.convoyLimit(config, c.hub_level, resource));
+  amount = Math.min(amount, Math.floor(sim.convoyLimit(config, c.hub_level, resource) * requisitions.convoyMult(c, tickNow())));
   if (amount === 0) db.prepare('DELETE FROM colony_contracts WHERE colony_id = ? AND resource_id = ? AND side = ?').run(c.id, resource, side);
   else db.prepare('INSERT INTO colony_contracts (colony_id, resource_id, side, amount) VALUES (?, ?, ?, ?) ON CONFLICT DO UPDATE SET amount = excluded.amount').run(c.id, resource, side, amount);
   return OK;
@@ -553,4 +557,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

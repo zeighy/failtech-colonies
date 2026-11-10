@@ -209,7 +209,7 @@ const act = (name) => (req, res) => {
   res.status(result.ok ? 200 : 400).json({ ...result, state: result.ok ? viewFor(req.session.userId) : undefined });
 };
 for (const [route, name] of [
-  ['build', 'build'], ['replace', 'replace'], ['queue-move', 'queueMove'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['boost', 'setBoost'], ['expand', 'expand'], ['cancel', 'cancelOrder'],
+  ['build', 'build'], ['replace', 'replace'], ['requisition', 'requisitionFill'], ['queue-move', 'queueMove'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['boost', 'setBoost'], ['expand', 'expand'], ['cancel', 'cancelOrder'],
   ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['market', 'marketPost'], ['recipe', 'setRecipe'], ['shield', 'shieldHazard'], ['mission', 'missionFill'], ['market-cancel', 'marketCancel'], ['route', 'setRoute'], ['link', 'upgradeLink'], ['story-seen', 'storySeen'], ['resume', 'resumeOps'], ['launch-cycle', 'launchCycle'], ['launch', 'launch'], ['express-launch', 'expressLaunch'], ['orbit-storage', 'orbitalStorageUpgrade'], ['orbit-links', 'orbitalLinksUpgrade'], ['jettison', 'jettison'], ['rebuild-slot', 'rebuildSlot'], ['ship-deploy', 'shipDeploy'], ['ship-plan', 'shipPlan'], ['ship-return', 'shipReturn'], ['data-unlock', 'dataUnlock'], ['rush', 'rushOrder'], ['ship-build', 'shipBuild'], ['ship-upgrade', 'shipUpgrade'], ['ship-repair', 'shipRepair'], ['project-contribute', 'projectContribute'], ['orbit-market', 'orbitPost'], ['orbit-market-cancel', 'orbitCancel'],
 ]) app.post(`/api/${route}`, requireAuth, act(name));
 

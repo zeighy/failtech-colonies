@@ -58,6 +58,7 @@ The server picks the layout from what the browser says it is, and the game corre
 | **Hazards** | Forecast ahead of time, strike on a fixed tick and then linger. The colony spends reserves automatically; unprepared means a prorated penalty, prepared still means a running cost. See below. |
 | **Convoy** | Every 40 ticks (plus on-demand express trips). Standing export/import orders execute at that convoy's prices, which drift from convoy to convoy and are shown in advance with their change. The per-resource trade limit grows with Hub level (×1 at level 1 up to ×4 at level 5). |
 | **Exchange** | From hub level 4 an order book separate from the convoy: post buy and sell orders at your own price against a book of NPC traders (and later other players). Sells are held, buys escrow credits, a 4% fee on proceeds. Prices drift on a seeded walk with shortage and glut events, and the book gets thin when you eat it. Goods are delivered to, and sold from, any district. |
+| **Requisitions** | From hub level 2 the **Missions** screen carries requisitions: two requests at a time for ordinary goods the colony can make (parts, water, rations, building stock, later alloys and district goods), a set amount by a set time, delivered in full from the Core. Filling one pays 1.8 times the convoy's selling price and lends a **boon** for a while: loaned work crews (work under way moves an extra tick every third tick) or a priority convoy slot (the convoy carries a quarter more). One that lapses is simply replaced. They give the stretch between the first upgrades and the Beacon something to aim at. |
 | **The Free Port** | After the Beacon, a harbour district (the Sanctuary Port in the default theme) that can build anything except other districts' raw extractors. Its **Trade Workshops** each lock in one recipe (changing costs credits and idle time) and turn colony goods into **trade goods**; a bigger plot runs a bigger batch. Sell them on the exchange, deploy them as **shields** that make a hazard harmless, or fill **missions** for the three factions to build standing and rank. Standing also unlocks what each faction has to tell you. |
 | **The work queue** | Every place (the Core, each district, the station, each territory) has **one build slot** and a queue behind it, up to 8 orders. Building, replacing, expanding, upgrading and founding a district all wait in the same line and are carried out **strictly in order**: nothing behind the front starts early, even if it could be paid for, so a later order never spends what an earlier one is waiting for. An order is **paid for when it starts**, so it can be queued before the materials exist; the front order waits until its place can pay. Waiting orders can be moved up, down or to the front, or cancelled (an order under way is refunded in full). Queued plots show their place in line on the map. Places do not hold each other up. |
 | **Replace in place** | Swap a building for another on the same plot from its pane. The order goes through the work queue and the old building keeps working until its turn; then it is scrapped for the usual 50%, and the plot stands empty while the new one goes up, which takes 1.5 times its usual build time. Expansion levels are not carried over. |
@@ -121,7 +122,7 @@ src/queue.js       The work queue: one build slot per place, strict order, paid 
 src/state.js       Builds the view the client renders (dry-run tick for live rates, market forecast, story state)
 src/hazards.js     Hazard forecast / strike / preparedness / shields / away report
 src/market.js      Order-book exchange (lazy NPC rungs, matching, escrow, fees)    src/marketsim.js  Seeded price walk, events, price links
-src/missions.js    Free Port missions, factions and standing
+src/missions.js    Free Port missions, factions and standing      src/requisitions.js  Requisitions and the boons they lend
 src/orbital.js     Orbit: unlock, launch chain, station, slot storage, links, express launch
 src/territories.js Shared anomalous territories and dropships   src/orbitalMarket.js  Orbital order book   src/projects.js  Global projects
 src/objectives.js  Onboarding directives and the collapse clock
@@ -130,7 +131,7 @@ src/story.js       Story beats, triggers, delivery pacing and validation
 src/theme.js       Loads content/<theme>/theme.json onto the config
 src/backup.js      Scheduled SQLite backups
 src/security.js    Headers, same-origin check, rate limits, login throttle      src/validate.js  Input validation helpers
-src/db.js          Schema (v17) and migrations, session store, colony helpers
+src/db.js          Schema (v18) and migrations, session store, colony helpers
 game_config.json   All balance data (no wording that a theme replaces matters here; ids are stable)
 content/           One folder per theme: theme.json (wording), story.json (narrative), assets/ (portraits, backgrounds)
 scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md)

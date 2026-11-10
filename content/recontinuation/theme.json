@@ -233,7 +233,8 @@
     },
     "hubLabel": "HUB",
     "missionsHint": "Earn a combined standing of 500 with the factions and your name will be known across the lands.",
-    "chapterTwo": "Form 7-O: Orbital Recontinuation"
+    "chapterTwo": "Form 7-O: Orbital Recontinuation",
+    "requisitionsNote": "The Office asks for ordinary goods, on a form, by a date. Deliver the full amount from the Core and it pays above the logistics run's price and lends the colony something for a while. A form that lapses is simply refiled."
   },
   "resources": {
     "scrap": {
@@ -583,6 +584,16 @@
       "desc": "Road-and-rail crews of Ammano, the old manufacturing and freight company, still moving cargo through the ruins. They buy finished goods by the crate."
     }
   },
+  "boons": {
+    "crews": {
+      "name": "Seconded Work Crews",
+      "desc": "The Office lends hands. Work under way moves one extra cycle every third cycle."
+    },
+    "convoy": {
+      "name": "Priority Run Slot",
+      "desc": "The logistics run carries a quarter more of everything, for now."
+    }
+  },
   "ranks": {
     "cinder": [
       {
@@ -789,6 +800,16 @@
     "Logistics Manifest",
     "Harbour Tender",
     "Quartermaster's Chit"
+  ],
+  "requisitionTitles": [
+    "Form 12-R: Standing Requisition",
+    "Form 12-R: Supply Call",
+    "Form 14-S: Stores Request",
+    "Form 9-C: Relief Consignment",
+    "Form 12-R: Field Order",
+    "Form 31-D: Depot Shortfall",
+    "Form 6-M: Manifest Gap",
+    "Form 2-E: Emergency Stores"
   ],
   "directives": {
     "power": {

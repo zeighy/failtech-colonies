@@ -526,6 +526,7 @@ body.orbit-mode #map::before { content: ''; position: absolute; inset: 0; pointe
 .slot.planned .tag, .slot.swap .tag { fill: var(--cyan); }
 .q-place { flex: none; align-self: center; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); padding-left: 10px; border-left: 1px solid var(--line2); }
 .q-place:first-of-type { border-left: 0; padding-left: 0; }
+.q-boon { flex: none; align-self: center; font-size: 10px; padding: 2px 8px; border-radius: 99px; border: 1px solid #2a6a42; color: var(--good); white-space: nowrap; }
 .order.wait { border-style: dashed; background: transparent; }
 .order.wait .row span { color: var(--dim); }
 .order.wait .why { font-size: 11px; color: var(--faint); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }

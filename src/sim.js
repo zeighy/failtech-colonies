@@ -679,7 +679,7 @@ function runConvoy(config, state, contracts, prices) {
   let credits = state.credits;
   const cap = state.cap !== undefined ? state.cap : config.hubLevels[state.hubLevel].maxStorage;
   const log = [];
-  const maxFor = (res) => convoyLimit(config, state.hubLevel, res);
+  const maxFor = (res) => Math.floor(convoyLimit(config, state.hubLevel, res) * (state.limitMult || 1)); // (a boon can widen the convoy)
   for (const [res, amount] of Object.entries(contracts.export || {})) {
     const def = config.resources[res];
     if (!def || amount <= 0) continue;

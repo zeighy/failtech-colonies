@@ -157,6 +157,13 @@ add('## **14. The Free Port: trade goods, missions and standing**',
   `**Missions:** ${M.slots} postings at a time, each offered in the name of every faction (fill one and the others lapse), lasting ${M.durationTicks.join('-')} ticks, refreshing every ${M.refreshTicks}. Rewards are ${M.rewardMult}× market value plus standing. Factions: ${Object.entries(M.factions).map(([id, f]) => `${f.name} (${id}) wants ${Object.keys(f.wants).map(rn).join(', ')}`).join('; ')}.`);
 
 // ---- beacon
+const RQ = C.requisitions;
+add('## **14b. Requisitions**',
+  `From Core level ${RQ.unlockHubLevel}, ${RQ.slots} requests at a time for ordinary goods, each a set amount within ${RQ.durationTicks[0]}-${RQ.durationTicks[1]} ticks, delivered in full from the Core. Only goods the colony's own places can make are asked for, and amounts grow ${RQ.growthPerLevel * 100}% per Core level past the level a good first appears at. A filled requisition pays ${RQ.payMult}× the convoy's selling price and lends a boon; one that lapses is replaced ${RQ.refreshTicks} ticks later.`,
+  table(['Good', 'From Core level', 'Amount'], Object.entries(RQ.goods).map(([g, v]) => [rn(g), v.from, `${v.qty[0]}-${v.qty[1]}`])),
+  table(['Boon', 'Lasts', 'Effect'], Object.values(RQ.boons).map((b) => [b.name, `${b.ticks} ticks`, b.desc])),
+  'Earning a boon that is already running adds to the time left.');
+
 add('## **15. The Beacon**',
   `Build the ${bn('beacon_array')} (only one; it wants a ${plot(B.beacon_array.minPlotSize)} plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **${G.beacon.transmitTicks} signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes ${(C.districtTypes.freeport || {}).name || 'the Free Port'} available.`);
 
