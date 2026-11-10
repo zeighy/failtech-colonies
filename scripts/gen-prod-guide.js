@@ -80,6 +80,23 @@ add('## **5b. The work queue**',
   `* **Replace in place.** A building can be swapped for another on the same plot. The order goes through the queue and the old building keeps working until its turn. It is then scrapped for the demolition refund (${G.demolishRefund * 100}%), and the plot stands empty while the new building goes up, which takes **×${BQ.replaceTimeMult}** its usual build time. Expansion levels are not carried over. A workshop with a recipe set has to be demolished instead.`,
   '* **Rush** applies to the order under way, not to one that is waiting.');
 
+// ---- alternative recipes
+const altRows = [];
+for (const [id, b] of Object.entries(C.buildings)) {
+  for (const [aid, a] of Object.entries(b.alternatives || {})) {
+    const u = a.unlock || {};
+    const opens = u.level ? `place level ${u.level}` : { beacon: 'the Beacon is built', freeport: `${C.districtTypes.freeport.name} is founded`, station: 'a station is in orbit' }[u.milestone] || 'from the start';
+    altRows.push([`${b.name} (${id})`, `${a.name} (${aid})`, opens, list(a.inputsPerTick), list(a.outputsPerTick)]);
+  }
+}
+const tiered = Object.entries(C.buildings).filter(([, b]) => b.districtTier);
+const tierOf = (n) => tiered.filter(([, b]) => b.districtTier === n).map(([, b]) => b.name).join(', ');
+add('## **5c. Alternative recipes**',
+  `Most production buildings can be set to another recipe from their pane: a higher-yield way of making the same thing that needs something from further along the chain, or a different product altogether. They stand in for research. A building's alternatives open with the **level of the place it stands in** (the Core's level in the Core, the district's own level elsewhere) or at a colony **milestone**. The base recipe never goes away. Switching costs nothing but leaves the line idle for **${C.production.switchTicks} ticks** while it is retooled, every time.`,
+  table(['Building (id)', 'Recipe (id)', 'Opens at', 'Inputs / tick', 'Outputs / tick'], altRows),
+  `**District tiers.** A district's tier-1 buildings (${tierOf(1)}) run on what the Core and the district itself make, so a district works even if it is the only one founded; their base recipes also leave a little ${rn('scrap')} for the district to build with. Tier-2 buildings (${tierOf(2)}) need at most one kind of goods from another district. Tier 3: ${tierOf(3)}.`,
+  `**Standby power.** ${C.buildings.cell_bank.name}: up to ${C.buildings.cell_bank.buffer.power} power, only while the place's grid is short, burning ${list(C.buildings.cell_bank.buffer.perTick)} per tick at full output (in proportion to what it supplies) from that place's stockpile. With nothing to burn it supplies nothing.`);
+
 // ---- adjacency
 add('## **6. Adjacency**', 'Neighbours are the two slots beside a building in its ring plus every touching slot in the rings above and below. Each matching neighbour multiplies output (clamped).',
   C.adjacencyModifiers.rules.map((r) => `* ${bn(r.targetBuilding)} next to ${bn(r.adjacentBuilding)}: ×${r.outputMultiplier}`).join('\n'));

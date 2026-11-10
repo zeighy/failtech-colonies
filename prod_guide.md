@@ -33,24 +33,26 @@ Chains resolve in this building order, so output made this tick can be consumed 
 | Reclaim Burner (scrap_generator) | generator | Core, The Sanctuary Port | Large | 400 Reclaim, 30 Hard-Spec Parts | 15 Reclaim | 80 power | 2 | -7 | 6 | infrastructure |
 | Ink Reclaimer (synth_reclaimer) | refinery | The Gulf Stacks | Small | 250 Reclaim, 10 Hard-Spec Parts | 8 power, 12 Raw Ink | 6 Polymer Stock | 2 | -3 | 4 | industry |
 | Black Foundry (foundry) | refinery | Core, The Sanctuary Port | Large | 600 Reclaim, 40 Hard-Spec Parts, 20 Print Stock | 22 power, 40 Reclaim, 2 Hard-Spec Parts | 3 Spine Alloy | 5 | -8 | 8 | industry |
+| LMAO Reclaim Mill (reclamation_plant) | refinery | Core, The Sanctuary Port | Large | 1200 Reclaim, 80 Hard-Spec Parts, 80 Print Stock, 30 Spine Alloy | 28 power, 120 Reclaim | 5 Ingots | 5 | -7 | 10 | industry |
 | Phononic Fab (circuit_fab) | refinery | The Gulf Stacks | Small | 500 Reclaim, 50 Hard-Spec Parts, 30 Print Stock | 18 power, 4 Raw Ink, 3 Polymer Stock, 1 Hard-Spec Parts | 2 Phononic Circuits | 5 | -3 | 8 | industry |
 | Klein Cell Forge (cell_forge) | assembler | The Gulf Stacks | Large | 900 Reclaim, 80 Hard-Spec Parts, 80 Print Stock, 30 Spine Alloy, 20 Phononic Circuits | 30 power, 3 Spine Alloy, 2 Phononic Circuits | 1 Klein Cells | 6 | -5 | 10 | industry |
 | Logistics Depot (warehouse) | utility | Core, The Sanctuary Port | Medium | 300 Reclaim, 15 Hard-Spec Parts | – | – | 1 | – | 4 | infrastructure |
+| Klein Reserve Bank (cell_bank) | utility | Core, The Sanctuary Port | Medium | 500 Reclaim, 60 Print Stock, 30 Spine Alloy, 20 Phononic Circuits, 10 Klein Cells | – | – | 1 | -1 | 8 | infrastructure |
 | Sentinel Post (watch_post) | defense | Core, The Sanctuary Port | Small | 250 Reclaim, 20 Hard-Spec Parts | 4 power | – | 2 | 2 | 4 | infrastructure |
 | Series-9 Beacon (beacon_array) | beacon | core | Colossal | 1000 Reclaim, 200 Print Stock, 160 Spine Alloy, 100 Phononic Circuits, 30 Klein Cells, 20 HTR Patches | 60 power, 1 Klein Cells | – | 8 | -2 | 20 | – |
 | Best Food Kitchen (kitchen) | refinery | Core, The Sanctuary Port | Medium | 350 Reclaim, 25 Hard-Spec Parts | 6 power, 6 Nutrient Paste, 3 Filtrate | 8 Heavy Meals | 3 | 2 | 5 | industry |
 | Class-C Dormitory (dormitory) | housing | Core, The Sanctuary Port | Small | 250 Reclaim, 15 Hard-Spec Parts | – | – | – | – | 3 | housing |
 | Class-B Habitat Block (habitat) | housing | Core, The Sanctuary Port | Large | 700 Reclaim, 50 Hard-Spec Parts, 30 Print Stock | – | – | – | – | 6 | housing |
 | Strata Drill (ore_drill) | extractor | The Black Cut | Small | 250 Reclaim, 10 Hard-Spec Parts | 8 power | 24 Raw Ore | 3 | -6 | 4 | industry |
-| Black Smelter (smelter) | refinery | The Black Cut | Medium | 400 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 14 power, 20 Raw Ore | 8 Ingots | 4 | -8 | 6 | industry |
+| Black Smelter (smelter) | refinery | The Black Cut | Medium | 400 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 14 power, 20 Raw Ore | 8 Ingots, 8 Reclaim | 4 | -8 | 6 | industry |
 | Spine Alloy Works (alloy_works) | refinery | The Black Cut | Large | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | 20 power, 6 Ingots, 2 Hard-Spec Parts | 9 Spine Alloy | 5 | -8 | 8 | industry |
 | Pipeline Tap (crude_pump) | extractor | The Gulf Stacks | Small | 250 Reclaim, 10 Hard-Spec Parts | 10 power | 20 Crude | 3 | -6 | 4 | industry |
-| Cracking Tower (cracking_tower) | refinery | The Gulf Stacks | Small | 400 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 16 power, 15 Crude | 8 Refined Fuel, 5 Reagent Stock | 4 | -8 | 6 | industry |
+| Cracking Tower (cracking_tower) | refinery | The Gulf Stacks | Small | 400 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 16 power, 15 Crude | 8 Refined Fuel, 5 Reagent Stock, 6 Reclaim | 4 | -8 | 6 | industry |
 | Polymer Plant (polymer_plant) | refinery | The Gulf Stacks | Small | 500 Reclaim, 40 Hard-Spec Parts, 20 Print Stock | 16 power, 12 Crude, 2 Ingots | 6 Polymer Stock, 8 Raw Ink | 4 | -6 | 8 | industry |
 | Fuel Turbine (fuel_generator) | generator | The Gulf Stacks | Medium | 400 Reclaim, 30 Hard-Spec Parts | 5 Refined Fuel | 70 power | 2 | -7 | 6 | infrastructure |
 | Cliffside Bio Dome (bio_dome) | producer | The Cliffside Reserve | Small | 400 Reclaim, 20 Hard-Spec Parts | 8 power, 4 Aquifer Draw | 18 Mycelial Biomass | 3 | 4 | 6 | industry |
-| Cliffside Agri Lab (agri_lab) | refinery | The Cliffside Reserve | Small | 450 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 12 power, 12 Mycelial Biomass, 2 Reagent Stock | 5 Soil Primer | 3 | -2 | 6 | industry |
-| HTR Lab (pharma_lab) | refinery | The Cliffside Reserve | Medium | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | 14 power, 8 Mycelial Biomass, 3 Reagent Stock, 1 Polymer Stock | 3 HTR Patches | 4 | -2 | 8 | industry |
+| Cliffside Agri Lab (agri_lab) | refinery | The Cliffside Reserve | Small | 450 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 12 power, 12 Mycelial Biomass | 4 Soil Primer, 4 Reclaim | 3 | -2 | 6 | industry |
+| HTR Lab (pharma_lab) | refinery | The Cliffside Reserve | Medium | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | 14 power, 8 Mycelial Biomass, 3 Reagent Stock | 3 HTR Patches | 4 | -2 | 8 | industry |
 | Licensed Workshop (trade_workshop) | workshop | The Sanctuary Port | Small | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | – | – | 3 | -4 | 8 | – |
 | Orbital Staging Platform (orbital_staging) | launch | core | Colossal | 450 Spine Frames, 300 Dampener Fittings, 250 Donstand-Pattern Modules, 400 Print Stock, 200 Spine Alloy | 20 power | – | 6 | -5 | 90 | – |
 | Orbital Catapult (orbital_catapult) | launch | core | Colossal | 300 Spine Frames, 450 Dampener Fittings, 250 Donstand-Pattern Modules, 300 Spine Alloy, 100 Klein Cells | 15 power, 1 Refined Fuel | – | 4 | -6 | 90 | – |
@@ -88,6 +90,41 @@ A building can sit on a plot smaller than its minimum, but its output is multipl
 * **Dropped orders.** An order that can no longer be carried out when its turn comes (its plot was taken, the building is gone) is taken off the queue with a note in the log.
 * **Replace in place.** A building can be swapped for another on the same plot. The order goes through the queue and the old building keeps working until its turn. It is then scrapped for the demolition refund (50%), and the plot stands empty while the new building goes up, which takes **×1.5** its usual build time. Expansion levels are not carried over. A workshop with a recipe set has to be demolished instead.
 * **Rush** applies to the order under way, not to one that is waiting.
+
+## **5c. Alternative recipes**
+Most production buildings can be set to another recipe from their pane: a higher-yield way of making the same thing that needs something from further along the chain, or a different product altogether. They stand in for research. A building's alternatives open with the **level of the place it stands in** (the Core's level in the Core, the district's own level elsewhere) or at a colony **milestone**. The base recipe never goes away. Switching costs nothing but leaves the line idle for **10 ticks** while it is retooled, every time.
+| Building (id) | Recipe (id) | Opens at | Inputs / tick | Outputs / tick |
+| --- | --- | --- | --- | --- |
+| Cliffside Filtration Plant (water_purifier) | Reclaim-Bed Filtration (scrap_bed) | place level 3 | 12 power, 22 Aquifer Draw, 6 Reclaim | 24 Filtrate |
+| Cliffside Filtration Plant (water_purifier) | Reagent Dosing (reagent_dose) | place level 5 | 14 power, 24 Aquifer Draw, 1 Reagent Stock | 36 Filtrate |
+| LMAO Parts Press (parts_assembler) | Ingot Stamping (ingot_stamping) | place level 4 | 14 power, 12 Reclaim, 4 Ingots | 13 Hard-Spec Parts |
+| Nutrient Bay (hydroponics_bay) | Mycelial Feedstock (biomass_feed) | place level 4 | 18 power, 6 Filtrate, 6 Mycelial Biomass | 18 Nutrient Paste |
+| LMAO Print Works (fabrication_works) | Polymer-Bound Stock (polymer_bound) | place level 4 | 16 power, 40 Reclaim, 2 Polymer Stock | 10 Print Stock |
+| Reclaim Burner (scrap_generator) | Fuel-Assisted Burn (fuel_assisted) | place level 4 | 25 Reclaim, 1 Refined Fuel | 130 power |
+| Ink Reclaimer (synth_reclaimer) | Reagent Wash (reagent_wash) | place level 3 | 10 power, 12 Raw Ink, 1 Reagent Stock | 9 Polymer Stock |
+| Black Foundry (foundry) | Ingot Charge (ingot_charge) | place level 4 | 26 power, 30 Reclaim, 5 Ingots | 8 Spine Alloy |
+| Black Foundry (foundry) | Flux-Refined Pour (flux_refined) | The Sanctuary Port is founded | 30 power, 60 Reclaim, 6 Ingots, 1 Reagent Stock | 12 Spine Alloy |
+| LMAO Reclaim Mill (reclamation_plant) | Pressed Stock (press_board) | place level 4 | 28 power, 150 Reclaim, 2 Hard-Spec Parts | 8 Print Stock |
+| LMAO Reclaim Mill (reclamation_plant) | Ink Leach (ink_leach) | place level 5 | 30 power, 140 Reclaim, 2 Reagent Stock | 7 Raw Ink |
+| LMAO Reclaim Mill (reclamation_plant) | Frame Blanks (frame_blanks) | The Sanctuary Port is founded | 36 power, 200 Reclaim, 5 Print Stock, 1 Spine Alloy | 1 Spine Frames |
+| LMAO Reclaim Mill (reclamation_plant) | Fitting Blanks (fitting_blanks) | a station is in orbit | 36 power, 200 Reclaim, 12 Hard-Spec Parts, 1 Phononic Circuits | 1 Dampener Fittings |
+| Phononic Fab (circuit_fab) | Spine-Alloy Traces (alloy_traces) | place level 4 | 22 power, 5 Raw Ink, 4 Polymer Stock, 1 Spine Alloy | 4 Phononic Circuits |
+| Klein Cell Forge (cell_forge) | Reagent Electrolyte (reagent_electrolyte) | place level 4 | 36 power, 3 Spine Alloy, 2 Phononic Circuits, 2 Reagent Stock, 30 Reclaim | 2 Klein Cells |
+| Klein Cell Forge (cell_forge) | Polymer-Cased Cells (polymer_cased) | the Beacon is built | 42 power, 4 Spine Alloy, 3 Phononic Circuits, 2 Polymer Stock, 2 Reagent Stock | 3.5 Klein Cells |
+| Best Food Kitchen (kitchen) | Preserved Stores (preserved_stores) | place level 4 | 8 power, 6 Nutrient Paste, 5 Mycelial Biomass, 2 Filtrate | 14 Heavy Meals |
+| Strata Drill (ore_drill) | Fuel-Driven Bore (fuel_drill) | place level 3 | 10 power, 1 Refined Fuel | 38 Raw Ore |
+| Black Smelter (smelter) | Fuel-Fired Smelting (fuel_fired) | place level 3 | 18 power, 26 Raw Ore, 2 Refined Fuel | 14 Ingots, 10 Reclaim |
+| Spine Alloy Works (alloy_works) | Reagent Quench (reagent_quench) | place level 4 | 24 power, 8 Ingots, 1 Reagent Stock, 20 Reclaim | 14 Spine Alloy |
+| Cracking Tower (cracking_tower) | Fuel Cut (fuel_cut) | place level 2 | 16 power, 15 Crude | 12 Refined Fuel, 2 Reagent Stock, 6 Reclaim |
+| Cracking Tower (cracking_tower) | Reagent Cut (reagent_cut) | place level 2 | 16 power, 15 Crude | 4 Refined Fuel, 8 Reagent Stock, 6 Reclaim |
+| Cracking Tower (cracking_tower) | Catalytic Cracking (catalytic) | place level 4 | 20 power, 18 Crude, 1 Ingots | 11 Refined Fuel, 8 Reagent Stock, 6 Reclaim |
+| Polymer Plant (polymer_plant) | Reclaim-Fed Polymerisation (scrap_fed) | place level 3 | 20 power, 12 Crude, 2 Ingots, 40 Reclaim | 9 Polymer Stock, 10 Raw Ink |
+| Fuel Turbine (fuel_generator) | Reagent Afterburn (afterburn) | place level 3 | 6 Refined Fuel, 1 Reagent Stock | 115 power |
+| Cliffside Bio Dome (bio_dome) | Primed Beds (fertilised_beds) | place level 2 | 10 power, 5 Aquifer Draw, 1 Soil Primer | 30 Mycelial Biomass |
+| Cliffside Agri Lab (agri_lab) | Reagent-Fixed Primer (reagent_fixed) | place level 2 | 12 power, 12 Mycelial Biomass, 2 Reagent Stock | 7 Soil Primer, 4 Reclaim |
+| HTR Lab (pharma_lab) | Polymer Capsules (polymer_capsule) | place level 3 | 16 power, 8 Mycelial Biomass, 3 Reagent Stock, 1 Polymer Stock | 5 HTR Patches |
+**District tiers.** A district's tier-1 buildings (Strata Drill, Black Smelter, Pipeline Tap, Cracking Tower, Fuel Turbine, Cliffside Bio Dome, Cliffside Agri Lab) run on what the Core and the district itself make, so a district works even if it is the only one founded; their base recipes also leave a little Reclaim for the district to build with. Tier-2 buildings (Ink Reclaimer, Phononic Fab, Spine Alloy Works, Polymer Plant, HTR Lab) need at most one kind of goods from another district. Tier 3: Klein Cell Forge.
+**Standby power.** Klein Reserve Bank: up to 90 power, only while the place's grid is short, burning 1 Klein Cells per tick at full output (in proportion to what it supplies) from that place's stockpile. With nothing to burn it supplies nothing.
 
 ## **6. Adjacency**
 Neighbours are the two slots beside a building in its ring plus every touching slot in the rings above and below. Each matching neighbour multiplies output (clamped).

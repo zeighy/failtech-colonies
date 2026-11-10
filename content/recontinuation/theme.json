@@ -511,6 +511,14 @@
     "t_data": {
       "name": "Data Recovery Rig",
       "desc": "Works a data site. It needs only power. Each recovery attempt takes a long while and most find nothing, but the Office keeps asking, and the rig keeps answering. Low power slows it."
+    },
+    "reclamation_plant": {
+      "name": "LMAO Reclaim Mill",
+      "desc": "Takes Reclaim by the truckload and turns it into something the Office will count. What it makes depends on how the line is set."
+    },
+    "cell_bank": {
+      "name": "Klein Reserve Bank",
+      "desc": "Klein Cells on standby. When the Klein grid runs short it makes up the difference, and burns cells from this site's stock only for as long as it has to."
     }
   },
   "districts": {
@@ -658,6 +666,120 @@
     },
     "modules": {
       "name": "Donstand-Pattern Modules"
+    }
+  },
+  "processes": {
+    "water_purifier.scrap_bed": {
+      "name": "Reclaim-Bed Filtration",
+      "desc": "Runs the draw through beds of crushed Reclaim. More Filtrate from the same plant."
+    },
+    "water_purifier.reagent_dose": {
+      "name": "Reagent Dosing",
+      "desc": "Doses the intake with Reagent Stock and runs the plant flat out."
+    },
+    "hydroponics_bay.biomass_feed": {
+      "name": "Mycelial Feedstock",
+      "desc": "Feeds the beds on Mycelial Biomass from the Reserve. Heavier crops under the same lamps."
+    },
+    "parts_assembler.ingot_stamping": {
+      "name": "Ingot Stamping",
+      "desc": "Stamps parts from Ingots instead of sorting them out of Reclaim."
+    },
+    "fabrication_works.polymer_bound": {
+      "name": "Polymer-Bound Stock",
+      "desc": "Binds shredded Reclaim with Polymer Stock. Eats Reclaim, prints a great deal."
+    },
+    "foundry.ingot_charge": {
+      "name": "Ingot Charge",
+      "desc": "Charges the furnace with Ingots and tops it up with Reclaim."
+    },
+    "foundry.flux_refined": {
+      "name": "Flux-Refined Pour",
+      "desc": "A reagent flux lets the furnace take far more Reclaim per pour."
+    },
+    "kitchen.preserved_stores": {
+      "name": "Preserved Stores",
+      "desc": "Stretches Nutrient Paste with preserved Mycelial Biomass."
+    },
+    "scrap_generator.fuel_assisted": {
+      "name": "Fuel-Assisted Burn",
+      "desc": "A splash of Refined Fuel keeps a much bigger Reclaim fire going."
+    },
+    "ore_drill.fuel_drill": {
+      "name": "Fuel-Driven Bore",
+      "desc": "Runs the bore on Refined Fuel as well as the grid."
+    },
+    "smelter.fuel_fired": {
+      "name": "Fuel-Fired Smelting",
+      "desc": "Burns Refined Fuel under the charge for a hotter, faster melt."
+    },
+    "alloy_works.reagent_quench": {
+      "name": "Reagent Quench",
+      "desc": "Quenches in Reagent Stock and folds Reclaim into the melt."
+    },
+    "cracking_tower.fuel_cut": {
+      "name": "Fuel Cut",
+      "desc": "Sets the tower to favour Refined Fuel."
+    },
+    "cracking_tower.reagent_cut": {
+      "name": "Reagent Cut",
+      "desc": "Sets the tower to favour Reagent Stock."
+    },
+    "cracking_tower.catalytic": {
+      "name": "Catalytic Cracking",
+      "desc": "An ingot catalyst gets more of both out of the Crude."
+    },
+    "polymer_plant.scrap_fed": {
+      "name": "Reclaim-Fed Polymerisation",
+      "desc": "Feeds shredded Reclaim in as filler."
+    },
+    "synth_reclaimer.reagent_wash": {
+      "name": "Reagent Wash",
+      "desc": "A reagent wash recovers more Polymer Stock from the same Raw Ink."
+    },
+    "circuit_fab.alloy_traces": {
+      "name": "Spine-Alloy Traces",
+      "desc": "Lays traces in Spine Alloy instead of machining them from parts."
+    },
+    "cell_forge.reagent_electrolyte": {
+      "name": "Reagent Electrolyte",
+      "desc": "A reagent electrolyte and Reclaim casings: two cells from the alloy and circuits of one."
+    },
+    "cell_forge.polymer_cased": {
+      "name": "Polymer-Cased Cells",
+      "desc": "Polymer casings and a full reagent charge. The forge at its limit."
+    },
+    "fuel_generator.afterburn": {
+      "name": "Reagent Afterburn",
+      "desc": "Injects Reagent Stock into the exhaust for a second burn."
+    },
+    "bio_dome.fertilised_beds": {
+      "name": "Primed Beds",
+      "desc": "Feeds the dome its own Soil Primer."
+    },
+    "agri_lab.reagent_fixed": {
+      "name": "Reagent-Fixed Primer",
+      "desc": "Fixes the mix with Reagent Stock from the Stacks."
+    },
+    "pharma_lab.polymer_capsule": {
+      "name": "Polymer Capsules",
+      "desc": "Polymer capsules keep more of every batch."
+    },
+    "reclamation_plant.press_board": {
+      "name": "Pressed Stock",
+      "desc": "Presses Reclaim and a few parts into Print Stock."
+    },
+    "reclamation_plant.ink_leach": {
+      "name": "Ink Leach",
+      "desc": "Leaches Raw Ink out of Reclaim with Reagent Stock."
+    },
+    "reclamation_plant.frame_blanks": {
+      "name": "Frame Blanks",
+      "desc": "Turns Reclaim, Print Stock and a little Spine Alloy into Spine Frames."
+    },
+    "reclamation_plant.fitting_blanks": {
+      "name": "Fitting Blanks",
+      "desc": "Turns Reclaim, parts and a circuit into Dampener Fittings."
     }
   },
   "missionTitles": [

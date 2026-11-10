@@ -302,6 +302,28 @@ const shipment = guarded((c, { from, to, resource, qty }) => {
   return OK;
 });
 
+// What the whole colony has done, for alternative recipes that open at a milestone.
+function milestonesOf(c) {
+  return { beacon: store.hasBeacon(c.id), freeport: missions.hasFreePort(c.id), station: !!orbital.stationOf(c.id) };
+}
+// Set a production building to one of its alternative recipes, or back to its base recipe (recipe: null). There is no
+// charge, but the line stands idle while it is retooled (config.production.switchTicks), every time.
+function setAlternative(c, d, b, bdef, recipe) {
+  if (!bdef.alternatives || (config.orbitalTypes || {})[d.type]) return fail('This building does not take recipes.');
+  const id = recipe === null || recipe === undefined || recipe === '' || recipe === 'base' ? null : recipe;
+  if (id !== null && !sim.alternativeOf(bdef, id)) return fail('Unknown recipe.');
+  if ((b.recipe || null) === id) return OK;
+  const tick = tickNow();
+  if (b.recipe_ready_tick > tick) return fail(`${bdef.name} is still being retooled (${b.recipe_ready_tick - tick} ticks).`);
+  if (id !== null && !sim.altUnlocked(bdef.alternatives[id], { level: d.level, milestones: milestonesOf(c) })) {
+    const u = bdef.alternatives[id].unlock || {};
+    const need = u.level ? `${d.type === 'core' ? 'hub' : 'district'} level ${u.level}` : { beacon: 'the Beacon', freeport: 'the Free Port', station: 'a station in orbit' }[u.milestone] || 'more progress';
+    return fail(`${bdef.alternatives[id].name} needs ${need}.`);
+  }
+  db.prepare('UPDATE colony_buildings SET recipe = ?, recipe_ready_tick = ? WHERE id = ?').run(id, tick + config.production.switchTicks, b.id);
+  return OK;
+}
+
 // ---- the Free Port: recipes, shields and missions ------------------------------------------
 // The first recipe is free. Changing it costs credits (so many ticks of the old output at market value) and idles the
 // workshop for a while.
@@ -311,7 +333,7 @@ const setRecipe = guarded((c, { ring, slot, recipe, district }) => {
   const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing there.');
   const bdef = config.buildings[b.building_type];
-  if (!bdef.recipeBuilding) return fail('This building does not take recipes.');
+  if (!bdef.recipeBuilding) return setAlternative(c, d, b, bdef, recipe);
   if (!own(sim.recipeBook(config, bdef), recipe)) return fail('Unknown recipe.');
   if (d.type === 'territory') { const bad = territories.checkRecipe(d, recipe); if (bad) return fail(bad); }
   if (b.recipe === recipe) return OK;

@@ -27,6 +27,8 @@
     agri_lab: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M8 15h8"/>',
     pharma_lab: '<rect x="3.5" y="9" width="17" height="7" rx="3.5" transform="rotate(-35 12 12.5)"/><path d="M9.8 7.2l5.4 7.6"/>',
     trade_workshop: '<path d="M3 20h18M5 20V9l7-5 7 5v11M9 20v-6h6v6M9 11h6"/><path d="M12 4V2"/>',
+    reclamation_plant: '<path d="M4 20h16M6 20V9l4 3V9l4 3V6h4v14"/><path d="M9 16h2M14 16h2"/>',
+    cell_bank: '<rect x="3" y="7" width="7" height="12" rx="1.5"/><rect x="14" y="7" width="7" height="12" rx="1.5"/><path d="M5.5 7V5h2v2M16.5 7V5h2v2M6.5 11v4M17.5 11v4M10 13h4"/>',
     warehouse: '<path d="M3 10l9-6 9 6v10H3z"/><path d="M9 20v-6h6v6"/>',
     watch_post: '<path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/>',
     beacon_array: '<path d="M12 12v9M9 21h6M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.5 5.5a9 9 0 0 0 0 13M18.5 5.5a9 9 0 0 1 0 13"/><circle cx="12" cy="12" r="1.2"/>',

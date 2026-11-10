@@ -36,6 +36,8 @@ const SECTIONS = {
   hazards: [(c) => c.hazards.types, ['name', 'desc']],
   factions: [(c) => c.missions.factions, ['name', 'desc']],
   recipes: [(c) => c.recipes, ['name']],
+  // alternative recipes of production buildings, keyed building.recipe (foundry.ingot_charge)
+  processes: [(c) => Object.fromEntries(Object.entries(c.buildings).flatMap(([b, def]) => Object.entries(def.alternatives || {}).map(([a, alt]) => [`${b}.${a}`, alt]))), ['name', 'desc']],
   orbitalRecipes: [(c) => c.orbitalRecipes || {}, ['name']],
   tapRecipes: [(c) => c.tapRecipes || {}, ['name']],
   places: [(c) => c.orbitalTypes || {}, ['name']],

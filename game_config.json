@@ -752,6 +752,38 @@
           "machined_parts": 20,
           "building_materials": 10
         }
+      },
+      "alternatives": {
+        "scrap_bed": {
+          "name": "Scrap-bed filtration",
+          "desc": "Runs the water through beds of crushed scrap. More water through the same plant.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 12,
+            "unpurified_water": 22,
+            "scrap": 6
+          },
+          "outputsPerTick": {
+            "clean_water": 24
+          }
+        },
+        "reagent_dose": {
+          "name": "Reagent dosing",
+          "desc": "Doses the intake with reagents and runs the plant flat out.",
+          "unlock": {
+            "level": 5
+          },
+          "inputsPerTick": {
+            "energy": 14,
+            "unpurified_water": 24,
+            "reagents": 1
+          },
+          "outputsPerTick": {
+            "clean_water": 36
+          }
+        }
       }
     },
     "parts_assembler": {
@@ -780,6 +812,23 @@
         "cost": {
           "machined_parts": 20,
           "building_materials": 10
+        }
+      },
+      "alternatives": {
+        "ingot_stamping": {
+          "name": "Ingot stamping",
+          "desc": "Stamps parts from ingots instead of sorting them out of scrap.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 14,
+            "scrap": 12,
+            "ingots": 4
+          },
+          "outputsPerTick": {
+            "machined_parts": 13
+          }
         }
       }
     },
@@ -812,7 +861,24 @@
         },
         "outputMult": 1.35
       },
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "biomass_feed": {
+          "name": "Biomass feedstock",
+          "desc": "Feeds the beds on biomass from the growing district. Heavier crops from the same lamps.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 18,
+            "clean_water": 6,
+            "biomass": 6
+          },
+          "outputsPerTick": {
+            "rations": 18
+          }
+        }
+      }
     },
     "fabrication_works": {
       "name": "Fabrication Works",
@@ -835,7 +901,24 @@
       "minPlotSize": 2,
       "workers": 4,
       "comfort": -5,
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "polymer_bound": {
+          "name": "Polymer-bound stock",
+          "desc": "Binds shredded scrap with polymer. Eats scrap, makes a lot of building stock.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 16,
+            "scrap": 40,
+            "polymers": 2
+          },
+          "outputsPerTick": {
+            "building_materials": 10
+          }
+        }
+      }
     },
     "scrap_generator": {
       "essential": true,
@@ -857,7 +940,23 @@
       "color": "#ff7b3a",
       "workers": 2,
       "comfort": -7,
-      "expand": "infrastructure"
+      "expand": "infrastructure",
+      "alternatives": {
+        "fuel_assisted": {
+          "name": "Fuel-assisted burn",
+          "desc": "A splash of fuel keeps a much bigger scrap fire going.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "scrap": 25,
+            "fuel": 1
+          },
+          "outputsPerTick": {
+            "energy": 130
+          }
+        }
+      }
     },
     "synth_reclaimer": {
       "name": "Synthetics Reclaimer",
@@ -896,7 +995,25 @@
         "outputsPerTick": {
           "raw_synthetics": 12
         }
-      }
+      },
+      "alternatives": {
+        "reagent_wash": {
+          "name": "Reagent wash",
+          "desc": "A reagent wash recovers more polymer from the same synthetics.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 10,
+            "raw_synthetics": 12,
+            "reagents": 1
+          },
+          "outputsPerTick": {
+            "polymers": 9
+          }
+        }
+      },
+      "districtTier": 2
     },
     "foundry": {
       "name": "Foundry",
@@ -920,7 +1037,129 @@
       "color": "#e07a5f",
       "workers": 5,
       "comfort": -8,
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "ingot_charge": {
+          "name": "Ingot charge",
+          "desc": "Charges the furnace with ingots and tops it up with scrap.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 26,
+            "scrap": 30,
+            "ingots": 5
+          },
+          "outputsPerTick": {
+            "alloys": 8
+          }
+        },
+        "flux_refined": {
+          "name": "Flux-refined melt",
+          "desc": "A reagent flux lets the furnace take far more scrap per pour.",
+          "unlock": {
+            "milestone": "freeport"
+          },
+          "inputsPerTick": {
+            "energy": 30,
+            "scrap": 60,
+            "ingots": 6,
+            "reagents": 1
+          },
+          "outputsPerTick": {
+            "alloys": 12
+          }
+        }
+      }
+    },
+    "reclamation_plant": {
+      "name": "Reclamation Plant",
+      "type": "refinery",
+      "desc": "Takes scrap by the truckload and turns it into something worth having. What it makes depends on how it is set up.",
+      "constructionTicks": 10,
+      "cost": {
+        "scrap": 1200,
+        "machined_parts": 80,
+        "building_materials": 80,
+        "alloys": 30
+      },
+      "inputsPerTick": {
+        "energy": 28,
+        "scrap": 120
+      },
+      "outputsPerTick": {
+        "ingots": 5
+      },
+      "minPlotSize": 3,
+      "color": "#d08c60",
+      "workers": 5,
+      "comfort": -7,
+      "minHubLevel": 4,
+      "expand": "industry",
+      "alternatives": {
+        "press_board": {
+          "name": "Pressed stock",
+          "desc": "Presses scrap and a few parts into building stock.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 28,
+            "scrap": 150,
+            "machined_parts": 2
+          },
+          "outputsPerTick": {
+            "building_materials": 8
+          }
+        },
+        "ink_leach": {
+          "name": "Synthetics leach",
+          "desc": "Leaches raw synthetics out of scrap with reagents.",
+          "unlock": {
+            "level": 5
+          },
+          "inputsPerTick": {
+            "energy": 30,
+            "scrap": 140,
+            "reagents": 2
+          },
+          "outputsPerTick": {
+            "raw_synthetics": 7
+          }
+        },
+        "frame_blanks": {
+          "name": "Frame blanks",
+          "desc": "Turns scrap, building stock and a little alloy into structural frames.",
+          "unlock": {
+            "milestone": "freeport"
+          },
+          "inputsPerTick": {
+            "energy": 36,
+            "scrap": 200,
+            "building_materials": 5,
+            "alloys": 1
+          },
+          "outputsPerTick": {
+            "frames": 1
+          }
+        },
+        "fitting_blanks": {
+          "name": "Fitting blanks",
+          "desc": "Turns scrap, parts and a circuit into process fittings.",
+          "unlock": {
+            "milestone": "station"
+          },
+          "inputsPerTick": {
+            "energy": 36,
+            "scrap": 200,
+            "machined_parts": 12,
+            "circuits": 1
+          },
+          "outputsPerTick": {
+            "fittings": 1
+          }
+        }
+      }
     },
     "circuit_fab": {
       "name": "Circuit Fabricator",
@@ -948,7 +1187,26 @@
       "districts": [
         "stacks"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "alloy_traces": {
+          "name": "Alloy traces",
+          "desc": "Lays traces in alloy instead of machining them from parts.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 22,
+            "raw_synthetics": 5,
+            "polymers": 4,
+            "alloys": 1
+          },
+          "outputsPerTick": {
+            "circuits": 4
+          }
+        }
+      },
+      "districtTier": 2
     },
     "cell_forge": {
       "name": "Cell Forge",
@@ -977,7 +1235,44 @@
       "districts": [
         "stacks"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "reagent_electrolyte": {
+          "name": "Reagent electrolyte",
+          "desc": "A reagent electrolyte and scrap casings: two cells from the alloy and circuits of one.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 36,
+            "alloys": 3,
+            "circuits": 2,
+            "reagents": 2,
+            "scrap": 30
+          },
+          "outputsPerTick": {
+            "power_cells": 2
+          }
+        },
+        "polymer_cased": {
+          "name": "Polymer-cased cells",
+          "desc": "Polymer casings and a full reagent charge. The forge at its limit.",
+          "unlock": {
+            "milestone": "beacon"
+          },
+          "inputsPerTick": {
+            "energy": 42,
+            "alloys": 4,
+            "circuits": 3,
+            "polymers": 2,
+            "reagents": 2
+          },
+          "outputsPerTick": {
+            "power_cells": 3.5
+          }
+        }
+      },
+      "districtTier": 3
     },
     "warehouse": {
       "essential": true,
@@ -995,6 +1290,34 @@
       "color": "#9aa5b1",
       "storageBonus": 1000,
       "workers": 1,
+      "expand": "infrastructure"
+    },
+    "cell_bank": {
+      "essential": true,
+      "name": "Cell Bank",
+      "type": "utility",
+      "desc": "A bank of power cells on standby. When the grid runs short it makes up the difference, burning cells from this place's stockpile only for as long as it is needed.",
+      "constructionTicks": 8,
+      "cost": {
+        "scrap": 500,
+        "building_materials": 60,
+        "alloys": 30,
+        "circuits": 20,
+        "power_cells": 10
+      },
+      "inputsPerTick": {},
+      "outputsPerTick": {},
+      "minPlotSize": 2,
+      "color": "#f9e07f",
+      "workers": 1,
+      "comfort": -1,
+      "minHubLevel": 4,
+      "buffer": {
+        "power": 90,
+        "perTick": {
+          "power_cells": 1
+        }
+      },
       "expand": "infrastructure"
     },
     "watch_post": {
@@ -1066,7 +1389,25 @@
       "color": "#ff8fa3",
       "workers": 3,
       "comfort": 2,
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "preserved_stores": {
+          "name": "Preserved stores",
+          "desc": "Stretches rations with preserved biomass.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 8,
+            "rations": 6,
+            "biomass": 5,
+            "clean_water": 2
+          },
+          "outputsPerTick": {
+            "meals": 14
+          }
+        }
+      }
     },
     "dormitory": {
       "name": "Dormitory",
@@ -1150,7 +1491,24 @@
           "machined_parts": 10,
           "building_materials": 5
         }
-      }
+      },
+      "alternatives": {
+        "fuel_drill": {
+          "name": "Fuel-driven bore",
+          "desc": "Runs the bore on fuel as well as the grid.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 10,
+            "fuel": 1
+          },
+          "outputsPerTick": {
+            "ore": 38
+          }
+        }
+      },
+      "districtTier": 1
     },
     "smelter": {
       "name": "Smelter",
@@ -1167,7 +1525,8 @@
         "ore": 20
       },
       "outputsPerTick": {
-        "ingots": 8
+        "ingots": 8,
+        "scrap": 8
       },
       "minPlotSize": 2,
       "color": "#c9ada7",
@@ -1183,8 +1542,30 @@
         "cost": {
           "machined_parts": 20,
           "building_materials": 10
+        },
+        "outputsPerTick": {
+          "ingots": 8
         }
-      }
+      },
+      "alternatives": {
+        "fuel_fired": {
+          "name": "Fuel-fired smelting",
+          "desc": "Burns fuel under the charge for a hotter, faster melt.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 18,
+            "ore": 26,
+            "fuel": 2
+          },
+          "outputsPerTick": {
+            "ingots": 14,
+            "scrap": 10
+          }
+        }
+      },
+      "districtTier": 1
     },
     "alloy_works": {
       "name": "Alloy Works",
@@ -1211,7 +1592,26 @@
       "districts": [
         "pits"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "reagent_quench": {
+          "name": "Reagent quench",
+          "desc": "Quenches in reagent and folds scrap into the melt.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 24,
+            "ingots": 8,
+            "reagents": 1,
+            "scrap": 20
+          },
+          "outputsPerTick": {
+            "alloys": 14
+          }
+        }
+      },
+      "districtTier": 2
     },
     "crude_pump": {
       "name": "Crude Pump",
@@ -1244,7 +1644,8 @@
           "machined_parts": 10,
           "building_materials": 5
         }
-      }
+      },
+      "districtTier": 1
     },
     "cracking_tower": {
       "name": "Cracking Tower",
@@ -1262,7 +1663,8 @@
       },
       "outputsPerTick": {
         "fuel": 8,
-        "reagents": 5
+        "reagents": 5,
+        "scrap": 6
       },
       "minPlotSize": 1,
       "color": "#ff7b3a",
@@ -1278,8 +1680,64 @@
         "cost": {
           "machined_parts": 20,
           "building_materials": 10
+        },
+        "outputsPerTick": {
+          "fuel": 8,
+          "reagents": 5
         }
-      }
+      },
+      "alternatives": {
+        "fuel_cut": {
+          "name": "Fuel cut",
+          "desc": "Sets the tower to favour fuel.",
+          "unlock": {
+            "level": 2
+          },
+          "inputsPerTick": {
+            "energy": 16,
+            "crude": 15
+          },
+          "outputsPerTick": {
+            "fuel": 12,
+            "reagents": 2,
+            "scrap": 6
+          }
+        },
+        "reagent_cut": {
+          "name": "Reagent cut",
+          "desc": "Sets the tower to favour reagents.",
+          "unlock": {
+            "level": 2
+          },
+          "inputsPerTick": {
+            "energy": 16,
+            "crude": 15
+          },
+          "outputsPerTick": {
+            "fuel": 4,
+            "reagents": 8,
+            "scrap": 6
+          }
+        },
+        "catalytic": {
+          "name": "Catalytic cracking",
+          "desc": "An ingot catalyst gets more of both out of the crude.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 20,
+            "crude": 18,
+            "ingots": 1
+          },
+          "outputsPerTick": {
+            "fuel": 11,
+            "reagents": 8,
+            "scrap": 6
+          }
+        }
+      },
+      "districtTier": 1
     },
     "polymer_plant": {
       "name": "Polymer Plant",
@@ -1322,7 +1780,27 @@
         "outputsPerTick": {
           "polymers": 6
         }
-      }
+      },
+      "alternatives": {
+        "scrap_fed": {
+          "name": "Scrap-fed polymerisation",
+          "desc": "Feeds shredded scrap in as filler.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 20,
+            "crude": 12,
+            "ingots": 2,
+            "scrap": 40
+          },
+          "outputsPerTick": {
+            "polymers": 9,
+            "raw_synthetics": 10
+          }
+        }
+      },
+      "districtTier": 2
     },
     "fuel_generator": {
       "essential": true,
@@ -1347,7 +1825,24 @@
       "districts": [
         "stacks"
       ],
-      "expand": "infrastructure"
+      "expand": "infrastructure",
+      "alternatives": {
+        "afterburn": {
+          "name": "Reagent afterburn",
+          "desc": "Injects reagent into the exhaust for a second burn.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "fuel": 6,
+            "reagents": 1
+          },
+          "outputsPerTick": {
+            "energy": 115
+          }
+        }
+      },
+      "districtTier": 1
     },
     "bio_dome": {
       "name": "Bio Dome",
@@ -1372,7 +1867,25 @@
       "districts": [
         "greenbelt"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "fertilised_beds": {
+          "name": "Fertilised beds",
+          "desc": "Feeds the dome its own fertiliser.",
+          "unlock": {
+            "level": 2
+          },
+          "inputsPerTick": {
+            "energy": 10,
+            "unpurified_water": 5,
+            "fertiliser": 1
+          },
+          "outputsPerTick": {
+            "biomass": 30
+          }
+        }
+      },
+      "districtTier": 1
     },
     "agri_lab": {
       "name": "Agri Lab",
@@ -1386,11 +1899,11 @@
       },
       "inputsPerTick": {
         "energy": 12,
-        "biomass": 12,
-        "reagents": 2
+        "biomass": 12
       },
       "outputsPerTick": {
-        "fertiliser": 5
+        "fertiliser": 4,
+        "scrap": 4
       },
       "minPlotSize": 1,
       "color": "#c7f464",
@@ -1399,7 +1912,26 @@
       "districts": [
         "greenbelt"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "reagent_fixed": {
+          "name": "Reagent-fixed fertiliser",
+          "desc": "Fixes the mix with reagents from the refinery district.",
+          "unlock": {
+            "level": 2
+          },
+          "inputsPerTick": {
+            "energy": 12,
+            "biomass": 12,
+            "reagents": 2
+          },
+          "outputsPerTick": {
+            "fertiliser": 7,
+            "scrap": 4
+          }
+        }
+      },
+      "districtTier": 1
     },
     "pharma_lab": {
       "name": "Pharma Lab",
@@ -1414,8 +1946,7 @@
       "inputsPerTick": {
         "energy": 14,
         "biomass": 8,
-        "reagents": 3,
-        "polymers": 1
+        "reagents": 3
       },
       "outputsPerTick": {
         "medicine": 3
@@ -1427,7 +1958,26 @@
       "districts": [
         "greenbelt"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "polymer_capsule": {
+          "name": "Polymer capsules",
+          "desc": "Polymer capsules keep more of every batch.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 16,
+            "biomass": 8,
+            "reagents": 3,
+            "polymers": 1
+          },
+          "outputsPerTick": {
+            "medicine": 5
+          }
+        }
+      },
+      "districtTier": 2
     },
     "trade_workshop": {
       "name": "Trade Workshop",
@@ -4047,5 +4597,8 @@
       "adjacent": {},
       "tier": 5
     }
+  },
+  "production": {
+    "switchTicks": 10
   }
 }

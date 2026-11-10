@@ -178,6 +178,21 @@ function territoryDef(def, type) {
   return def && type === 'territory' && def.territory ? { ...def, ...def.territory } : def;
 }
 
+// ---- alternative recipes -----------------------------------------------------------
+// The alternative recipe a building is set to, or null when it runs its base recipe.
+function alternativeOf(def, recipeId) {
+  return def && def.alternatives && recipeId && Object.prototype.hasOwnProperty.call(def.alternatives, recipeId) ? def.alternatives[recipeId] : null;
+}
+// Is an alternative open to a building? `unlock.level` is the level of the place the building stands in (the hub for the
+// Core, the district's own level elsewhere); `unlock.milestone` is something the whole colony has done ('beacon': the
+// Beacon is built; 'freeport': the Free Port is founded; 'station': the station is in orbit).
+function altUnlocked(alt, { level = 1, milestones = {} } = {}) {
+  const u = alt.unlock || {};
+  if (u.level && level < u.level) return false;
+  if (u.milestone && !milestones[u.milestone]) return false;
+  return true;
+}
+
 // What a building consumes, makes and needs in crew. Ordinary buildings use their definition; a Trade Workshop
 // runs its locked-in recipe, scaled by its plot: a bigger plot runs a bigger batch (everything scales: inputs,
 // outputs, power and crew), never a better ratio. `idle` is why it is not running, if it is not.
@@ -188,13 +203,17 @@ function rates(config, def, b, ring, type) {
     return { inputs: cyc ? { ...def.inputsPerTick, ...cyc.perTick } : def.inputsPerTick, outputs: {}, workers: def.workers || 0, idle: null, batch: 1, scale: 1 };
   }
   if (!def.recipeBuilding) {
+    // A production building may be set to one of its alternative recipes (def.alternatives): a different way of making
+    // the same thing, or something else, that opens up as the colony progresses. Retooling the line idles it for a while.
+    const io = alternativeOf(def, b.recipe) || def;
+    if (def.alternatives && b.resetting) return { inputs: {}, outputs: {}, workers: 0, idle: 'resetting', batch: 1, scale: 1 };
     // An expanded building is built "upward": its whole line scales (inputs, outputs, power), and so does its crew,
     // a little less than proportionally. It is more throughput in the same plot, never a better ratio.
     const lvl = def.expand ? Math.min(expansionTop(config), b.level || 1) : 1;
-    if (lvl <= 1) return { inputs: def.inputsPerTick, outputs: def.outputsPerTick, workers: def.workers || 0, idle: null, batch: 1, scale: 1 };
+    if (lvl <= 1) return { inputs: io.inputsPerTick, outputs: io.outputsPerTick, workers: def.workers || 0, idle: null, batch: 1, scale: 1 };
     const k = config.expansion.scale[lvl];
     const scale = (o) => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, v * k]));
-    return { inputs: scale(def.inputsPerTick), outputs: scale(def.outputsPerTick), workers: (def.workers || 0) * config.expansion.crew[lvl], idle: null, batch: 1, scale: k };
+    return { inputs: scale(io.inputsPerTick), outputs: scale(io.outputsPerTick), workers: (def.workers || 0) * config.expansion.crew[lvl], idle: null, batch: 1, scale: k };
   }
   const book = recipeBook(config, def);
   const rec = b.recipe && Object.prototype.hasOwnProperty.call(book, b.recipe) ? book[b.recipe] : null;
@@ -333,6 +352,29 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
     apply(i, eff, probe, null);
   }
   supply = Math.max(0, supply);
+  // Buffers (the Cell Bank) stand by until the grid runs short, then make up the difference by burning what they are
+  // stocked with, only as much as is needed and only if it is there.
+  const bankUse = new Map();
+  let buffered = 0;
+  if (demand > supply + EPS) {
+    let need = demand - supply;
+    const left = {};
+    for (const i of running) {
+      if (!i.def.buffer || need <= EPS) continue;
+      const cap = i.def.buffer.power * i.plot * i.xscale;
+      let frac = Math.min(1, need / cap);
+      for (const [r, a] of Object.entries(i.def.buffer.perTick)) {
+        if (left[r] === undefined) left[r] = Math.max(0, probe[r] || 0);
+        frac = Math.min(frac, left[r] / (a * i.xscale));
+      }
+      if (frac <= EPS) continue;
+      for (const [r, a] of Object.entries(i.def.buffer.perTick)) left[r] -= a * i.xscale * frac;
+      bankUse.set(i.b.id, frac);
+      buffered += cap * frac;
+      need -= cap * frac;
+    }
+    supply += buffered;
+  }
   const sat = demand <= supply + EPS || demand === 0 ? 1 : supply / demand;
 
   // Pass 2: the real thing.
@@ -360,6 +402,17 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
   let defense = 0;
   let storageBonus = 0;
   for (const i of running) {
+    if (i.def.buffer) {
+      // a buffer is either standing by or discharging: what it burns this tick was decided with the grid above
+      const frac = bankUse.get(i.b.id) || 0;
+      for (const [r, a] of Object.entries(i.def.buffer.perTick)) {
+        const used = Math.min(inv[r] || 0, a * i.xscale * frac);
+        inv[r] = (inv[r] || 0) - used;
+        flows[r].consumed += used;
+      }
+      bstate.set(i.b.id, { eff: frac, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, batch: i.batch, xscale: i.xscale, status: frac > EPS ? 'running' : 'standby', limiting: null, boost: null });
+      continue;
+    }
     const hasPower = (i.inputs.energy || 0) > 0;
     const { eff: mEff, limiting } = materialEff(i.inputs, inv);
     const pEff = hasPower ? sat : 1;
@@ -414,7 +467,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
   return {
     inventory: inv, flows, buildings: bstate,
     cap: (d.capOverride !== undefined ? d.capOverride : lvl.maxStorage) + storageBonus, defense, progressGain, launchGain,
-    energy: { supply, demand, satisfaction: sat },
+    energy: { supply, demand, satisfaction: sat, buffered },
     hub: { eff: hubEff, limiting: hubMat.limiting, power: hubPower },
     baseHousing: lvl.baseHousing || 0, housingBuilt, comfortWeighted,
   };
@@ -702,6 +755,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, canFeed, recipeBook, territoryDef, districtFoundable, expansionCost, expansionMax, expansionTop, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, canFeed, alternativeOf, altUnlocked, recipeBook, territoryDef, districtFoundable, expansionCost, expansionMax, expansionTop, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

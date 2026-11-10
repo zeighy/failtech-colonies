@@ -66,6 +66,7 @@ function clientConfig() {
     districtProgression: config.districtProgression,
     convoyIntervalTicks: config.global.convoyIntervalTicks,
     demolishRefund: config.global.demolishRefund,
+    production: config.production,
     buildQueue: { max: queue.max, replaceTimeMult: queue.replaceTimeMult },
     failureThresholdTicks: config.global.moraleFailureThresholdTicks,
   };
@@ -268,6 +269,8 @@ function viewFor(userId, now = Date.now()) {
       } })),
     foundable: Object.fromEntries(Object.keys(config.districtTypes || {}).map((k) => [k, sim.districtFoundable(config, k, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) })])),
     freeport: districts.some((d) => d.type === 'freeport'),
+    // what the colony has done, for alternative recipes that open at a milestone
+    milestones: { beacon: store.hasBeacon(c.id), freeport: districts.some((d) => d.type === 'freeport'), station: districts.some((d) => d.type === 'station') },
     founding: allOrders.filter((o) => o.action_type === 'found').map((o) => ({ id: o.id, type: o.data.type, remaining: o.ticks_remaining, total: o.ticks_total, queued: o.state === 'queued' })),
     convoy: { ticksLeft: ticksToConvoy, arrivesAt: nextTickAt + (ticksToConvoy - 1) * t.tickMs },
     colony: {

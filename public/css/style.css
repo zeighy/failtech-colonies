@@ -294,6 +294,9 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 /* free port */
 .recipe { border: 1px solid var(--line); background: var(--panel2); border-radius: var(--radius); margin: 5px 0; }
 .recipe.sel { border-color: var(--amber); }
+.recipe.locked .rname b { color: var(--dim); font-weight: 400; }
+.recipe.locked .rname small { color: var(--faint); }
+.recipe .rname b svg { vertical-align: -1px; }
 .recipe .rname { display: flex; width: 100%; justify-content: space-between; align-items: baseline; gap: 8px; background: none; border: 0; color: var(--text); padding: 8px 10px; text-align: left; font-size: 13px; }
 .recipe .rname small { color: var(--dim); font-size: 11px; }
 .recipe .io, .recipe .actions { padding: 0 10px 8px; }

@@ -438,9 +438,9 @@
       else if (b) {
         var def = CFG.buildings[b.type]; c = def.color; icoName = b.type;
         cls += ' built' + (b.paused ? ' paused' : '');
-        if (!b.paused && b.status && b.status !== 'running') cls += (b.eff < 0.01 ? ' stalled' : ' low');
+        if (!b.paused && b.status && b.status !== 'running' && b.status !== 'standby') cls += (b.eff < 0.01 ? ' stalled' : ' low');
         if (b.plot < 0.999) cls += ' cramped';
-        tag = b.paused ? 'OFF' : b.status === 'no_recipe' ? 'SET?' : b.status === 'resetting' ? 'RESET' : b.status === 'damaged' ? 'DOWN' : (b.eff < 0.995 ? pct(b.eff) : (b.plot < 0.999 ? '×' + b.plot.toFixed(2) : ''));
+        tag = b.paused ? 'OFF' : b.status === 'no_recipe' ? 'SET?' : b.status === 'resetting' ? 'RESET' : b.status === 'damaged' ? 'DOWN' : b.status === 'standby' ? '' : (b.eff < 0.995 ? pct(b.eff) : (b.plot < 0.999 ? '×' + b.plot.toFixed(2) : ''));
         name = def.name + ' (' + name + ')' + (b.plot < 0.999 ? ' · cramped plot' : '');
         if (b.mark) { cls += ' hz-' + b.mark; name += ' · ' + MARK_TXT[b.mark]; }
         if (!tag && b.level > 1) tag = '▲' + b.level;
@@ -508,7 +508,7 @@
   function powerChip(label) {
     var e = S.energy, ok = e.satisfaction >= 0.999;
     return { k: 'power', icon: 'bolt', place: true, label: label, cls: ok ? '' : e.satisfaction > 0.5 ? 'warn' : 'bad',
-      title: 'Supply ' + Math.floor(e.supply) + ', demand ' + Math.ceil(e.demand) + (ok ? '' : ' · production at ' + pct(e.satisfaction)),
+      title: 'Supply ' + Math.floor(e.supply) + ', demand ' + Math.ceil(e.demand) + (e.buffered > 0.5 ? ' · ' + Math.round(e.buffered) + ' of the supply is standby power, burning its reserve' : '') + (ok ? '' : ' · production at ' + pct(e.satisfaction)),
       html: '<span class="' + (ok ? '' : 'bad') + '">' + Math.floor(e.supply) + '</span><small>/ ' + Math.ceil(e.demand) + (MOBILE ? '' : ' used') + '</small>',
       meter: [e.demand ? clamp(e.supply / e.demand, 0, 1) * 100 : 100, ok ? 'var(--energy)' : e.satisfaction > 0.5 ? 'var(--warn)' : 'var(--bad)'] };
   }
@@ -871,6 +871,7 @@
     });
     if (full.length) out.push(['warn', full.length === 1 ? full[0] + ' is full and wasting' : full.length + ' stockpiles are full and wasting: ' + full.slice(0, 3).join(', ') + (full.length > 3 ? '…' : ''), 'stockpile']);
     if (S.energy.satisfaction < 0.999) out.push(['warn', 'Brownout · production at ' + pct(S.energy.satisfaction), '']);
+    else if (S.energy.buffered > 0.5) out.push(['warn', 'Standby power is covering ' + Math.round(S.energy.buffered) + ' of the grid\'s load', '']);
     if (S.hub.eff < 0.999) out.push(['warn', 'Hub under-maintained: short of ' + CFG.resources[S.hub.limiting].name, 'hub']);
     if (hz) out.push([hz.state === 'forecast' ? (hz.prep < 0.5 && hz.ticksUntil <= 12 ? 'bad' : 'warn') : (hz.severity > 0.02 ? 'bad' : 'warn'),
       hz.name + (hz.state === 'forecast' ? ' in ' + hz.ticksUntil + 't · ' + Math.round(hz.prep * 100) + '% prepared' : hz.severity > 0.02 ? ' in effect' : ' being weathered'), 'brief']);
@@ -1007,7 +1008,7 @@
   var STATUS = {
     running: ['Running', 'good'], paused: ['Paused', 'dim'], no_power: ['No power', 'bad'], low_power: ['Low power', 'warn'],
     starved: ['Missing inputs', 'bad'], low_input: ['Short on inputs', 'warn'], damaged: ['Damaged: awaiting repairs', 'bad'], understaffed: ['Short-staffed', 'warn'],
-    no_recipe: ['No recipe chosen', 'warn'], resetting: ['Resetting', 'warn']
+    no_recipe: ['No recipe chosen', 'warn'], resetting: ['Retooling', 'warn'], standby: ['Standing by', 'dim']
   };
   function plotName2(size) { return CFG.plotSizes[size].name; }
   // Replace: swap the building for another on the same plot, through the work queue.
@@ -1029,16 +1030,18 @@
       '<button class="btn danger" data-act="demolish" data-ring="' + b.ring + '" data-slot="' + b.slot + '" data-key="' + key + '" title="Refunds ' + refund + '% of the build cost">' +
       (confirmKey === key ? 'Confirm?' : 'Demolish') + '</button></div>' + replaceRow(b, d) +
       '<dl class="kv"><dt>Status</dt><dd class="' + st[1] + '">' + st[0] + why + '</dd>' +
-      '<dt>Efficiency</dt><dd>' + pct(b.paused ? 0 : b.eff) + '</dd>' +
+      (d.buffer ? '' : '<dt>Efficiency</dt><dd>' + pct(b.paused ? 0 : b.eff) + '</dd>') +
       '<dt>Adjacency</dt><dd class="' + (b.adj > 1.001 ? 'good' : b.adj < 0.999 ? 'bad' : 'dim') + '">' + (Math.abs(b.adj - 1) < 0.001 ? 'none' : '×' + b.adj.toFixed(2)) + '</dd>' +
       '<dt>Plot</dt><dd class="' + (b.plot < 0.999 ? 'bad' : 'good') + '">' + plotName(b.ring) + (b.plot < 0.999 ? ' · too small for ' + plotName2(d.minPlotSize) + ' · ×' + b.plot.toFixed(2) : (d.minPlotSize > 1 ? ' · fits' : '')) + '</dd>' +
       (d.workers ? '<dt>Crew</dt><dd class="' + (S.colony.staffing.ratio < 0.999 ? 'warn' : '') + '">' + d.workers + ' needed' + (S.colony.staffing.ratio < 0.999 ? ' · colony at ' + pct(S.colony.staffing.ratio) + ' staffed' : '') + '</dd>' : '') +
       (d.housing ? '<dt>Homes</dt><dd>+' + Math.floor(d.housing * b.plot) + ' people</dd><dt>Comfort</dt><dd class="' + (b.comfort > 0 ? 'good' : b.comfort < 0 ? 'bad' : 'dim') + '">' + (b.comfort > 0 ? '+' : '') + (b.comfort || 0) + '</dd>' : '') +
       (b.mark ? '<dt>Hazard</dt><dd class="' + (b.mark === 'hit' ? 'bad' : 'warn') + '">' + MARK_TXT[b.mark] + (b.haz < 0.999 ? ' · ×' + b.haz.toFixed(2) : '') + '</dd>' : '') + '</dl>' + rigBlock(b) +
-      '<div class="label sec">Per tick at current efficiency</div><div class="io">' + ioPills(d, b.paused ? 0 : b.eff, b.mult * b.haz) + '</div>' +
+      (d.buffer ? '' : '<div class="label sec">Per tick at current efficiency</div><div class="io">' + ioPills(ioOf(b, d), (b.paused ? 0 : b.eff) * (b.xscale || 1), b.mult * b.haz) + '</div>') +
       (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult) + ' storage each') + '</div>' : '') +
       (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult).toFixed(1) + '</span></div>' : '') +
       (d.transmit ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:#fff"></i>Signal ' + (b.eff * b.mult).toFixed(2) + ' / tick</span></div>' : '');
+    if (d.buffer) h += bufferCard(b, d);
+    if (d.alternatives && !activeD().orbital) h += processCard(b, d);
     if (d.expand) h += expansionCard(b, d);
     if (d.recipeBuilding) h += recipeCard(b);
     if (d.launchPad || d.catapult || d.commandCenter) h += window.Orbit.launchCard(b, d);
@@ -1059,6 +1062,47 @@
     return h + '<div class="dim" style="font-size:11px;margin-top:12px">Demolishing refunds ' + refund + '% of the build cost.</div>';
   }
 
+
+  // ---- alternative recipes: another way to run the same building, opening up as the colony progresses ------
+  function ioOf(b, d) { var alt = d.alternatives && b.recipe && d.alternatives[b.recipe]; return alt ? { inputsPerTick: alt.inputsPerTick, outputsPerTick: alt.outputsPerTick } : d; }
+  function altOpen(alt) {
+    var u = alt.unlock || {};
+    return !(u.level && activeD().level < u.level) && !(u.milestone && !(S.milestones || {})[u.milestone]);
+  }
+  function altNeeds(alt) {
+    var u = alt.unlock || {};
+    if (u.level && activeD().level < u.level) return 'Opens at ' + (activeD().core ? 'hub' : 'district') + ' level ' + u.level;
+    if (u.milestone && !(S.milestones || {})[u.milestone]) return 'Opens once ' + ({ beacon: 'the Beacon is built', freeport: 'the Free Port is founded', station: 'a station is in orbit' }[u.milestone] || 'the colony has come further');
+    return '';
+  }
+  function ioLines(io) {
+    return '<div class="io">' + Object.keys(io.inputsPerTick).map(function (r) { return pill(r, io.inputsPerTick[r], 'in'); }).join('') + '</div><div class="io" style="margin-top:4px">' +
+      Object.keys(io.outputsPerTick).map(function (r) { return pill(r, io.outputsPerTick[r], 'out'); }).join('') + '</div>';
+  }
+  function processCard(b, d) {
+    var cur = d.alternatives[b.recipe] || null, T = (CFG.production || {}).switchTicks || 0;
+    var h = '<div class="label sec">Recipe</div><div class="optcard on"><div class="top"><b>' + esc(cur ? cur.name : 'Standard') + '</b><span class="dim">' + (cur ? 'alternative' : 'as built') + '</span></div>' +
+      (cur && cur.desc ? '<div class="dim" style="font-size:12px;margin-bottom:6px">' + esc(cur.desc) + '</div>' : '') + ioLines(ioOf(b, d)) + '</div>';
+    if (b.resetting) return h + '<div class="note warn">Retooling the line: idle for ' + b.resetting + ' more tick' + (b.resetting === 1 ? '' : 's') + '.</div>';
+    h += '<div class="dim" style="font-size:11px;margin:8px 0 4px">Other ways to run it · switching costs nothing, but the line stands idle for ' + T + ' ticks while it is retooled</div>';
+    var list = [];
+    if (cur) list.push(['', { name: 'Standard', desc: 'The recipe it was built with.', inputsPerTick: d.inputsPerTick, outputsPerTick: d.outputsPerTick }]);
+    Object.keys(d.alternatives).forEach(function (k) { if (k !== b.recipe) list.push([k, d.alternatives[k]]); });
+    return h + list.map(function (x) {
+      var k = x[0], alt = x[1], open = !k || altOpen(alt), on = recipePick === 'p:' + k;
+      var outs = Object.keys(alt.outputsPerTick).map(function (o) { return mp(alt.outputsPerTick[o]) + ' ' + esc(o === 'energy' ? 'Power' : CFG.resources[o].name); }).join(', ');
+      return '<div class="recipe' + (on ? ' sel' : '') + (open ? '' : ' locked') + '"><button class="rname" data-act="recpick" data-rec="p:' + k + '"><b>' + (open ? '' : icon('lock', 11) + ' ') + esc(alt.name) + '</b><small>' + (open ? outs + '/t' : esc(altNeeds(alt))) + '</small></button>' +
+        (on ? (alt.desc ? '<div class="dim" style="font-size:12px;padding:0 10px 6px">' + esc(alt.desc) + '</div>' : '') + ioLines(alt) +
+          '<div class="actions"><button class="btn primary" data-act="procset" data-ring="' + b.ring + '" data-slot="' + b.slot + '" data-rec="' + k + '"' + (open ? '' : ' disabled') + '>' + (open ? 'Switch to this · idle ' + T + ' ticks' : esc(altNeeds(alt))) + '</button></div>' : '') + '</div>';
+    }).join('');
+  }
+  // A buffer (the Cell Bank): standing by, or making up a shortfall on the grid.
+  function bufferCard(b, d) {
+    var cap = d.buffer.power * b.plot * (b.xscale || 1), now = cap * (b.paused ? 0 : b.eff);
+    var burn = Object.keys(d.buffer.perTick).map(function (r) { return pill(r, d.buffer.perTick[r] * (b.xscale || 1), 'in'); }).join('');
+    return '<div class="label sec">Standby power</div><div class="optcard' + (now > 0.5 ? ' on' : '') + '"><div class="top"><b>' + (now > 0.5 ? 'Discharging ' + Math.round(now) + ' power' : 'Standing by') + '</b><span class="dim">up to ' + Math.round(cap) + '</span></div>' +
+      '<div class="dim" style="font-size:12px;margin-bottom:6px">Covers a shortfall on this place\'s grid, burning from this place\'s stockpile only while it is discharging. At full output:</div><div class="io">' + burn + '<span class="pill out"><i style="background:var(--energy)"></i>' + Math.round(cap) + ' Power</span></div></div>';
+  }
 
   // ---- Trade Workshop: the recipe is chosen once, and costs credits to change --------------
   var recipePick = null; // recipe being looked at in the picker, if any
@@ -2108,6 +2152,7 @@
     }
     else if (a === 'expand') act('expand', { ring: +el.dataset.ring, slot: +el.dataset.slot, district: activeId }).then(function (d) { if (d && d.ok) toast(d.queued ? 'Expansion added to the work queue.' : 'Expansion started.', d.queued ? 'info' : true); });
     else if (a === 'recpick') { recipePick = recipePick === el.dataset.rec ? null : el.dataset.rec; renderPanel(); }
+    else if (a === 'procset') { recipePick = null; act('recipe', { ring: +el.dataset.ring, slot: +el.dataset.slot, recipe: el.dataset.rec || null, district: activeId }, 'Retooling started.'); }
     else if (a === 'recset') { var rcp = el.dataset.rec; recipePick = null; act('recipe', { ring: +el.dataset.ring, slot: +el.dataset.slot, recipe: rcp, district: activeId }, 'Recipe set.'); }
     else if (a === 'shield') act('shield', { enabled: !(S.hazard && S.hazard.shield && S.hazard.shield.enabled) });
     else if (a === 'mfill') act('mission', { id: +el.dataset.id, faction: el.dataset.faction, district: msrc || activeId }, 'Mission filled.');
