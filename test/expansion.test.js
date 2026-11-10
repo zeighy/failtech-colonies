@@ -89,11 +89,12 @@ test('expanding: paid from the district stock, a work order, level goes up one s
   assert.equal(viewFor(c.uid).buildings.find((b) => b.type === 'hydroponics_bay').xnext, null);
 });
 
-test('expanding needs the materials, a real expandable building, and the colony\'s own district', () => {
+test('expanding waits for its materials, and needs a real expandable building in the colony\'s own district', () => {
   const c = colony();
   put(c, 1, 0, 'hydroponics_bay'); put(c, 1, 1, 'beacon_array');
   db.prepare("UPDATE colony_inventory SET amount = 1 WHERE district_id = ? AND resource_id = 'frames'").run(c.core);
-  assert.match(actions.expand(c.uid, { ring: 1, slot: 0 }).error, /Not enough materials/);
+  assert.deepEqual(actions.expand(c.uid, { ring: 1, slot: 0 }), { ok: true, queued: true }, 'without the materials it waits in the queue');
+  assert.equal(lvl(c, 1, 0), 1);
   assert.match(actions.expand(c.uid, { ring: 1, slot: 1 }).error, /cannot be expanded/);
   assert.match(actions.expand(c.uid, { ring: 4, slot: 4 }).error, /Nothing there/);
   assert.match(actions.expand(c.uid, { ring: -1, slot: 0 }).error, /Nothing there/);

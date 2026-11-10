@@ -12,6 +12,7 @@ const shutdown = require('./shutdown');
 const orbital = require('./orbital');
 const territories = require('./territories');
 const credits = require('./credits');
+const queue = require('./queue');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const { db, config } = store;
@@ -65,6 +66,7 @@ function clientConfig() {
     districtProgression: config.districtProgression,
     convoyIntervalTicks: config.global.convoyIntervalTicks,
     demolishRefund: config.global.demolishRefund,
+    buildQueue: { max: queue.max, replaceTimeMult: queue.replaceTimeMult },
     failureThresholdTicks: config.global.moraleFailureThresholdTicks,
   };
 }
@@ -199,7 +201,27 @@ function viewFor(userId, now = Date.now()) {
           dataProgress: b.type === 't_data' ? Math.round((b.dataProgress || 0) * 10) / 10 : undefined, recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
           resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type, config.buildings[b.type]) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
       }),
-      orders: dOrders.map((o) => ({ id: o.id, kind: o.action_type, data: o.data, remaining: o.ticks_remaining, total: o.ticks_total, rush: o.ticks_remaining > 1 ? credits.rushCost(c.id, o.action_type, o.ticks_remaining, t.globalTick) : 0 })),
+      // Orders in the order they run. `state` is 'active' (being carried out) or 'queued'; `pos` counts the queue from 1.
+      // The order at the front of an idle queue says what it is `waiting` for: stock the place is short of, or a reason.
+      orders: (() => {
+        const busy = dOrders.some((o) => o.state !== 'queued');
+        let pos = 0;
+        return dOrders.map((o) => {
+          const queued = o.state === 'queued';
+          const cost = queue.costOf(d, o);
+          const out = { id: o.id, kind: o.action_type, data: o.data, state: queued ? 'queued' : 'active', remaining: o.ticks_remaining, total: o.ticks_total, cost,
+            rush: !queued && o.ticks_remaining > 1 ? credits.rushCost(c.id, o.action_type, o.ticks_remaining, t.globalTick) : 0 };
+          if (queued) {
+            out.pos = ++pos;
+            if (!busy && pos === 1) {
+              const held = queue.check(c, d, d.level, o, t.globalTick);
+              out.waiting = { short: queue.shortfall(d.inventory, cost, queue.refundOf(d, o)) || {}, why: held ? (held.wait || held.drop) : null };
+            }
+          }
+          return out;
+        });
+      })(),
+      queueMax: queue.max,
     };
   };
   const views = {};
@@ -246,7 +268,7 @@ function viewFor(userId, now = Date.now()) {
       } })),
     foundable: Object.fromEntries(Object.keys(config.districtTypes || {}).map((k) => [k, sim.districtFoundable(config, k, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) })])),
     freeport: districts.some((d) => d.type === 'freeport'),
-    founding: allOrders.filter((o) => o.action_type === 'found').map((o) => ({ id: o.id, type: o.data.type, remaining: o.ticks_remaining, total: o.ticks_total })),
+    founding: allOrders.filter((o) => o.action_type === 'found').map((o) => ({ id: o.id, type: o.data.type, remaining: o.ticks_remaining, total: o.ticks_total, queued: o.state === 'queued' })),
     convoy: { ticksLeft: ticksToConvoy, arrivesAt: nextTickAt + (ticksToConvoy - 1) * t.tickMs },
     colony: {
       status: c.status, won: !!c.won, progress: proj.progress, hazardsSurvived: c.hazards_survived,

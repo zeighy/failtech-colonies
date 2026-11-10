@@ -58,6 +58,7 @@ Chains resolve in this building order, so output made this tick can be consumed 
 | Klein Reactor (klein_reactor) | generator | station | Medium | 60 Spine Frames, 40 Dampener Fittings | 1 Klein Cells | 90 power | – | – | 20 | – |
 | Orbital Foundry (orbital_foundry) | workshop | station | Medium | 80 Spine Frames, 60 Dampener Fittings | – | – | – | – | 25 | – |
 | Anomaly Tap (t_tap) | workshop | territory | Medium | 40 Hard-Spec Parts, 30 Print Stock, 10 Spine Alloy | – | – | – | – | 12 | – |
+| Data Recovery Rig (t_data) | workshop | territory | Small | 40 Hard-Spec Parts, 30 Print Stock | 45 power | – | – | – | 12 | – |
 A building with partial inputs runs at partial efficiency (limited by its scarcest input). Buildings marked `optional` take an extra input that boosts output when switched on. Some buildings (`essential`) stay on during a shutdown (section 4b).
 
 ## **4b. People, housing, crew, morale and shutdown**
@@ -79,6 +80,14 @@ A building with partial inputs runs at partial efficiency (limited by its scarce
 | 4 | Heavy | 12 |
 | 5 | Colossal | 14 |
 A building can sit on a plot smaller than its minimum, but its output is multiplied by **0.6** per missing size step (inputs are still consumed in full). Rings 2 and 4 are rotated 15 degrees so slots do not line up between rings.
+
+## **5b. The work queue**
+* **One build slot per place.** The Core, every district, the station and every territory each build one thing at a time. Building, replacing, expanding, upgrading and (in the Core) founding a district all wait in the same line, up to 8 orders per place. Places do not hold each other up.
+* **Strict order.** Orders are carried out in the order they were queued. Nothing behind the front of the queue starts early, even if the place could pay for it. A waiting order can be moved up, down or to the front, and cancelled.
+* **Paid for when it starts.** An order costs nothing while it waits, so it can be queued before the materials exist. When its turn comes it waits at the front until its place can pay, and everything behind it waits too. Cancelling an order that has started refunds it in full.
+* **Dropped orders.** An order that can no longer be carried out when its turn comes (its plot was taken, the building is gone) is taken off the queue with a note in the log.
+* **Replace in place.** A building can be swapped for another on the same plot. The order goes through the queue and the old building keeps working until its turn. It is then scrapped for the demolition refund (50%), and the plot stands empty while the new building goes up, which takes **×1.5** its usual build time. Expansion levels are not carried over. A workshop with a recipe set has to be demolished instead.
+* **Rush** applies to the order under way, not to one that is waiting.
 
 ## **6. Adjacency**
 Neighbours are the two slots beside a building in its ring plus every touching slot in the rings above and below. Each matching neighbour multiplies output (clamped).
@@ -132,7 +141,7 @@ Districts unlock at Core level 4. Each has its own stockpile, power grid and rin
 
 ## **9. Logistics: shipments, routes and links**
 * **One-off shipments:** at most 6 on the road at once, up to 300 units each. Stock leaves now and arrives after the trip (anything over the destination's storage cap is lost).
-* **Standing routes:** up to 40. A route moves goods directly every tick, limited by the link's capacity and the source's reserve, and shows in both districts' rates. Routes do not use shipment slots.
+* **Standing routes:** up to 40. A route moves goods directly every tick, limited by the link's capacity and the source's reserve, and shows in both districts' rates. A route can also be given a target: it stops once the destination holds that much (0 = no target: it fills the destination's storage). Routes do not use shipment slots.
 | Link level | Capacity / tick | Upgrade cost (paid from the Core) |
 | --- | --- | --- |
 | 1 | 20 | start |
@@ -274,9 +283,9 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 | Sirius Cell (phase_cells) | 2 Icarus Compound, 1 Orphic Silt, 2 Klein Cells, 55 power | 0.25 Sirius Cell |
 | Phononic Amplifier (resonators) | 1 Windsor Crystal, 1 Phononic Substrate, 1 Hard-Spec Instruments, 35 power | 0.25 Phononic Amplifier |
 | Stabilized Alloy (still_frames) | 1 Graviton Metaloid, 1 Orphic Silt, 2 Spine Frames, 50 power | 0.25 Stabilized Alloy |
-**Orbital storage** is slot-limited: one resource per slot (level 1: 6 slots of 2,000; level 2: 8 slots of 4,000 for 200 Spine Frames, 120 Dampener Fittings; level 3: 10 slots of 8,000 for 300 Spine Frames, 200 Dampener Fittings, 30 Stabilized Alloy). The largest stocks claim slots first; anything without a slot is lost. Jettisoning empties a slot, which then costs 20 Spine Frames, 10 Dampener Fittings to rebuild.
-**Orbital links** run between the Core and the station, both ways (level 1: 4 links at 25/tick; level 2: 6 links at 40/tick for 200 Dampener Fittings, 100 Donstand-Pattern Modules; level 3: 8 links at 60/tick for 300 Dampener Fittings, 30 Sirius Cell). Rare resources never travel by link. **Express launch:** up to 400 of one resource from the Core, 150 + 0.5/unit Refined Fuel, arriving in 12 ticks, once every 480 ticks. **Express drop:** the other way, from orbital storage to the Core, for a capsule of 10 Dampener Fittings from orbital storage, landing in 12 ticks; it shares the cooldown.
-**Dropships** (up to 3; build 600 Spine Frames, 400 Dampener Fittings, 300 Donstand-Pattern Modules, 200 Klein Cells, 120 ticks): level 1 power 40, hold 600, links 15/tick; level 2 power 70, hold 1000, links 25/tick (200 Spine Frames, 150 Dampener Fittings, 80 Klein Cells); level 3 power 100, hold 1600, links 40/tick (350 Spine Frames, 250 Dampener Fittings, 120 Donstand-Pattern Modules). Landing takes 15 ticks with a kit of 140 Hard-Spec Parts, 110 Print Stock, 10 Spine Alloy; the hold can be preloaded. A ship on a territory gets up to 2 links to the station. Recalling brings back what the plan says (rare first) up to the hold, in 150 ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at 10% with the cargo gone; the second loses the ship.
+**Orbital storage** is slot-limited: one resource per slot (level 1: 6 slots of 2,000; level 2: 9 slots of 4,000 for 250000 credits, 200 Spine Frames, 120 Dampener Fittings; level 3: 12 slots of 8,000 for 600000 credits, 300 Spine Frames, 200 Dampener Fittings, 30 Stabilized Alloy). The largest stocks claim slots first; anything without a slot is lost. Jettisoning empties a slot, which then costs 20 Spine Frames, 10 Dampener Fittings to rebuild.
+**Orbital links** run between the Core and the station, both ways (level 1: 4 links at 25/tick; level 2: 6 links at 40/tick for 150000 credits, 200 Dampener Fittings, 100 Donstand-Pattern Modules; level 3: 8 links at 60/tick for 400000 credits, 300 Dampener Fittings, 30 Sirius Cell). Rare resources never travel by link. **Express launch:** up to 400 of one resource from the Core, 150 + 0.5/unit Refined Fuel, arriving in 12 ticks, once every 480 ticks. **Express drop:** the other way, from orbital storage to the Core, for a capsule of 10 Dampener Fittings from orbital storage, landing in 12 ticks; it shares the cooldown.
+**Dropships** (up to 3; build 300000 credits, 600 Spine Frames, 400 Dampener Fittings, 300 Donstand-Pattern Modules, 200 Klein Cells, 120 ticks): level 1 power 50, hold 600, links 15/tick; level 2 power 80, hold 1000, links 25/tick (250000 credits, 200 Spine Frames, 150 Dampener Fittings, 80 Klein Cells); level 3 power 120, hold 1600, links 40/tick (600000 credits, 350 Spine Frames, 250 Dampener Fittings, 120 Donstand-Pattern Modules). Landing takes 15 ticks with a kit of 140 Hard-Spec Parts, 110 Print Stock, 10 Spine Alloy; the hold can be preloaded. A ship on a territory gets up to 2 links to the station. Recalling brings back what the plan says (rare first) up to the hold, in 150 ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at 10% with the cargo gone; the second loses the ship.
 **Anomalous territories** are shared by every station: at least 7 are open, a taken one is replaced in 10-30 ticks. Each has two common resources (Reclaim, Aquifer Draw, Raw Ink), one district resource (Raw Ore, Crude) and one rare (Anfang Glass, Icarus Compound, Mobiulic Ore, Windsor Crystal, Mycolian Spores, Orphic Silt, Phononic Substrate, Graviton Metaloid). Rings 1: 3 × Small, 2: 5 × Medium, 3: 7 × Large, storage = the hold, power = the ship's. Leaving early keeps only 35% of its remaining time for the next visitor; still being there when it closes forces a late recall with damage.
 | Anomaly | Weight | Lasts (ticks) | Late damage | Integrity lost / tick | Rare × | Ship power × |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -320,17 +329,17 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 | Phononic Substrate | Phononic Substrate, route B (hum_resin_b) | 8 Raw Ink, 8 Refined Fuel, 18 power | 0.5 Phononic Substrate |
 | Graviton Metaloid | Graviton Metaloid, route A (still_metal_a) | 8 Ingots, 8 Hard-Spec Parts, 18 power | 0.5 Graviton Metaloid |
 | Graviton Metaloid | Graviton Metaloid, route B (still_metal_b) | 8 Raw Ore, 8 Hard-Spec Parts, 18 power | 0.5 Graviton Metaloid |
-**Orbital market:** trade goods only, straight from orbital storage, orders signed with the station name. Market makers post 20 (tier 2), 12 (tier 3), 6 (tier 4), 4 (tier 5) at ±8% of the reference every 240 ticks. Prices must stay within 0.5-2× the reference; 4% fee from sellers; lifetimes 100, 300, 1000; 10 open orders.
+**Orbital market:** trade goods only, straight from orbital storage, orders signed with the station name. Market makers post 20 (tier 2), 12 (tier 3), 6 (tier 4), 1 (tier 5) at ±8% of the reference every 240 ticks. Prices must stay within 0.5-2× the reference; 4% fee from sellers; lifetimes 100, 300, 1000; 10 open orders.
 **Global projects:** one at a time, announced 480 ticks ahead. Needs are per player × stations seen recently; the period is twice the time to make one player's share (2880-11520 ticks). Contributions travel by dropship (240 ticks). Completion gives every colony +40 standing with the project's faction and a bonus for half the period.
 | Project | Needs per player | Bonus |
 | --- | --- | --- |
-| Lattice Survey | 20 Sirius Core, 15 Phononic Amplifier | Workshops and foundries +10% |
-| Seed Vault | 20 Cliffside Rejuvenator, 120 Heritage Preserves | Growing lines +15% |
-| Deep Bore | 20 Dense Metal, 150 Tool Steel | Metal lines +10% |
-| Quiet Array | 15 Sirius Cell, 15 Stabilized Alloy | A trickle of one rare resource to every station |
-| Relay Spire | 20 Phononic Amplifier, 15 Sirius Cell | Power plants +10% |
-| Mycelium Commons | 20 Cliffside Rejuvenator, 15 Stabilized Alloy | Kitchens and pharma labs +15% |
-| Gravity Well | 20 Dense Metal, 15 Sirius Core | Fabrication lines +10% |
+| Lattice Survey | 40 Sirius Core, 30 Phononic Amplifier | Workshops and foundries +10% |
+| Seed Vault | 40 Cliffside Rejuvenator, 120 Heritage Preserves | Growing lines +15% |
+| Deep Bore | 40 Dense Metal, 150 Tool Steel | Metal lines +10% |
+| Quiet Array | 30 Sirius Cell, 30 Stabilized Alloy | A trickle of one rare resource to every station |
+| Relay Spire | 40 Phononic Amplifier, 30 Sirius Cell | Power plants +10% |
+| Mycelium Commons | 40 Cliffside Rejuvenator, 30 Stabilized Alloy | Kitchens and pharma labs +15% |
+| Gravity Well | 40 Dense Metal, 30 Sirius Core | Fabrication lines +10% |
 
 ## **17. Operations: backups**
 The server backs the database up automatically (`BACKUP_INTERVAL_HOURS`, default 6, 0 = off; `BACKUP_KEEP`, default 28; `BACKUP_DIR`). To restore: stop the server, copy a backup over the database file (delete its `-wal` and `-shm` files), start the server.

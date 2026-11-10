@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -437,6 +437,12 @@ function migrateToDistricts() {
   })();
 }
 migrate();
+// v17 (additive): the work queue and route targets. An order is 'queued' until its turn comes and 'active' while it is
+// being carried out; orders from before the queue are 'active' and finish side by side. A route can stop at a target
+// stock in the destination (0 = fill it).
+for (const [table, col, ddl] of [['colony_work_orders', 'state', "TEXT NOT NULL DEFAULT 'active'"], ['colony_work_orders', 'position', 'INTEGER NOT NULL DEFAULT 0'], ['colony_routes', 'target', 'INTEGER NOT NULL DEFAULT 0']]) {
+  if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+}
 
 // ---- meta -----------------------------------------------------------------
 const getMeta = (k, fallback = null) => {
@@ -537,10 +543,11 @@ function loadBuildings(colonyId, districtId = coreId(colonyId)) {
 function loadSlotLocks(districtId, tick) {
   return db.prepare('SELECT ring_index AS ring, slot_index AS slot, until_tick AS untilTick FROM slot_locks WHERE district_id = ? AND until_tick > ?').all(districtId, tick);
 }
+// Work orders, in the order they run: the ones under way first, then the queue from front to back.
 function loadOrders(colonyId, districtId) {
   const rows = districtId === undefined
-    ? db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? ORDER BY id').all(colonyId)
-    : db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? AND district_id = ? ORDER BY id').all(colonyId, districtId);
+    ? db.prepare("SELECT * FROM colony_work_orders WHERE colony_id = ? ORDER BY (state = 'queued'), position, id").all(colonyId)
+    : db.prepare("SELECT * FROM colony_work_orders WHERE colony_id = ? AND district_id = ? ORDER BY (state = 'queued'), position, id").all(colonyId, districtId);
   return rows.map((o) => ({ ...o, data: JSON.parse(o.target_data) }));
 }
 
@@ -557,7 +564,7 @@ function loadShipments(colonyId) {
 }
 
 function loadRoutes(colonyId) {
-  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, rate, reserve FROM colony_routes WHERE colony_id = ? ORDER BY id').all(colonyId);
+  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, rate, reserve, target FROM colony_routes WHERE colony_id = ? ORDER BY id').all(colonyId);
 }
 
 function loadHazard(colonyId) {

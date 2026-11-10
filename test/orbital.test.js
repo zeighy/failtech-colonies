@@ -191,9 +191,9 @@ test('the station builds its own buildings: a Klein reactor burns cells for powe
   assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 0, type: 'klein_reactor', district: did }), { ok: true });
   assert.match(actions.build(c.uid, { ring: 1, slot: 1, type: 'solar_array', district: did }).error, /can't be built/);
   assert.match(actions.build(c.uid, { ring: 2, slot: 0, type: 'orbital_foundry', district: did }).error, /locked/);
-  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 1, type: 'orbital_foundry', district: did }), { ok: true });
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 1, type: 'orbital_foundry', district: did }), { ok: true, queued: true }); // the station has one build slot too
   assert.match(actions.build(c.uid, { ring: 1, slot: 2, type: 'orbital_staging', district: did }).error, /can't be built/);
-  tick(config.buildings.orbital_foundry.constructionTicks);
+  tick(config.buildings.klein_reactor.constructionTicks + config.buildings.orbital_foundry.constructionTicks);
   assert.deepEqual(actions.setRecipe(c.uid, { ring: 1, slot: 1, recipe: 'lattice_cores', district: did }), { ok: true });
   // feed it: rare inputs in storage (a bigger store, so the output has a slot too)
   db.prepare('UPDATE stations SET storage_level = 2 WHERE colony_id = ?').run(c.id);

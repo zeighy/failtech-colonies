@@ -77,7 +77,7 @@ test('migration: a pre-district database keeps every colony, stockpile, building
     }));
   `], { env: { ...process.env, DB_PATH: file }, encoding: 'utf8' });
   const r = JSON.parse(out.trim().split('\n').pop());
-  assert.equal(r.version, 16);
+  assert.equal(r.version, 17);
   assert.deepEqual(r.districts, [
     { colony_id: 1, type: 'core', level: 3, name: 'The Core' },
     { colony_id: 2, type: 'core', level: 1, name: 'The Core' },
@@ -100,7 +100,7 @@ test('migration is idempotent: opening an up-to-date database again changes noth
   const run = () => JSON.parse(execFileSync(process.execPath, ['-e', script.replace("'c','x'", `'c${Math.random()}','x'`)], { env: { ...process.env, DB_PATH: file }, encoding: 'utf8' }).trim().split('\n').pop());
   const first = run();
   const second = run();
-  assert.equal(first.v, 16);
+  assert.equal(first.v, 17);
   assert.equal(second.n, first.n + 1, 'only the new colony gets a district');
 });
 
@@ -173,9 +173,12 @@ test('building in a district: paid from that stockpile, built in that district, 
   assert.equal(store.loadBuildings(id, core).length, 0);
   // the same slot in the core is a different slot
   assert.deepEqual(actions.build(uid, { ring: 1, slot: 0, type: 'solar_array' }), { ok: true });
-  // not enough in the outpost's own stockpile, even though the core is rich
+  // not enough in the outpost's own stockpile, even though the core is rich: the order waits in the outpost's queue
   db.prepare("UPDATE colony_inventory SET amount = 0 WHERE district_id = ? AND resource_id = 'scrap'").run(od);
-  assert.match(actions.build(uid, { ring: 1, slot: 1, type: 'solar_array', district: od }).error, /Not enough resources/);
+  const coreNow = stock(id, 'scrap', core);
+  assert.deepEqual(actions.build(uid, { ring: 1, slot: 1, type: 'solar_array', district: od }), { ok: true, queued: true });
+  assert.equal(store.loadOrders(id, od)[0].state, 'queued');
+  assert.equal(stock(id, 'scrap', core), coreNow, 'the core does not pay for it');
   // plot sizes and slots follow the district type
   assert.match(actions.build(uid, { ring: 2, slot: 0, type: 'solar_array', district: od }).error, /locked/);
 });

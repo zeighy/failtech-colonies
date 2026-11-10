@@ -441,13 +441,15 @@ function applyRoutes(config, routes, bags) {
     const a = bags.get(route.fromDistrict); const b = bags.get(route.toDistrict);
     if (!a || !b) continue;
     const avail = Math.max(0, Math.floor((a.inv[route.resource] || 0) - route.reserve));
-    const room = Math.max(0, Math.floor(b.cap - (b.inv[route.resource] || 0)));
+    // the destination takes goods up to its storage, or up to the route's target if it has one
+    const ceiling = route.target > 0 ? Math.min(b.cap, route.target) : b.cap;
+    const room = Math.max(0, Math.floor(ceiling - (b.inv[route.resource] || 0)));
     const qty = Math.min(route.rate, avail, room);
     if (qty > 0) {
       a.inv[route.resource] -= qty;
       b.inv[route.resource] = (b.inv[route.resource] || 0) + qty;
     }
-    out.push({ route, qty, limit: qty >= route.rate ? null : avail <= room ? 'stock' : 'room' });
+    out.push({ route, qty, limit: qty >= route.rate ? null : avail <= room ? 'stock' : route.target > 0 && ceiling < b.cap ? 'target' : 'room' });
   }
   return out;
 }

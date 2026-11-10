@@ -50,6 +50,8 @@ body.panel-full #map { height: 0; }
 .pn-close { margin: -2px -8px 0 6px; }
 .qlist { display: flex; flex-direction: column; gap: 6px; }
 .qlist .order { min-width: 0; padding: 8px 34px 9px 10px; }
+.qlist .q-place { border-left: 0; padding: 6px 0 0; align-self: flex-start; }
+.order.wait .why { max-width: none; white-space: normal; }
 .order .x { display: block; font-size: 20px; top: 2px; right: 4px; padding: 6px 8px; }
 .order .row small, .order:hover .row small { visibility: visible; }
 .pn-pin { padding: 7px 0; font-size: 13px; }

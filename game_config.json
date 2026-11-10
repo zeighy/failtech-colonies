@@ -21,6 +21,10 @@
     "maxOfflineTicks": 1200,
     "failureCreditKeep": 0.5,
     "demolishRefund": 0.5,
+    "buildQueue": {
+      "maxPerPlace": 8,
+      "replaceTimeMult": 1.5
+    },
     "eventLogSize": 80,
     "startingState": {
       "population": 20,

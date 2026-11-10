@@ -29,7 +29,7 @@
   var mk = { res: 'alloys', side: 'buy', qty: 50, price: null, district: null, ttl: 100 }; // exchange order being composed
   var msrc = null;         // district missions are filled from
   var dmode = 'overview';  // Districts tab: 'overview' | 'logistics'
-  var route = { from: null, to: null, res: 'scrap', rate: 10, reserve: 0 }; // route being composed
+  var route = { from: null, to: null, res: 'scrap', rate: 10, reserve: 0, target: 0 }; // route being composed
   var ship = { from: null, to: null, res: 'scrap', qty: 100 }; // shipment being composed
   var sel = null;          // { ring, slot } | { hub: true } | null
   var ws = null;           // the workspace open over the map (a screen from the dock), or null
@@ -60,6 +60,7 @@
   var groundId = null;     // the surface district looked at last (where a surface screen opens from orbit)
   var drawer = null;       // phone shell: the sheet over everything ('more' = every screen, 'places' = where to go)
   var buildCat = 'all';    // build menu filter
+  var replaceAt = null;    // { ring, slot } of the building being replaced (the build menu is open on it), or null
   function inOrbit() { return !!(RAW && activeD().orbital); }
   function stationId() { return RAW && RAW.orbital && RAW.orbital.station ? RAW.orbital.station.districtId : null; }
   function enterOrbit() { var id = stationId(); if (id === null) return; enter(id); }
@@ -148,7 +149,7 @@
     pending.push({ id: ++pendingSeq, key: key, path: path, body: body, label: label, at: Date.now() });
     toast('Offline: "' + label + '" is waiting to be sent. It goes out when you reconnect.');
     if (S) { renderQueue(); renderRadar(); renderAlerts(); renderPanel(); }
-    return Promise.resolve({ ok: true, queued: true });
+    return Promise.resolve({ ok: true, held: true });
   }
   function goOffline() {
     if (!connected) return;
@@ -298,7 +299,9 @@
   // ------------------------------------------------------------------ derived lookups
   function buildingAt(r, s) { return S.buildings.filter(function (b) { return b.ring === r && b.slot === s; })[0]; }
   function lockAt(r, s) { return (S.locks || []).filter(function (l) { return l.ring === r && l.slot === s; })[0]; }
-  function orderAt(r, s) { return S.orders.filter(function (o) { return o.kind === 'build' && o.data.ring === r && o.data.slot === s; })[0]; }
+  function orderAt(r, s) { return S.orders.filter(function (o) { return (o.kind === 'build' || o.kind === 'replace') && o.data.ring === r && o.data.slot === s; })[0]; }
+  function ordersAt(r, s) { return S.orders.filter(function (o) { return o.data.ring === r && o.data.slot === s; }); }
+  function waitingOf(orders) { return orders.filter(function (o) { return o.state === 'queued'; }); }
   function slotUnlocked(r, s) { var cap = S.hub.rings[r]; return !!cap && s < cap; }
   function neighborsOf(r, s) { return GEO().neighbors[r + ':' + s] || []; }
   function neighborTypes(r, s) {
@@ -402,7 +405,7 @@
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R - 7, fill: 'none', stroke: 'rgba(255,159,28,.25)', 'stroke-dasharray': '2 5' }, hub);
     var t1 = svgEl('text', { x: 0, y: -3, 'font-size': activeD().core ? 15 : 12, 'class': 'no-terms' }, hub); t1.textContent = activeD().core ? ((CFG.ui && CFG.ui.hubLabel) || 'HUB') : activeD().name.replace(/^The /, '').toUpperCase();
     var t2 = svgEl('text', { x: 0, y: 15, 'font-size': 10, 'letter-spacing': '.12em' }, hub);
-    hub.addEventListener('click', function () { if (Date.now() - dragEndAt < 300) return; sel = { hub: true }; go('hub'); });
+    hub.addEventListener('click', function () { if (Date.now() - dragEndAt < 300) return; sel = { hub: true }; replaceAt = null; go('hub'); });
     hub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hub.dispatchEvent(new Event('click')); } });
     hubEl = { g: hub, sub: t2 };
     svg.onclick = function (e) { if (e.target === svg && Date.now() - dragEndAt > 300) { sel = null; renderAll(); } };
@@ -411,6 +414,7 @@
   function onSlot(ring, slot) {
     if (Date.now() - dragEndAt < 300) return; // the end of a drag or a pinch, not a tap
     document.body.classList.remove('panel-full');
+    replaceAt = null;
     if (!slotUnlocked(ring, slot)) { sel = { ring: ring, slot: slot }; ws = null; renderAll(); return; }
     sel = { ring: ring, slot: slot };
     ws = null;
@@ -441,12 +445,17 @@
         if (b.mark) { cls += ' hz-' + b.mark; name += ' · ' + MARK_TXT[b.mark]; }
         if (!tag && b.level > 1) tag = '▲' + b.level;
         if (!tag && def.housing && b.comfort) { tag = (b.comfort > 0 ? '+' : '−') + Math.abs(b.comfort); cls += b.comfort > 0 ? ' cmf-good' : ' cmf-bad'; }
+        var sw = orderAt(r, s);
+        if (sw) { cls += ' swap'; tag = 'SWAP'; name += ' · queued to be replaced by ' + CFG.buildings[sw.data.type].name; }
       } else if (q) {
         cls += ' queued'; c = CFG.buildings[q.body.type].color; icoName = q.body.type; tag = 'QUEUED';
         name = 'Queued while offline: ' + CFG.buildings[q.body.type].name;
+      } else if (o && o.state === 'queued') {
+        cls += ' planned'; c = CFG.buildings[o.data.type].color; icoName = o.data.type; tag = '#' + o.pos;
+        name = 'In the work queue (number ' + o.pos + '): ' + CFG.buildings[o.data.type].name;
       } else if (o) {
         cls += ' building'; c = CFG.buildings[o.data.type].color; icoName = o.data.type;
-        name = 'Building ' + CFG.buildings[o.data.type].name;
+        name = (o.kind === 'replace' ? 'Converting to ' : 'Building ') + CFG.buildings[o.data.type].name;
       } else if (lockAt(r, s)) {
         cls += ' clearing'; icoName = 'lock'; tag = 'CLEAR ' + lockAt(r, s).ticksLeft + 't';
         name += ' · being cleared: ' + lockAt(r, s).ticksLeft + ' ticks';
@@ -463,8 +472,9 @@
       el.ico.innerHTML = icoName ? (icoName === 'lock' ? '<g opacity=".35">' + ICONS.lock + '</g>' : ICONS[icoName]) : '';
       el.tag.textContent = tag;
       el.plus.style.display = (!b && !o && !q && unlocked && !lockAt(r, s)) ? '' : 'none';
-      el.pbg.style.display = o ? '' : 'none';
-      el.pb.style.display = o ? '' : 'none';
+      var under = o && o.state !== 'queued';
+      el.pbg.style.display = under ? '' : 'none';
+      el.pb.style.display = under ? '' : 'none';
       el.ico.setAttribute('y', o || tag ? -el.isz / 2 - 4 : -el.isz / 2);
     });
     Object.keys(ringLabels).forEach(function (r) {
@@ -476,13 +486,14 @@
     if (!viewR) { viewR = goalR = targetR; viewC = [0, 0]; goalC = [0, 0]; userView = false; autoFocus = false; setView(viewR); renderZoom(); }
     if (autoFocus && !(sel && sel.ring)) fitView();
     hubEl.g.classList.toggle('sel', !!(sel && sel.hub));
-    hubEl.sub.textContent = S.hub.upgrading ? 'UPGRADING' : 'LEVEL ' + activeD().level;
+    var upo = S.orders.filter(function (x) { return x.kind === 'upgrade'; })[0];
+    hubEl.sub.textContent = upo ? (upo.state === 'queued' ? 'UPGRADE QUEUED' : 'UPGRADING') : 'LEVEL ' + activeD().level;
   }
 
   // construction progress bars on the map update every frame
   function frameRadar(f) {
     S.orders.forEach(function (o) {
-      if (o.kind !== 'build') return;
+      if ((o.kind !== 'build' && o.kind !== 'replace') || o.state === 'queued') return;
       var el = slotEls[o.data.ring + ':' + o.data.slot];
       if (el) el.pb.setAttribute('width', (32 * clamp((o.total - o.remaining + f) / o.total, 0, 1)).toFixed(1));
     });
@@ -863,16 +874,21 @@
     if (S.hub.eff < 0.999) out.push(['warn', 'Hub under-maintained: short of ' + CFG.resources[S.hub.limiting].name, 'hub']);
     if (hz) out.push([hz.state === 'forecast' ? (hz.prep < 0.5 && hz.ticksUntil <= 12 ? 'bad' : 'warn') : (hz.severity > 0.02 ? 'bad' : 'warn'),
       hz.name + (hz.state === 'forecast' ? ' in ' + hz.ticksUntil + 't · ' + Math.round(hz.prep * 100) + '% prepared' : hz.severity > 0.02 ? ' in effect' : ' being weathered'), 'brief']);
+    S.allOrders.forEach(function (o) {
+      if (!o.waiting) return;
+      var sh = Object.keys(o.waiting.short);
+      if (sh.length) out.push(['warn', 'The work queue ' + (o.dname ? 'in ' + o.dname : 'in the Core') + ' is waiting for ' + sh.map(function (r) { return fmt(o.waiting.short[r]) + ' ' + CFG.resources[r].name; }).join(', '), '', o.did]);
+    });
     var f = readyFlags();
     if (f.up) out.push(['good', 'An upgrade is affordable', 'hub']);
     if (f.found) out.push(['good', 'A district can be founded', 'districts']);
-    return out.slice(0, 7);
+    return out.slice(0, 8);
   }
   function placeSummary() {
     var d = activeD(), open = Object.keys(S.hub.rings).reduce(function (n, r) { return n + S.hub.rings[r]; }, 0);
-    var used = S.buildings.length + S.orders.filter(function (o) { return o.kind === 'build'; }).length + (S.locks || []).length, e = S.energy;
+    var used = S.buildings.length + S.orders.filter(function (o) { return o.kind === 'build' || (o.kind === 'replace' && o.state !== 'queued'); }).length + (S.locks || []).length, e = S.energy;
     return '<div class="label sec">' + esc(d.core ? 'The Core' : d.name) + ' at a glance</div><dl class="kv">' +
-      '<dt>Structures</dt><dd>' + S.buildings.length + ' online' + (S.orders.length ? ' · ' + S.orders.length + ' in progress' : '') + '</dd>' +
+      '<dt>Structures</dt><dd>' + S.buildings.length + ' online' + (S.orders.length ? ' · ' + S.orders.length + ' in the work queue' : '') + '</dd>' +
       '<dt>Free plots</dt><dd class="' + (open - used > 0 ? 'good' : 'dim') + '">' + Math.max(0, open - used) + ' of ' + open + '</dd>' +
       '<dt>Power</dt><dd class="' + (e.satisfaction < 0.999 ? 'bad' : '') + '">' + Math.floor(e.supply) + ' supply · ' + Math.ceil(e.demand) + ' used</dd>' +
       (d.core ? '<dt>Level</dt><dd>' + d.level + (S.hub.upgrading ? ' · upgrading' : '') + '</dd>' : '<dt>Level</dt><dd>' + d.level + ' · link ' + d.link.load + ' / ' + d.link.capacity + ' per tick</dd>') + '</dl>' +
@@ -895,8 +911,9 @@
     h += '<div class="label sec"' + (h ? '' : ' style="margin-top:0"') + '>Needs attention</div><div class="ov-card" style="border-left-color:' + (at.some(function (x) { return x[0] === 'bad'; }) ? 'var(--bad)' : at.length ? 'var(--warn)' : 'var(--good)') + '">';
     if (!at.length) h += '<div class="ov-row"><span class="ov-dot good"></span><span class="grow dim">Nothing needs attention.</span></div>';
     at.forEach(function (a) {
-      var inner = '<span class="ov-dot ' + a[0] + '"></span><span class="grow">' + esc(a[1]) + '</span>' + (a[2] ? '<span class="dim">›</span>' : '');
-      h += '<div class="ov-row">' + (a[2] ? '<button data-act="tab" data-tab="' + a[2] + '">' + inner + '</button>' : inner) + '</div>';
+      var away = a[3] !== undefined && a[3] !== activeId;
+      var inner = '<span class="ov-dot ' + a[0] + '"></span><span class="grow">' + esc(a[1]) + '</span>' + (a[2] || away ? '<span class="dim">›</span>' : '');
+      h += '<div class="ov-row">' + (a[2] ? '<button data-act="tab" data-tab="' + a[2] + '">' + inner + '</button>' : away ? '<button data-act="enter" data-id="' + a[3] + '">' + inner + '</button>' : inner) + '</div>';
     });
     h += '</div>';
     if (!MOBILE) return h + placeSummary(); // on a desk the pinned stock is in the stock bar and the queue in the bottom bar
@@ -930,18 +947,55 @@
         '<div class="note warn">This order has not reached the server. It will be sent when you reconnect, and may be rejected if things have changed.</div>' +
         '<div class="actions"><button class="btn danger" data-act="pcancel" data-id="' + qd.id + '">Discard queued order</button></div>';
     }
-    if (o) {
-      var d = CFG.buildings[o.data.type];
-      return '<div class="p-title" style="--c:' + d.color + '">' + icon(o.data.type, 22) + '<h3>' + esc(d.name) + '</h3></div><div class="label">' + head + ' · under construction</div>' +
-        '<p class="p-desc">' + o.remaining + ' tick' + (o.remaining === 1 ? '' : 's') + ' remaining.</p>' +
-        '<div class="actions">' + rushBtn(S.orders.filter(function (x) { return x.id === o.id; })[0] || { id: o.id, rush: 0 }) + '<button class="btn danger" data-act="cancel" data-id="' + o.id + '">Cancel &amp; refund</button></div>';
-    }
+    if (o && !b) return orderPanel(o, head);
+    if (b && replaceAt && replaceAt.ring === r && replaceAt.slot === s) return buildMenu(r, s, head, b);
     if (b) return builtPanel(b, head);
     var lk = lockAt(r, s);
     if (lk) return '<div class="p-title">' + icon('lock', 22) + '<h3>' + head + '</h3></div><div class="label">Being cleared</div><p class="p-desc">A configured workshop was scrapped here. The slot is free to build on again in <b>' + span(lk.ticksLeft) + '</b>, the same wait as changing a recipe.</p>';
     return buildMenu(r, s, head);
   }
 
+  // ---- the work queue: one build slot per place, strict order, paid for when an order starts -----------------
+  function shortPills(short) { return Object.keys(short).map(function (r) { return pill(r, short[r], 'no'); }).join(''); }
+  // What the place still needs before the order at the front of its queue can start.
+  function waitingLine(o) {
+    if (!o.waiting) return '';
+    var keys = Object.keys(o.waiting.short);
+    if (keys.length) return '<div class="note warn" style="margin:8px 0 0">Waiting for stock: this place is short of</div><div class="io" style="margin-top:6px">' + shortPills(o.waiting.short) + '</div>';
+    return o.waiting.why ? '<div class="note warn" style="margin:8px 0 0">Waiting: ' + esc(o.waiting.why) + '.</div>' : '';
+  }
+  function orderName(o) {
+    return o.kind === 'build' ? 'Build ' + CFG.buildings[o.data.type].name : o.kind === 'replace' ? 'Replace ' + CFG.buildings[o.data.from].name + ' with ' + CFG.buildings[o.data.type].name
+      : o.kind === 'found' ? 'Found ' + CFG.districtTypes[o.data.type].name : o.kind === 'expand' ? 'Expand ' + CFG.buildings[o.data.type].name + ' → ' + o.data.level : 'Upgrade → L' + o.data.level;
+  }
+  // The buttons a waiting order gets: to the front, and off the queue.
+  function queueBtns(o) {
+    return (o.pos > 1 ? '<button class="btn" data-act="qmove" data-id="' + o.id + '" data-to="top" title="Build this next">Move to the front</button>' : '') +
+      '<button class="btn danger" data-act="cancel" data-id="' + o.id + '" title="Nothing has been paid for it yet">Remove from the queue</button>';
+  }
+  // The pane for a plot that has a build or a replacement on it: under way, or waiting its turn.
+  function orderPanel(o, head) {
+    var d = CFG.buildings[o.data.type], swap = o.kind === 'replace';
+    var h = '<div class="p-title" style="--c:' + d.color + '">' + icon(o.data.type, 22) + '<h3>' + esc(d.name) + '</h3></div>';
+    if (o.state === 'queued') {
+      return h + '<div class="label">' + head + ' · in the work queue</div>' +
+        '<p class="p-desc">Number <b>' + o.pos + '</b> of ' + waitingOf(S.orders).length + ' waiting here. Orders are built one at a time, strictly in order, and each is paid for when it starts.</p>' +
+        '<div class="label sec" style="margin-top:0">It will cost</div><div class="io">' + costPills(o.cost, S.resources) + '</div>' + waitingLine(o) +
+        '<div class="actions">' + queueBtns(o) + '</div>';
+    }
+    return h + '<div class="label">' + head + ' · ' + (swap ? 'being converted from ' + esc(CFG.buildings[o.data.from].name) : 'under construction') + '</div>' +
+      '<p class="p-desc">' + o.remaining + ' tick' + (o.remaining === 1 ? '' : 's') + ' remaining.' + (swap ? ' The plot makes nothing until it is done.' : '') + '</p>' +
+      '<div class="actions">' + rushBtn(o) + '<button class="btn danger" data-act="cancel" data-id="' + o.id + '">Cancel &amp; refund</button></div>' +
+      (swap ? '<div class="dim" style="font-size:11px;margin-top:8px">Cancelling refunds the new building. The one it replaced is already gone.</div>' : '');
+  }
+  // What happens if this is ordered now: it starts, or it joins the queue, and what the place is short of.
+  function queueNote(cost, back) {
+    var waiting = waitingOf(S.orders).length, busy = S.orders.length > 0;
+    var short = Object.keys(cost).filter(function (r) { return (S.resources[r] ? S.resources[r].amount : 0) + ((back || {})[r] || 0) < cost[r]; });
+    if (!busy && !short.length) return '';
+    return '<div class="bonus warn">' + (busy ? 'Joins the queue as number ' + (waiting + 1) : 'Queued') +
+      (short.length ? ' · short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ', so it waits for stock when its turn comes' : '') + '</div>';
+  }
   // Rush: pay credits to finish a work order on the next tick (two clicks, like the other costly buttons).
   function rushBtn(o, cls) {
     if (!o.rush) return '';
@@ -956,6 +1010,15 @@
     no_recipe: ['No recipe chosen', 'warn'], resetting: ['Resetting', 'warn']
   };
   function plotName2(size) { return CFG.plotSizes[size].name; }
+  // Replace: swap the building for another on the same plot, through the work queue.
+  function replaceRow(b, d) {
+    var sw = orderAt(b.ring, b.slot);
+    if (sw) return '<div class="note" style="margin:0 0 12px"><b>Queued to be replaced</b> by ' + esc(CFG.buildings[sw.data.type].name) + ' (number ' + sw.pos + ' in the queue). It keeps working until then.' +
+      waitingLine(sw) + '<div class="actions" style="margin-top:8px">' + queueBtns(sw) + '</div></div>';
+    if (d.recipeBuilding && b.recipe) return '';
+    if (ordersAt(b.ring, b.slot).length) return '';
+    return '<button class="btn block" style="margin:-4px 0 12px" data-act="replacemode" title="Swap it for another building on this plot, through the work queue">' + icon('route', 12) + ' Replace with…</button>';
+  }
   function builtPanel(b, head) {
     var d = bdef(b.type), st = STATUS[b.paused ? 'paused' : b.status] || STATUS.running;
     var why = (!b.paused && b.limiting) ? ' <span class="dim">(' + esc(CFG.resources[b.limiting].name) + ')</span>' : '';
@@ -964,7 +1027,7 @@
       '<div class="label">' + head + '</div><p class="p-desc">' + esc(d.desc) + '</p>' +
       '<div class="actions quick"><button class="btn" data-act="toggle" data-ring="' + b.ring + '" data-slot="' + b.slot + '">' + icon(b.paused ? 'play' : 'pause', 12) + ' ' + (b.paused ? 'Resume' : 'Pause') + '</button>' +
       '<button class="btn danger" data-act="demolish" data-ring="' + b.ring + '" data-slot="' + b.slot + '" data-key="' + key + '" title="Refunds ' + refund + '% of the build cost">' +
-      (confirmKey === key ? 'Confirm?' : 'Demolish') + '</button></div>' +
+      (confirmKey === key ? 'Confirm?' : 'Demolish') + '</button></div>' + replaceRow(b, d) +
       '<dl class="kv"><dt>Status</dt><dd class="' + st[1] + '">' + st[0] + why + '</dd>' +
       '<dt>Efficiency</dt><dd>' + pct(b.paused ? 0 : b.eff) + '</dd>' +
       '<dt>Adjacency</dt><dd class="' + (b.adj > 1.001 ? 'good' : b.adj < 0.999 ? 'bad' : 'dim') + '">' + (Math.abs(b.adj - 1) < 0.001 ? 'none' : '×' + b.adj.toFixed(2)) + '</dd>' +
@@ -1073,10 +1136,14 @@
   var CATS = [['all', 'All'], ['power', 'Power'], ['raw', 'Extraction'], ['make', 'Production'], ['homes', 'Housing'], ['other', 'Support']];
   var CAT_OF = { generator: 'power', extractor: 'raw', refinery: 'make', assembler: 'make', producer: 'make', workshop: 'make', housing: 'homes' };
   function catOf(d) { return CAT_OF[d.type] || 'other'; }
-  function buildMenu(r, s, head) {
+  function buildMenu(r, s, head, old) {
     var dtype = activeD().type;
+    var oldDef = old ? bdef(old.type) : null, back = {};
+    if (old) Object.keys(oldDef.cost).forEach(function (x) { back[x] = Math.floor(oldDef.cost[x] * CFG.demolishRefund); });
+    var full = S.orders.length >= (S.queueMax || 8);
     var keys = Object.keys(CFG.buildings).filter(function (k) {
       var d = bdef(k);
+      if (old && k === old.type) return false;
       if ((CFG.buildableIn[dtype] || []).indexOf(k) < 0) return false;
       if (d.hidden === 'orbital' && !(S.orbital && S.orbital.unlocked)) return false; // unknown until the colony is recognised
       if (d.needs && (!field() || [field().common1, field().common2, field().district].indexOf(d.needs) < 0)) return false; // nothing to work on here
@@ -1084,7 +1151,12 @@
     });
     var have = {}; keys.forEach(function (k) { have[catOf(bdef(k))] = (have[catOf(bdef(k))] || 0) + 1; });
     var cat = buildCat !== 'all' && have[buildCat] ? buildCat : 'all';
-    var h = '<div class="label">' + head + ' · empty</div><h3 style="margin:4px 0 10px;font-size:15px">Construct</h3>';
+    var h = old
+      ? '<div class="label">' + head + '</div><h3 style="margin:4px 0 8px;font-size:15px">Replace ' + esc(oldDef.name) + ' with…</h3>' +
+        '<div class="note" style="margin:0 0 10px">The order joins the work queue and ' + esc(oldDef.name) + ' keeps working until its turn. Then it is scrapped for ' + Math.round(CFG.demolishRefund * 100) + '% of its cost, and the plot makes nothing while the new building goes up, which takes <b>×' + CFG.buildQueue.replaceTimeMult + '</b> the usual time. Expansion levels are not carried over.</div>' +
+        '<button class="btn block" style="margin-bottom:10px" data-act="replacemode">' + icon('back', 12) + ' Keep ' + esc(oldDef.name) + '</button>'
+      : '<div class="label">' + head + ' · empty</div><h3 style="margin:4px 0 10px;font-size:15px">Construct</h3>';
+    if (full) h += '<div class="note warn" style="margin:0 0 10px">The work queue here is full (' + S.orders.length + ' orders). Cancel one, or wait for one to finish.</div>';
     if (Object.keys(have).length > 1 && keys.length > 5) h += '<div class="cats" role="tablist" aria-label="Kind of building">' + CATS.filter(function (c) { return c[0] === 'all' || have[c[0]]; }).map(function (c) {
       return '<button role="tab" data-act="cat" data-cat="' + c[0] + '" aria-selected="' + (cat === c[0]) + '">' + c[1] + '<small>' + (c[0] === 'all' ? keys.length : have[c[0]]) + '</small></button>';
     }).join('') + '</div>';
@@ -1092,7 +1164,6 @@
     keys.forEach(function (k) {
       var d = bdef(k);
       if (cat !== 'all' && catOf(d) !== cat) return;
-      var afford = canAfford(d.cost);
       var blocked = null;
       if (d.strictPlot && GEO().ringPlotSize[r] < d.minPlotSize) blocked = 'Needs a ' + plotName2(d.minPlotSize) + ' plot';
       else if (d.requiresAdjacent) {
@@ -1100,7 +1171,8 @@
         if (!S.buildings.some(function (x) { return x.type === d.requiresAdjacent; })) blocked = 'Build the ' + CFG.buildings[d.requiresAdjacent].name + ' first, and let it finish';
         else if (!near) blocked = 'Must stand right beside the ' + CFG.buildings[d.requiresAdjacent].name;
       }
-      var owned = S.buildings.filter(function (b) { return b.type === k; }).length + S.orders.filter(function (o) { return o.kind === 'build' && o.data.type === k; }).length;
+      var owned = S.buildings.filter(function (b) { return b.type === k; }).length + S.orders.filter(function (o) { return (o.kind === 'build' || o.kind === 'replace') && o.data.type === k; }).length;
+      var ticks = old ? Math.ceil(d.constructionTicks * CFG.buildQueue.replaceTimeMult) : d.constructionTicks;
       var capped = d.maxCount && owned >= d.maxCount;
       var pv = previewMult(k, r, s);
       var plot = plotMultFor(d, r);
@@ -1123,16 +1195,16 @@
         if (hm) notes += '<div class="bonus ' + (d.comfort < 0 ? 'bad' : 'good') + '">' + hm + ' adjacent home' + (hm === 1 ? '' : 's') + ' would feel ' + (d.comfort > 0 ? '+' : '−') + Math.abs(d.comfort) + ' comfort</div>';
       }
       if (blocked) notes = '<div class="bonus bad">' + esc(blocked) + '</div>' + notes;
-      h += '<button class="opt" data-act="build" data-type="' + k + '"' + (capped || !afford || blocked ? ' disabled' : '') + ' style="--c:' + d.color + '">' +
-        '<div class="top">' + icon(k, 20) + '<b>' + esc(d.name) + '</b><small>' + d.constructionTicks + ' ticks</small></div>' +
+      h += '<button class="opt" data-act="' + (old ? 'replace' : 'build') + '" data-type="' + k + '"' + (capped || blocked || full ? ' disabled' : '') + ' style="--c:' + d.color + '">' +
+        '<div class="top">' + icon(k, 20) + '<b>' + esc(d.name) + '</b><small>' + ticks + ' ticks</small></div>' +
         (capped ? '<div class="warn" style="font-size:11px">Already built: only ' + d.maxCount + ' allowed</div>' :
-          '<div class="io">' + Object.keys(d.cost).map(function (c) { return pill(c, d.cost[c], S.resources[c].amount < d.cost[c] ? 'no' : ''); }).join('') + '</div>') +
+          '<div class="io">' + Object.keys(d.cost).map(function (c) { return pill(c, d.cost[c], S.resources[c].amount + (back[c] || 0) < d.cost[c] ? 'no' : ''); }).join('') + '</div>') +
         '<div class="io" style="margin-top:6px;opacity:.85">' + ioPills(d, 1, pv.mult * plot) +
         (d.workers ? '<span class="pill"><i style="background:#a3b8cc"></i>Crew ' + d.workers + '</span>' : '') +
         (d.housing ? '<span class="pill out"><i style="background:#a3b8cc"></i>' + Math.floor(d.housing * plot) + ' homes</span>' : '') +
         (d.storageBonus ? pill('scrap', '+' + fmt(d.storageBonus * plot) + ' storage') : '') +
         (d.defense ? '<span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * plot).toFixed(1) + '</span>' : '') +
-        (d.transmit ? '<span class="pill out"><i style="background:#fff"></i>Signal ' + plot.toFixed(2) + ' / tick</span>' : '') + '</div>' + (capped || blocked ? '' : afterLine(d, pv.mult * plot)) + notes + '</button>';
+        (d.transmit ? '<span class="pill out"><i style="background:#fff"></i>Signal ' + plot.toFixed(2) + ' / tick</span>' : '') + '</div>' + (capped || blocked ? '' : afterLine(d, pv.mult * plot) + queueNote(d.cost, back)) + notes + '</button>';
     });
     return h + '</div>';
   }
@@ -1239,6 +1311,11 @@
     return h + '<div class="note" style="margin-top:14px">Directives only point at what is missing. Working out how is the game.</div>';
   }
 
+  function upgradeLabel(cost) { return !S.orders.length && canAfford(cost) ? 'Begin upgrade' : 'Queue upgrade'; }
+  function upgradeNote(up) {
+    if (up.state === 'queued') return '<div class="note">The upgrade is in the work queue (number ' + up.pos + '). It is paid for when it starts.' + waitingLine(up) + '<div class="actions" style="margin-top:8px">' + queueBtns(up) + '</div></div>';
+    return '<div class="note">Upgrade in progress: ' + up.remaining + ' ticks remaining. <a href="#" data-act="cancel" data-id="' + up.id + '" style="color:var(--amber)">Cancel</a></div>';
+  }
   function upkeepPills(up) {
     var h = '';
     Object.keys(up || {}).forEach(function (r) { h += pill(r, up[r], 'in'); });
@@ -1276,8 +1353,7 @@
         '<div class="io">' + Object.keys(next.upgradeCost).map(function (r) { return pill(r, next.upgradeCost[r], S.resources[r].amount < next.upgradeCost[r] ? 'no' : ''); }).join('') + '</div>' +
         '<div class="dim" style="font-size:11px;margin-top:8px">Unlocks ring ' + nl + ' (' + plotName(nl) + ' plots, ' + CFG.rings[nl] + ' slots) · storage ' + fmt(next.maxStorage) + ' · hub quarters ' + next.baseHousing + ' · base power ' + next.baseEnergy + '</div>' +
         (next.upkeepPerTick ? '<div class="label" style="margin-top:8px">Upkeep after upgrade</div><div class="io" style="margin-top:4px">' + upkeepPills(next.upkeepPerTick) + '</div>' : '') + '</div>';
-      h += up ? '<div class="note">Upgrade in progress: ' + up.remaining + ' ticks remaining. <a href="#" data-act="cancel" data-id="' + up.id + '" style="color:var(--amber)">Cancel</a></div>'
-        : '<div class="actions"><button class="btn primary" data-act="upgrade"' + (canAfford(next.upgradeCost) ? '' : ' disabled') + '>Begin upgrade</button></div>';
+      h += up ? upgradeNote(up) : '<div class="actions"><button class="btn primary" data-act="upgrade">' + upgradeLabel(next.upgradeCost) + '</button></div>' + queueNote(next.upgradeCost);
     }
     var bc = S.buildings.filter(function (b) { return CFG.buildings[b.type].transmit; })[0];
     var bo = S.orders.filter(function (o) { return o.kind === 'build' && CFG.buildings[o.data.type].transmit; })[0];
@@ -1375,11 +1451,12 @@
       if (d) {
         h += '<div class="dim" style="font-size:11px;margin-bottom:6px">Link ' + d.link.load + ' / ' + d.link.capacity + ' per tick · ' + t.distance + ' ticks from the Core</div><div class="actions"><button class="btn' + (d.id === activeId ? '' : ' primary') + '" data-act="enter" data-id="' + d.id + '"' + (d.id === activeId ? ' disabled' : '') + '>' + (d.id === activeId ? 'Viewing' : 'Enter district') + '</button></div>';
       } else if (f) {
-        h += '<div class="note">Being founded: ' + f.remaining + ' tick' + (f.remaining === 1 ? '' : 's') + ' remaining. <a href="#" data-act="cancel" data-id="' + f.id + '" style="color:var(--amber)">Cancel</a></div>';
+        h += '<div class="note">' + (f.queued ? 'In the Core\'s work queue: founding starts when its turn comes and the Core can pay for it.' : 'Being founded: ' + f.remaining + ' tick' + (f.remaining === 1 ? '' : 's') + ' remaining.') + ' <a href="#" data-act="cancel" data-id="' + f.id + '" style="color:var(--amber)">Cancel</a></div>';
       } else {
         if (!S.foundable[k]) { h += '<div class="note">' + (t.requires && t.requires.beaconBuilt ? 'Opens once the Beacon is built.' : 'Not available yet.') + '</div></div>'; return; }
         h += '<div class="label">Founding cost (from the Core) · ' + t.foundTicks + ' ticks</div><div class="io">' + costPills(t.foundCost, S.coreRes) + '</div>' +
-          '<div class="actions"><button class="btn primary" data-act="found" data-type="' + k + '"' + (canAffordCore(t.foundCost) ? '' : ' disabled') + '>Found ' + esc(t.name) + '</button></div>';
+          '<div class="actions"><button class="btn primary" data-act="found" data-type="' + k + '">' + (canAffordCore(t.foundCost) ? 'Found ' : 'Queue founding ') + esc(t.name) + '</button></div>' +
+          (canAffordCore(t.foundCost) ? '' : '<div class="dim" style="font-size:11px;margin-top:6px">The Core is short for now: the order waits in its work queue, and everything queued behind it waits too.</div>');
       }
       h += '</div>';
     });
@@ -1426,7 +1503,8 @@
       return '<div class="route" style="--c:' + def.color + '"><div class="rhead"><b>' + esc(def.name) + '</b><span class="dim">' + esc(nm(r.fromDistrict)) + ' → ' + esc(nm(r.toDistrict)) + '</span>' +
         '<button class="x" data-act="rdel" data-id="' + r.id + '" title="Remove route" aria-label="Remove route">×</button></div>' +
         '<div class="stepper"><span class="lab">Rate</span><button data-act="rstep" data-id="' + r.id + '" data-delta="-5" aria-label="Lower">−</button>' + numIn('rexist', r.rate, 'data-id="' + r.id + '"') + '<span class="unit">/t</span><button data-act="rstep" data-id="' + r.id + '" data-delta="5" aria-label="Raise">+</button></div>' +
-        '<div class="dim" style="font-size:11px;margin-top:4px">keeps ' + fmt(r.reserve) + ' in ' + esc(nm(r.fromDistrict)) + '</div><div class="flow ' + (r.flow >= r.rate ? 'good' : r.flow > 0 ? 'warn' : 'bad') + '">' + (r.flow > 0 ? 'Moving ' + r.flow + '/t' : 'Idle') + (r.limit === 'stock' ? ' · the source is down to its reserve' : r.limit === 'room' ? ' · the destination is full' : '') + '</div></div>';
+        '<div class="stepper" style="margin-top:6px"><span class="lab">Fill to</span>' + numIn('rtarget', r.target || 0, 'data-id="' + r.id + '"') + '<span class="unit">' + (r.target ? 'in ' + esc(nm(r.toDistrict)) : 'no limit') + '</span></div>' +
+        '<div class="dim" style="font-size:11px;margin-top:4px">keeps ' + fmt(r.reserve) + ' in ' + esc(nm(r.fromDistrict)) + '</div><div class="flow ' + (r.flow >= r.rate || r.limit === 'target' ? 'good' : r.flow > 0 ? 'warn' : 'bad') + '">' + (r.flow > 0 ? 'Moving ' + r.flow + '/t' : 'Idle') + (r.limit === 'stock' ? ' · the source is down to its reserve' : r.limit === 'room' ? ' · the destination is full' : r.limit === 'target' ? ' · the destination has what it was to be filled to' : '') + '</div></div>';
     }).join('');
   }
   // Logistics has its own tab: links, standing routes and one-off shipments.
@@ -1457,7 +1535,8 @@
       }).join('') + '</select></label></div>' +
       '<div class="stepper" style="margin-top:8px"><span class="lab">Rate</span><button data-act="rdraft" data-f="rate" data-delta="-' + rst + '">−</button>' + numIn('rdraft', route.rate, 'data-f="rate"') + '<span class="unit">/t</span><button data-act="rdraft" data-f="rate" data-delta="' + rst + '">+</button></div>' +
       '<div class="stepper" style="margin-top:6px"><span class="lab">Keep</span><button data-act="rdraft" data-f="reserve" data-delta="-' + (STEP[route.res] || 10) + '">−</button>' + numIn('rdraft', route.reserve, 'data-f="reserve"') + '<button data-act="rdraft" data-f="reserve" data-delta="' + (STEP[route.res] || 10) + '">+</button></div>' +
-      '<div class="dim" style="font-size:11px;margin:8px 0">Sends up to the rate every tick, but never takes the source below the amount it keeps.</div>' +
+      '<div class="stepper" style="margin-top:6px"><span class="lab">Fill to</span><button data-act="rdraft" data-f="target" data-delta="-' + (STEP[route.res] || 10) + '">−</button>' + numIn('rdraft', route.target, 'data-f="target"') + '<button data-act="rdraft" data-f="target" data-delta="' + (STEP[route.res] || 10) + '">+</button></div>' +
+      '<div class="dim" style="font-size:11px;margin:8px 0">Sends up to the rate every tick, never takes the source below the amount it keeps, and stops once the destination holds the amount to fill to (0 = no limit: it fills the storage).</div>' +
       '<div class="actions"><button class="btn primary" data-act="rsave">Set route</button></div>';
     return h + shipmentsBlock();
   }
@@ -1475,12 +1554,12 @@
     var short = Object.keys(next.upgradeCost).filter(function (r) { return S.resources[r].amount < next.upgradeCost[r]; });
     h += '<div class="opt" style="cursor:default"><div class="top"><b>Level ' + nl + '</b><small>' + next.upgradeTicks + ' ticks</small></div><div class="io">' + costPills(next.upgradeCost, S.resources) + '</div>' +
       '<div class="dim" style="font-size:11px;margin-top:8px">Unlocks ring ' + nl + ' (' + plotName(nl) + ' plots, ' + GEO().rings[nl] + ' slots) · storage ' + fmt(next.maxStorage) + ' · base power ' + next.baseEnergy + '</div></div>';
-    if (up) h += '<div class="note">Upgrade in progress: ' + up.remaining + ' ticks remaining. <a href="#" data-act="cancel" data-id="' + up.id + '" style="color:var(--amber)">Cancel</a></div>';
+    if (up) h += upgradeNote(up);
     else if (gated) h += '<div class="note warn">Level ' + nl + ' unlocks when ' + esc(S.districtNeeds[nl]) + '.</div>';
     else {
       if (short.length) h += '<div class="note">Upgrades are paid from <b>this</b> district\'s stockpile. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': ship it here from another district, or from the Core.</div>';
-      h += '<div class="actions"><button class="btn primary" data-act="upgrade"' + (canAfford(next.upgradeCost) ? '' : ' disabled') + '>Begin upgrade</button>' +
-        (short.length ? '<button class="btn" data-act="tab" data-tab="districts">' + icon('truck', 12) + ' Ship goods</button>' : '') + '</div>';
+      h += '<div class="actions"><button class="btn primary" data-act="upgrade">' + upgradeLabel(next.upgradeCost) + '</button>' +
+        (short.length ? '<button class="btn" data-act="tab" data-tab="logistics">' + icon('truck', 12) + ' Ship goods</button>' : '') + '</div>' + queueNote(next.upgradeCost);
     }
     return h;
   }
@@ -1595,14 +1674,16 @@
       return what + (d.workers ? ' · crew ×' + crew : '');
     };
     var h = '<div class="label sec">Expansion</div><div class="optcard' + (lv > 1 ? ' on' : '') + '"><div class="top"><b>Level ' + lv + ' / ' + top + '</b><span class="dim">' + (lv > 1 ? 'output ×' + E.scale[lv] : 'as built') + '</span></div><div class="lvdots">' + dots + '</div>';
-    if (pend) {
+    if (pend && pend.state === 'queued') {
+      h += '<div class="note" style="margin:8px 0 0">Expansion to level ' + pend.data.level + ' is in the work queue (number ' + pend.pos + ').' + waitingLine(pend) + '<div class="actions" style="margin-top:8px">' + queueBtns(pend) + '</div></div>';
+    } else if (pend) {
       h += '<div class="note" style="margin:8px 0 0">Expanding to level ' + pend.data.level + ': ' + pend.remaining + ' tick' + (pend.remaining === 1 ? '' : 's') + ' left.</div>';
     } else if (b.xnext) {
       var nx = b.xnext, short = Object.keys(nx.cost).filter(function (r) { return S.resources[r].amount < nx.cost[r]; });
       h += '<div class="dim" style="font-size:12px;margin:6px 0">Build it upward in the same plot: the whole line gets bigger, not better. ' + esc(effect(nx.scale, nx.crew)) + '.</div>' +
         '<div class="label" style="margin-top:4px">Level ' + nx.level + ' · ' + nx.ticks + ' ticks</div><div class="io">' + costPills(nx.cost, S.resources) + '</div>' +
         (short.length ? '<div class="note" style="margin:8px 0 0">Paid from <b>' + esc(activeD().name) + '</b>\'s stockpile. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': ' + (short.some(function (r) { return CFG.resources[r].orbitalTrade; }) ? 'some of these are made in orbit, so bring them down to the Core by orbital link or express drop, then route or ship them here.' : 'these are made by Trade Workshops at the Free Port, so route or ship them here.') + '</div>' : '') +
-        '<div class="actions"><button class="btn primary" data-act="expand" data-ring="' + b.ring + '" data-slot="' + b.slot + '"' + (short.length ? ' disabled' : '') + '>Expand to level ' + nx.level + '</button></div>';
+        (orderAt(b.ring, b.slot) ? '' : '<div class="actions"><button class="btn primary" data-act="expand" data-ring="' + b.ring + '" data-slot="' + b.slot + '">' + (short.length || S.orders.length ? 'Queue expansion to level ' : 'Expand to level ') + nx.level + '</button></div>');
     } else h += '<div class="dim" style="font-size:12px;margin-top:6px">Fully expanded.</div>';
     return h + '</div>';
   }
@@ -1769,21 +1850,30 @@
 
   // ------------------------------------------------------------------ queue bar
   var lastQueue = '';
+  // Every place's orders, place by place: the one under way with its progress, then the ones waiting, in order.
   function queueHtml(bare) {
-    var h = '';
+    var h = '', last = null;
     S.allOrders.forEach(function (o) {
-      var tag = o.dname ? o.dname.replace(/^The /, '') + ': ' : '';
-      var name = o.kind === 'build' ? tag + 'Build ' + CFG.buildings[o.data.type].name : o.kind === 'found' ? 'Found ' + CFG.districtTypes[o.data.type].name : o.kind === 'expand' ? tag + 'Expand ' + CFG.buildings[o.data.type].name + ' → ' + o.data.level : (o.dname || 'Hub') + ' upgrade → L' + o.data.level;
-      var where = o.kind === 'build' || o.kind === 'expand' ? 'R' + o.data.ring + '·' + (o.data.slot + 1) : '';
+      var place = o.dname ? o.dname.replace(/^The /, '') : 'Core';
+      if (o.did !== last) { last = o.did; h += '<span class="q-place">' + esc(place) + '</span>'; }
+      var where = o.data.ring !== undefined ? 'R' + o.data.ring + '·' + (o.data.slot + 1) : '';
+      if (o.state === 'queued') {
+        var short = o.waiting ? Object.keys(o.waiting.short) : [];
+        var why = short.length ? 'needs ' + short.map(function (r) { return fmt(o.waiting.short[r]) + ' ' + CFG.resources[r].name; }).join(', ') : o.waiting && o.waiting.why ? o.waiting.why : o.waiting ? 'starts next tick' : 'waiting its turn';
+        h += '<div class="order wait' + (short.length ? ' short' : '') + '" data-qid="' + o.id + '"><button class="x" data-act="cancel" data-id="' + o.id + '" title="Remove from the queue (nothing has been paid)" aria-label="Remove from the queue">×</button>' +
+          '<div class="row"><span>' + esc(orderName(o)) + '</span><small class="num">' + (where ? where + ' · ' : '') + '#' + o.pos + '</small></div>' +
+          '<div class="why">' + esc(why) + (o.pos > 1 ? ' <button class="linkbtn" data-act="qmove" data-id="' + o.id + '" data-to="top" title="Build this next">first</button>' : '') + '</div></div>';
+        return;
+      }
       h += '<div class="order" data-id="' + o.id + '"><button class="x" data-act="cancel" data-id="' + o.id + '" title="Cancel & refund" aria-label="Cancel order">×</button>' +
-        '<div class="row"><span>' + esc(name) + '</span><small class="num">' + (where ? where + ' · ' : '') + o.remaining + 't</small></div><div class="bar"><i></i></div>' + (o.rush ? '<div style="margin-top:6px">' + rushBtn(o, 'rushq') + '</div>' : '') + '</div>';
+        '<div class="row"><span>' + esc(orderName(o)) + '</span><small class="num">' + (where ? where + ' · ' : '') + o.remaining + 't</small></div><div class="bar"><i></i></div>' + (o.rush ? '<div style="margin-top:6px">' + rushBtn(o, 'rushq') + '</div>' : '') + '</div>';
     });
     var chips = pending.map(function (p) {
       return '<div class="pend" data-id="' + p.id + '"><span>' + esc(p.label) + '</span><button class="x" data-act="pcancel" data-id="' + p.id + '" title="Discard (not sent yet)" aria-label="Discard queued action">×</button></div>';
     }).join('');
-    if (bare) return (chips ? '<div class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Queued' : 'Offline · waiting to send') + '</div>' + chips : '') + h;
-    h = '<span class="label">Work queue</span>' + (S.allOrders.length ? h : '<span class="queue-empty">Nothing under way. Click a free plot to build.</span>');
-    if (chips) h = '<span class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Queued' : 'Offline · waiting to send') + '</span>' + chips + '<span class="queue-sep"></span>' + h;
+    if (bare) return (chips ? '<div class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Not sent yet' : 'Offline · waiting to send') + '</div>' + chips : '') + h;
+    h = '<span class="label">Work queue</span>' + (S.allOrders.length ? h : '<span class="queue-empty">Nothing queued. Click a free plot to build; each place builds one thing at a time.</span>');
+    if (chips) h = '<span class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Not sent yet' : 'Offline · waiting to send') + '</span>' + chips + '<span class="queue-sep"></span>' + h;
     return h;
   }
   function renderQueue() {
@@ -1962,7 +2052,7 @@
         confirmKey = null; act('rush', { orderId: +el.dataset.id }, 'Rushed.');
       } else { confirmKey = rkey; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); renderQueue(); }, 4000); renderPanel(); renderQueue(); }
     }
-    else if (a === 'desel') { sel = null; document.body.classList.remove('panel-full'); renderAll(); }
+    else if (a === 'desel') { sel = null; replaceAt = null; document.body.classList.remove('panel-full'); renderAll(); }
     else if (a === 'pin') togglePin(el.dataset.res)
     else if (a === 'dataunlock') act('data-unlock', { packet: el.dataset.packet }, 'Data packet unlocked.')
     else if (a === 'msel') { msgSel[msgTab] = el.dataset.id; renderMessages(); }
@@ -1970,7 +2060,14 @@
     else if (a === 'msgs') { closePop(); drawer = null; renderNav(); renderDrawer(); messages(el.dataset.t || 'mail'); }
     else if (a === 'mtab') { msgTab = el.dataset.t; renderMessages(); }
     else if (a === 'resumeOps') act('resume', {});
-    else if (a === 'build' && sel && sel.ring) act('build', { ring: sel.ring, slot: sel.slot, type: el.dataset.type, district: activeId });
+    else if (a === 'build' && sel && sel.ring) act('build', { ring: sel.ring, slot: sel.slot, type: el.dataset.type, district: activeId }).then(function (d) { if (d && d.ok && d.queued) toast('Added to the work queue. It starts when its turn comes.', 'info'); });
+    else if (a === 'replace' && sel && sel.ring) act('replace', { ring: sel.ring, slot: sel.slot, type: el.dataset.type, district: activeId }).then(function (d) {
+      if (!d || !d.ok) return;
+      replaceAt = null; renderPanel();
+      toast(d.queued ? 'Replacement added to the work queue.' : 'Replacement started.', d.queued ? 'info' : true);
+    });
+    else if (a === 'replacemode') { replaceAt = replaceAt ? null : { ring: sel.ring, slot: sel.slot }; renderPanel(); var rp = $('panel'); if (rp) rp.scrollTop = 0; }
+    else if (a === 'qmove') act('queue-move', { orderId: +el.dataset.id, to: el.dataset.to });
     else if (a === 'toggle') {
       var tb = buildingAt(+el.dataset.ring, +el.dataset.slot);
       act('toggle', { ring: +el.dataset.ring, slot: +el.dataset.slot, paused: tb ? !tb.paused : undefined, district: activeId }); // explicit state: safe to resend
@@ -1988,7 +2085,7 @@
       else { confirmKey = el.dataset.key; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
     }
     else if (a === 'cancel') { e.preventDefault(); act('cancel', { orderId: +el.dataset.id }); }
-    else if (a === 'upgrade') act('upgrade', { district: activeId }, activeD().core ? 'Hub upgrade started.' : activeD().name + ' upgrade started.');
+    else if (a === 'upgrade') act('upgrade', { district: activeId }).then(function (d) { if (d && d.ok) toast(d.queued ? 'Upgrade added to the work queue.' : (activeD().core ? 'Hub upgrade started.' : activeD().name + ' upgrade started.'), d.queued ? 'info' : true); });
     else if (a === 'dmode') { dmode = el.dataset.mode; renderPanel(); }
     else if (a === 'linkup') act('link', { district: +el.dataset.id }, 'Link upgraded.');
     else if (a === 'rdel') { var rr = S.routes.filter(function (x) { return x.id === +el.dataset.id; })[0]; if (rr) act('route', { from: rr.fromDistrict, to: rr.toDistrict, resource: rr.resource, rate: 0 }); }
@@ -1996,12 +2093,12 @@
       var rt = S.routes.filter(function (x) { return x.id === +el.dataset.id; })[0];
       if (rt) act('route', { from: rt.fromDistrict, to: rt.toDistrict, resource: rt.resource, rate: Math.max(0, rt.rate + (+el.dataset.delta * sh)), reserve: rt.reserve });
     }
-    else if (a === 'rdraft') { route[el.dataset.f] = Math.max(el.dataset.f === 'rate' ? 1 : 0, route[el.dataset.f] + (+el.dataset.delta * sh)); renderPanel(); }
-    else if (a === 'rsave') act('route', { from: route.from, to: route.to, resource: route.res, rate: route.rate, reserve: route.reserve }, 'Route set.');
+    else if (a === 'rdraft') { route[el.dataset.f] = Math.max(el.dataset.f === 'rate' ? 1 : 0, (route[el.dataset.f] || 0) + (+el.dataset.delta * sh)); renderPanel(); }
+    else if (a === 'rsave') act('route', { from: route.from, to: route.to, resource: route.res, rate: route.rate, reserve: route.reserve, target: route.target }, 'Route set.');
     else if (a === 'enter') { e.preventDefault(); enter(+el.dataset.id); }
     else if (a === 'sdist') { var sid = +el.dataset.id; if (RAW.views[sid] && sid !== activeId) { activeId = sid; sel = null; confirmKey = null; S = merge(RAW); renderAll(); } }
     else if (a === 'orbit') { e.preventDefault(); enterOrbit(); }
-    else if (a === 'found') act('found', { type: el.dataset.type }, 'Founding started.');
+    else if (a === 'found') act('found', { type: el.dataset.type }).then(function (d) { if (d && d.ok) toast(d.queued ? 'Founding added to the Core\'s work queue.' : 'Founding started.', d.queued ? 'info' : true); });
     else if (a === 'sstep') {
       var have = Math.floor(S.views[ship.from].resources[ship.res].amount), cap = Math.max(1, Math.min(CFG.logistics.shipmentMax, have));
       ship.qty = clamp(el.dataset.delta === 'max' ? cap : ship.qty + (+el.dataset.delta * sh), 1, cap); renderPanel();
@@ -2009,7 +2106,7 @@
     else if (a === 'shipsend') {
       act('shipment', { from: ship.from, to: ship.to, resource: ship.res, qty: ship.qty }, 'Shipment dispatched.');
     }
-    else if (a === 'expand') act('expand', { ring: +el.dataset.ring, slot: +el.dataset.slot, district: activeId }, 'Expansion started.');
+    else if (a === 'expand') act('expand', { ring: +el.dataset.ring, slot: +el.dataset.slot, district: activeId }).then(function (d) { if (d && d.ok) toast(d.queued ? 'Expansion added to the work queue.' : 'Expansion started.', d.queued ? 'info' : true); });
     else if (a === 'recpick') { recipePick = recipePick === el.dataset.rec ? null : el.dataset.rec; renderPanel(); }
     else if (a === 'recset') { var rcp = el.dataset.rec; recipePick = null; act('recipe', { ring: +el.dataset.ring, slot: +el.dataset.slot, recipe: rcp, district: activeId }, 'Recipe set.'); }
     else if (a === 'shield') act('shield', { enabled: !(S.hazard && S.hazard.shield && S.hazard.shield.enabled) });
@@ -2071,6 +2168,9 @@
       ship.qty = clamp(n, 1, Math.max(1, Math.min(CFG.logistics.shipmentMax, have)));
     } else if (kind === 'rdraft') {
       route[el.dataset.f] = Math.max(el.dataset.f === 'rate' ? 1 : 0, n);
+    } else if (kind === 'rtarget') {
+      var rg = S.routes.filter(function (x) { return x.id === +el.dataset.id; })[0];
+      if (rg) act('route', { from: rg.fromDistrict, to: rg.toDistrict, resource: rg.resource, rate: rg.rate, reserve: rg.reserve, target: Math.max(0, n) });
     } else if (kind === 'rexist') {
       var rt = S.routes.filter(function (x) { return x.id === +el.dataset.id; })[0];
       if (rt) act('route', { from: rt.fromDistrict, to: rt.toDistrict, resource: rt.resource, rate: Math.max(0, n), reserve: rt.reserve });
@@ -2169,7 +2269,7 @@
     }
     svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up);
   })();
-  if ($('legend')) $('legend').innerHTML = '<span>' + icon('lock', 11) + ' locked</span><span>- - dashed: being built</span><span>! hazard</span><span>OFF / DOWN: not running</span><span>▲n: level</span>';
+  if ($('legend')) $('legend').innerHTML = '<span>' + icon('lock', 11) + ' locked</span><span>- - dashed: being built</span><span>#n: place in the work queue</span><span>! hazard</span><span>OFF / DOWN: not running</span><span>▲n: level</span>';
 
   // ------------------------------------------------------------------ state flow
   function renderAll() {
@@ -2187,10 +2287,10 @@
   function merge(ns) {
     var v = ns.views[activeId];
     return Object.assign({}, ns, {
-      buildings: v.buildings, orders: v.orders, locks: v.locks || [], resources: v.resources, hub: v.hub, energy: v.energy, defense: v.defense,
+      buildings: v.buildings, orders: v.orders, queueMax: v.queueMax, locks: v.locks || [], resources: v.resources, hub: v.hub, energy: v.energy, defense: v.defense,
       coreRes: ns.resources, coreBuildings: ns.buildings,
       allOrders: Object.keys(ns.views).reduce(function (a, k) {
-        return a.concat(ns.views[k].orders.map(function (o) { return Object.assign({ dname: ns.views[k].core ? '' : ns.views[k].name }, o); }));
+        return a.concat(ns.views[k].orders.map(function (o) { return Object.assign({ dname: ns.views[k].core ? '' : ns.views[k].name, did: ns.views[k].id }, o); }));
       }, [])
     });
   }

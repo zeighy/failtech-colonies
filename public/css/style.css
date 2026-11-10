@@ -517,6 +517,17 @@ body.orbit-mode #map::before { content: ''; position: absolute; inset: 0; pointe
 .vn-video { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 56px 16px 24px; background: rgba(0,0,0,.6); }
 .vn-video video { max-width: min(1100px, 96%); max-height: 74vh; background: #000; border-radius: 6px; box-shadow: 0 20px 80px rgba(0,0,0,.8); }
 .rushq { font-size: 10px; padding: 2px 8px; letter-spacing: .04em; }
+/* the work queue: plots and orders that are waiting their turn */
+.slot.planned .cell { fill: rgba(76,201,240,.05); stroke: var(--cyan); stroke-dasharray: 2 5; }
+.slot.planned .ico { opacity: .55; }
+.slot.planned .tag, .slot.swap .tag { fill: var(--cyan); }
+.q-place { flex: none; align-self: center; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); padding-left: 10px; border-left: 1px solid var(--line2); }
+.q-place:first-of-type { border-left: 0; padding-left: 0; }
+.order.wait { border-style: dashed; background: transparent; }
+.order.wait .row span { color: var(--dim); }
+.order.wait .why { font-size: 11px; color: var(--faint); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.order.wait.short { border-color: #7a6320; } .order.wait.short .why { color: var(--warn); }
+.order.wait .linkbtn { margin-left: 8px; }
 .order { min-width: 210px; }
 
 /* ====================================================================================================================

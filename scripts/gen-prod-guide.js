@@ -70,6 +70,16 @@ add('## **5. Plots and rings**',
   table(['Ring', 'Plot size', 'Core slots'], Object.keys(C.ringPlotSize).map((r) => [r, plot(C.ringPlotSize[r]), (Object.values(C.hubLevels).map((l) => l.ringCapacities[r]).filter(Boolean).pop()) || '–'])),
   `A building can sit on a plot smaller than its minimum, but its output is multiplied by **${G.plotPenaltyPerStep}** per missing size step (inputs are still consumed in full). Rings 2 and 4 are rotated ${C.ringRotation['2']} degrees so slots do not line up between rings.`);
 
+// ---- the work queue
+const BQ = { maxPerPlace: 8, replaceTimeMult: 1.5, ...(G.buildQueue || {}) };
+add('## **5b. The work queue**',
+  `* **One build slot per place.** The Core, every district, the station and every territory each build one thing at a time. Building, replacing, expanding, upgrading and (in the Core) founding a district all wait in the same line, up to ${BQ.maxPerPlace} orders per place. Places do not hold each other up.`,
+  '* **Strict order.** Orders are carried out in the order they were queued. Nothing behind the front of the queue starts early, even if the place could pay for it. A waiting order can be moved up, down or to the front, and cancelled.',
+  '* **Paid for when it starts.** An order costs nothing while it waits, so it can be queued before the materials exist. When its turn comes it waits at the front until its place can pay, and everything behind it waits too. Cancelling an order that has started refunds it in full.',
+  '* **Dropped orders.** An order that can no longer be carried out when its turn comes (its plot was taken, the building is gone) is taken off the queue with a note in the log.',
+  `* **Replace in place.** A building can be swapped for another on the same plot. The order goes through the queue and the old building keeps working until its turn. It is then scrapped for the demolition refund (${G.demolishRefund * 100}%), and the plot stands empty while the new building goes up, which takes **×${BQ.replaceTimeMult}** its usual build time. Expansion levels are not carried over. A workshop with a recipe set has to be demolished instead.`,
+  '* **Rush** applies to the order under way, not to one that is waiting.');
+
 // ---- adjacency
 add('## **6. Adjacency**', 'Neighbours are the two slots beside a building in its ring plus every touching slot in the rings above and below. Each matching neighbour multiplies output (clamped).',
   C.adjacencyModifiers.rules.map((r) => `* ${bn(r.targetBuilding)} next to ${bn(r.adjacentBuilding)}: ×${r.outputMultiplier}`).join('\n'));
@@ -91,7 +101,7 @@ add('## **8. Districts**',
 const L = C.logistics;
 add('## **9. Logistics: shipments, routes and links**',
   `* **One-off shipments:** at most ${L.maxInFlight} on the road at once, up to ${L.shipmentMax} units each. Stock leaves now and arrives after the trip (anything over the destination's storage cap is lost).`,
-  `* **Standing routes:** up to ${L.maxRoutes}. A route moves goods directly every tick, limited by the link's capacity and the source's reserve, and shows in both districts' rates. Routes do not use shipment slots.`,
+  `* **Standing routes:** up to ${L.maxRoutes}. A route moves goods directly every tick, limited by the link's capacity and the source's reserve, and shows in both districts' rates. A route can also be given a target: it stops once the destination holds that much (0 = no target: it fills the destination's storage). Routes do not use shipment slots.`,
   table(['Link level', 'Capacity / tick', 'Upgrade cost (paid from the Core)'], Object.entries(L.link.levels).map(([l, v]) => [l, v.capacity, v.upgradeCost ? list(v.upgradeCost) : 'start'])));
 
 // ---- expansion

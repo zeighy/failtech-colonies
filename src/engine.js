@@ -6,6 +6,7 @@ const shutdown = require('./shutdown');
 const orbital = require('./orbital');
 const territories = require('./territories');
 const credits = require('./credits');
+const queue = require('./queue');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const hazards = require('./hazards');
@@ -76,15 +77,16 @@ function tickColony(c, globalTick, tickTime) {
   }
   if (res.won && !c.won) ev('good', 'THE BEACON HAS REACHED THE WORLD. Transmission complete. Mission accomplished.');
 
-  // Work orders
+  // Work orders under way (the ones still waiting in a queue are dealt with below)
   for (const o of store.loadOrders(c.id)) {
+    if (o.state === 'queued') continue;
     if (o.ticks_remaining > 1) {
       db.prepare('UPDATE colony_work_orders SET ticks_remaining = ticks_remaining - 1 WHERE id = ?').run(o.id);
       continue;
     }
     const d = districts.find((x) => x.id === o.district_id) || core; // orders from before districts belong to the Core
     const where = d.type === 'core' ? '' : ` in ${d.name}`;
-    if (o.action_type === 'build') {
+    if (o.action_type === 'build' || o.action_type === 'replace') {
       db.prepare('INSERT INTO colony_buildings (colony_id, district_id, ring_index, slot_index, building_type) VALUES (?, ?, ?, ?, ?)')
         .run(c.id, d.id, o.data.ring, o.data.slot, o.data.type);
       ev('good', `${config.buildings[o.data.type].name} completed in ring ${o.data.ring}${where}.`);
@@ -109,6 +111,12 @@ function tickColony(c, globalTick, tickTime) {
       ev('good', `${t.name} founded. A new district is online.`);
     }
     db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
+  }
+  // The work queue: wherever a place's build slot has come free, the order at the front of its queue starts, if the
+  // place can pay for it out of the stock this tick has left it. One that cannot pay waits, and so does everything behind it.
+  for (const d of districts) {
+    const inv = d.id === core.id ? inventory : (full.districts.find((r) => r.id === d.id) || {}).inventory;
+    if (inv) queue.advance(c, d, hubLevel, queue.memBag(inv), globalTick, ev);
   }
 
   // Shipments that have reached their destination (anything over the storage cap is lost)
