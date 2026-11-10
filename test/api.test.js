@@ -224,6 +224,33 @@ test('pages: game requires login, static assets served', async () => {
   assert.equal((await c.get('/js/game.js')).status, 200);
 });
 
+test('pages: the game comes in a desk layout or a phone layout (?ui= first, then the saved choice, then what the browser says it is)', async () => {
+  const reg = await fetch(`${base}/api/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'layout_1', password: 'hunter22' }) });
+  const sid = reg.headers.get('set-cookie').split(';')[0];
+  const shell = async (ua, saved, url = '/game') => {
+    const r = await fetch(base + url, { headers: { cookie: sid + (saved ? `; ft_ui=${saved}` : ''), 'user-agent': ua } });
+    assert.equal(r.status, 200);
+    return /data-shell="(\w+)"/.exec(await r.text())[1];
+  };
+  const DESK = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+  const PHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+  const DROID = 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
+  assert.equal(await shell(DESK), 'desktop');
+  assert.equal(await shell(PHONE), 'mobile');
+  assert.equal(await shell(DROID), 'mobile');
+  assert.equal(await shell(PHONE, 'desktop'), 'desktop', 'a saved choice beats the guess');
+  assert.equal(await shell(DESK, 'mobile'), 'mobile');
+  assert.equal(await shell(DESK, 'mobile', '/game?ui=desktop'), 'desktop', 'and ?ui= beats both');
+  assert.equal(await shell(PHONE, '', '/game?ui=desktop'), 'desktop');
+  assert.equal(await shell(DESK, '', '/game?ui=mobile'), 'mobile');
+  assert.equal(await shell(DESK, 'sideways'), 'desktop', 'anything else is ignored');
+  assert.equal(await shell(DESK, '', '/game?ui=sideways'), 'desktop');
+  // both layouts are the same game: the same scripts in the same order, and the phone one adds its stylesheet
+  const scripts = (f) => [...fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf8').matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(scripts('mobile.html'), scripts('game.html'));
+  assert.equal((await client().get('/css/mobile.css')).status, 200);
+});
+
 // ---- onboarding directives & collapse clock ------------------------------------
 const lastColonyId = () => store.db.prepare('SELECT id FROM colonies ORDER BY id DESC LIMIT 1').get().id;
 const setStock = (id, res, amt) => store.db.prepare('UPDATE colony_inventory SET amount = ? WHERE colony_id = ? AND resource_id = ?').run(amt, id, res);

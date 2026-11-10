@@ -268,7 +268,7 @@
     var h = H.brokerage() + '<div class="label sec">Orbital market</div><div class="dim" style="font-size:11px;margin-bottom:6px">Trade goods made in the orbital foundry, between stations, straight from orbital storage. Market makers post a little at the reference price every ' + ticks(m.refreshTicks) + ' (next in ' + ticks(m.nextRefresh) + '). Sellers pay a ' + Math.round(m.feeRate * 100) + '% fee.</div>' +
       '<div class="orow">' + sel('mkt-res', m.goods.map(function (x) { return [x.resource, rn(x.resource) + (x.orbitalOnly ? ' ✦' : '')]; }), d.res) + '</div>' +
       '<dl class="kv"><dt>Reference</dt><dd>' + g.reference.toFixed(2) + ' cr</dd><dt>Accepted range</dt><dd>' + g.band[0].toFixed(2) + ' to ' + g.band[1].toFixed(2) + ' cr</dd><dt>In storage</dt><dd>' + fmt(inv[d.res] ? inv[d.res].amount : 0) + '</dd></dl>' +
-      '<div class="book"><div><div class="label">Bids</div><table>' + (g.bids.map(row).join('') || '<tr><td class="dim">none</td></tr>') + '</table></div>' +
+      '<div class="obook"><div><div class="label">Bids</div><table>' + (g.bids.map(row).join('') || '<tr><td class="dim">none</td></tr>') + '</table></div>' +
       '<div><div class="label">Asks</div><table>' + (g.asks.map(row).join('') || '<tr><td class="dim">none</td></tr>') + '</table></div></div>' +
       '<div class="label sec">Post an order</div><div class="orow">' + sel('mkt-side', [['buy', 'Buy'], ['sell', 'Sell']], d.side) + num('mkt-qty', d.qty) + '<span class="dim">at</span>' + num('mkt-price', d.price) + '<span class="dim">cr</span></div>' +
       '<div class="orow">' + sel('mkt-ttl', m.ttlOptions.map(function (t) { return [t, 'Lasts ' + t + ' ticks']; }), d.ttl) + '</div>' +

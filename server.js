@@ -215,7 +215,21 @@ for (const [route, name] of [
 
 // ---- pages ----------------------------------------------------------------------
 app.get('/', (req, res) => (req.session.userId ? res.redirect('/game') : res.sendFile(path.join(PUBLIC, 'index.html'))));
-app.get('/game', (req, res) => (req.session.userId ? res.sendFile(path.join(PUBLIC, 'game.html')) : res.redirect('/')));
+// The game has two shells over the same client code: game.html for a desk and mobile.html for a phone. Which one is sent:
+// an explicit ?ui=mobile|desktop, else the player's saved choice (the ft_ui cookie, set from the menu), else the browser's
+// own description of itself. The client corrects a wrong guess once, from the real screen size.
+function wantsMobile(req) {
+  const q = req.query.ui;
+  if (q === 'mobile' || q === 'desktop') return q === 'mobile';
+  const saved = /(?:^|;\s*)ft_ui=(mobile|desktop)(?:;|$)/.exec(req.headers.cookie || '');
+  if (saved) return saved[1] === 'mobile';
+  return /Mobi|Android|iPhone|iPod|Windows Phone/i.test(req.get('user-agent') || '');
+}
+app.get('/game', (req, res) => {
+  if (!req.session.userId) return res.redirect('/');
+  res.set({ Vary: 'User-Agent, Cookie', 'Cache-Control': 'no-store' });
+  res.sendFile(path.join(PUBLIC, wantsMobile(req) ? 'mobile.html' : 'game.html'));
+});
 // Only the public/ folder is served: dotfiles are never sent, there are no directory listings, and path traversal is
 // refused by the static handler. The database, config and source live outside it.
 // Theme artwork (portraits, backgrounds): only the active theme's assets/ folder, nothing else under content/.

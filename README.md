@@ -17,13 +17,26 @@ The **Brief** tab is your guide. It shows a **collapse clock** (ticks until coll
 
 Messages from the story arrive as **calls** (a card at the bottom right of the map that you answer when convenient) and as **mail** in the Messages window (the envelope in the top right). See [Story delivery](#story-delivery).
 
-The screen has three kinds of information, each in its own place:
+The screen keeps each kind of information in one fixed place:
 
-- **Always on screen (the top bar).** The colony's vitals (credits, people and homes, cohesion, collapse clock, hazard countdown with how prepared you are) and a second group for the place you are looking at: power and next convoy on the surface; station power, storage slots, the express slot and the project timer on the station; ship power, hold, time left and hull in a territory. Numbers turn amber or red when something needs you, so there is no separate alert row. The bell (incoming calls and what just happened, with a link to the full history), the envelope (Messages: Mail, Calls, History) and your name (command menu) sit at the right.
-- **Follows what you select (the right pane).** With nothing selected it is an overview: the next step from the Brief, what needs attention, and the stock that matters. Select a free slot for the build menu, or a building to see why it runs at the number it does, upgrade, pause or demolish it. In orbit it shows the station or territory overview.
-- **Waits until you ask (the dock).** Colony (Brief, People, Hub, Districts) and Economy (Stockpile, Logistics, Convoy, Exchange, Missions) open full-size workspaces over the map; on the station the groups are Station (Storage with links and express, Market) and Expeditions (Territories, Project). Esc or the close button returns to the map. The work queue sits at the right of the dock.
+- **Always on screen (the top bar and the stock bar).** The colony's vitals (credits, people and homes, cohesion, collapse clock, hazard countdown with how prepared you are) and a second group for the place you are looking at: power and next convoy on the surface; station power, storage slots, the express slot and the project timer on the station; ship power, hold, time left and hull in a territory. Numbers turn amber or red when something needs you, so there is no separate alert row. Under it, the **stock bar** shows the stock you pinned (or the place's own stock in orbit), and it stays there while you build, inspect or work in any screen. The bell (incoming calls and what just happened, with a link to the full history), the envelope (Messages: Mail, Calls, History) and your name (command menu) sit at the right.
+- **Every screen, one click away (the list on the left).** Map, then Colony (Brief, People, Hub, Districts), Economy (Stockpile, Logistics, Convoy, Exchange, Missions) and, once they exist, Orbit (Storage, Market, Expeditions, Project) and the Data archive. The list never rearranges itself: a screen that has not opened yet keeps its place with a lock, and a dot or a count marks the ones that want a look. Each has a key (`B` Brief, `P` People, `H` Hub, `D` Districts, `S` Stockpile, `L` Logistics, `C` Convoy, `X` Exchange, `N` Missions, `M` or `Esc` back to the map; the command menu lists them). A screen opens over the map and the right pane; surface screens open on the surface and orbital ones in orbit, wherever you were.
+- **Follows what you select (the right pane).** With nothing selected it is an overview: the next step from the Brief, what needs attention, and the place at a glance (free plots, power). Select a free plot for the build menu (filter it by Power, Extraction, Production, Housing or Support), or a building to pause or demolish it at once and see why it runs at the number it does. In orbit it shows the station or territory overview.
+- **The map.** Tabs along its top switch place: the Core and your districts (plus Found), then the station, any territory you are in, and Deploy. Scroll to zoom, drag to pan, and use the buttons in its corner (or `+`, `-`, `0`) to zoom or fit.
+- **The bottom bar.** The next step from the Brief, and the work queue.
 
-A rail on the left of the map switches place: Surface (the Core and your districts, plus Found) and Orbit (the station, any territory you are in, and Deploy). Mail, calls and the log live in the Messages window and the bell, not in the right pane. Names depend on the theme.
+Mail, calls and the log live in the Messages window and the bell, not in the right pane. Names depend on the theme.
+
+#### On a phone
+
+A phone gets its own layout over the same game (`public/mobile.html`), with every screen and action of the desk layout:
+
+- **Top:** a place button (tap it to go to another district, the station or a territory), the bell and the envelope. Under it the vitals as icons and numbers; tap one to open its screen or to be told what it is.
+- **Middle:** the map (pinch to zoom, drag to pan) with a panel under it: the overview (next step, what needs attention, the work queue, pinned stock), or the build menu or building you tapped. The map glides in on the plot you pick, and the handle on the panel grows it to the full height.
+- **Bottom:** five fixed tabs: Map, Brief, Stock, Trade and **More**, which lists every other screen, the messages and the account. Inside a screen, a strip along the top jumps between its neighbours.
+- Calls, mail and the dialogue scenes are laid out for a narrow screen, upright or on its side.
+
+The server picks the layout from what the browser says it is, and the game corrects a wrong guess from the real screen size. To choose for yourself, use **Use the phone layout** in the command menu or **Use the desktop layout** under More (the choice is kept in a cookie), or open `/game?ui=mobile` or `/game?ui=desktop`.
 
 ### Systems
 
@@ -44,8 +57,8 @@ A rail on the left of the map switches place: Surface (the Core and your distric
 | **The Free Port** | After the Beacon, a harbour district (the Sanctuary Port in the default theme) that can build anything except other districts' raw extractors. Its **Trade Workshops** each lock in one recipe (changing costs credits and idle time) and turn colony goods into **trade goods**; a bigger plot runs a bigger batch. Sell them on the exchange, deploy them as **shields** that make a hazard harmless, or fill **missions** for the three factions to build standing and rank. Standing also unlocks what each faction has to tell you. |
 | **Work orders** | Construction and upgrades take ticks. Costs are charged up front; cancelling refunds in full. |
 | **Shutdown** | Critical shortages drain morale and people leave rather than starve. When morale reaches zero the colony does not collapse: it **shuts down**. Every building that is not essential is **parked** (housing and the Core's essential buildings stay on; everything in other districts is parked), the colony cannot collapse again, and it recovers on its own once nobody is starving and morale is back. Parked buildings stay parked until you restart them, all at once or one by one. You can keep rebuilding, or choose **Abandon colony** from the menu (two confirmations; progress resets, and the story starts over). |
-| **Districts** | From hub level 4 the **Districts** tab lets you found satellite bases (**The Pits**: ore, ingots, alloys; **The Stacks**: crude, fuel, reagents, polymers, circuits, power cells; **The Greenbelt**: biomass, fertiliser, medicine (names are the neutral theme's)). Each has its own stockpile, power grid and 3-5-7-9-11 rings; people, crew and morale stay colony-wide. Founding is paid from the Core, upgrades from the district itself, so goods are moved by **shipments** (take ticks by distance; stock leaves at dispatch) and by standing **routes** (units per tick moved straight between stockpiles, with a reserve the source keeps) over each district's **link**, whose capacity you can widen. Route flows show in every district's per-tick rates. District level 2 opens at hub 4, levels 3-4 at hub 5, level 5 once the Beacon is built. Switch between districts with the chips on the map. |
-| **Optional inputs** | Some buildings can take an extra input that is **off by default**. Switch it on from the Site pane and, while it is in stock, the building spends a fixed amount per tick for a bonus: fertiliser makes Hydroponics Bays grow x1.35, medicine makes homes happier. |
+| **Districts** | From hub level 4 the **Districts** tab lets you found satellite bases (**The Pits**: ore, ingots, alloys; **The Stacks**: crude, fuel, reagents, polymers, circuits, power cells; **The Greenbelt**: biomass, fertiliser, medicine (names are the neutral theme's)). Each has its own stockpile, power grid and 3-5-7-9-11 rings; people, crew and morale stay colony-wide. Founding is paid from the Core, upgrades from the district itself, so goods are moved by **shipments** (take ticks by distance; stock leaves at dispatch) and by standing **routes** (units per tick moved straight between stockpiles, with a reserve the source keeps) over each district's **link**, whose capacity you can widen. Route flows show in every district's per-tick rates. District level 2 opens at hub 4, levels 3-4 at hub 5, level 5 once the Beacon is built. Switch between districts with the tabs over the map (the place button on a phone). |
+| **Optional inputs** | Some buildings can take an extra input that is **off by default**. Switch it on from the building's pane and, while it is in stock, the building spends a fixed amount per tick for a bonus: fertiliser makes Hydroponics Bays grow x1.35, medicine makes homes happier. |
 | **Expansions** | Any production, housing or infrastructure building can be built "upward" in its plot, to level 5: the whole line scales (x1.4 up to x2.6, with a little less extra crew), paid with trade goods made at the Free Port. It is size, not efficiency. Levels 6 to 10 (up to x4.6) appear once the first rare resource has come home to the station, and also cost goods made in orbit, at an escalating rate. Links between districts can be widened up to 440 per tick the same way. |
 | **People** | The People tab shows what the population eats, what the colony can still feed, and where it is heading. When food or water runs short people leave instead of the colony collapsing (down to 5). Growth is judged on the Core's own production **plus what standing routes bring in or take out**, and a colony with a full stockpile can lean on it for a small shortfall, but it will not grow itself into a real shortage. Everyone eats from the Core stockpile; homes in other districts only add capacity and comfort. |
 | **Spending credits** | There is no cap on credits, so the game gives them things to do. **Rush** (a button on any work order, two clicks) finishes it on the next tick for credits per remaining tick, and each rush in the last day costs 20% more than the one before. Orbital storage and link upgrades and the dropships cost credits as well as goods. Buying has a **daily allowance** (100,000 credits per hub level) across the exchange, the orbital market and express convoys; beyond it purchases carry a brokerage surcharge of +10%, +25% or +50% as spending climbs, which is burned. Normal play never reaches it. All the numbers are in `credits` in `game_config.json`. |
@@ -58,10 +71,10 @@ A rail on the left of the map switches place: Surface (the Core and your distric
 The multiplayer endgame, hidden until the colony's standing with all factions adds up to 500 (the Missions screen only hints at it). Full design in [`docs/orbital.md`](docs/orbital.md), numbers in section 16 of [`prod_guide.md`](prod_guide.md).
 
 - **Launch:** build the Orbital Staging Platform and the Orbital Catapult side by side on Colossal plots in the Core, and the Orbital Command Center on a Heavy plot in the Free Port. Load a launch cycle (it draws frames, fittings and modules every tick), then name your station and launch. Later cycles open the station's second and third rings.
-- **Orbital Command:** the Command Center chip on the map switches to the orbit view, which has its own panes:
+- **Orbital Command:** the Station tab over the map switches to the orbit view, and the Orbit screens in the list have their own panes:
   - **Station:** Klein Reactors for power; Orbital Foundries that run trade recipes and six orbital-only recipes without crew.
   - **Storage:** slot-limited, one resource per slot, with jettison, rebuild and upgrades. It also manages the orbital links to the Core (both ways), the fuel-hungry express launch up and the cheap express drop down.
-  - **Territories:** dropships and anomalous territories.
+  - **Expeditions:** dropships and anomalous territories.
   - **Market:** the orbital market.
   - **Project:** the current global project.
 - **Anomalous territories** are shared by every player:
@@ -90,12 +103,12 @@ The full numbers (costs, rates, plots, hazards, prices) are in [`prod_guide.md`]
 ## Tech stack
 
 - **Server:** Node.js 22, Express 5, `better-sqlite3` (SQLite, WAL), `bcrypt`, `express-session` with a SQLite session store (sessions survive restarts).
-- **Client:** dependency-free HTML/CSS/JS served from `public/` (`game.js` the game, `story.js` calls and mail, `terms.js` the vocabulary layer, `icons.js`, `login.js`). The radar is SVG built once and patched in place (and auto-zooms as rings unlock); there is no build step and no CDN dependency. Live updates arrive over **Server-Sent Events**; numbers and progress bars are interpolated between ticks.
+- **Client:** dependency-free HTML/CSS/JS served from `public/` (`game.js` the game, `story.js` calls and mail, `terms.js` the vocabulary layer, `icons.js`, `login.js`). Two pages share that code: `game.html` (the desk layout) and `mobile.html` with `css/mobile.css` (the phone layout); `game.js` reads `data-shell` on the page to know which frame it is drawing into, and everything inside a screen is the same markup in both. The radar is SVG built once and patched in place (it auto-zooms as rings unlock, and can be zoomed and panned by wheel, drag or pinch); there is no build step and no CDN dependency. Live updates arrive over **Server-Sent Events**; numbers and progress bars are interpolated between ticks.
 
 ## Architecture
 
 ```
-server.js          Express app: auth, JSON API, SSE stream, security, graceful shutdown, static pages, /theme-assets
+server.js          Express app: auth, JSON API, SSE stream, security, graceful shutdown, static pages (desk or phone layout), /theme-assets
 src/sim.js         Pure simulation (no DB, no clock): stepDistrict(), stepColony(), step(), runConvoy(), routes, adjacency, plots
 src/engine.js      Tick loop + offline catch-up; applies sim and hazards to the database
 src/actions.js     Validated, transactional player actions (build, upgrade, expand, found, ship, route, trade, shields, missions, ...)
@@ -115,7 +128,7 @@ src/db.js          Schema (v16) and migrations, session store, colony helpers
 game_config.json   All balance data (no wording that a theme replaces matters here; ids are stable)
 content/           One folder per theme: theme.json (wording), story.json (narrative), assets/ (portraits, backgrounds)
 scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md)
-public/            index.html (login), game.html, css/, js/ (game.js, orbit.js for the Orbital Command view)
+public/            index.html (login), game.html (desk layout), mobile.html (phone layout), css/ (style.css, mobile.css), js/ (game.js, orbit.js for the Orbital Command view)
 docs/              districts.md (district system, exchange, Free Port, roadmap), orbital.md (orbit endgame), story.md (theme and story format), security.md, content-needs.md
 test/              node:test suites: simulation, balance guard, hazards, express convoy, districts and migration, exchange, Free Port, orbit, expansion and growth, shutdown, backups, story and themes, security, HTTP API
 ```
@@ -190,7 +203,7 @@ All wording and the whole narrative live in `content/<theme>/`, separate from th
 
 ### Story delivery
 
-- **Calls.** A dialogue arrives as an incoming call in a card at the bottom right of the map (it also rings on login if a trigger was met while you were away). Answer when convenient; the card can be collapsed to a pill. Answering opens a full-screen scene that can be **minimized** into an "on call" bar and resumed. Played scenes stay in the Calls list of the Messages window and can be replayed.
+- **Calls.** A dialogue arrives as an incoming call in a card at the bottom right of the map (it also rings on login if a trigger was met while you were away). Answer when convenient; the card can be collapsed to a pill, and it is a pill to begin with on a phone or while a screen is open. Answering opens a full-screen scene that can be **minimized** into an "on call" bar and resumed. Played scenes stay in the Calls list of the Messages window and can be replayed.
 - **Mail.** Mail goes to the Messages window (envelope, top right) with an unread badge and a toast. Clicking it opens a reading window with the sender's avatar.
 - **Pacing.** Beats are delivered one at a time. When several are due at once (an existing colony catching up with a new script), the next arrives only once the previous ones were answered, skipped or read. A call never arrives while another call is unanswered.
 - The script is not sent ahead of time: the client only receives text that has already been delivered to that colony.

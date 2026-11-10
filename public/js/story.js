@@ -9,10 +9,13 @@
   var fetchedRev = -1, fetching = false;
   var known = null;          // ids seen in the previous view (to announce new mail)
   var ringMin = false;       // the incoming-call card is collapsed to a pill
+  var ringOpen = false;      // the player opened the pill themselves (so it stays open where the card would otherwise stay small)
   var knownPending = {};     // calls already seen ringing, so a brand-new call can expand the card again
   var p = null;              // the scene being played: { beat, scene, node, i, replay, timer, full, min, last: {left,right} }
 
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  var NEXT = touch ? 'Tap to continue' : 'Click or press Space to continue', END = touch ? 'Tap to end' : 'Click to end';
   var esc = function (s) { return host.esc(s); };
 
   function init(h) { host = h; document.addEventListener('keydown', onKey, true); document.addEventListener('click', onClick); }
@@ -27,7 +30,7 @@
     }
     known = {};
     v.items.forEach(function (i) { known[i.id] = true; });
-    v.pending.forEach(function (b) { if (!knownPending[b]) { knownPending[b] = true; ringMin = false; } });
+    v.pending.forEach(function (b) { if (!knownPending[b]) { knownPending[b] = true; ringMin = false; ringOpen = false; } });
     if (v.rev !== fetchedRev && !fetching) load();
     renderDock();
   }
@@ -70,7 +73,7 @@
         '<button class="btn primary" data-story="resume">Resume</button><button class="btn" data-story="hangup" title="' + (p.replay ? 'Close' : 'Hang up (it stays in Comms)') + '">' + host.icon('x', 12) + '</button>';
     } else if (!p && ringing.length) {
       var ch = callerOf(ringing[0]);
-      if (ringMin) {
+      if (ringMin || (!ringOpen && host.compact && host.compact())) {
         cls = 'call ring min';
         html = '<button class="call-pill" data-story="dockexp"><span class="pulse"></span>' + esc(ch ? ch.name : 'Incoming') + ' is calling' + (ringing.length > 1 ? ' <em>+' + (ringing.length - 1) + '</em>' : '') + '</button>';
       } else {
@@ -150,19 +153,18 @@
     el.innerHTML =
       '<div class="vn-bg"' + bg + '></div><div class="vn-shade"></div>' +
       '<div class="vn-tools">' +
-        (p.scene.title ? '<span class="vn-title">' + esc(p.scene.title) + '</span>' : '') +
-        '<span class="sp"></span>' +
+        '<span class="vn-title">' + esc(p.scene.title || '') + '</span>' +
         '<button class="btn" data-story="minimize" title="Keep the call going in the corner (Esc)">Minimize</button>' +
         '<button class="btn" data-story="close">' + (p.replay ? 'Close' : 'Skip') + '</button>' +
         (!p.replay && pend > 1 ? '<button class="btn" data-story="skipall">Skip all (' + pend + ')</button>' : '') +
       '</div>' +
       (n.image ? '<div class="vn-plate"><img alt="" src="' + asset(n.image) + '"></div>' : '') +
-      '<div class="vn-stage"><div class="vn-side left">' + sideHtml(p.last.left, n) + '</div><div class="vn-side right">' + sideHtml(p.last.right, n) + '</div></div>' +
+      '<div class="vn-stage' + (ch ? ' speak-' + (ch.side === 'left' ? 'left' : 'right') : ' speak-none') + '"><div class="vn-side left">' + sideHtml(p.last.left, n) + '</div><div class="vn-side right">' + sideHtml(p.last.right, n) + '</div></div>' +
       '<div class="vn-box" data-story="advance" tabindex="0">' +
         (ch ? '<div class="vn-name" style="--c:' + esc(ch.color || '#ddd') + '">' + esc(ch.name) + (n.tag ? ' <em>' + esc(n.tag) + '</em>' : '') + (ch.title ? ' <small>' + esc(ch.title) + '</small>' : '') + '</div>' : '') +
         '<div class="vn-text' + (ch ? '' : ' narr') + '" id="vn-text"></div>' +
         '<div class="vn-choices" id="vn-choices"></div>' +
-        '<div class="vn-hint" id="vn-hint">Click or press Space to continue</div>' +
+        '<div class="vn-hint" id="vn-hint">' + NEXT + '</div>' +
       '</div>';
     reveal(text, lastPassage, n);
     var box = el.querySelector('.vn-box'); if (box) box.focus({ preventScroll: true });
@@ -183,7 +185,7 @@
         ch.innerHTML = (n.prompt ? '<div class="vn-prompt">' + esc(n.prompt) + '</div>' : '') + n.choices.map(function (c, i) { return '<button class="btn vn-choice" data-story="choose" data-i="' + i + '"><kbd>' + (i + 1) + '</kbd> ' + esc(c.label) + '</button>'; }).join('');
       } else {
         hint.style.visibility = 'visible';
-        hint.textContent = lastPassage && !n.next ? 'Click to end' : 'Click or press Space to continue';
+        hint.textContent = lastPassage && !n.next ? END : NEXT;
       }
     };
     if (reduce) { done(); return; }
@@ -224,7 +226,7 @@
       view.items.forEach(function (i) { if (i.id === beat) i.seen = true; });
       view.pending = view.pending.filter(function (b) { return b !== beat; });
       host.api('story-seen', { beat: beat }).catch(function () { /* retried next session */ });
-    } else if (!seen && !replay) ringMin = true;
+    } else if (!seen && !replay) { ringMin = true; ringOpen = false; }
     renderDock(); host.changed();
   }
   function minimize() {
@@ -263,8 +265,8 @@
     else if (a === 'resume') resume();
     else if (a === 'hangup') finish(false);
     else if (a === 'close') { if (p.replay) finish(false); else finish(true); }
-    else if (a === 'dockmin') { ringMin = true; renderDock(); }
-    else if (a === 'dockexp') { ringMin = false; renderDock(); }
+    else if (a === 'dockmin') { ringMin = true; ringOpen = false; renderDock(); }
+    else if (a === 'dockexp') { ringMin = false; ringOpen = true; renderDock(); }
     else if (a === 'answer') play(el.dataset.beat, false);
     else if (a === 'skip') {
       view.items.forEach(function (i) { if (i.id === el.dataset.beat) i.seen = true; });
@@ -343,13 +345,14 @@
     return head + '<h2>' + esc(i.title) + '</h2><div class="mailv-meta">' + (i.seen ? 'Played at tick #' + i.tick : 'Waiting for you since tick #' + i.tick) + '</div>' +
       '<div class="actions">' + (i.seen ? '<button class="btn" data-story="play" data-beat="' + esc(i.id) + '" data-replay="1">Replay</button>' : '<button class="btn primary" data-story="answer" data-beat="' + esc(i.id) + '">' + host.icon('play', 12) + ' Answer</button>') + '</div>';
   }
-  function msgView(kind, selId) {
-    var list = items(kind), cur = list.filter(function (i) { return i.id === selId; })[0] || list[0] || null;
+  // `noAuto`: nothing is opened until the player picks it (a phone shows the list first, and opening is what marks mail read).
+  function msgView(kind, selId, noAuto) {
+    var list = items(kind), cur = list.filter(function (i) { return i.id === selId; })[0] || (noAuto ? null : list[0]) || null;
     if (cur && kind === 'mail' && !cur.seen) { cur.seen = true; view.unreadMail = Math.max(0, view.unreadMail - 1); host.api('story-seen', { beat: cur.id }).catch(function () { /* ignore */ }); }
     return { n: list.length, sel: cur ? cur.id : null, list: list.map(function (i) { return row(kind, i, cur && i.id === cur.id); }).join('') || '<div class="dim" style="padding:16px;font-size:12px">' + (kind === 'mail' ? 'No mail yet.' : 'No calls yet.') + '</div>', reader: reader(kind, cur) };
   }
 
   function counts() { return view ? { mail: view.unreadMail, calls: view.pending.length } : { mail: 0, calls: 0 }; }
 
-  window.Story = { init: init, setView: setView, waitingHtml: waitingHtml, msgView: msgView, counts: counts, unread: unread };
+  window.Story = { init: init, setView: setView, waitingHtml: waitingHtml, msgView: msgView, counts: counts, unread: unread, refresh: function () { if (view) renderDock(); } };
 })();

@@ -33,7 +33,6 @@
   var ship = { from: null, to: null, res: 'scrap', qty: 100 }; // shipment being composed
   var sel = null;          // { ring, slot } | { hub: true } | null
   var ws = null;           // the workspace open over the map (a screen from the dock), or null
-  var lastWs = {};         // dock group -> the workspace last opened in it
   var bellSeen = 0;        // newest event the player has looked at in the notifications popover
   var pins = null;         // stock the player pinned to the overview (null = automatic)
   var msgTab = 'mail', msgSel = {};     // tab of the Messages window
@@ -47,6 +46,8 @@
   var slotEls = {};        // "r:s" -> {g, cell, ...}
   var ringLabels = {};     // ring -> svg text (plot size / locked notice)
   var viewR = 0, targetR = 0; // radar zoom: current / target visible radius
+  var viewC = [0, 0], goalR = 0, goalC = [0, 0]; // radar centre, and where the view is gliding to
+  var userView = false, autoFocus = false, dragEndAt = 0; // the player (or a selection on a phone) has set the view; when a drag ended
   var acking = false;      // away report acknowledgement in flight
   var pending = [];        // actions clicked while offline, waiting to be sent
   var pendingSeq = 0, flushing = false, lastMsgAt = Date.now(), es = null;
@@ -55,33 +56,49 @@
   var xdraft = { sell: {}, buy: {} }; // express order being composed
   var hubEl = null;
   var STEP = {}; // every stepper moves by 10 (hold Shift for 100); type a value for anything else
+  var MOBILE = document.documentElement.getAttribute('data-shell') === 'mobile'; // the phone shell (mobile.html)
+  var groundId = null;     // the surface district looked at last (where a surface screen opens from orbit)
+  var drawer = null;       // phone shell: the sheet over everything ('more' = every screen, 'places' = where to go)
+  var buildCat = 'all';    // build menu filter
   function inOrbit() { return !!(RAW && activeD().orbital); }
   function stationId() { return RAW && RAW.orbital && RAW.orbital.station ? RAW.orbital.station.districtId : null; }
   function enterOrbit() { var id = stationId(); if (id === null) return; enter(id); }
-  // The dock opens full-size workspaces. What is on offer depends on where the player is: the colony or orbit.
-  var GROUPS = {
-    ground: [
-      { id: 'colony', name: 'Colony', icon: 'hub', tabs: [['brief', 'Brief', 'check'], ['people', 'People', 'users'], ['hub', 'Hub', 'hub'], ['districts', 'Districts', 'map']] },
-      { id: 'economy', name: 'Economy', icon: 'scale', tabs: [['stockpile', 'Stockpile', 'box'], ['logistics', 'Logistics', 'route'], ['convoy', 'Convoy', 'truck'], ['exchange', 'Exchange', 'scale'], ['missions', 'Missions', 'flag']] }
-    ],
-    orbit: [
-      { id: 'station', name: 'Station', icon: 'orbit', tabs: [['ostore', 'Storage', 'box'], ['omarket', 'Market', 'scale']] },
-      { id: 'exped', name: 'Expeditions', icon: 'ship', tabs: [['oterr', 'Territories', 'ship'], ['oproject', 'Project', 'globe']] }
-    ]
-  };
+  // Every screen, in one fixed order. The desk shell lists them all down the left edge; the phone shell keeps four on its
+  // bottom bar and the rest one tap behind More. A screen is [id, name, icon, shortcut key].
+  var NAV = [
+    { id: 'colony', name: 'Colony', tabs: [['brief', 'Brief', 'check', 'b'], ['people', 'People', 'users', 'p'], ['hub', 'Hub', 'hub', 'h'], ['districts', 'Districts', 'map', 'd']] },
+    { id: 'economy', name: 'Economy', tabs: [['stockpile', 'Stockpile', 'box', 's'], ['logistics', 'Logistics', 'route', 'l'], ['convoy', 'Convoy', 'truck', 'c'], ['exchange', 'Exchange', 'scale', 'x'], ['missions', 'Missions', 'flag', 'n']] },
+    { id: 'orbit', name: 'Orbit', tabs: [['ostore', 'Storage', 'box', 'o'], ['omarket', 'Market', 'scale'], ['oterr', 'Expeditions', 'ship', 'e'], ['oproject', 'Project', 'globe']] },
+    { id: 'data', name: 'Archive', tabs: [['data', 'Data', 't_data']] }
+  ];
+  var MTABS = [['map', 'Map', 'radar'], ['brief', 'Brief', 'check'], ['stockpile', 'Stock', 'box'], ['convoy', 'Trade', 'truck']]; // the phone's bottom bar, before More
   var ORBIT_WS = { ostore: 1, omarket: 1, oterr: 1, oproject: 1 };
-  // The Data screen only exists once the first data fragment has been recovered.
-  var DATA_GROUP = { id: 'data', name: 'Data', icon: 't_data', tabs: [['data', 'Data', 't_data']] };
-  function groupsNow() { var g = inOrbit() ? GROUPS.orbit : GROUPS.ground; return S && S.data && S.data.unlocked ? g.concat([DATA_GROUP]) : g; }
-  function tabLabel(t) { var ui = CFG.ui && CFG.ui.tabs; return (ui && ui[t[0]]) || (t[0] === 'hub' && !activeD().core ? 'District' : t[1]); }
-  // Where a link that names a screen goes: a workspace, or one of the two overlays.
+  // Orbit stays out of sight until there is a station, and the Data screen until the first fragment has been recovered.
+  function navGroups() {
+    return NAV.filter(function (g) { return g.id === 'orbit' ? stationId() !== null : g.id === 'data' ? !!(S && S.data && S.data.unlocked) : true; });
+  }
+  function tabOf(id) { var t = null; NAV.forEach(function (g) { g.tabs.forEach(function (x) { if (x[0] === id) t = x; }); }); return t; }
+  function groupOf(id) { return navGroups().filter(function (g) { return g.tabs.some(function (t) { return t[0] === id; }); })[0] || null; }
+  function groundD() { return (RAW && RAW.districts.filter(function (d) { return d.id === groundId && !d.orbital; })[0]) || RAW.districts.filter(function (d) { return d.core; })[0]; }
+  function tabLabel(t) { var ui = CFG.ui && CFG.ui.tabs; return (t[0] === 'hub' && !groundD().core ? 'District' : (ui && ui[t[0]]) || t[1]); }
+  // A screen that has nothing to offer yet (it says when it opens). It keeps its place in the list, marked with a lock.
+  function tabLocked(id) {
+    if (id === 'districts' || id === 'logistics') return !S.districtsUnlocked;
+    if (id === 'exchange') return !S.exchange.unlocked;
+    if (id === 'missions') return !S.freeport;
+    return false;
+  }
+  // Where a link that names a screen goes: the map, a workspace, or one of the two overlays. Surface screens open on the
+  // surface and orbital ones in orbit, so asking for one from the other place moves the view there first.
   function go(t) {
-    if (t === 'comms' || t === 'log') { messages(t === 'log' ? 'history' : 'mail'); return; }
-    if (t === 'site') { ws = null; renderAll(); return; }
-    if (ORBIT_WS[t] && !inOrbit()) enterOrbit();
-    var g = GROUPS.ground.concat(GROUPS.orbit, [DATA_GROUP]).filter(function (x) { return x.tabs.some(function (y) { return y[0] === t; }); })[0];
-    if (g) lastWs[g.id] = t;
+    drawer = null;
+    if (t === 'comms' || t === 'log') { renderNav(); renderDrawer(); messages(t === 'log' ? 'history' : 'mail'); return; }
+    if (t === 'site' || t === 'map') { ws = null; document.body.classList.remove('panel-full'); renderAll(); return; }
+    if (!tabOf(t) || !groupOf(t)) { renderAll(); return; }
+    if (ORBIT_WS[t]) { if (!inOrbit()) look(stationId()); }
+    else if (t !== 'data' && inOrbit()) look(groundD().id);
     ws = t; renderAll();
+    var b = $('sheet-body'); if (b) b.scrollTop = 0;
   }
 
   // ------------------------------------------------------------------ api
@@ -179,7 +196,7 @@
 
   function toast(msg, ok) {
     var el = document.createElement('div');
-    el.className = 'toast' + (ok ? ' ok' : '');
+    el.className = 'toast' + (ok === 'info' ? ' info' : ok ? ' ok' : '');
     el.textContent = msg;
     $('toasts').appendChild(el);
     setTimeout(function () { el.classList.add('out'); setTimeout(function () { el.remove(); }, 320); }, ok ? 2200 : 3600);
@@ -238,11 +255,44 @@
     var deficit = Math.max(0, def.minPlotSize - GEO().ringPlotSize[ring]);
     return Math.pow(CFG.plotPenalty, deficit);
   }
-  function setView(R) { $('radar').setAttribute('viewBox', (-R).toFixed(1) + ' ' + (-R).toFixed(1) + ' ' + (2 * R).toFixed(1) + ' ' + (2 * R).toFixed(1)); }
-  // Zoom the radar to fit the unlocked rings plus a peek at the next one.
+  function setView(R) { $('radar').setAttribute('viewBox', (viewC[0] - R).toFixed(1) + ' ' + (viewC[1] - R).toFixed(1) + ' ' + (2 * R).toFixed(1) + ' ' + (2 * R).toFixed(1)); }
+  // Zoom the radar to fit the unlocked rings plus a peek at the next one (and, on a desk, never so close that a new colony fills the screen).
   function zoomTarget() {
     var unlocked = Object.keys(S.hub.rings).length, total = Object.keys(GEO().rings).length;
-    return ringOuter(Math.min(unlocked + 1, total)) + 30;
+    return Math.max(MOBILE ? 0 : 270, ringOuter(Math.min(unlocked + 1, total)) + 30);
+  }
+  // The player's own zoom and pan: the wheel, a pinch, a drag, or the buttons on the map. "Fit" hands the view back.
+  function mapMaxR() { return ringOuter(Object.keys(GEO().rings).length) + 40; }
+  function mapSide() { var b = $('radar').getBoundingClientRect(); return { box: b, side: Math.min(b.width, b.height) }; }
+  function clampView() { var m = mapMaxR(); viewC[0] = clamp(viewC[0], -m, m); viewC[1] = clamp(viewC[1], -m, m); }
+  function zoomBy(f, px, py) { // f < 1 zooms in; (px, py) is the point on screen that stays put
+    var g = mapSide(); if (!g.side || !viewR) return;
+    var r1 = clamp(viewR * f, 110, mapMaxR());
+    if (px !== undefined) {
+      viewC[0] += (px - (g.box.left + g.box.width / 2)) / g.side * 2 * (viewR - r1);
+      viewC[1] += (py - (g.box.top + g.box.height / 2)) / g.side * 2 * (viewR - r1);
+    }
+    viewR = r1; held();
+  }
+  function panBy(dx, dy) {
+    var g = mapSide(); if (!g.side || !viewR) return;
+    viewC[0] -= dx / g.side * 2 * viewR; viewC[1] -= dy / g.side * 2 * viewR;
+    held();
+  }
+  function held() { userView = true; autoFocus = false; clampView(); goalR = viewR; goalC = viewC.slice(); setView(viewR); renderZoom(); }
+  function fitView() { userView = false; autoFocus = false; renderZoom(); }
+  // On a phone the map shrinks when something is selected, so the view glides in on the chosen plot and its neighbours.
+  function focusSlot(ring, slot) {
+    if (!MOBILE || (userView && !autoFocus)) return;
+    var cap = GEO().rings[ring]; if (!cap) return;
+    var c = slotCenter(ring, slot, cap), r = Math.min(zoomTarget(), Math.max(190, ringW(ring) * 3));
+    goalR = r; goalC = [c[0] * 0.8, c[1] * 0.8]; userView = true; autoFocus = true; renderZoom();
+  }
+  function renderZoom() {
+    var el = $('zoomctl'); if (!el) return;
+    var h = '<button data-act="zoom" data-z="in" title="Zoom in" aria-label="Zoom in">' + icon('plus', 15) + '</button><button data-act="zoom" data-z="out" title="Zoom out" aria-label="Zoom out">' + icon('minus', 15) + '</button>' +
+      '<button data-act="zoom" data-z="fit" class="' + (userView ? 'on' : '') + '" title="Fit the map to the screen" aria-label="Fit the map">' + icon('fit', 15) + '</button>';
+    if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
   }
 
   // ------------------------------------------------------------------ derived lookups
@@ -352,18 +402,22 @@
     svgEl('circle', { cx: 0, cy: 0, r: HUB_R - 7, fill: 'none', stroke: 'rgba(255,159,28,.25)', 'stroke-dasharray': '2 5' }, hub);
     var t1 = svgEl('text', { x: 0, y: -3, 'font-size': activeD().core ? 15 : 12, 'class': 'no-terms' }, hub); t1.textContent = activeD().core ? ((CFG.ui && CFG.ui.hubLabel) || 'HUB') : activeD().name.replace(/^The /, '').toUpperCase();
     var t2 = svgEl('text', { x: 0, y: 15, 'font-size': 10, 'letter-spacing': '.12em' }, hub);
-    hub.addEventListener('click', function () { sel = { hub: true }; go('hub'); });
+    hub.addEventListener('click', function () { if (Date.now() - dragEndAt < 300) return; sel = { hub: true }; go('hub'); });
     hub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hub.dispatchEvent(new Event('click')); } });
     hubEl = { g: hub, sub: t2 };
-    svg.onclick = function (e) { if (e.target === svg) { sel = null; renderAll(); } };
+    svg.onclick = function (e) { if (e.target === svg && Date.now() - dragEndAt > 300) { sel = null; renderAll(); } };
   }
 
   function onSlot(ring, slot) {
+    if (Date.now() - dragEndAt < 300) return; // the end of a drag or a pinch, not a tap
+    document.body.classList.remove('panel-full');
     if (!slotUnlocked(ring, slot)) { sel = { ring: ring, slot: slot }; ws = null; renderAll(); return; }
     sel = { ring: ring, slot: slot };
     ws = null;
     confirmKey = null;
     renderAll();
+    focusSlot(ring, slot);
+    var pn = $('panel'); if (pn && MOBILE) pn.scrollTop = 0;
   }
 
   // ------------------------------------------------------------------ radar update
@@ -419,7 +473,8 @@
       ringLabels[r].setAttribute('class', 'ring-label' + (open ? ' open' : ''));
     });
     targetR = zoomTarget();
-    if (!viewR) { viewR = targetR; setView(viewR); }
+    if (!viewR) { viewR = goalR = targetR; viewC = [0, 0]; goalC = [0, 0]; userView = false; autoFocus = false; setView(viewR); renderZoom(); }
+    if (autoFocus && !(sel && sel.ring)) fitView();
     hubEl.g.classList.toggle('sel', !!(sel && sel.hub));
     hubEl.sub.textContent = S.hub.upgrading ? 'UPGRADING' : 'LEVEL ' + activeD().level;
   }
@@ -434,88 +489,110 @@
   }
 
   // ------------------------------------------------------------------ top bar & resources
-  function setChip(id, cls) { var c = $(id).closest('.chip'); c.classList.remove('warn', 'bad'); if (cls) c.classList.add(cls); }
+  // The vitals are a row of chips: the colony's own first, then whatever matters about the place being looked at. Each chip is
+  // described as data and patched in place, so a chip under the pointer is never swapped out mid-click.
   function lab(k, dflt) { var l = CFG.ui && CFG.ui.labels && CFG.ui.labels[k]; return esc(l || dflt); }
-  function convoyHtml() { return clock(S.convoy.arrivesAt - (Date.now() + offset)) + ' <small>' + S.convoy.ticksLeft + 't</small>'; }
+  function short(n) { return n >= 1e7 ? Math.floor(n / 1e6) + 'M' : n >= 1e6 ? (Math.floor(n / 1e5) / 10) + 'M' : n >= 1e5 ? Math.floor(n / 1e3) + 'k' : n >= 1e4 ? (Math.floor(n / 100) / 10) + 'k' : fmt(n); }
+  function convoyHtml() { return clock(S.convoy.arrivesAt - (Date.now() + offset)) + (MOBILE ? '' : ' <small>' + S.convoy.ticksLeft + 't</small>'); }
   function powerChip(label) {
     var e = S.energy, ok = e.satisfaction >= 0.999;
-    var col = ok ? 'var(--energy)' : e.satisfaction > 0.5 ? 'var(--warn)' : 'var(--bad)';
-    return '<div class="chip place' + (ok ? '' : e.satisfaction > 0.5 ? ' warn' : ' bad') + '" title="Supply ' + Math.floor(e.supply) + ', demand ' + Math.ceil(e.demand) + (ok ? '' : ' · production at ' + pct(e.satisfaction)) + '"><span class="label">' + label + '</span><span class="v num" id="c-energy"><span class="' + (ok ? '' : 'bad') + '">' + Math.floor(e.supply) + '</span><small>/ ' + Math.ceil(e.demand) + ' used</small></span>' +
-      '<div class="meter"><i style="width:' + (e.demand ? clamp(e.supply / e.demand, 0, 1) * 100 : 100) + '%;background:' + col + '"></i></div></div>';
+    return { k: 'power', icon: 'bolt', place: true, label: label, cls: ok ? '' : e.satisfaction > 0.5 ? 'warn' : 'bad',
+      title: 'Supply ' + Math.floor(e.supply) + ', demand ' + Math.ceil(e.demand) + (ok ? '' : ' · production at ' + pct(e.satisfaction)),
+      html: '<span class="' + (ok ? '' : 'bad') + '">' + Math.floor(e.supply) + '</span><small>/ ' + Math.ceil(e.demand) + (MOBILE ? '' : ' used') + '</small>',
+      meter: [e.demand ? clamp(e.supply / e.demand, 0, 1) * 100 : 100, ok ? 'var(--energy)' : e.satisfaction > 0.5 ? 'var(--warn)' : 'var(--bad)'] };
   }
-  function plainChip(label, html, cls, tab, title, id) {
-    return '<div class="chip place' + (cls ? ' ' + cls : '') + (tab ? ' click' : '') + '"' + (tab ? ' data-act="tab" data-tab="' + tab + '"' : '') + (title ? ' title="' + esc(title) + '"' : '') + '><span class="label">' + label + '</span><span class="v num"' + (id ? ' id="' + id + '"' : '') + '>' + html + '</span></div>';
-  }
+  function plainChip(k, ico, label, html, cls, tab, title, id) { return { k: k, icon: ico, place: true, label: label, html: html, cls: cls || '', tab: tab || '', title: title || '', id: id || '' }; }
   // What the top bar says about the place being looked at (the colony's vitals are always the same).
-  function placeVitals() {
-    var d = activeD(), O = S.orbital;
-    var here = '<div class="here"><small>' + (d.type === 'territory' ? 'Territory' : d.orbital ? 'Orbit' : 'Surface') + '</small><b>' + esc(d.core ? 'The Core' : d.name) + '</b></div>';
-    return here + placeChips(d, O);
-  }
   function placeChips(d, O) {
-    if (!d.orbital) return powerChip(lab('energy', 'Power')) + plainChip(lab('convoy', 'Next convoy'), convoyHtml(), '', 'convoy', 'The next scheduled convoy', 'c-convoy');
+    if (!d.orbital) return [powerChip(lab('energy', 'Power')), plainChip('convoy', 'truck', lab('convoy', 'Next convoy'), convoyHtml(), '', 'convoy', 'The next scheduled convoy', 'c-convoy')];
     if (d.type === 'station' && O && O.station) {
       var st = O.station, used = st.storage.slots.filter(function (x) { return x.resource; }).length, x = S.express;
-      var h = powerChip('Station power') + plainChip('Storage', used + ' <small>/ ' + st.storage.slots.length + ' slots</small>', used >= st.storage.slots.length ? 'warn' : '', 'ostore') +
-        plainChip('Express slot', x.active ? 'In flight' : x.readyIn > 0 ? '<span class="dim">' + x.readyIn + 't</span>' : '<span class="good">Ready</span>', '', 'ostore', 'The express convoy: ' + (x.active ? 'in flight' : x.readyIn > 0 ? 'cooling down' : 'ready to dispatch'));
+      var out = [powerChip('Station power'), plainChip('ostore', 'box', 'Storage', used + ' <small>/ ' + st.storage.slots.length + (MOBILE ? '' : ' slots') + '</small>', used >= st.storage.slots.length ? 'warn' : '', 'ostore', 'Orbital storage slots in use'),
+        plainChip('express', 'truck', 'Express slot', x.active ? 'In flight' : x.readyIn > 0 ? '<span class="dim">' + x.readyIn + 't</span>' : '<span class="good">Ready</span>', '', 'ostore', 'The express convoy: ' + (x.active ? 'in flight' : x.readyIn > 0 ? 'cooling down' : 'ready to dispatch'))];
       var p = O.project;
-      if (p && p.status !== 'done' && p.status !== 'failed') h += plainChip('Project', (p.status === 'announced' ? 'opens ' + p.startsIn + 't' : p.status === 'active' ? 'ends ' + p.endsIn + 't' : 'bonus ' + p.bonusLeft + 't'), p.status === 'active' && p.endsIn <= 20 ? 'warn' : '', 'oproject', p.name);
-      return h;
+      if (p && p.status !== 'done' && p.status !== 'failed') out.push(plainChip('project', 'globe', 'Project', (p.status === 'announced' ? (MOBILE ? 'in ' : 'opens ') + p.startsIn + 't' : p.status === 'active' ? (MOBILE ? '' : 'ends ') + p.endsIn + 't' : (MOBILE ? '+' : 'bonus ') + p.bonusLeft + 't'), p.status === 'active' && p.endsIn <= 20 ? 'warn' : '', 'oproject', p.name));
+      return out;
     }
     var sh = O && O.ships.ships.filter(function (z) { return z.districtId === d.id; })[0], t = sh && sh.territory;
-    var h2 = powerChip('Ship power');
-    if (sh) h2 += plainChip('Hold', fmt(sh.hold), '', '', 'Cargo the dropship can carry home') +
-      (t ? plainChip('Closes in', t.ticksLeft + 't <small>' + clock(t.ticksLeft * S.tickMs) + '</small>', t.ticksLeft <= 6 ? 'bad' : t.ticksLeft <= 15 ? 'warn' : '', '', t.anomaly.name) : '') +
-      plainChip('Hull', sh.integrity + '<small>%</small>', sh.integrity < 35 ? 'bad' : sh.integrity < 60 ? 'warn' : '', '', 'Dropship integrity');
+    var o2 = [powerChip('Ship power')];
+    if (sh) {
+      o2.push(plainChip('hold', 'box', 'Hold', fmt(sh.hold), '', '', 'Cargo the dropship can carry home'));
+      if (t) o2.push(plainChip('closes', 'hourglass', 'Closes in', t.ticksLeft + 't' + (MOBILE ? '' : ' <small>' + clock(t.ticksLeft * S.tickMs) + '</small>'), t.ticksLeft <= 6 ? 'bad' : t.ticksLeft <= 15 ? 'warn' : '', '', t.anomaly.name + ' closes in ' + t.ticksLeft + ' ticks'));
+      o2.push(plainChip('hull', 'ship', 'Hull', sh.integrity + '<small>%</small>', sh.integrity < 35 ? 'bad' : sh.integrity < 60 ? 'warn' : '', '', 'Dropship integrity'));
+    }
     if (t && t.dataSite) {
       var rig = (S.buildings || []).filter(function (b) { return b.type === 't_data'; })[0];
-      h2 += plainChip('Data site', rig ? Math.floor(rig.dataProgress || 0) + ' <small>/ ' + S.data.attemptTicks + 't</small>' : '<span class="dim">no rig</span>', '', S.data.unlocked ? 'data' : '', rig ? 'A recovery attempt in progress' : 'Build Data Recovery here');
+      o2.push(plainChip('datasite', 't_data', 'Data site', rig ? Math.floor(rig.dataProgress || 0) + ' <small>/ ' + S.data.attemptTicks + 't</small>' : '<span class="dim">no rig</span>', '', S.data.unlocked ? 'data' : '', rig ? 'A recovery attempt in progress' : 'Build Data Recovery here'));
     }
-    return h2;
+    return o2;
+  }
+  function colonyChips() {
+    var c = S.colony, out = [];
+    out.push({ k: 'credits', icon: 'coin', label: lab('credits', 'Credits'), html: MOBILE ? short(c.credits) : fmt(c.credits) + ' <small>cr</small>', title: fmt(c.credits) + ' credits' });
+    var crew = c.staffing.ratio < 0.999;
+    out.push({ k: 'pop', icon: 'users', label: lab('population', 'People'), tab: 'people', cls: crew ? 'warn' : '',
+      html: c.population + ' <small>/' + (MOBILE ? '' : ' ') + c.maxPopulation + '</small>' + (crew && !MOBILE ? ' <small class="warn">crew ' + pct(c.staffing.ratio) + '</small>' : ''),
+      title: 'Housing: hub quarters ' + c.housing.base + (c.housing.built ? ' + homes ' + Math.floor(c.housing.built) : '') + ' · ' + Math.floor(c.staffing.workforce) + ' hands for ' + c.staffing.posts + ' posts' });
+    var m = clamp(c.morale, 0, 100), mcls = m > 60 ? '' : m > 30 ? 'warn' : 'bad';
+    out.push({ k: 'morale', icon: 'heart', label: lab('morale', 'Morale'), tab: 'people', cls: mcls, html: Math.round(m) + '<small>%</small>',
+      title: 'Target ' + Math.round(c.moraleInfo.target) + ' (base ' + c.moraleInfo.base + ', homes ' + (c.moraleInfo.comfort >= 0 ? '+' : '') + c.moraleInfo.comfort.toFixed(1) + ', meals +' + c.moraleInfo.meals.toFixed(0) + ') · output ×' + c.moraleInfo.productivity.toFixed(2),
+      meter: [m, m > 60 ? 'var(--good)' : m > 30 ? 'var(--warn)' : 'var(--bad)'] });
+    var d = S.doom, doom = { k: 'doom', icon: 'hourglass', label: lab('doom', 'Collapse in'), tab: 'brief', cls: '' };
+    if (d && d.phase === 'shutdown') { doom.html = '<span class="warn">Shut down</span>'; doom.title = 'The colony is shut down. Non-essential buildings are parked until you restart them.'; doom.cls = 'warn'; }
+    else if (!d) { doom.html = '<span class="good">Stable</span>'; doom.title = 'No critical supply is draining at current rates.'; }
+    else {
+      var urgent = d.phase === 'starving' || d.ticks <= 20;
+      doom.cls = urgent ? 'bad' : d.ticks <= 40 ? 'warn' : '';
+      doom.html = '<span class="' + doom.cls + '">' + d.ticks + 't</span>' + (MOBILE ? '' : '<small>' + clock(d.ticks * S.tickMs) + '</small>');
+      doom.title = d.phase === 'starving' ? 'Collapse in ' + d.ticks + ' ticks unless supplies are restored.'
+        : 'If nothing changes, ' + d.resources.map(function (r) { return CFG.resources[r].name; }).join(' & ') + ' runs short in ' + d.untilShortage + ' ticks and the colony collapses ' + d.ticks + ' ticks from now.';
+    }
+    out.push(doom);
+    var hz = S.hazard, haz = { k: 'hazard', icon: 'warn', label: 'Hazard in', tab: 'brief', cls: '', meter: [0, 'var(--good)'] };
+    if (!hz) { haz.html = '<span class="dim">Clear</span>'; haz.title = 'No hazard is forecast.'; }
+    else if (hz.state === 'forecast') {
+      haz.cls = hz.prep < 0.5 && hz.ticksUntil <= 12 ? 'bad' : hz.prep < 0.8 ? 'warn' : '';
+      haz.html = '<span class="' + haz.cls + '">' + hz.ticksUntil + 't</span><small>' + pct(hz.prep) + (MOBILE ? '' : ' ready') + '</small>';
+      haz.title = hz.name + ' strikes in ' + hz.ticksUntil + ' ticks (' + clock(hz.ticksUntil * S.tickMs) + '). The bar is how prepared the colony is.';
+      haz.meter[0] = hz.prep * 100;
+    } else {
+      haz.cls = hz.severity > 0.02 ? 'bad' : 'warn';
+      haz.html = '<span class="' + haz.cls + '">Active</span><small>' + hz.ticksLeft + 't' + (MOBILE ? '' : ' left') + '</small>';
+      haz.title = hz.name + (hz.severity > 0.02 ? ' is in effect.' : ' is being weathered.') + ' The bar is how well the colony is holding.';
+      haz.meter[0] = clamp(1 - hz.severity, 0, 1) * 100;
+    }
+    haz.meter[1] = haz.cls === 'bad' ? 'var(--bad)' : haz.cls === 'warn' ? 'var(--warn)' : 'var(--good)';
+    out.push(haz);
+    return out;
+  }
+  function chipCls(o) { return 'chip' + (o.place ? ' place' : '') + (o.cls ? ' ' + o.cls : '') + (o.tab ? ' click' : ''); }
+  function chipHtml(o) {
+    if (o.sep) return '<div class="vsep" data-k="sep" aria-hidden="true"></div>';
+    return '<div class="' + chipCls(o) + '" data-k="' + o.k + '"' + (o.tab ? ' data-act="tab" data-tab="' + o.tab + '" role="button" tabindex="0"' : '') + '><span class="label">' + icon(o.icon, 12) + '<span>' + o.label + '</span></span>' +
+      '<span class="v num"' + (o.id ? ' id="' + o.id + '"' : '') + '></span>' + (o.meter ? '<div class="meter"><i></i></div>' : '') + '</div>';
+  }
+  function renderChips(el, chips) {
+    var sig = chips.map(function (c) { return c.sep ? 'sep' : c.k + ':' + (c.tab || '') + ':' + c.label; }).join('|');
+    if (el.dataset.sig !== sig) { el.innerHTML = chips.map(chipHtml).join(''); el.dataset.sig = sig; }
+    chips.forEach(function (c, i) {
+      var n = el.children[i]; if (!n || c.sep) return;
+      var cls = chipCls(c); if (n.className !== cls) n.className = cls;
+      var tt = window.Terms ? window.Terms.rewrite(c.title || '') : (c.title || ''); if (n.title !== tt) n.title = tt;
+      var v = n.querySelector('.v'); if (v.dataset.h !== c.html) { v.innerHTML = c.html; v.dataset.h = c.html; }
+      if (c.meter) { var b = n.querySelector('.meter i'); b.style.width = c.meter[0] + '%'; b.style.background = c.meter[1]; }
+    });
   }
   function newEvents() { return S.events.filter(function (e) { return e.id > bellSeen && e.kind !== 'info'; }); }
   function renderTop() {
-    var c = S.colony;
-    $('c-credits').innerHTML = fmt(c.credits) + ' <small>cr</small>';
-    $('c-pop').innerHTML = c.population + ' <small>/ ' + c.maxPopulation + '</small>' + (c.staffing.ratio < 0.999 ? ' <small class="warn">crew ' + pct(c.staffing.ratio) + '</small>' : '');
-    $('c-pop').title = 'Housing: hub quarters ' + c.housing.base + (c.housing.built ? ' + homes ' + Math.floor(c.housing.built) : '') + ' · ' + Math.floor(c.staffing.workforce) + ' hands for ' + c.staffing.posts + ' posts';
-    setChip('c-pop', c.staffing.ratio < 0.999 ? 'warn' : '');
-    var m = clamp(c.morale, 0, 100);
-    $('c-morale').innerHTML = Math.round(m) + '<small>%</small>';
-    $('c-morale').title = 'Target ' + Math.round(c.moraleInfo.target) + ' (base ' + c.moraleInfo.base + ', homes ' + (c.moraleInfo.comfort >= 0 ? '+' : '') + c.moraleInfo.comfort.toFixed(1) + ', meals +' + c.moraleInfo.meals.toFixed(0) + ') · output ×' + c.moraleInfo.productivity.toFixed(2);
-    var mb = $('c-morale-bar'); mb.style.width = m + '%'; mb.style.background = m > 60 ? 'var(--good)' : m > 30 ? 'var(--warn)' : 'var(--bad)';
-    setChip('c-morale', m > 60 ? '' : m > 30 ? 'warn' : 'bad');
-    var d = S.doom, dc = $('c-doom'), dcls = '';
-    if (d && d.phase === 'shutdown') { dc.innerHTML = '<span class="warn">Shut down</span>'; dc.title = 'The colony is shut down. Non-essential buildings are parked until you restart them.'; dcls = 'warn'; }
-    else if (!d) { dc.innerHTML = '<span class="good">Stable</span>'; dc.title = 'No critical supply is draining at current rates.'; }
-    else {
-      var urgent = d.phase === 'starving' || d.ticks <= 20;
-      dc.innerHTML = '<span class="' + (urgent ? 'bad' : d.ticks <= 40 ? 'warn' : '') + '">' + d.ticks + 't</span><small>' + clock(d.ticks * S.tickMs) + '</small>';
-      dc.title = d.phase === 'starving' ? 'Collapse in ' + d.ticks + ' ticks unless supplies are restored.'
-        : 'If nothing changes, ' + d.resources.map(function (r) { return CFG.resources[r].name; }).join(' & ') + ' runs short in ' + d.untilShortage + ' ticks and the colony collapses ' + d.ticks + ' ticks from now.';
-      dcls = urgent ? 'bad' : d.ticks <= 40 ? 'warn' : '';
-    }
-    setChip('c-doom', dcls);
-    var hz = S.hazard, hc = $('c-hazard'), hb = $('c-hazard-bar'), hcls = '', hw = 0;
-    if (!hz) { hc.innerHTML = '<span class="dim">Clear</span>'; hc.title = 'No hazard is forecast.'; }
-    else if (hz.state === 'forecast') {
-      hcls = hz.prep < 0.5 && hz.ticksUntil <= 12 ? 'bad' : hz.prep < 0.8 ? 'warn' : ''; hw = hz.prep * 100;
-      hc.innerHTML = '<span class="' + hcls + '">' + hz.ticksUntil + 't</span><small>' + pct(hz.prep) + ' ready</small>';
-      hc.title = hz.name + ' strikes in ' + hz.ticksUntil + ' ticks (' + clock(hz.ticksUntil * S.tickMs) + '). The bar is how prepared the colony is.';
-    } else {
-      hcls = hz.severity > 0.02 ? 'bad' : 'warn'; hw = clamp(1 - hz.severity, 0, 1) * 100;
-      hc.innerHTML = '<span class="' + hcls + '">Active</span><small>' + hz.ticksLeft + 't left</small>';
-      hc.title = hz.name + (hz.severity > 0.02 ? ' is in effect.' : ' is being weathered.') + ' The bar is how well the colony is holding.';
-    }
-    hb.style.width = hw + '%'; hb.style.background = hcls === 'bad' ? 'var(--bad)' : hcls === 'warn' ? 'var(--warn)' : 'var(--good)';
-    setChip('c-hazard', hcls);
-    var pv = placeVitals();
-    if ($('v-place').dataset.h !== pv) { $('v-place').innerHTML = pv; $('v-place').dataset.h = pv; }
+    var chips = colonyChips();
+    // on a phone the two groups sit on two rows: the colony's five, then the place's
+    if (MOBILE) renderChips($('vitals'), chips.concat(placeChips(activeD(), S.orbital)));
+    else renderChips($('vitals'), chips.concat([{ sep: true }], placeChips(activeD(), S.orbital)));
     var cnt = window.Story.counts(), nb = cnt.calls + newEvents().length;
     $('bell-n').textContent = nb; $('bell-n').hidden = !nb;
     $('bell-btn').classList.toggle('ring', cnt.calls > 0);
     $('mail-n').textContent = cnt.mail; $('mail-n').hidden = !cnt.mail;
-    $('c-user').textContent = S.user;
+    if ($('c-user')) $('c-user').textContent = S.user;
   }
 
   // ------------------------------------------------------------------ stockpile
@@ -556,7 +633,24 @@
     return '<tr data-sr="' + k + '" class="' + (def.critical && r.amount < 0.5 && r.net < 0 ? 'crit' : '') + '" title="Tier ' + def.tier + '"><td><i class="dot" style="background:' + def.color + '"></i>' + esc(def.name) + '<span class="tier">T' + def.tier + '</span></td>' +
       '<td class="num"><b>' + amt + '</b></td><td>' + net + '</td><td><span class="fillbar"><i data-sr-bar style="width:' + (r.amount / r.cap * 100).toFixed(1) + '%;background:' + def.color + '"></i></span></td><td class="' + n[1] + '" style="text-align:left">' + esc(n[0]) + '</td><td><button class="pinbtn' + (pinned ? ' on' : '') + '" data-act="pin" data-res="' + k + '" aria-pressed="' + pinned + '" title="' + (pinned ? 'Unpin from the overview' : 'Pin to the overview') + '">' + (pinned ? '★' : '☆') + '</button></td></tr>';
   }
-  // Switch district without leaving the workspace (the rail's 'enter' closes it).
+  // The stock bar (desk shell): the pinned stock of the place being looked at, in view whatever else is open.
+  function barKeys() {
+    if (!activeD().orbital) return pinKeys();
+    return Object.keys(S.resources).filter(function (k) { return CFG.resources[k] && S.resources[k].amount >= 0.5; })
+      .sort(function (a, b) { return S.resources[b].amount - S.resources[a].amount; }).slice(0, 10);
+  }
+  function renderStockbar() {
+    var el = $('stockbar'); if (!el) return;
+    var d = activeD(), to = d.orbital ? (d.type === 'station' ? 'ostore' : '') : 'stockpile', keys = barKeys();
+    var h = '<span class="label">' + esc(d.core ? 'Core' : d.type === 'station' ? 'Station' : d.name.replace(/^The /, '')) + ' stock</span>' + keys.map(function (k) {
+      var r = S.resources[k], def = CFG.resources[k], n = d.orbital ? ['', ''] : stockNote(k), flag = n[1] === 'bad' || n[1] === 'warn';
+      return '<button class="sb' + (flag ? ' ' + n[1] : '') + '" data-sr="' + k + '"' + (to ? ' data-act="tab" data-tab="' + to + '"' : ' disabled') + ' title="' + esc(def.name + (flag ? ' · ' + n[0] : '') + ' · ' + rate(r.net) + ' per tick') + '"><i style="background:' + def.color + '"></i>' +
+        '<span class="nm">' + esc(def.name) + '</span><b class="num" data-sr-amt>' + fmt(r.amount) + '</b><span class="num net ' + (r.net > 0.05 ? 'good' : r.net < -0.05 ? 'bad' : 'dim') + '">' + rate(r.net) + '</span></button>';
+    }).join('') + (keys.length ? '' : '<span class="dim">' + (d.orbital ? 'Nothing held here yet.' : 'Nothing pinned.') + '</span>') +
+      (d.orbital ? '' : '<button class="linkbtn" data-act="tab" data-tab="stockpile" title="Choose which stock is pinned here">' + (pins === null ? 'Choose' : 'Edit') + '</button>');
+    if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
+  }
+  // Switch district without leaving the workspace (the place tabs' 'enter' closes it).
   function stockSwitch() {
     var ground = S.districts.filter(function (d) { return !d.orbital; });
     if (ground.length < 2) return '';
@@ -641,39 +735,87 @@
     }));
     return { up: up, found: found };
   }
+  // What the Brief has to say that cannot wait: a shutdown, a clock running down, a hazard on its way or in effect.
+  function briefAlert() {
+    var d = S.doom, hz = S.hazard;
+    if (S.colony.shutdown) return 'bad';
+    if (d && (d.phase === 'starving' || d.ticks <= 20)) return 'bad';
+    if (hz && hz.state === 'active') return hz.severity > 0.02 ? 'bad' : 'warn';
+    if (hz && hz.prep < 0.8) return hz.prep < 0.5 && hz.ticksUntil <= 12 ? 'bad' : 'warn';
+    return d && d.ticks <= 40 ? 'warn' : '';
+  }
   function tabBadge(t) {
-    if (t === 'brief' && S.brief.remaining) return '<em>' + S.brief.remaining + '</em>';
+    if (t === 'brief') { var a = briefAlert(); return a ? '<span class="dotb ' + a + '" title="Needs a look"></span>' : ''; }
     if (t === 'stockpile') { var n = stockAttention().length; return n ? '<em class="warn">' + n + '</em>' : ''; }
     var f = readyFlags();
     if (t === 'hub' && f.up) return '<span class="dotb good" title="An upgrade is affordable"></span>';
     if (t === 'districts' && f.found) return '<span class="dotb good" title="A district can be founded"></span>';
     return '';
   }
-  // The dock shows one button per group. Clicking a group opens its workspaces inline, and they fold away again after a few seconds.
-  var dockOpen = null, dockTimer = null;
-  function armDock(ms) { clearTimeout(dockTimer); if (dockOpen) dockTimer = setTimeout(function () { dockOpen = null; if (S) renderDock(); }, ms || 4000); }
-  function groupBadge(g) {
-    var n = 0, good = false;
-    g.tabs.forEach(function (t) { var b = tabBadge(t[0]); if (/<em/.test(b)) n += +(b.match(/>(\d+)</) || [0, 0])[1]; else if (b) good = true; });
-    return n ? '<em>' + n + '</em>' : good ? '<span class="dotb good"></span>' : '';
+  // The screens. Desk: one fixed list down the left edge, every screen one click away and always in the same place.
+  // Phone: four fixed tabs and More, which opens the full list.
+  function navBtn(t, cls) {
+    var locked = tabLocked(t[0]), key = t[3] && !MOBILE ? ' (' + t[3].toUpperCase() + ')' : '';
+    return '<button class="nv' + (cls || '') + (locked ? ' locked' : '') + '" data-act="tab" data-tab="' + t[0] + '" aria-current="' + (ws === t[0] ? 'page' : 'false') + '" title="' + esc(tabLabel(t)) + (locked ? ' · not open yet' : '') + key + '">' +
+      icon(t[2], MOBILE ? 20 : 17) + '<span class="nl">' + esc(tabLabel(t)) + '</span>' + (locked ? '<span class="lk">' + icon('lock', 11) + '</span>' : tabBadge(t[0])) + '</button>';
   }
-  function renderDock() {
-    var gs = groupsNow();
-    if (dockOpen && !gs.some(function (g) { return g.id === dockOpen; })) dockOpen = null;
-    var h = gs.map(function (g) {
-      var open = dockOpen === g.id, here = g.tabs.some(function (t) { return t[0] === ws; });
-      if (g.tabs.length === 1) { var t1 = g.tabs[0]; return '<div class="dg"><button class="dbtn" data-act="tab" data-tab="' + t1[0] + '" aria-pressed="' + (ws === t1[0]) + '">' + icon(t1[2], 16) + '<span>' + esc(tabLabel(t1)) + '</span></button></div>'; }
-      return '<div class="dg' + (open ? ' open' : '') + '"><button class="dbtn grp" data-act="dock" data-g="' + g.id + '" aria-expanded="' + open + '" aria-pressed="' + (here && !open) + '">' + icon(g.icon, 16) + '<span>' + esc(g.name) + '</span>' + (open ? '' : groupBadge(g)) + '</button>' +
-        (open ? g.tabs.map(function (t) {
-          return '<button class="dbtn" data-act="tab" data-tab="' + t[0] + '" aria-pressed="' + (ws === t[0]) + '">' + icon(t[2], 16) + '<span>' + esc(tabLabel(t)) + '</span>' + tabBadge(t[0]) + '</button>';
-        }).join('') : '') + '</div>';
-    }).join('');
-    var ds = S.brief.directives, cur = ds.filter(function (x) { return x.current; })[0] || ds.filter(function (x) { return !x.done; })[0];
-    var dh = '';
-    if (cur) dh = '<button class="dir-chip" data-act="tab" data-tab="brief" title="' + esc(cur.hint) + '">' + icon('check', 14) + '<span class="label">Directive</span><b>' + esc(cur.title) + '</b>' +
-      (cur.progress ? '<small class="num">' + cur.progress.value + ' / ' + cur.progress.max + '</small>' : '') + '</button>';
-    if ($('dock-groups').dataset.h !== h) { $('dock-groups').innerHTML = h; $('dock-groups').dataset.h = h; }
-    if ($('dock-dir').dataset.h !== dh) { $('dock-dir').innerHTML = dh; $('dock-dir').dataset.h = dh; }
+  function renderNav() {
+    var h = '';
+    if (MOBILE) {
+      var inBar = {}, other = '';
+      MTABS.forEach(function (t) {
+        inBar[t[0]] = 1;
+        h += '<button class="nv" data-act="tab" data-tab="' + t[0] + '" aria-current="' + (!drawer && (t[0] === 'map' ? !ws : ws === t[0]) ? 'page' : 'false') + '">' + icon(t[2], 21) + '<span class="nl no-terms">' + t[1] + '</span>' + (t[0] === 'map' ? '' : tabBadge(t[0])) + '</button>';
+      });
+      navGroups().forEach(function (g) { g.tabs.forEach(function (t) { if (!inBar[t[0]] && !other && !tabLocked(t[0]) && tabBadge(t[0])) other = '<span class="dotb good"></span>'; }); });
+      h += '<button class="nv" data-act="drawer" data-d="more" aria-current="' + (drawer === 'more' || (!drawer && ws && !inBar[ws]) ? 'page' : 'false') + '" aria-expanded="' + (drawer === 'more') + '">' + icon('more', 21) + '<span class="nl no-terms">More</span>' + other + '</button>';
+    } else {
+      h = '<button class="nv home" data-act="tab" data-tab="map" aria-current="' + (ws ? 'false' : 'page') + '" title="The map (M or Esc)">' + icon('radar', 17) + '<span class="nl">Map</span></button>';
+      navGroups().forEach(function (g) { h += '<div class="nv-sec">' + esc(g.name) + '</div>' + g.tabs.map(function (t) { return navBtn(t); }).join(''); });
+    }
+    var el = $('nav');
+    if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
+    // the current directive, beside the work queue (desk shell)
+    var dd = $('dock-dir');
+    if (dd) {
+      var cur = currentDirective();
+      var dh = cur ? '<button class="dir-chip" data-act="tab" data-tab="brief" title="' + esc(cur.hint) + '">' + icon('check', 14) + '<span class="label">Next step</span><b>' + esc(cur.title) + '</b>' +
+        (cur.progress ? '<small class="num">' + cur.progress.value + ' / ' + cur.progress.max + '</small>' : '') + '</button>' : '';
+      if (dd.dataset.h !== dh) { dd.innerHTML = dh; dd.dataset.h = dh; }
+    }
+  }
+  function currentDirective() { var ds = S.brief.directives; return ds.filter(function (x) { return x.current; })[0] || ds.filter(function (x) { return !x.done; })[0] || null; }
+  // Phone shell: the sheet that slides over everything. 'more' lists every screen, the messages and the account;
+  // 'places' lists where the view can go.
+  function drawerHtml() {
+    var h = '<div class="dr-card" role="dialog" aria-modal="true"><div class="dr-head"><h3>' + (drawer === 'places' ? 'Go to' : 'All screens') + '</h3><button class="pn-x" data-act="drawer" data-d="" aria-label="Close">&times;</button></div><div class="dr-body">';
+    if (drawer === 'places') {
+      var lastG = null;
+      placeItems().forEach(function (p) {
+        if (p.group !== lastG) { lastG = p.group; h += '<div class="nv-sec">' + p.group + '</div>'; }
+        h += '<button class="dr-place' + (p.on ? ' on' : '') + (p.cls || '') + '" ' + p.act + ' style="--c:' + p.color + '"><i></i><span class="grow"><b>' + esc(p.name) + '</b>' + (p.note ? '<small>' + esc(p.note) + '</small>' : '') + '</span>' +
+          (p.tag ? '<em>' + p.tag + '</em>' : '') + (p.small ? '<small class="num">' + p.small + '</small>' : '') + '</button>';
+      });
+      if (!S.districtsUnlocked) h += '<div class="note" style="margin-top:12px">Only the Core for now. Other places to hold open at hub level ' + CFG.districtProgression.unlockCoreLevel + '.</div>';
+    } else {
+      navGroups().forEach(function (g) { h += '<div class="nv-sec">' + esc(g.name) + '</div><div class="dr-grid">' + g.tabs.map(function (t) { return navBtn(t, ' tile'); }).join('') + '</div>'; });
+      var cnt = window.Story.counts();
+      h += '<div class="nv-sec">Messages</div><div class="dr-grid">' + [['mail', 'Mail', 'mail', cnt.mail], ['calls', 'Calls', 'play', cnt.calls], ['history', 'History', 'list', 0]].map(function (t) {
+        return '<button class="nv tile" data-act="msgs" data-t="' + t[0] + '">' + icon(t[2], 20) + '<span class="nl">' + t[1] + '</span>' + (t[3] ? '<em>' + t[3] + '</em>' : '') + '</button>';
+      }).join('') + '</div>';
+      h += '<div class="nv-sec">Command</div><div class="dim" style="font-size:12px;margin:0 2px 8px">Signed in as <b>' + esc(S.user) + '</b></div><div class="stack">' +
+        '<button class="btn block" data-act="layout" data-ui="desktop">' + icon('screen', 14) + ' Use the desktop layout</button>' +
+        '<button class="btn block" data-act="menu" data-m="logout">Sign out</button>' +
+        '<button class="btn block danger" data-act="menu" data-m="confirmReset">Abandon colony &amp; start over</button></div>';
+    }
+    return h + '</div></div>';
+  }
+  function renderDrawer() {
+    var el = $('drawer'); if (!el) return;
+    if (!drawer || !S) { if (!el.hidden) { el.hidden = true; el.dataset.h = ''; el.innerHTML = ''; } return; }
+    var h = drawerHtml();
+    el.hidden = false;
+    if (el.dataset.h !== h) { var b = el.querySelector('.dr-body'), top = b ? b.scrollTop : 0; el.innerHTML = h; el.dataset.h = h; b = el.querySelector('.dr-body'); if (b) b.scrollTop = top; }
   }
   function wsHtml(t) {
     if (window.Orbit.panes[t]) return window.Orbit.panes[t]();
@@ -683,17 +825,21 @@
   var lastSheetTabs = '', lastSheet = '';
   function renderSheet() {
     var sh = $('sheet');
-    var g = groupsNow().filter(function (x) { return x.tabs.some(function (t) { return t[0] === ws; }); })[0];
-    if (!ws || !g) { ws = null; sh.hidden = true; lastSheet = ''; document.body.classList.remove('ws-open'); return; }
+    var g = ws ? groupOf(ws) : null;
+    if (!ws || !g) { ws = null; sh.hidden = true; lastSheet = ''; lastSheetTabs = ''; document.body.classList.remove('ws-open'); return; }
     sh.hidden = false; document.body.classList.add('ws-open');
-    var th = g.tabs.map(function (t) {
-      var badge = tabBadge(t[0]);
-      return '<button class="dtab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (ws === t[0]) + '">' + icon(t[2], 15) + '<span>' + esc(tabLabel(t)) + '</span>' + badge + '</button>';
-    }).join('');
-    if (th !== lastSheetTabs) { $('sheet-tabs').innerHTML = th; lastSheetTabs = th; }
+    var cur = tabOf(ws), th;
+    if (MOBILE) th = g.tabs.length > 1 ? g.tabs.map(function (t) {
+      return '<button class="dtab" role="tab" data-act="tab" data-tab="' + t[0] + '" aria-selected="' + (ws === t[0]) + '">' + icon(t[2], 14) + '<span>' + esc(tabLabel(t)) + '</span>' + (tabLocked(t[0]) ? '' : tabBadge(t[0])) + '</button>';
+    }).join('') : '<h2 class="sheet-title">' + icon(cur[2], 17) + '<span>' + esc(tabLabel(cur)) + '</span></h2>';
+    else th = '<span class="crumb">' + esc(g.name) + '</span><h2 class="sheet-title">' + icon(cur[2], 17) + '<span>' + esc(tabLabel(cur)) + '</span></h2>';
+    if (th !== lastSheetTabs) {
+      $('sheet-tabs').innerHTML = th; lastSheetTabs = th;
+      var on = $('sheet-tabs').querySelector('[aria-selected="true"]'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains('numin') && sh.contains(ae)) { panelDeferred = true; return; }
-    var h = '<div class="ws-col' + (ws === 'stockpile' ? ' wide' : '') + '">' + wsHtml(ws) + '</div>';
+    var h = '<div class="ws-col' + (ws === 'stockpile' || ws === 'exchange' ? ' wide' : '') + '">' + wsHtml(ws) + '</div>';
     if (h === lastSheet) return;
     lastSheet = h;
     var b = $('sheet-body'), top = b.scrollTop;
@@ -722,34 +868,46 @@
     if (f.found) out.push(['good', 'A district can be founded', 'districts']);
     return out.slice(0, 7);
   }
+  function placeSummary() {
+    var d = activeD(), open = Object.keys(S.hub.rings).reduce(function (n, r) { return n + S.hub.rings[r]; }, 0);
+    var used = S.buildings.length + S.orders.filter(function (o) { return o.kind === 'build'; }).length + (S.locks || []).length, e = S.energy;
+    return '<div class="label sec">' + esc(d.core ? 'The Core' : d.name) + ' at a glance</div><dl class="kv">' +
+      '<dt>Structures</dt><dd>' + S.buildings.length + ' online' + (S.orders.length ? ' · ' + S.orders.length + ' in progress' : '') + '</dd>' +
+      '<dt>Free plots</dt><dd class="' + (open - used > 0 ? 'good' : 'dim') + '">' + Math.max(0, open - used) + ' of ' + open + '</dd>' +
+      '<dt>Power</dt><dd class="' + (e.satisfaction < 0.999 ? 'bad' : '') + '">' + Math.floor(e.supply) + ' supply · ' + Math.ceil(e.demand) + ' used</dd>' +
+      (d.core ? '<dt>Level</dt><dd>' + d.level + (S.hub.upgrading ? ' · upgrading' : '') + '</dd>' : '<dt>Level</dt><dd>' + d.level + ' · link ' + d.link.load + ' / ' + d.link.capacity + ' per tick</dd>') + '</dl>' +
+      '<button class="btn block" data-act="tab" data-tab="hub">' + icon('hub', 12) + ' ' + (d.core ? 'Hub' : 'District') + ' &amp; upgrades</button>';
+  }
   function overview() {
-    var d = activeD();
+    var d = activeD(), q = MOBILE ? queueHtml(true) : '';
     if (d.orbital) {
       var h0 = window.Orbit.panes.oplace();
       var side = window.Orbit.sideHtml();
-      return h0 + '<div class="label sec">' + (d.type === 'station' ? 'Orbital stock' : 'Territory stock') + '</div>' + side.replace(/^<h2[^>]*>.*?<\/h2>/, '');
+      return h0 + (q ? '<div class="label sec">Work queue</div><div class="qlist">' + q + '</div>' : '') + '<div class="label sec">' + (d.type === 'station' ? 'Orbital stock' : 'Territory stock') + '</div>' + side.replace(/^<h2[^>]*>.*?<\/h2>/, '');
     }
-    var h = '', ds = S.brief.directives, cur = ds.filter(function (x) { return x.current; })[0] || ds.filter(function (x) { return !x.done; })[0];
+    var h = '', cur = currentDirective();
+    if (d.core && !S.buildings.length && !S.orders.length) h += '<div class="note good" style="margin-top:0"><b>Start here.</b> ' + (MOBILE ? 'Tap' : 'Click') + ' any empty plot on the map to see what can be built on it. The hub in the middle shows what an upgrade unlocks.</div>';
     if (cur) {
       h += '<div class="label sec" style="margin-top:0">Next step</div><div class="ov-card"><h4>' + esc(cur.title) + '</h4><p>' + esc(cur.hint) + '</p>' + timingLine(cur.timing) +
         '<button class="btn" data-act="tab" data-tab="brief">' + S.brief.remaining + ' left in the Brief</button></div>';
     }
     var at = attention();
-    h += '<div class="label sec"' + (cur ? '' : ' style="margin-top:0"') + '>Needs attention</div><div class="ov-card" style="border-left-color:' + (at.some(function (x) { return x[0] === 'bad'; }) ? 'var(--bad)' : at.length ? 'var(--warn)' : 'var(--good)') + '">';
+    h += '<div class="label sec"' + (h ? '' : ' style="margin-top:0"') + '>Needs attention</div><div class="ov-card" style="border-left-color:' + (at.some(function (x) { return x[0] === 'bad'; }) ? 'var(--bad)' : at.length ? 'var(--warn)' : 'var(--good)') + '">';
     if (!at.length) h += '<div class="ov-row"><span class="ov-dot good"></span><span class="grow dim">Nothing needs attention.</span></div>';
     at.forEach(function (a) {
       var inner = '<span class="ov-dot ' + a[0] + '"></span><span class="grow">' + esc(a[1]) + '</span>' + (a[2] ? '<span class="dim">›</span>' : '');
       h += '<div class="ov-row">' + (a[2] ? '<button data-act="tab" data-tab="' + a[2] + '">' + inner + '</button>' : inner) + '</div>';
     });
     h += '</div>';
+    if (!MOBILE) return h + placeSummary(); // on a desk the pinned stock is in the stock bar and the queue in the bottom bar
+    if (q) h += '<div class="label sec">Work queue</div><div class="qlist">' + q + '</div>';
     var pk = pinKeys();
     h += '<div class="label sec" style="display:flex;justify-content:space-between"><span>Pinned stock</span><button class="linkbtn" data-act="tab" data-tab="stockpile">' + (pins === null ? 'Choose' : 'Edit') + '</button></div>' +
-      (pk.length ? pk.map(function (k) { return stockRow(k, false); }).join('') : '<div class="dim" style="font-size:12px">Nothing pinned. Pin stock from the Stockpile.</div>') +
-      '<button class="btn block" style="margin-top:10px" data-act="tab" data-tab="stockpile">Open the full stockpile</button>';
-    return h;
+      (pk.length ? pk.map(function (k) { return stockRow(k, false); }).join('') : '<div class="dim" style="font-size:12px">Nothing pinned. Pin stock from the Stockpile.</div>');
+    return h + placeSummary();
   }
   function rightPane() {
-    if (sel && sel.ring) return '<button class="pn-x" data-act="desel" title="Close (Esc)" aria-label="Close" style="float:right">&times;</button>' + siteTab();
+    if (sel && sel.ring) return '<button class="pn-x pn-close" data-act="desel" title="Close (Esc)" aria-label="Close">&times;</button>' + siteTab();
     return overview();
   }
 
@@ -801,8 +959,12 @@
   function builtPanel(b, head) {
     var d = bdef(b.type), st = STATUS[b.paused ? 'paused' : b.status] || STATUS.running;
     var why = (!b.paused && b.limiting) ? ' <span class="dim">(' + esc(CFG.resources[b.limiting].name) + ')</span>' : '';
+    var key = 'dem:' + b.id, refund = Math.round(CFG.demolishRefund * 100);
     var h = '<div class="p-title" style="--c:' + d.color + '">' + icon(b.type, 22) + '<h3>' + esc(d.name) + '</h3></div>' +
       '<div class="label">' + head + '</div><p class="p-desc">' + esc(d.desc) + '</p>' +
+      '<div class="actions quick"><button class="btn" data-act="toggle" data-ring="' + b.ring + '" data-slot="' + b.slot + '">' + icon(b.paused ? 'play' : 'pause', 12) + ' ' + (b.paused ? 'Resume' : 'Pause') + '</button>' +
+      '<button class="btn danger" data-act="demolish" data-ring="' + b.ring + '" data-slot="' + b.slot + '" data-key="' + key + '" title="Refunds ' + refund + '% of the build cost">' +
+      (confirmKey === key ? 'Confirm?' : 'Demolish') + '</button></div>' +
       '<dl class="kv"><dt>Status</dt><dd class="' + st[1] + '">' + st[0] + why + '</dd>' +
       '<dt>Efficiency</dt><dd>' + pct(b.paused ? 0 : b.eff) + '</dd>' +
       '<dt>Adjacency</dt><dd class="' + (b.adj > 1.001 ? 'good' : b.adj < 0.999 ? 'bad' : 'dim') + '">' + (Math.abs(b.adj - 1) < 0.001 ? 'none' : '×' + b.adj.toFixed(2)) + '</dd>' +
@@ -831,12 +993,7 @@
       var homes = neighborTypes(b.ring, b.slot).filter(function (t) { return CFG.buildings[t].housing; }).length;
       h += '<div class="dim" style="font-size:11px;margin-top:8px">Adjacent homes feel this building: ' + (d.comfort > 0 ? '+' : '−') + Math.abs(d.comfort) + ' comfort each' + (homes ? ' (' + homes + ' next door)' : '') + '.</div>';
     }
-    var key = 'dem:' + b.id, refund = Math.round(CFG.demolishRefund * 100);
-    h += '<div class="actions"><button class="btn" data-act="toggle" data-ring="' + b.ring + '" data-slot="' + b.slot + '">' + icon(b.paused ? 'play' : 'pause', 12) + ' ' + (b.paused ? 'Resume' : 'Pause') + '</button>' +
-      '<button class="btn danger" data-act="demolish" data-ring="' + b.ring + '" data-slot="' + b.slot + '" data-key="' + key + '">' +
-      (confirmKey === key ? 'Confirm?' : 'Demolish') + '</button></div>' +
-      '<div class="dim" style="font-size:11px;margin-top:8px">Demolishing refunds ' + refund + '% of the build cost.</div>';
-    return h;
+    return h + '<div class="dim" style="font-size:11px;margin-top:12px">Demolishing refunds ' + refund + '% of the build cost.</div>';
   }
 
 
@@ -894,14 +1051,47 @@
   function adjacentHomes(r, s) {
     return neighborsOf(r, s).filter(function (n) { var nb = buildingAt(n[0], n[1]); return nb && CFG.buildings[nb.type].housing; }).length;
   }
+  // What building this would do to the place: the power left over, the new net rate of everything it makes or uses, and
+  // whether there are hands for it. It shows the consequence of a choice, at full output; it does not make the choice.
+  function afterLine(d, mult) {
+    var parts = [], ein = d.inputsPerTick.energy || 0, eout = (d.outputsPerTick.energy || 0) * mult, seen = {};
+    if (ein || eout) {
+      var spare = S.energy.supply - S.energy.demand + eout - ein;
+      parts.push('<span class="' + (spare < -0.05 ? 'bad' : '') + '">Power ' + (spare < -0.05 ? Math.ceil(-spare) + ' short' : Math.floor(spare + 0.05) + ' spare') + '</span>');
+    }
+    Object.keys(d.outputsPerTick).concat(Object.keys(d.inputsPerTick)).forEach(function (r) {
+      if (r === 'energy' || seen[r] || !S.resources[r] || !CFG.resources[r]) return;
+      seen[r] = 1;
+      var net = S.resources[r].net + (d.outputsPerTick[r] || 0) * mult - (d.inputsPerTick[r] || 0);
+      parts.push('<span class="' + (net < -0.05 ? 'bad' : net > 0.05 ? 'good' : '') + '">' + esc(CFG.resources[r].name) + ' ' + rate(net) + '/t</span>');
+    });
+    var st = S.colony.staffing;
+    if (d.workers && st.posts + d.workers > st.workforce + 0.001) parts.push('<span class="warn">' + Math.ceil(st.posts + d.workers - st.workforce) + ' hands short</span>');
+    return parts.length ? '<div class="after"><span class="dim">After, at full output:</span> ' + parts.join(' <span class="dim">·</span> ') + '</div>' : '';
+  }
+  // The build menu sorts what a place offers into a few kinds, so a long list can be cut down with one click.
+  var CATS = [['all', 'All'], ['power', 'Power'], ['raw', 'Extraction'], ['make', 'Production'], ['homes', 'Housing'], ['other', 'Support']];
+  var CAT_OF = { generator: 'power', extractor: 'raw', refinery: 'make', assembler: 'make', producer: 'make', workshop: 'make', housing: 'homes' };
+  function catOf(d) { return CAT_OF[d.type] || 'other'; }
   function buildMenu(r, s, head) {
-    var h = '<div class="label">' + head + ' · empty</div><h3 style="margin:4px 0 12px;font-size:15px">Construct</h3><div class="stack">';
     var dtype = activeD().type;
-    Object.keys(CFG.buildings).forEach(function (k) {
+    var keys = Object.keys(CFG.buildings).filter(function (k) {
       var d = bdef(k);
-      if ((CFG.buildableIn[dtype] || []).indexOf(k) < 0) return;
-      if (d.hidden === 'orbital' && !(S.orbital && S.orbital.unlocked)) return; // unknown until the colony is recognised
-      if (d.needs && (!field() || [field().common1, field().common2, field().district].indexOf(d.needs) < 0)) return; // nothing to work on here
+      if ((CFG.buildableIn[dtype] || []).indexOf(k) < 0) return false;
+      if (d.hidden === 'orbital' && !(S.orbital && S.orbital.unlocked)) return false; // unknown until the colony is recognised
+      if (d.needs && (!field() || [field().common1, field().common2, field().district].indexOf(d.needs) < 0)) return false; // nothing to work on here
+      return true;
+    });
+    var have = {}; keys.forEach(function (k) { have[catOf(bdef(k))] = (have[catOf(bdef(k))] || 0) + 1; });
+    var cat = buildCat !== 'all' && have[buildCat] ? buildCat : 'all';
+    var h = '<div class="label">' + head + ' · empty</div><h3 style="margin:4px 0 10px;font-size:15px">Construct</h3>';
+    if (Object.keys(have).length > 1 && keys.length > 5) h += '<div class="cats" role="tablist" aria-label="Kind of building">' + CATS.filter(function (c) { return c[0] === 'all' || have[c[0]]; }).map(function (c) {
+      return '<button role="tab" data-act="cat" data-cat="' + c[0] + '" aria-selected="' + (cat === c[0]) + '">' + c[1] + '<small>' + (c[0] === 'all' ? keys.length : have[c[0]]) + '</small></button>';
+    }).join('') + '</div>';
+    h += '<div class="stack">';
+    keys.forEach(function (k) {
+      var d = bdef(k);
+      if (cat !== 'all' && catOf(d) !== cat) return;
       var afford = canAfford(d.cost);
       var blocked = null;
       if (d.strictPlot && GEO().ringPlotSize[r] < d.minPlotSize) blocked = 'Needs a ' + plotName2(d.minPlotSize) + ' plot';
@@ -942,7 +1132,7 @@
         (d.housing ? '<span class="pill out"><i style="background:#a3b8cc"></i>' + Math.floor(d.housing * plot) + ' homes</span>' : '') +
         (d.storageBonus ? pill('scrap', '+' + fmt(d.storageBonus * plot) + ' storage') : '') +
         (d.defense ? '<span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * plot).toFixed(1) + '</span>' : '') +
-        (d.transmit ? '<span class="pill out"><i style="background:#fff"></i>Signal ' + plot.toFixed(2) + ' / tick</span>' : '') + '</div>' + notes + '</button>';
+        (d.transmit ? '<span class="pill out"><i style="background:#fff"></i>Signal ' + plot.toFixed(2) + ' / tick</span>' : '') + '</div>' + (capped || blocked ? '' : afterLine(d, pv.mult * plot)) + notes + '</button>';
     });
     return h + '</div>';
   }
@@ -1057,7 +1247,7 @@
   function hubTab() {
     var c = S.colony, lv = CFG.hubLevels[c.hubLevel], next = CFG.hubLevels[c.hubLevel + 1];
     var slots = function (l) { return Object.keys(l.ringCapacities).reduce(function (a, k) { return a + l.ringCapacities[k]; }, 0); };
-    var h = '<div class="p-title">' + icon('hub', 22) + '<h3>Command Hub · Level ' + c.hubLevel + '</h3></div>' +
+    var h = stockSwitch() + '<div class="p-title">' + icon('hub', 22) + '<h3>Command Hub · Level ' + c.hubLevel + '</h3></div>' +
       '<dl class="kv"><dt>Storage per resource</dt><dd>' + fmt(S.hub.maxStorage) + (S.hub.maxStorage > S.hub.baseStorage ? ' <span class="dim">(' + fmt(S.hub.baseStorage) + ' + warehouses)</span>' : '') + '</dd>' +
       '<dt>Hub quarters</dt><dd>' + lv.baseHousing + ' people</dd>' +
       '<dt>Hub power</dt><dd class="' + (S.hub.eff < 0.999 ? 'bad' : '') + '">' + S.hub.power.toFixed(0) + (lv.upkeepPerTick && lv.upkeepPerTick.energy ? ' <span class="dim">(' + lv.baseEnergy + ' base − ' + lv.upkeepPerTick.energy + ' upkeep)</span>' : '') + '</dd>' +
@@ -1111,31 +1301,49 @@
     var d = function (x) { return x.core ? 0 : CFG.districtTypes[x.type].distance; };
     return Math.max(1, d(a) + d(b));
   }
-  // The district switcher: always there once districts are open. Pulses while there is something to do
-  // (a district can be founded, or one has been founded and not visited yet).
+  // Where the view can go: the surface districts, then the station and any territory a dropship is in. Shown as tabs over
+  // the map on a desk and as a list behind the place button on a phone. A place that has something to do pulses.
   var visited = {};
-  function renderSwitch() {
-    var el = $('dswitch'), h = '';
-    visited[activeId] = true;
-    var ground = S.districts.filter(function (d) { return !d.orbital; });
-    var chip = function (d, color, label, small, extra) {
-      return '<button class="dchip' + (d.id === activeId ? ' on' : '') + (extra || '') + '" data-act="enter" data-id="' + d.id + '" title="' + esc(d.name) + '" style="--c:' + color + '"><i></i><span>' + esc(label) + '</span>' + (small ? '<small>' + small + '</small>' : '') + '</button>';
-    };
-    if (S.districtsUnlocked) {
-      var found = readyFlags().found;
-      h += '<div class="dgroup">Surface</div>' + ground.map(function (d) {
-        var t = d.core ? null : CFG.districtTypes[d.type], fresh = !d.core && !visited[d.id];
-        return chip(d, t ? t.color : 'var(--amber)', d.core ? 'Core' : d.name.replace(/^The /, ''), 'L' + d.level, fresh ? ' new' : '') + (fresh ? '' : '');
-      }).join('') + '<button class="dchip add' + (found ? ' pulse' : '') + '" data-act="tab" data-tab="districts" style="--c:var(--good)" title="Found a district"><i></i><span>Found</span>' + (found ? '<em>READY</em>' : '') + '</button>';
-      if (stationId() !== null) {
-        h += '<div class="dgroup">Orbit</div>' + S.districts.filter(function (d) { return d.orbital; }).map(function (d) {
-          var t = CFG.orbitalTypes[d.type];
-          return chip(d, t.color, d.type === 'station' ? 'Station' : d.name, d.type === 'station' ? 'L' + d.level : 'territory');
-        }).join('') + '<button class="dchip add" data-act="tab" data-tab="oterr" style="--c:#f2a7ff" title="Send a dropship to a territory"><i></i><span>Deploy</span></button>';
-      }
+  function placeItems() {
+    var out = [], found = readyFlags().found;
+    S.districts.filter(function (d) { return !d.orbital; }).forEach(function (d) {
+      var t = d.core ? null : CFG.districtTypes[d.type], fresh = !d.core && !visited[d.id];
+      out.push({ group: 'Surface', on: d.id === activeId, name: d.core ? 'Core' : d.name.replace(/^The /, ''), full: d.name, small: 'L' + d.level, color: t ? t.color : 'var(--amber)', cls: fresh ? ' new' : '', tag: fresh ? 'NEW' : '',
+        note: d.core ? 'The colony itself' : d.buildings + ' structure' + (d.buildings === 1 ? '' : 's'), act: 'data-act="enter" data-id="' + d.id + '"' });
+    });
+    if (S.districtsUnlocked) out.push({ group: 'Surface', add: true, name: 'Found', full: 'Found a district', color: 'var(--good)', cls: ' add' + (found ? ' pulse' : ''), tag: found ? 'READY' : '', note: 'Start a new district', act: 'data-act="tab" data-tab="districts"' });
+    if (stationId() !== null) {
+      S.districts.filter(function (d) { return d.orbital; }).forEach(function (d) {
+        var t = CFG.orbitalTypes[d.type];
+        out.push({ group: 'Orbit', on: d.id === activeId, name: d.type === 'station' ? 'Station' : d.name, full: d.name, small: d.type === 'station' ? 'L' + d.level : '', color: t.color, cls: ' orbit',
+          note: d.type === 'station' ? d.name : 'Territory · a dropship is down here', act: 'data-act="enter" data-id="' + d.id + '"' });
+      });
+      out.push({ group: 'Orbit', add: true, name: 'Deploy', full: 'Send a dropship to a territory', color: '#f2a7ff', cls: ' add', note: 'Send a dropship to a territory', act: 'data-act="tab" data-tab="oterr"' });
     }
-    if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
-    $('layout').classList.toggle('no-rail', !h);
+    return out;
+  }
+  function renderPlaces() {
+    visited[activeId] = true;
+    var d = activeD();
+    if (MOBILE) {
+      var t = d.core ? null : (CFG.districtTypes[d.type] || CFG.orbitalTypes[d.type]), todo = placeItems().some(function (p) { return p.tag; });
+      var bh = '<i style="background:' + (t ? t.color : 'var(--amber)') + '"></i><span class="pb-t"><small>' + (d.type === 'territory' ? 'Territory' : d.orbital ? 'Orbit' : 'Surface') + '</small><b>' + esc(d.core ? 'The Core' : d.name) + '</b></span>' +
+        '<span class="pb-l">L' + d.level + '</span>' + (todo ? '<span class="dotb good"></span>' : '') + icon('chev', 14);
+      var pb = $('place-btn'); if (pb.dataset.h !== bh) { pb.innerHTML = bh; pb.dataset.h = bh; }
+      return;
+    }
+    var h = '', items = placeItems(), last = null;
+    if (S.districtsUnlocked) items.forEach(function (p) {
+      if (p.group !== last) { last = p.group; h += '<span class="pgroup">' + p.group + '</span>'; }
+      h += '<button class="ptab' + (p.on ? ' on' : '') + p.cls + '" role="tab" aria-selected="' + !!p.on + '" ' + p.act + ' title="' + esc(p.full) + '" style="--c:' + p.color + '"><i></i><span>' + esc(p.name) + '</span>' +
+        (p.small ? '<small>' + p.small + '</small>' : '') + (p.tag ? '<em>' + p.tag + '</em>' : '') + '</button>';
+    });
+    var el = $('places');
+    if (el.dataset.h !== h) {
+      var left = el.scrollLeft; el.innerHTML = h; el.dataset.h = h; el.scrollLeft = left;
+      var on = el.querySelector('.ptab.on'); if (on && el.scrollWidth > el.clientWidth) el.scrollLeft = clamp(on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2, 0, el.scrollWidth);
+    }
+    el.hidden = !h;
   }
   function districtMap() {
     var h = '<svg class="dmap" viewBox="-110 -90 220 180" role="img" aria-label="District map">';
@@ -1256,7 +1464,7 @@
   function districtHubTab() {
     var d = activeD(), t = CFG.districtTypes[d.type], lv = GEO().levels[d.level], next = GEO().levels[d.level + 1];
     var slots = function (l) { return Object.keys(l.ringCapacities).reduce(function (a, k) { return a + l.ringCapacities[k]; }, 0); };
-    var h = '<div class="p-title" style="--c:' + t.color + '">' + icon('hub', 22) + '<h3>' + esc(d.name) + ' · Level ' + d.level + '</h3></div><p class="p-desc">' + esc(t.desc) + '</p>' +
+    var h = stockSwitch() + '<div class="p-title" style="--c:' + t.color + '">' + icon('hub', 22) + '<h3>' + esc(d.name) + ' · Level ' + d.level + '</h3></div><p class="p-desc">' + esc(t.desc) + '</p>' +
       '<dl class="kv"><dt>Storage per resource</dt><dd>' + fmt(S.hub.maxStorage) + (S.hub.maxStorage > S.hub.baseStorage ? ' <span class="dim">(' + fmt(S.hub.baseStorage) + ' + warehouses)</span>' : '') + '</dd>' +
       '<dt>District power</dt><dd>' + S.hub.power.toFixed(0) + ' base</dd>' +
       '<dt>Rings online</dt><dd>' + Object.keys(lv.ringCapacities).length + ' (' + slots(lv) + ' slots)</dd>' +
@@ -1316,7 +1524,7 @@
     var h = brokerNote() + '<label class="selrow">Market<select data-sel="m:res">' + Object.keys(CFG.resources).filter(function (k) {
       var d = CFG.resources[k]; if (d.trade) return !!S.freeport; return !(d.showFromHub && d.showFromHub > S.colony.hubLevel + 1 && k !== mk.res);
     }).map(function (k) { return '<option value="' + k + '"' + (k === mk.res ? ' selected' : '') + '>' + esc(CFG.resources[k].name) + ' · ' + mp(E.resources[k].ref) + ' cr</option>'; }).join('') + '</select></label>';
-    h += '<div class="mk-head" style="--c:' + r.color + '"><div><div class="big num">' + mp(x.ref) + ' <small>cr</small></div><div class="dim" style="font-size:11px">market price' + (Math.abs(x.trend) >= 0.01 ? ' · ' + (x.trend > 0 ? '▲' : '▼') + Math.abs(Math.round(x.trend * 100)) + '%' : '') + '</div></div>' + spark(x.hist, r.color) + ev + '</div>';
+    h += '<div class="xg"><div><div class="mk-head" style="--c:' + r.color + '"><div><div class="big num">' + mp(x.ref) + ' <small>cr</small></div><div class="dim" style="font-size:11px">market price' + (Math.abs(x.trend) >= 0.01 ? ' · ' + (x.trend > 0 ? '▲' : '▼') + Math.abs(Math.round(x.trend * 100)) + '%' : '') + '</div></div>' + spark(x.hist, r.color) + ev + '</div>';
     // the book: asks (what you pay) above, bids (what you get) below
     var maxq = Math.max.apply(null, x.asks.concat(x.bids).map(function (l) { return l.qty; }).concat([1]));
     var row = function (l, cls) { return '<div class="bk ' + cls + '" data-act="mkprice" data-price="' + l.price + '"><i style="width:' + (l.qty / maxq * 100).toFixed(0) + '%"></i><span class="num">' + mp(l.price) + '</span><span class="num">' + fmt(l.qty) + (l.mine ? ' <b title="includes your orders">·</b>' : '') + '</span></div>'; };
@@ -1326,7 +1534,7 @@
       x.bids.map(function (l) { return row(l, 'bid'); }).join('') + '</div>';
     // the order form
     var side = mk.side, est = fillEstimate(x, side, mk.price, mk.qty), total = Math.ceil(mk.price * mk.qty - 1e-9);
-    h += '<div class="label sec">New order</div><div class="seg" role="tablist" style="margin-bottom:10px"><button role="tab" data-act="mkside" data-side="buy" aria-selected="' + (side === 'buy') + '">Buy</button><button role="tab" data-act="mkside" data-side="sell" aria-selected="' + (side === 'sell') + '">Sell</button></div>' +
+    h += '</div><div><div class="label sec">New order</div><div class="seg" role="tablist" style="margin-bottom:10px"><button role="tab" data-act="mkside" data-side="buy" aria-selected="' + (side === 'buy') + '">Buy</button><button role="tab" data-act="mkside" data-side="sell" aria-selected="' + (side === 'sell') + '">Sell</button></div>' +
       '<div class="shipform"><label class="wide">' + (side === 'buy' ? 'Deliver to' : 'Sell from') + '<select data-sel="m:district">' + ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === mk.district ? ' selected' : '') + '>' + esc(d.name) + ' (' + fmt(S.views[d.id].resources[mk.res].amount) + ')</option>'; }).join('') + '</select></label></div>' +
       '<div class="stepper" style="margin-top:8px"><span class="lab">Qty</span><button data-act="mkqty" data-delta="-' + qstep + '">−</button>' + numIn('mkqty', mk.qty, '') + '<button data-act="mkqty" data-delta="' + qstep + '">+</button>' + (side === 'sell' ? '<button data-act="mkqty" data-delta="max" style="width:auto;padding:0 8px;font-size:10px">MAX</button>' : '') + '</div>' +
       '<div class="stepper" style="margin-top:6px"><span class="lab">Price</span><button data-act="mkprice" data-delta="-' + pstep + '">−</button>' + numIn('mkprice', mp(mk.price), '') + '<button data-act="mkprice" data-delta="' + pstep + '">+</button></div>' +
@@ -1337,7 +1545,7 @@
       ? 'Holds <b>' + fmt(total) + ' cr</b> until it fills.'
       : 'Holds <b>' + mk.qty + ' ' + esc(r.name) + '</b> until it sells; you receive the price minus a <b>' + Math.round(X.feeRate * 100) + '% fee</b>.') +
       (est.qty ? '<br>Would fill <b>' + est.qty + '</b> now at about <b>' + mp(est.avg) + '</b> each' + (est.qty < mk.qty ? ', and rest the other ' + (mk.qty - est.qty) : '') + '.' : '<br>Nothing fills yet: it rests in the book until someone meets the price.') + '</div>' +
-      '<div class="actions"><button class="btn primary" data-act="mksubmit"' + (enough ? '' : ' disabled') + '>' + (side === 'buy' ? 'Place buy order' : 'Place sell order') + '</button></div>';
+      '<div class="actions"><button class="btn primary" data-act="mksubmit"' + (enough ? '' : ' disabled') + '>' + (side === 'buy' ? 'Place buy order' : 'Place sell order') + '</button></div></div></div>';
     // my orders and trades
     h += '<div class="label sec">Your open orders · ' + E.orders.length + ' / ' + X.maxOpenOrders + '</div>';
     h += E.orders.length ? E.orders.map(function (o) {
@@ -1561,9 +1769,8 @@
 
   // ------------------------------------------------------------------ queue bar
   var lastQueue = '';
-  function renderQueue() {
-    var h = '<span class="label">Work queue</span>';
-    if (!S.allOrders.length) h += '<span class="queue-empty">No active work orders.</span>';
+  function queueHtml(bare) {
+    var h = '';
     S.allOrders.forEach(function (o) {
       var tag = o.dname ? o.dname.replace(/^The /, '') + ': ' : '';
       var name = o.kind === 'build' ? tag + 'Build ' + CFG.buildings[o.data.type].name : o.kind === 'found' ? 'Found ' + CFG.districtTypes[o.data.type].name : o.kind === 'expand' ? tag + 'Expand ' + CFG.buildings[o.data.type].name + ' → ' + o.data.level : (o.dname || 'Hub') + ' upgrade → L' + o.data.level;
@@ -1571,17 +1778,22 @@
       h += '<div class="order" data-id="' + o.id + '"><button class="x" data-act="cancel" data-id="' + o.id + '" title="Cancel & refund" aria-label="Cancel order">×</button>' +
         '<div class="row"><span>' + esc(name) + '</span><small class="num">' + (where ? where + ' · ' : '') + o.remaining + 't</small></div><div class="bar"><i></i></div>' + (o.rush ? '<div style="margin-top:6px">' + rushBtn(o, 'rushq') + '</div>' : '') + '</div>';
     });
-    if (pending.length) {
-      var chips = pending.map(function (p) {
-        return '<div class="pend" data-id="' + p.id + '"><span>' + esc(p.label) + '</span><button class="x" data-act="pcancel" data-id="' + p.id + '" title="Discard (not sent yet)" aria-label="Discard queued action">×</button></div>';
-      }).join('');
-      h = '<span class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Queued' : 'Offline · waiting to send') + '</span>' + chips + '<span class="queue-sep"></span>' + h;
-    }
-    if (h !== lastQueue) { $('queue').innerHTML = h; lastQueue = h; }
+    var chips = pending.map(function (p) {
+      return '<div class="pend" data-id="' + p.id + '"><span>' + esc(p.label) + '</span><button class="x" data-act="pcancel" data-id="' + p.id + '" title="Discard (not sent yet)" aria-label="Discard queued action">×</button></div>';
+    }).join('');
+    if (bare) return (chips ? '<div class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Queued' : 'Offline · waiting to send') + '</div>' + chips : '') + h;
+    h = '<span class="label">Work queue</span>' + (S.allOrders.length ? h : '<span class="queue-empty">Nothing under way. Click a free plot to build.</span>');
+    if (chips) h = '<span class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Queued' : 'Offline · waiting to send') + '</span>' + chips + '<span class="queue-sep"></span>' + h;
+    return h;
+  }
+  function renderQueue() {
+    var el = $('queue');
+    if (!el) { if (S) renderPanel(); return; } // phone: the queue is part of the overview
+    var h = queueHtml(false);
+    if (h !== lastQueue) { el.innerHTML = h; lastQueue = h; }
   }
   function frameQueue(f) {
-    var bars = document.querySelectorAll('#queue .order');
-    bars.forEach(function (el) {
+    document.querySelectorAll('.order[data-id]').forEach(function (el) {
       var o = S.allOrders.filter(function (x) { return String(x.id) === el.dataset.id; })[0];
       if (o) el.querySelector('.bar i').style.width = (clamp((o.total - o.remaining + f) / o.total, 0, 1) * 100).toFixed(1) + '%';
     });
@@ -1617,6 +1829,7 @@
     if (t) msgTab = t;
     closePop();
     if (!document.querySelector('.modal.messages')) modal('<nav class="nav" id="msg-nav"></nav><div class="list"><div class="lh" id="msg-lh"></div><div class="lscroll" id="msg-list"></div></div><div class="read" id="msg-read"></div>', 'messages');
+    if (MOBILE) msgSel = {}; // a phone opens on the list; nothing is marked read until it is opened
     msgDone = '';
     renderMessages();
   }
@@ -1630,17 +1843,17 @@
     var lh, list, rd = '';
     if (hist) { lh = 'History · ' + S.events.length + ' events'; list = S.events.length ? '<ul class="log" style="padding:12px 16px">' + S.events.map(function (e) { return '<li class="' + e.kind + '">' + esc(e.message) + '<small>tick #' + e.tick + '</small></li>'; }).join('') + '</ul>' : '<div class="empty-state">No events yet.</div>'; }
     else {
-      var v = window.Story.msgView(msgTab, msgSel[msgTab]);
+      var v = window.Story.msgView(msgTab, msgSel[msgTab], MOBILE);
       msgSel[msgTab] = v.sel; lh = (msgTab === 'mail' ? 'Mail' : 'Calls') + ' · ' + v.n + (v.n === 1 ? ' item' : ' items'); list = v.list; rd = v.reader;
     }
     var sig = navH + lh + list + rd;
     if (msgDone === sig) return;
     msgDone = sig;
-    var md = document.querySelector('.modal.messages'); md.classList.toggle('solo', hist);
-    nav.innerHTML = navH; $('msg-lh').innerHTML = '<span class="label">' + esc(lh) + '</span>' + (hist ? '<button class="x" data-m="close" aria-label="Close" style="margin-left:auto">&times;</button>' : '');
+    var md = document.querySelector('.modal.messages'); md.classList.toggle('solo', hist); md.classList.toggle('reading', MOBILE && !hist && !!msgSel[msgTab]);
+    nav.innerHTML = navH; $('msg-lh').innerHTML = '<span class="label">' + esc(lh) + '</span>' + (hist || MOBILE ? '<button class="x" data-m="close" aria-label="Close" style="margin-left:auto">&times;</button>' : '');
     renderTop();
     var ls = $('msg-list'), top = ls.scrollTop; ls.innerHTML = list; ls.scrollTop = top;
-    $('msg-read').innerHTML = hist ? '' : '<div class="rh"><span class="label">' + (msgTab === 'mail' ? 'Message' : 'Call') + '</span><button class="x" data-m="close" aria-label="Close" style="margin-left:auto">&times;</button></div><div class="rb">' + rd + '</div>';
+    $('msg-read').innerHTML = hist ? '' : '<div class="rh">' + (MOBILE ? '<button class="x" data-act="mback" aria-label="Back to the list" style="margin-right:10px">' + icon('back', 16) + '</button>' : '') + '<span class="label">' + (msgTab === 'mail' ? 'Message' : 'Call') + '</span><button class="x" data-m="close" aria-label="Close" style="margin-left:auto">&times;</button></div><div class="rb">' + rd + '</div>';
   }
   // answering a call or reading a message hands the screen to the story overlay
   document.addEventListener('click', function (e) {
@@ -1673,12 +1886,18 @@
     },
     ack: function () { acking = true; act('ack', {}).then(function () { acking = false; }); },
     logout: function () { api('logout', {}).then(function () { location.href = '/'; }); },
+    mobileLayout: function () { setLayout('mobile'); },
     close: function () {}
   };
   function menu() {
+    var keys = [['M', 'Map']];
+    navGroups().forEach(function (g) { g.tabs.forEach(function (t) { if (t[3]) keys.push([t[3].toUpperCase(), tabLabel(t)]); }); });
     modal('<h2>Command menu</h2><p>Signed in as <b>' + esc(S.user) + '</b>.</p><div class="stack">' +
-      '<button class="btn block danger" data-m="confirmReset">Abandon colony &amp; start over</button>' +
-      '<button class="btn block" data-m="logout">Sign out</button><button class="btn block" data-m="close">Close</button></div>');
+      '<button class="btn block" data-m="mobileLayout">' + icon('phone', 14) + ' Use the phone layout</button>' +
+      '<button class="btn block" data-m="logout">Sign out</button>' +
+      '<button class="btn block danger" data-m="confirmReset">Abandon colony &amp; start over</button><button class="btn block" data-m="close">Close</button></div>' +
+      '<div class="label sec">Keys</div><div class="keys">' + keys.map(function (k) { return '<span><kbd>' + k[0] + '</kbd>' + esc(k[1]) + '</span>'; }).join('') +
+      '<span><kbd>Esc</kbd>Back</span><span><kbd>+</kbd><kbd>−</kbd><kbd>0</kbd>Zoom, fit</span></div>');
   }
   MODALS.confirmReset = function () {
     modal('<h2>Abandon this colony?</h2><p>All structures, stockpiles and credits are lost, and your progress resets to the very beginning. Story messages you have received start over too.</p>' +
@@ -1716,17 +1935,26 @@
         '<div class="actions"><button class="btn primary" data-m="close">' + esc(won.button || 'Keep building') + '</button></div>', 'win');
     }
   }
+  // The layout is the player's to choose: the choice is kept in a cookie, which the server reads when it sends the page.
+  function setLayout(ui) { document.cookie = 'ft_ui=' + (ui === 'mobile' ? 'mobile' : 'desktop') + '; path=/; max-age=31536000; samesite=lax'; location.href = '/game'; }
   function storeGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
   function storeSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
 
   // ------------------------------------------------------------------ input
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]');
+    if (!el) { var chip = MOBILE && e.target.closest('.chip'); if (chip && chip.title) toast(chip.title, 'info'); } // a phone has no hover: a tap says what the number is
     if (!el || el.disabled) return;
     var a = el.dataset.act;
     var sh = e.shiftKey ? 10 : 1; // hold Shift for bigger steps
-    if (a === 'tab') { e.preventDefault(); if (dockOpen && el.classList.contains('dbtn')) armDock(6000); if (el.dataset.tab === ws && el.classList.contains('dbtn')) { ws = null; renderAll(); } else go(el.dataset.tab); }
-    else if (a === 'dock') { dockOpen = dockOpen === el.dataset.g ? null : el.dataset.g; armDock(); renderDock(); }
+    if (a === 'tab') { e.preventDefault(); if (el.dataset.tab === ws && el.classList.contains('nv') && !MOBILE) { ws = null; renderAll(); } else go(el.dataset.tab); }
+    else if (a === 'drawer') { drawer = drawer === el.dataset.d ? null : (el.dataset.d || null); closePop(); renderNav(); renderDrawer(); }
+    else if (a === 'cat') { buildCat = el.dataset.cat; renderPanel(); var pc = $('panel'); if (pc) pc.scrollTop = 0; }
+    else if (a === 'zoom') { if (el.dataset.z === 'fit') fitView(); else zoomBy(el.dataset.z === 'in' ? 0.75 : 1 / 0.75); }
+    else if (a === 'grab') document.body.classList.toggle('panel-full');
+    else if (a === 'layout') setLayout(el.dataset.ui);
+    else if (a === 'menu') { drawer = null; renderNav(); renderDrawer(); if (MODALS[el.dataset.m]) MODALS[el.dataset.m](); }
+    else if (a === 'mback') { delete msgSel[msgTab]; renderMessages(); }
     else if (a === 'rush') {
       var rkey = 'rush:' + el.dataset.id;
       if (confirmKey === rkey) {
@@ -1734,12 +1962,12 @@
         confirmKey = null; act('rush', { orderId: +el.dataset.id }, 'Rushed.');
       } else { confirmKey = rkey; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); renderQueue(); }, 4000); renderPanel(); renderQueue(); }
     }
-    else if (a === 'desel') { sel = null; renderAll(); }
+    else if (a === 'desel') { sel = null; document.body.classList.remove('panel-full'); renderAll(); }
     else if (a === 'pin') togglePin(el.dataset.res)
     else if (a === 'dataunlock') act('data-unlock', { packet: el.dataset.packet }, 'Data packet unlocked.')
     else if (a === 'msel') { msgSel[msgTab] = el.dataset.id; renderMessages(); }
     else if (a === 'wsclose') { ws = null; renderAll(); }
-    else if (a === 'msgs') { closePop(); messages(el.dataset.t || 'mail'); }
+    else if (a === 'msgs') { closePop(); drawer = null; renderNav(); renderDrawer(); messages(el.dataset.t || 'mail'); }
     else if (a === 'mtab') { msgTab = el.dataset.t; renderMessages(); }
     else if (a === 'resumeOps') act('resume', {});
     else if (a === 'build' && sel && sel.ring) act('build', { ring: sel.ring, slot: sel.slot, type: el.dataset.type, district: activeId });
@@ -1879,31 +2107,81 @@
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       if (popOpen) { closePop(); return; }
+      if (drawer) { drawer = null; renderNav(); renderDrawer(); return; }
       var m = document.querySelector('.modal-bg'); if (m && !m.querySelector('[data-lock]')) { m.remove(); return; }
       if (ws) { ws = null; renderAll(); return; }
-      if (sel) { sel = null; renderAll(); }
+      if (sel) { sel = null; document.body.classList.remove('panel-full'); renderAll(); }
+      return;
     }
+    // One key per screen, as long as nothing is being typed and nothing else has the screen.
+    if (!S || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+    var tg = e.target, tag = tg && tg.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || (tg && tg.isContentEditable)) return;
+    if (document.querySelector('.modal-bg, #vn:not([style*="none"]), #mailv')) return;
+    if ((e.key === 'Enter' || e.key === ' ') && tg && tg.dataset && tg.dataset.act === 'tab' && tag !== 'BUTTON') { e.preventDefault(); tg.click(); return; }
+    var k = e.key.toLowerCase();
+    if (k === 'm') { go('map'); return; }
+    if (k === '+' || k === '=') { zoomBy(0.75); return; }
+    if (k === '-' || k === '_') { zoomBy(1 / 0.75); return; }
+    if (k === '0') { fitView(); return; }
+    var hit = null;
+    navGroups().forEach(function (g) { g.tabs.forEach(function (t) { if (t[3] === k) hit = t[0]; }); });
+    if (hit) { e.preventDefault(); if (hit === ws) { ws = null; renderAll(); } else go(hit); }
   });
   $('bell-btn').innerHTML = icon('bell', 18) + '<span class="dotc" id="bell-n" hidden></span>';
   $('mail-btn').innerHTML = icon('mail', 18) + '<span class="dotc" id="mail-n" hidden></span>';
   $('bell-btn').addEventListener('click', togglePop);
   $('mail-btn').addEventListener('click', function () { messages(); });
-  $('menu-btn').addEventListener('click', menu);
-  $('dock').addEventListener('mouseenter', function () { clearTimeout(dockTimer); });
-  $('dock').addEventListener('mouseleave', function () { armDock(1800); });
+  if ($('menu-btn')) $('menu-btn').addEventListener('click', menu);
   $('sheet-close').addEventListener('click', function () { ws = null; renderAll(); });
-  [['c-pop', 'people'], ['c-morale', 'people'], ['c-doom', 'brief'], ['c-hazard', 'brief']].forEach(function (x) {
-    var c = $(x[0]).closest('.chip'); c.classList.add('click'); c.dataset.act = 'tab'; c.dataset.tab = x[1];
-  });
-  $('legend').innerHTML = '<span>' + icon('lock', 11) + ' locked</span><span>- - dashed: being built</span><span>! hazard</span><span>OFF / DOWN: not running</span><span>▲n: level</span>';
+  if (MOBILE) $('sheet-close').innerHTML = icon('back', 18);
+  if ($('places')) $('places').addEventListener('wheel', function (e) { if (this.scrollWidth > this.clientWidth && !e.shiftKey) { this.scrollLeft += e.deltaY || e.deltaX; e.preventDefault(); } }, { passive: false });
+  if ($('drawer')) $('drawer').addEventListener('click', function (e) { if (e.target === $('drawer')) { drawer = null; renderNav(); renderDrawer(); } });
+  // The map: wheel to zoom, drag to pan, pinch on a touch screen. A drag is not a click, so the tap that ends one is ignored.
+  (function () {
+    var svg = $('radar'), pts = {}, start = null, moved = false, gap = 0, mid = null;
+    function two() { var k = Object.keys(pts); if (k.length < 2) return null; var a = pts[k[0]], b = pts[k[1]]; return { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 }; }
+    svg.addEventListener('wheel', function (e) { if (!S) return; e.preventDefault(); zoomBy(Math.exp(clamp(e.deltaY, -160, 160) * 0.002), e.clientX, e.clientY); }, { passive: false });
+    svg.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      pts[e.pointerId] = [e.clientX, e.clientY];
+      var n = Object.keys(pts).length;
+      if (n === 1) { start = [e.clientX, e.clientY]; moved = false; }
+      else if (n === 2) { var t = two(); gap = t.d; mid = [t.x, t.y]; moved = true; }
+    });
+    svg.addEventListener('pointermove', function (e) {
+      var p = pts[e.pointerId]; if (!p) return;
+      var n = Object.keys(pts).length, dx = e.clientX - p[0], dy = e.clientY - p[1];
+      if (n === 1) {
+        if (!moved && Math.hypot(e.clientX - start[0], e.clientY - start[1]) < 8) return;
+        if (!moved) { moved = true; try { svg.setPointerCapture(e.pointerId); } catch (x) { /* not capturable */ } svg.classList.add('panning'); }
+        pts[e.pointerId] = [e.clientX, e.clientY]; panBy(dx, dy);
+      } else if (n === 2) {
+        pts[e.pointerId] = [e.clientX, e.clientY];
+        var t = two(); zoomBy(gap / t.d, t.x, t.y); panBy(t.x - mid[0], t.y - mid[1]); gap = t.d; mid = [t.x, t.y];
+      }
+    });
+    function up(e) {
+      if (!pts[e.pointerId]) return;
+      delete pts[e.pointerId];
+      if (moved) dragEndAt = Date.now();
+      if (!Object.keys(pts).length) { moved = false; svg.classList.remove('panning'); }
+    }
+    svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up);
+  })();
+  if ($('legend')) $('legend').innerHTML = '<span>' + icon('lock', 11) + ' locked</span><span>- - dashed: being built</span><span>! hazard</span><span>OFF / DOWN: not running</span><span>▲n: level</span>';
 
   // ------------------------------------------------------------------ state flow
   function renderAll() {
     if (!S) return;
     if (radarFor !== activeId) { radarFor = activeId; viewR = 0; buildRadar(); }
-    renderSwitch();
+    if (!activeD().orbital) groundId = activeId;
+    var picked = !!(sel && sel.ring);
     document.body.classList.toggle('orbit-mode', inOrbit());
-    renderTop(); renderRadar(); renderDock(); renderPanel(); renderQueue(); renderNet(); renderPop(); renderMessages(); checkModals();
+    document.body.classList.toggle('has-sel', picked);
+    renderPlaces();
+    renderTop(); renderStockbar(); renderRadar(); renderNav(); renderDrawer(); renderPanel(); renderQueue(); renderNet(); renderPop(); renderMessages(); checkModals();
+    window.Story.refresh();
   }
 
   function merge(ns) {
@@ -1916,10 +2194,15 @@
       }, [])
     });
   }
+  // Look at another place. `enter` also goes back to the map; `look` leaves whatever screen is open where it is.
+  function look(id) {
+    if (!RAW || id === null || !RAW.views[id]) return;
+    activeId = id; sel = null; confirmKey = null;
+    S = merge(RAW);
+  }
   function enter(id) {
     if (!RAW || !RAW.views[id]) return;
-    activeId = id; sel = null; ws = null; confirmKey = null;
-    S = merge(RAW); renderAll();
+    look(id); ws = null; drawer = null; renderAll();
   }
   function setState(ns) {
     var first = !S;
@@ -1948,7 +2231,10 @@
     lastFrame = t;
     var f = frac();
     frameStock(f); frameQueue(f); frameRadar(f);
-    if (Math.abs(viewR - targetR) > 0.5) { viewR += (targetR - viewR) * 0.12; setView(viewR); } else if (viewR !== targetR) { viewR = targetR; setView(viewR); }
+    if (!userView) { goalR = targetR; goalC = [0, 0]; }
+    var off = Math.abs(viewC[0] - goalC[0]) + Math.abs(viewC[1] - goalC[1]);
+    if (Math.abs(viewR - goalR) > 0.5 || off > 0.5) { viewR += (goalR - viewR) * 0.16; viewC[0] += (goalC[0] - viewC[0]) * 0.16; viewC[1] += (goalC[1] - viewC[1]) * 0.16; setView(viewR); }
+    else if (viewR !== goalR || off) { viewR = goalR; viewC = goalC.slice(); setView(viewR); }
     var now = Date.now() + offset;
     var cvEl = $('c-convoy'); if (cvEl) cvEl.innerHTML = convoyHtml();
     framePanel();
@@ -1996,16 +2282,25 @@
   function applyTheme() {
     var ui = CFG.ui || {};
     if (ui.title) document.title = ui.title;
-    if (ui.brand) document.querySelector('.brand').textContent = ui.brand;
-    var ids = { credits: 'c-credits', population: 'c-pop', morale: 'c-morale', doom: 'c-doom' };
+    var br = document.querySelector('.brand');
+    if (ui.brand && br) br.textContent = ui.brand;
     if (window.Terms) window.Terms.init(ui.terms);
-    Object.keys(ids).forEach(function (k) { var l = ui.labels && ui.labels[k]; var el = $(ids[k]); if (l && el && el.previousElementSibling) el.previousElementSibling.textContent = l; });
   }
   window.Orbit.init({
     S: function () { return S; }, CFG: function () { return CFG; }, act: act, esc: esc, fmt: fmt, icon: icon, pill: pill, toast: toast,
     brokerage: brokerNote, enter: function (id) { enter(id); }, enterOrbit: enterOrbit, activeD: activeD, redraw: function () { if (S) { lastPanel = ''; lastSheet = ''; renderPanel(); } }
   });
-  window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, changed: function () { if (S) { renderTop(); renderPanel(); renderPop(); renderMessages(); } } });
+  window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, compact: function () { return MOBILE || !!ws; }, changed: function () { if (S) { renderTop(); renderPanel(); renderPop(); renderMessages(); renderDrawer(); } } });
+  // The server guesses the layout from what the browser says it is. If the real screen disagrees and the player has not
+  // chosen for themselves, switch once (a narrow window gets the phone layout, a wide one with a mouse the desk layout).
+  (function () {
+    var q = location.search;
+    if (/[?&]auto=1/.test(q)) { try { history.replaceState(null, '', '/game'); } catch (e) { /* the address stays as it is */ } return; } // sent here by the check below: a reload checks again
+    if (/[?&]ui=/.test(q) || /(?:^|;\s*)ft_ui=/.test(document.cookie)) return;
+    var w = window.innerWidth, coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    if (!MOBILE && w && (w < 760 || (coarse && Math.min(screen.width, screen.height) < 600))) location.replace('/game?ui=mobile&auto=1');
+    else if (MOBILE && w >= 1000 && !coarse) location.replace('/game?ui=desktop&auto=1');
+  })();
   api('config').then(function (cfg) {
     CFG = cfg;
     applyTheme();
