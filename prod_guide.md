@@ -65,8 +65,8 @@ A building with partial inputs runs at partial efficiency (limited by its scarce
 
 ## **4b. People, housing, crew, morale and shutdown**
 * **Housing.** The population cap is the Core's own quarters (30, 35, 40, 45, 50 at Core levels 1-5) plus homes in any district. Homes in other districts add capacity and comfort only: **everyone eats from the Core stockpile.** If homes are lost, people leave.
-* **Growth.** One more person every 3 ticks (two at morale 90+) while morale is 60+, there is room, and the colony can feed them (counting what standing routes bring into or take out of the Core): the surplus must cover the new people, or the stockpile above 60% of capacity must cover the shortfall for 2,000 ticks.
-* **Crew.** The workforce is 80% of the population. If there are fewer hands than posts, every staffed building runs at the same reduced efficiency.
+* **Growth.** One more person every 3 ticks (two at morale 85+) while morale is 60+, there is room, and the colony can feed them (counting what standing routes bring into or take out of the Core): the surplus must cover the new people, or the stockpile above 60% of capacity must cover the shortfall for 2,000 ticks.
+* **Crew.** The workforce is 80% of the population. If there are fewer hands than posts, the essential buildings (water, food, power and salvage) are crewed first and every other staffed building shares who is left, at the same reduced efficiency.
 * **Meals** are optional: people eat 0.05 per head per tick; the share fed adds up to **+15** to the morale target.
 * **Comfort.** Every building has a comfort effect on adjacent homes, clamped to -15..+8.
 * **Morale target** = base 80 + comfort + meals. Morale rises 2 per tick toward it and falls 1 per tick; hunger drops it by up to 10 per tick in proportion to the shortage. Output scales with morale: a slowdown of 1.2% per point below 70 (floor ×0.5) and up to +8% from 85.
@@ -161,7 +161,7 @@ Neighbours are the two slots beside a building in its ring plus every touching s
 | Level | Upgrade cost | Time | Storage | Quarters | Base power | Ring slots | Upkeep / tick | Convoy limit |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | start | – | 2,000 | 30 | 20 | 6 | – | ×1 |
-| 2 | 1200 Reclaim, 60 Hard-Spec Parts | 10 | 4,000 | 35 | 30 | 6-8 | – | ×1.5 |
+| 2 | 800 Reclaim, 40 Hard-Spec Parts | 8 | 4,000 | 35 | 30 | 6-8 | – | ×1.5 |
 | 3 | 2500 Reclaim, 120 Hard-Spec Parts, 60 Print Stock | 14 | 6,000 | 40 | 40 | 6-8-10 | 12 power, 1 Hard-Spec Parts | ×2 |
 | 4 | 3500 Reclaim, 180 Hard-Spec Parts, 140 Print Stock, 50 Spine Alloy | 14 | 8,000 | 45 | 50 | 6-8-10-12 | 25 power, 1 Hard-Spec Parts, 1 Spine Alloy | ×3 |
 | 5 | 5000 Reclaim, 220 Print Stock, 100 Spine Alloy, 50 Phononic Circuits | 18 | 12,000 | 50 | 60 | 6-8-10-12-14 | 40 power, 2 Hard-Spec Parts, 2 Spine Alloy, 0.5 Phononic Circuits | ×4 |
@@ -230,38 +230,38 @@ Every 40 ticks. Standing export and import orders execute on arrival at **that c
 | Resource (id) | Tier | Base buy | Base sell |
 | --- | --- | --- | --- |
 | Reclaim (scrap) | 0 | 2 | 0.5 |
-| Aquifer Draw (unpurified_water) | 0 | 1.5 | 0.4 |
-| Filtrate (clean_water) | 1 | 4 | 1.5 |
-| Nutrient Paste (rations) | 1 | 6 | 2.5 |
+| Aquifer Draw (unpurified_water) | 0 | 2 | 0.4 |
+| Filtrate (clean_water) | 1 | 5 | 1.5 |
+| Nutrient Paste (rations) | 1 | 6 | 2.4 |
 | Hard-Spec Parts (machined_parts) | 1 | 15 | 6 |
 | Print Stock (building_materials) | 2 | 30 | 12 |
-| Raw Ink (raw_synthetics) | 0 | 20 | 11 |
-| Spine Alloy (alloys) | 3 | 40 | 15 |
-| Phononic Circuits (circuits) | 3 | 60 | 22 |
-| Klein Cells (power_cells) | 4 | 150 | 55 |
+| Raw Ink (raw_synthetics) | 0 | 16 | 7 |
+| Spine Alloy (alloys) | 3 | 46 | 18 |
+| Phononic Circuits (circuits) | 3 | 155 | 58 |
+| Klein Cells (power_cells) | 4 | 560 | 210 |
 | Heavy Meals (meals) | 2 | 10 | 4 |
-| Raw Ore (ore) | 1 | 14 | 5 |
+| Raw Ore (ore) | 1 | 11 | 4 |
 | Ingots (ingots) | 2 | 36 | 14 |
 | Reagent Stock (reagents) | 2 | 55 | 20 |
 | Crude (crude) | 1 | 16 | 6 |
-| Refined Fuel (fuel) | 2 | 30 | 12 |
+| Refined Fuel (fuel) | 2 | 18 | 7 |
 | Polymer Stock (polymers) | 2 | 48 | 18 |
 | Mycelial Biomass (biomass) | 1 | 12 | 4 |
-| Soil Primer (fertiliser) | 2 | 34 | 13 |
-| HTR Patches (medicine) | 3 | 70 | 26 |
+| Soil Primer (fertiliser) | 2 | 42 | 16 |
+| HTR Patches (medicine) | 3 | 100 | 38 |
 | Vintage Curios (curios) | 2 | 29.97 | 17.2 |
 | Tool Steel (tool_steel) | 2 | 68.16 | 39.12 |
-| Heritage Preserves (preserves) | 2 | 30.52 | 17.52 |
+| Heritage Preserves (preserves) | 2 | 30.82 | 17.69 |
 | Cast Plastics (plastics) | 2 | 66.93 | 38.41 |
 | Cliffside Tinctures (tinctures) | 2 | 68.62 | 39.38 |
-| Hard-Spec Instruments (precision_tools) | 3 | 159.55 | 91.57 |
-| Apex Field Kits (field_kits) | 3 | 188.26 | 108.05 |
-| Mycelial Stimulants (grow_stims) | 3 | 110.83 | 63.61 |
-| Artisanal Goods (luxuries) | 3 | 87.12 | 50 |
-| Heritage Masterworks (masterworks) | 4 | 541.52 | 310.79 |
-| Spine Frames (frames) | 3 | 213.14 | 122.32 |
-| Dampener Fittings (fittings) | 4 | 234.77 | 134.74 |
-| Donstand-Pattern Modules (modules) | 4 | 679.64 | 390.06 |
+| Hard-Spec Instruments (precision_tools) | 3 | 203.94 | 117.05 |
+| Apex Field Kits (field_kits) | 3 | 202.67 | 116.31 |
+| Mycelial Stimulants (grow_stims) | 3 | 118.26 | 67.87 |
+| Artisanal Goods (luxuries) | 3 | 87.63 | 50.29 |
+| Heritage Masterworks (masterworks) | 4 | 657.2 | 377.18 |
+| Spine Frames (frames) | 3 | 216.39 | 124.19 |
+| Dampener Fittings (fittings) | 4 | 304.68 | 174.86 |
+| Donstand-Pattern Modules (modules) | 4 | 687.71 | 394.69 |
 | Anfang Glass (void_glass) | 5 | 260 | 150 |
 | Icarus Compound (chiral_salts) | 5 | 260 | 150 |
 | Mobiulic Ore (null_ore) | 5 | 260 | 150 |
@@ -301,23 +301,23 @@ Anything can be built here except the extractors of the other districts. License
 **Missions:** 3 postings at a time, each offered in the name of every faction (fill one and the others lapse), lasting 160-320 ticks, refreshing every 25. Rewards are 1.3× market value plus standing. Factions: Black Industries Remnant (cinder) wants Tool Steel, Hard-Spec Instruments, Vintage Curios, Heritage Masterworks; Cliffside Accord (verdant) wants Heritage Preserves, Cliffside Tinctures, Mycelial Stimulants, Apex Field Kits, Artisanal Goods; Ammano Transit (meridian) wants Cast Plastics, Artisanal Goods, Vintage Curios, Hard-Spec Instruments, Heritage Masterworks.
 
 ## **14b. Requisitions**
-From Core level 2, 2 requests at a time for ordinary goods, each a set amount within 140-260 ticks, delivered in full from the Core. Only goods the colony's own places can make are asked for, and amounts grow 40% per Core level past the level a good first appears at. A filled requisition pays 1.8× the convoy's selling price and lends a boon; one that lapses is replaced 30 ticks later.
+From Core level 2, 2 requests at a time for ordinary goods, each a set amount within 140-260 ticks, delivered in full from the Core. Only goods the colony's own places can make are asked for, and amounts grow 40% per Core level past the level a good first appears at. A filled requisition pays 1.3× the convoy's selling price and lends a boon; one that lapses is replaced 30 ticks later.
 | Good | From Core level | Amount |
 | --- | --- | --- |
-| Hard-Spec Parts | 2 | 50-100 |
-| Filtrate | 2 | 150-300 |
-| Nutrient Paste | 2 | 150-300 |
-| Print Stock | 2 | 30-60 |
-| Heavy Meals | 3 | 80-160 |
-| Spine Alloy | 3 | 30-60 |
-| Ingots | 4 | 70-140 |
-| Refined Fuel | 4 | 70-140 |
-| Reagent Stock | 4 | 40-80 |
-| Polymer Stock | 4 | 50-100 |
-| Phononic Circuits | 4 | 20-40 |
-| Soil Primer | 5 | 40-80 |
-| HTR Patches | 5 | 25-50 |
-| Klein Cells | 5 | 8-16 |
+| Hard-Spec Parts | 2 | 150-300 |
+| Filtrate | 2 | 400-800 |
+| Nutrient Paste | 2 | 400-800 |
+| Print Stock | 2 | 80-160 |
+| Heavy Meals | 3 | 200-400 |
+| Spine Alloy | 3 | 80-160 |
+| Ingots | 4 | 200-400 |
+| Refined Fuel | 4 | 150-300 |
+| Reagent Stock | 4 | 100-200 |
+| Polymer Stock | 4 | 120-240 |
+| Phononic Circuits | 4 | 60-120 |
+| Soil Primer | 5 | 100-200 |
+| HTR Patches | 5 | 60-120 |
+| Klein Cells | 5 | 20-40 |
 | Boon | Lasts | Effect |
 | --- | --- | --- |
 | Seconded Work Crews | 150 ticks | The Office lends hands. Work under way moves one extra cycle every third cycle. |

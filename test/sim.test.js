@@ -248,19 +248,31 @@ test('damaged (hazard-disabled) buildings stop; hazard output multipliers apply'
   assert.equal(hit.flows.scrap.produced, 0);
 });
 
-test('staffing: with fewer workers than posts, staffed buildings slow in proportion; unstaffed-free ones do not', () => {
+test('staffing: with fewer workers than posts, essential buildings are crewed first and the rest share who is left; crewless ones are unaffected', () => {
   const s = fresh({ population: 4, buildings: [b(1, 0, 'solar_array'), b(1, 1, 'scrap_extractor'), b(1, 2, 'parts_assembler')] });
   const full = sim.step(config, fresh({ population: 100, buildings: s.buildings }), nm);
   const r = sim.step(config, s, nm);
-  const posts = config.buildings.scrap_extractor.workers + config.buildings.parts_assembler.workers;
-  const ratio = (4 * config.global.workforceShare) / posts;
-  assert.ok(ratio < 1);
-  assert.ok(Math.abs(r.staffing.ratio - ratio) < 1e-9);
+  const vital = config.buildings.scrap_extractor.workers; const rest = config.buildings.parts_assembler.workers;
+  const hands = 4 * config.global.workforceShare;
+  const ratio = hands / (vital + rest);
+  assert.ok(ratio < 1 && hands > vital);
+  assert.ok(config.buildings.scrap_extractor.essential && !config.buildings.parts_assembler.essential);
+  assert.ok(Math.abs(r.staffing.ratio - ratio) < 1e-9, 'the colony-wide ratio is still hands over posts');
   assert.equal(full.staffing.ratio, 1);
-  assert.ok(Math.abs(r.buildings.get(s.buildings[1].id).eff - ratio) < 1e-9);
-  assert.equal(r.buildings.get(s.buildings[1].id).status, 'understaffed');
+  assert.equal(r.buildings.get(s.buildings[1].id).eff, 1, 'the essential extractor is fully crewed');
+  assert.equal(r.staffing.essential, 1);
+  assert.ok(Math.abs(r.buildings.get(s.buildings[2].id).eff - (hands - vital) / rest) < 1e-9, 'the parts press gets who is left');
+  assert.equal(r.buildings.get(s.buildings[2].id).status, 'understaffed');
   assert.equal(r.buildings.get(s.buildings[0].id).eff, 1, 'automated solar needs nobody');
-  assert.ok(r.flows.scrap.produced < full.flows.scrap.produced);
+  assert.ok(r.flows.machined_parts.produced < full.flows.machined_parts.produced);
+  // too few people even for the essentials: they share what there is, and nothing else runs
+  const dire = sim.step(config, fresh({ population: 2, buildings: s.buildings }), nm);
+  assert.ok(Math.abs(dire.buildings.get(s.buildings[1].id).eff - (2 * config.global.workforceShare) / vital) < 1e-9);
+  assert.equal(dire.buildings.get(s.buildings[2].id).eff, 0);
+  // with the rule switched off, every staffed building slows by the same share
+  const flat = sim.step({ ...config, global: { ...config.global, essentialCrewFirst: false } }, s, nm);
+  assert.ok(Math.abs(flat.buildings.get(s.buildings[1].id).eff - ratio) < 1e-9);
+  assert.ok(Math.abs(flat.buildings.get(s.buildings[2].id).eff - ratio) < 1e-9);
 });
 
 test('housing: homes raise the population cap; growth stops at the cap; losing homes drives people away', () => {

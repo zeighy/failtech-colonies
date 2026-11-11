@@ -167,6 +167,18 @@ test('the recipe book: most production has an alternative, each needs something 
     }
   }
   assert.ok(count >= 25, `${count} alternatives`);
+  // the same holds for every base recipe: nothing can be bought from the convoy, processed and sold back at a profit
+  for (const [id, b] of production) {
+    if (id === 'bio_dome' || !b.outputsPerTick || !Object.keys(b.outputsPerTick).length) continue;
+    const cost = worth(b.inputsPerTick || {}, 'buy'); const revenue = worth(b.outputsPerTick, 'sell');
+    assert.ok(revenue < cost, `${id}: makes ${revenue.toFixed(1)} from ${cost.toFixed(1)}`);
+  }
+  // and at the convoy's selling prices no step of a chain is worth less than what went into it (so making the
+  // advanced goods is never a worse export than selling their ingredients)
+  for (const [id, b] of production) {
+    if (!b.outputsPerTick || !Object.keys(b.outputsPerTick).length || !b.cost || b.minHubLevel) continue;
+    assert.ok(worth(b.outputsPerTick, 'sell') > worth(b.inputsPerTick || {}, 'sell'), `${id} adds value`);
+  }
   // the client is told about them, and how long retooling takes
   const cc = clientConfig();
   assert.equal(cc.production.switchTicks, T);

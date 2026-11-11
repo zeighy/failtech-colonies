@@ -305,7 +305,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
   }
   const offline = (i) => i.b.status !== 'active' || disabled.has(i.b.id) || !!i.idle;
   const running = sortBuildings(config, infos.filter((i) => !offline(i)));
-  const staffOf = (i) => (i.workers > 0 ? staff : 1);
+  const staffOf = (i) => (i.workers > 0 ? (i.def.essential && ctx.staffVital !== undefined ? ctx.staffVital : staff) : 1);
 
   const materialEff = (needs, inv) => {
     let eff = 1;
@@ -536,18 +536,30 @@ function stepColony(config, colony, districts, opts = {}) {
   // all staffed buildings slow down in proportion.
   const workforce = colony.population * g.workforceShare;
   let posts = 0;
+  let vital = 0; // posts in essential buildings (water, food, power, salvage)
   for (const d of districts) {
     const disabled = modsOf(d).disabled || new Set();
     for (const b of d.buildings) {
       const def = territoryDef(config.buildings[b.type], d.type);
-      if (def && b.status === 'active' && !disabled.has(b.id)) posts += rates(config, def, b, b.ring, d.type).workers;
+      if (!def || b.status !== 'active' || disabled.has(b.id)) continue;
+      const w = rates(config, def, b, b.ring, d.type).workers;
+      posts += w;
+      if (def.essential) vital += w;
     }
   }
   const staff = posts <= workforce + EPS || posts === 0 ? 1 : workforce / posts;
+  // When hands are short the essential buildings are crewed first and everything else shares who is left, so a colony
+  // that has outgrown its people slows its industry down before it runs short of water and food.
+  let staffVital = staff;
+  let staffRest = staff;
+  if (g.essentialCrewFirst && staff < 1) {
+    staffVital = vital <= workforce + EPS ? 1 : workforce / vital;
+    staffRest = posts - vital > EPS ? Math.max(0, (workforce - vital * staffVital) / (posts - vital)) : 1;
+  }
   const morOut = moraleMultiplier(config, colony.morale);
 
   const automated = (d) => !!(config.orbitalTypes && config.orbitalTypes[d.type]);
-  const results = districts.map((d) => stepDistrict(config, d, { staff, morOut: automated(d) ? 1 : morOut, globalOut: opts.globalOut }, maps[d.type], modsOf(d)));
+  const results = districts.map((d) => stepDistrict(config, d, { staff: staffRest, staffVital, morOut: automated(d) ? 1 : morOut, globalOut: opts.globalOut }, maps[d.type], modsOf(d)));
   const core = results[coreIdx];
   const inv = core.inventory;
   const flows = core.flows;
@@ -640,7 +652,7 @@ function stepColony(config, colony, districts, opts = {}) {
   return {
     population, morale, grew, left, leftWhy, starving, shortage, progress, progressGain, launchGain, won, failed: morale <= 0,
     defense: results.reduce((s, r) => s + r.defense, 0),
-    staffing: { posts, workforce, ratio: staff },
+    staffing: { posts, workforce, ratio: staff, essential: staffVital, others: staffRest },
     housing: { base: baseHousing, built: housingBuilt, cap: housingCap },
     moraleInfo: { target, base: mc.base, comfort: comfortAvg, meals: mealCoverage * mc.mealBonus, mealCoverage, productivity: morOut },
     districts: results.map((r, i) => ({ id: districts[i].id, type: districts[i].type, ...r })),

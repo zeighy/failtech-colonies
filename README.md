@@ -46,7 +46,7 @@ The server picks the layout from what the browser says it is, and the game corre
 | **Minimum plot size** | Big buildings (Foundry, Cell Forge, Beacon, ...) want big plots. You may build them on smaller ones, but their output is multiplied by 0.6 for each missing size step. This ties advanced buildings to the outer rings, and so to Hub level, without locking them. |
 | **Adjacency** | A building's output is multiplied for each neighbour that pairs well (or badly). Neighbours = the two beside it in its ring plus touching slots in the rings above and below. Rings 2 and 4 of the Core are turned 15 degrees (`ringRotation` in the config) so slots straddle the seams of the rings beside them. |
 | **Power** | A grid, not a stockpile. Shortfalls throttle everything proportionally (a brownout). Scrap Burners are big generators that burn scrap. Every district has its own grid. |
-| **Housing and crew** | The hub only houses a few colonists. **Dormitories and Habitat Blocks** raise the population cap, and most buildings need **workers**: with fewer hands than posts, every staffed building slows in proportion. Growth stops at the housing cap. |
+| **Housing and crew** | The hub only houses a few colonists. **Dormitories and Habitat Blocks** raise the population cap, and most buildings need **workers**: with fewer hands than posts, the essential buildings (water, food, power, salvage) are crewed first and every other staffed building slows in proportion. Growth stops at the housing cap. |
 | **Morale and comfort** | Morale heads for a target set by **where homes are** (industry next door lowers comfort; greenery and guards raise it) and by **Prepared Meals** from a Kitchen (a second food tier). Low morale slows production; high morale gives a small bonus. |
 | **Production tiers** | Raw (scrap, water, synthetics) → clean water, rations, parts → building materials → alloys, circuits → power cells. Buildings run at fractional efficiency limited by power and by their scarcest input. |
 | **Alternative recipes** | Most production buildings can be set to another recipe from their pane. Alternatives stand in for research: a higher-yield way of making the same thing that needs something from further along the chain (ingots in the Core's foundry, reagents in the water plant, scrap as filler in the polymer plant), or a different split or product. They open with the **level of the place the building stands in** (the hub for the Core, the district's own level elsewhere) and, for the last ones, at colony **milestones** (the Beacon built, the Free Port founded, a station in orbit). The base recipe is always there. Switching costs nothing, but the line stands idle for 10 ticks while it is retooled. |
@@ -134,7 +134,7 @@ src/security.js    Headers, same-origin check, rate limits, login throttle      
 src/db.js          Schema (v18) and migrations, session store, colony helpers
 game_config.json   All balance data (no wording that a theme replaces matters here; ids are stable)
 content/           One folder per theme: theme.json (wording), story.json (narrative), assets/ (portraits, backgrounds)
-scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md)
+scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md), playtest.js (a scripted player for tuning, see below)
 public/            index.html (login), game.html (desk layout), mobile.html (phone layout), css/ (style.css, mobile.css), js/ (game.js, orbit.js for the Orbital Command view)
 docs/              districts.md (district system, exchange, Free Port, roadmap), orbital.md (orbit endgame), story.md (theme and story format), security.md, content-needs.md
 test/              node:test suites: simulation, balance guard, hazards, express convoy, districts and migration, exchange, Free Port, orbit, expansion and growth, shutdown, backups, story and themes, security, HTTP API
@@ -200,6 +200,18 @@ Not built yet (noted for later):
 ## Tuning the game
 
 Everything numeric is in `game_config.json`: building costs/rates/build time/plot size, hub levels and upkeep, ring sizes, resource prices, hazards, market drift, starting state, convoy interval, morale rules. No engine changes needed.
+
+**Checking a change.** `npm run playtest` runs a scripted player against the real actions and engine on a throwaway database and prints how the game paced: when each milestone landed, how much of the time each place's build slot was building, waiting for materials (and which) or idle, crew and morale by phase, what piled up against the storage cap and where the credits came from.
+
+```bash
+npm run playtest -- --persona builder            # base recipes, no trade: the player the balance test plays
+npm run playtest -- --persona engineer           # alternative recipes, requisitions, exports what overflows
+npm run playtest -- --persona trader             # no districts: sells Core goods and buys the rest
+npm run playtest -- --cadence 20 --hazards on    # only looks in every 20 ticks, with hazards
+npm run playtest -- --until station --max 9000   # carry on past the Beacon: Free Port, missions, the launch
+```
+
+It reports, it does not assert (`test/balance.test.js` is the guard), and its numbers are a floor: the player never sleeps and never misreads anything, but it also places buildings without regard for adjacency and never expands one. A convoy price change has to keep two things true, which `test/recipes.test.js` checks: no recipe turns goods bought from the convoy into goods that sell for more, and no step of a chain is worth less than what went into it. Trade goods' prices are derived from their ingredients (`tradeWorks.priceRatio` × the inputs at the middle of their buy and sell prices), so they have to be recalculated when an ingredient's price moves.
 
 ## Themes and story
 

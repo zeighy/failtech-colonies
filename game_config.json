@@ -13,7 +13,7 @@
     "populationGrowth": {
       "everyTicks": 3,
       "minMorale": 60,
-      "fastMorale": 90,
+      "fastMorale": 85,
       "bufferFloor": 0.6,
       "bufferTicks": 2000
     },
@@ -71,6 +71,7 @@
       "bonusMax": 0.08
     },
     "workforceShare": 0.8,
+    "essentialCrewFirst": true,
     "mealsPerPopPerTick": 0.05,
     "emigrationEveryTicks": 2,
     "minPopulation": 5,
@@ -96,14 +97,14 @@
     "unpurified_water": {
       "name": "Raw Water",
       "color": "#6f9a8d",
-      "buy": 1.5,
+      "buy": 2,
       "sell": 0.4,
       "tier": 0
     },
     "clean_water": {
       "name": "Clean Water",
       "color": "#4cc9f0",
-      "buy": 4,
+      "buy": 5,
       "sell": 1.5,
       "critical": true,
       "tier": 1
@@ -112,7 +113,7 @@
       "name": "Rations",
       "color": "#9ad66b",
       "buy": 6,
-      "sell": 2.5,
+      "sell": 2.4,
       "critical": true,
       "tier": 1
     },
@@ -133,16 +134,17 @@
     "raw_synthetics": {
       "name": "Raw Synthetics",
       "color": "#b08ad6",
-      "buy": 20,
-      "sell": 11,
+      "buy": 16,
+      "sell": 7,
       "tier": 0,
-      "showFromHub": 2
+      "showFromHub": 2,
+      "convoyMax": 150
     },
     "alloys": {
       "name": "Alloys",
       "color": "#e07a5f",
-      "buy": 40,
-      "sell": 15,
+      "buy": 46,
+      "sell": 18,
       "tier": 3,
       "showFromHub": 2,
       "convoyMax": 80
@@ -150,8 +152,8 @@
     "circuits": {
       "name": "Circuits",
       "color": "#6ee7b7",
-      "buy": 60,
-      "sell": 22,
+      "buy": 155,
+      "sell": 58,
       "tier": 3,
       "showFromHub": 2,
       "convoyMax": 60
@@ -159,8 +161,8 @@
     "power_cells": {
       "name": "Power Cells",
       "color": "#f9e07f",
-      "buy": 150,
-      "sell": 55,
+      "buy": 560,
+      "sell": 210,
       "tier": 4,
       "showFromHub": 3,
       "convoyMax": 20
@@ -177,8 +179,8 @@
     "ore": {
       "name": "Ore",
       "color": "#a98467",
-      "buy": 14,
-      "sell": 5,
+      "buy": 11,
+      "sell": 4,
       "tier": 1,
       "showFromHub": 4,
       "convoyMax": 200
@@ -213,8 +215,8 @@
     "fuel": {
       "name": "Fuel",
       "color": "#ff7b3a",
-      "buy": 30,
-      "sell": 12,
+      "buy": 18,
+      "sell": 7,
       "tier": 2,
       "showFromHub": 4,
       "convoyMax": 120
@@ -240,8 +242,8 @@
     "fertiliser": {
       "name": "Fertiliser",
       "color": "#c7f464",
-      "buy": 34,
-      "sell": 13,
+      "buy": 42,
+      "sell": 16,
       "tier": 2,
       "showFromHub": 4,
       "convoyMax": 100
@@ -249,8 +251,8 @@
     "medicine": {
       "name": "Medicine",
       "color": "#ff6b9d",
-      "buy": 70,
-      "sell": 26,
+      "buy": 100,
+      "sell": 38,
       "tier": 3,
       "showFromHub": 4,
       "convoyMax": 40
@@ -278,8 +280,8 @@
     "preserves": {
       "name": "Preserved Goods",
       "color": "#e9c46a",
-      "buy": 30.52,
-      "sell": 17.52,
+      "buy": 30.82,
+      "sell": 17.69,
       "tier": 2,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -308,8 +310,8 @@
     "precision_tools": {
       "name": "Precision Tools",
       "color": "#90e0ef",
-      "buy": 159.55,
-      "sell": 91.57,
+      "buy": 203.94,
+      "sell": 117.05,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -318,8 +320,8 @@
     "field_kits": {
       "name": "Field Kits",
       "color": "#ff6b9d",
-      "buy": 188.26,
-      "sell": 108.05,
+      "buy": 202.67,
+      "sell": 116.31,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -328,8 +330,8 @@
     "grow_stims": {
       "name": "Growth Stimulants",
       "color": "#c7f464",
-      "buy": 110.83,
-      "sell": 63.61,
+      "buy": 118.26,
+      "sell": 67.87,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -338,8 +340,8 @@
     "luxuries": {
       "name": "Luxury Goods",
       "color": "#f4d35e",
-      "buy": 87.12,
-      "sell": 50.0,
+      "buy": 87.63,
+      "sell": 50.29,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -348,8 +350,8 @@
     "masterworks": {
       "name": "Masterworks",
       "color": "#ffffff",
-      "buy": 541.52,
-      "sell": 310.79,
+      "buy": 657.2,
+      "sell": 377.18,
       "tier": 4,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -358,8 +360,8 @@
     "frames": {
       "name": "Structural Frames",
       "color": "#8d99ae",
-      "buy": 213.14,
-      "sell": 122.32,
+      "buy": 216.39,
+      "sell": 124.19,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -368,8 +370,8 @@
     "fittings": {
       "name": "Process Fittings",
       "color": "#2ec4b6",
-      "buy": 234.77,
-      "sell": 134.74,
+      "buy": 304.68,
+      "sell": 174.86,
       "tier": 4,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -378,8 +380,8 @@
     "modules": {
       "name": "Habitat Modules",
       "color": "#a3b8cc",
-      "buy": 679.64,
-      "sell": 390.06,
+      "buy": 687.71,
+      "sell": 394.69,
       "tier": 4,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -567,10 +569,10 @@
         "2": 8
       },
       "upgradeCost": {
-        "scrap": 1200,
-        "machined_parts": 60
+        "scrap": 800,
+        "machined_parts": 40
       },
-      "upgradeTicks": 10,
+      "upgradeTicks": 8,
       "convoyCapMult": 1.5,
       "baseHousing": 35
     },
@@ -3522,8 +3524,8 @@
     "rewardMult": 1.3,
     "standingPerTier": {
       "2": 1,
-      "3": 3,
-      "4": 8
+      "3": 4,
+      "4": 14
     },
     "qtyByTier": {
       "2": [
@@ -4609,7 +4611,7 @@
       260
     ],
     "refreshTicks": 30,
-    "payMult": 1.8,
+    "payMult": 1.3,
     "growthPerLevel": 0.4,
     "titles": [
       "Standing requisition",
@@ -4625,99 +4627,99 @@
       "machined_parts": {
         "from": 2,
         "qty": [
-          50,
-          100
+          150,
+          300
         ]
       },
       "clean_water": {
         "from": 2,
         "qty": [
-          150,
-          300
+          400,
+          800
         ]
       },
       "rations": {
         "from": 2,
         "qty": [
-          150,
-          300
+          400,
+          800
         ]
       },
       "building_materials": {
         "from": 2,
         "qty": [
-          30,
-          60
+          80,
+          160
         ]
       },
       "meals": {
+        "from": 3,
+        "qty": [
+          200,
+          400
+        ]
+      },
+      "alloys": {
         "from": 3,
         "qty": [
           80,
           160
         ]
       },
-      "alloys": {
-        "from": 3,
-        "qty": [
-          30,
-          60
-        ]
-      },
       "ingots": {
         "from": 4,
         "qty": [
-          70,
-          140
+          200,
+          400
         ]
       },
       "fuel": {
         "from": 4,
         "qty": [
-          70,
-          140
+          150,
+          300
         ]
       },
       "reagents": {
         "from": 4,
         "qty": [
-          40,
-          80
+          100,
+          200
         ]
       },
       "polymers": {
         "from": 4,
         "qty": [
-          50,
-          100
+          120,
+          240
         ]
       },
       "circuits": {
         "from": 4,
         "qty": [
-          20,
-          40
+          60,
+          120
         ]
       },
       "fertiliser": {
         "from": 5,
         "qty": [
-          40,
-          80
+          100,
+          200
         ]
       },
       "medicine": {
         "from": 5,
         "qty": [
-          25,
-          50
+          60,
+          120
         ]
       },
       "power_cells": {
         "from": 5,
         "qty": [
-          8,
-          16
+          20,
+          40
         ]
       }
     },
