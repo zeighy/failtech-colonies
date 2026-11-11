@@ -91,6 +91,13 @@ A building can sit on a plot smaller than its minimum, but its output is multipl
 * **Replace in place.** A building can be swapped for another on the same plot. The order goes through the queue and the old building keeps working until its turn. It is then scrapped for the demolition refund (50%), and the plot stands empty while the new building goes up, which takes **×1.5** its usual build time. Expansion levels are not carried over. A workshop with a recipe set has to be demolished instead.
 * **Rush** applies to the order under way, not to one that is waiting.
 
+* **More build slots.** The Core and each district can buy up to 2 more build slots from their hub pane, each paid at once from that place's own stockpile and the treasury. With more slots that many orders from the front of the queue are carried out side by side; the order of the queue is as strict as before, so an order that cannot start yet still holds up everything behind it. The station and territories keep one slot.
+
+| Build slot | Opens at Core level | In the Core | In a district |
+| --- | --- | --- | --- |
+| 2 | 3 | 2500 Reclaim, 150 Hard-Spec Parts, 120 Print Stock, 40 Spine Alloy, 3000 credits | 2000 Reclaim, 120 Hard-Spec Parts, 100 Print Stock, 40 Spine Alloy, 3000 credits |
+| 3 | 5 | 8000 Reclaim, 400 Print Stock, 250 Spine Alloy, 120 Phononic Circuits, 20 Klein Cells, 20000 credits | 5000 Reclaim, 300 Print Stock, 150 Spine Alloy, 80 Phononic Circuits, 15000 credits |
+
 ## **5c. Alternative recipes**
 Most production buildings can be set to another recipe from their pane: a higher-yield way of making the same thing that needs something from further along the chain, or a different product altogether. They stand in for research. A building's alternatives open with the **level of the place it stands in** (the Core's level in the Core, the district's own level elsewhere) or at a colony **milestone**. The base recipe never goes away. Switching costs nothing but leaves the line idle for **10 ticks** while it is retooled, every time.
 | Building (id) | Recipe (id) | Opens at | Inputs / tick | Outputs / tick |

@@ -23,7 +23,19 @@
     "demolishRefund": 0.5,
     "buildQueue": {
       "maxPerPlace": 8,
-      "replaceTimeMult": 1.5
+      "replaceTimeMult": 1.5,
+      "slotTiers": [
+        {
+          "coreLevel": 3,
+          "core": { "scrap": 2500, "machined_parts": 150, "building_materials": 120, "alloys": 40, "credits": 3000 },
+          "district": { "scrap": 2000, "machined_parts": 120, "building_materials": 100, "alloys": 40, "credits": 3000 }
+        },
+        {
+          "coreLevel": 5,
+          "core": { "scrap": 8000, "building_materials": 400, "alloys": 250, "circuits": 120, "power_cells": 20, "credits": 20000 },
+          "district": { "scrap": 5000, "building_materials": 300, "alloys": 150, "circuits": 80, "credits": 15000 }
+        }
+      ]
     },
     "eventLogSize": 80,
     "startingState": {

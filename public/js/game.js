@@ -302,6 +302,10 @@
   function orderAt(r, s) { return S.orders.filter(function (o) { return (o.kind === 'build' || o.kind === 'replace') && o.data.ring === r && o.data.slot === s; })[0]; }
   function ordersAt(r, s) { return S.orders.filter(function (o) { return o.data.ring === r && o.data.slot === s; }); }
   function waitingOf(orders) { return orders.filter(function (o) { return o.state === 'queued'; }); }
+  // Build slots: how many orders this place carries out at once, and whether one is free for a new order right now
+  // (the queue is strict, so anything already waiting goes first).
+  function slotCount() { return (S.slots && S.slots.count) || 1; }
+  function slotFree() { return S.orders.length - waitingOf(S.orders).length < slotCount() && !waitingOf(S.orders).length; }
   function slotUnlocked(r, s) { var cap = S.hub.rings[r]; return !!cap && s < cap; }
   function neighborsOf(r, s) { return GEO().neighbors[r + ':' + s] || []; }
   function neighborTypes(r, s) {
@@ -893,6 +897,7 @@
     var used = S.buildings.length + S.orders.filter(function (o) { return o.kind === 'build' || (o.kind === 'replace' && o.state !== 'queued'); }).length + (S.locks || []).length, e = S.energy;
     return '<div class="label sec">' + esc(d.core ? 'The Core' : d.name) + ' at a glance</div><dl class="kv">' +
       '<dt>Structures</dt><dd>' + S.buildings.length + ' online' + (S.orders.length ? ' · ' + S.orders.length + ' in the work queue' : '') + '</dd>' +
+      (slotCount() > 1 ? '<dt>Build slots</dt><dd>' + slotCount() + ' at a time</dd>' : '') +
       '<dt>Free plots</dt><dd class="' + (open - used > 0 ? 'good' : 'dim') + '">' + Math.max(0, open - used) + ' of ' + open + '</dd>' +
       '<dt>Power</dt><dd class="' + (e.satisfaction < 0.999 ? 'bad' : '') + '">' + Math.floor(e.supply) + ' supply · ' + Math.ceil(e.demand) + ' used</dd>' +
       (d.core ? '<dt>Level</dt><dd>' + d.level + (S.hub.upgrading ? ' · upgrading' : '') + '</dd>' : '<dt>Level</dt><dd>' + d.level + ' · link ' + d.link.load + ' / ' + d.link.capacity + ' per tick</dd>') + '</dl>' +
@@ -959,7 +964,7 @@
     return buildMenu(r, s, head);
   }
 
-  // ---- the work queue: one build slot per place, strict order, paid for when an order starts -----------------
+  // ---- the work queue: strict order, paid for when an order starts; one build slot per place until more are bought ----
   function shortPills(short) { return Object.keys(short).map(function (r) { return pill(r, short[r], 'no'); }).join(''); }
   // What the place still needs before the order at the front of its queue can start.
   function waitingLine(o) {
@@ -983,7 +988,7 @@
     var h = '<div class="p-title" style="--c:' + d.color + '">' + icon(o.data.type, 22) + '<h3>' + esc(d.name) + '</h3></div>';
     if (o.state === 'queued') {
       return h + '<div class="label">' + head + ' · in the work queue</div>' +
-        '<p class="p-desc">Number <b>' + o.pos + '</b> of ' + waitingOf(S.orders).length + ' waiting here. Orders are built one at a time, strictly in order, and each is paid for when it starts.</p>' +
+        '<p class="p-desc">Number <b>' + o.pos + '</b> of ' + waitingOf(S.orders).length + ' waiting here. Orders are built ' + (slotCount() > 1 ? slotCount() + ' at a time' : 'one at a time') + ', strictly in order, and each is paid for when it starts.</p>' +
         '<div class="label sec" style="margin-top:0">It will cost</div><div class="io">' + costPills(o.cost, S.resources) + '</div>' + waitingLine(o) +
         '<div class="actions">' + queueBtns(o) + '</div>';
     }
@@ -994,7 +999,7 @@
   }
   // What happens if this is ordered now: it starts, or it joins the queue, and what the place is short of.
   function queueNote(cost, back) {
-    var waiting = waitingOf(S.orders).length, busy = S.orders.length > 0;
+    var waiting = waitingOf(S.orders).length, busy = !slotFree();
     var short = Object.keys(cost).filter(function (r) { return (S.resources[r] ? S.resources[r].amount : 0) + ((back || {})[r] || 0) < cost[r]; });
     if (!busy && !short.length) return '';
     return '<div class="bonus warn">' + (busy ? 'Joins the queue as number ' + (waiting + 1) : 'Queued') +
@@ -1358,7 +1363,24 @@
     return h + '<div class="note" style="margin-top:14px">Directives only point at what is missing. Working out how is the game.</div>';
   }
 
-  function upgradeLabel(cost) { return !S.orders.length && canAfford(cost) ? 'Begin upgrade' : 'Queue upgrade'; }
+  function upgradeLabel(cost) { return slotFree() && canAfford(cost) ? 'Begin upgrade' : 'Queue upgrade'; }
+  // The hub's build slots: how many orders run side by side here, and the next slot it can buy.
+  function slotsCard() {
+    var sl = S.slots;
+    if (!sl || sl.max <= 1) return '';
+    var core = activeD().core;
+    var h = '<div class="label sec">Build slots</div><p class="p-desc" style="margin:0 0 8px">' +
+      (sl.count === 1 ? 'One order is carried out at a time here.' : '<b>' + sl.count + '</b> orders are carried out side by side here.') +
+      ' The queue keeps its order whatever the number: an order that cannot start yet holds up the ones behind it.</p>';
+    if (!sl.next) return h + '<div class="note good">Every build slot is open.</div>';
+    var n = sl.next, gated = S.colony.hubLevel < n.coreLevel, cash = S.colony.credits >= n.credits, ok = canAfford(n.cost) && cash;
+    h += '<div class="opt" style="cursor:default"><div class="top"><b>Build slot ' + n.slots + '</b><small>takes effect at once</small></div>' +
+      '<div class="io">' + costPills(n.cost, S.resources) + (n.credits ? '<span class="pill ' + (cash ? '' : 'no') + '" style="--c:var(--amber)"><i></i>' + fmt(n.credits) + ' cr</span>' : '') + '</div>' +
+      '<div class="dim" style="font-size:11px;margin-top:8px">One more order from the front of the queue is carried out at the same time. Paid from ' + (core ? 'the Core\'s' : '<b>this</b> district\'s') + ' stockpile and the treasury.</div></div>';
+    if (gated) return h + '<div class="note warn">Build slot ' + n.slots + ' opens at hub level ' + n.coreLevel + '.</div>';
+    return h + '<div class="actions"><button class="btn ' + (confirmKey === 'bslot' ? 'danger' : 'primary') + '" data-act="bslot" data-key="bslot"' + (ok ? '' : ' disabled') + '>' +
+      (confirmKey === 'bslot' ? 'Confirm: add build slot ' + n.slots : 'Add build slot ' + n.slots) + '</button></div>';
+  }
   function upgradeNote(up) {
     if (up.state === 'queued') return '<div class="note">The upgrade is in the work queue (number ' + up.pos + '). It is paid for when it starts.' + waitingLine(up) + '<div class="actions" style="margin-top:8px">' + queueBtns(up) + '</div></div>';
     return '<div class="note">Upgrade in progress: ' + up.remaining + ' ticks remaining. <a href="#" data-act="cancel" data-id="' + up.id + '" style="color:var(--amber)">Cancel</a></div>';
@@ -1402,6 +1424,7 @@
         (next.upkeepPerTick ? '<div class="label" style="margin-top:8px">Upkeep after upgrade</div><div class="io" style="margin-top:4px">' + upkeepPills(next.upkeepPerTick) + '</div>' : '') + '</div>';
       h += up ? upgradeNote(up) : '<div class="actions"><button class="btn primary" data-act="upgrade">' + upgradeLabel(next.upgradeCost) + '</button></div>' + queueNote(next.upgradeCost);
     }
+    h += slotsCard();
     var bc = S.buildings.filter(function (b) { return CFG.buildings[b.type].transmit; })[0];
     var bo = S.orders.filter(function (o) { return o.kind === 'build' && CFG.buildings[o.data.type].transmit; })[0];
     h += '<div class="label sec">Mission: the Beacon</div>';
@@ -1596,7 +1619,7 @@
       '<dt>Rings online</dt><dd>' + Object.keys(lv.ringCapacities).length + ' (' + slots(lv) + ' slots)</dd>' +
       '<dt>Defence</dt><dd>' + S.defense.toFixed(1) + '</dd></dl>' +
       '<div class="note">This district has its own stockpile and power grid. Crew, homes and morale are shared with the whole colony.</div><div class="label sec">District upgrade</div>';
-    if (!next) return h + '<div class="note good">Fully upgraded.</div>';
+    if (!next) return h + '<div class="note good">Fully upgraded.</div>' + slotsCard();
     var nl = d.level + 1, up = S.orders.filter(function (o) { return o.kind === 'upgrade'; })[0], gated = nl > S.districtLevelCap;
     var short = Object.keys(next.upgradeCost).filter(function (r) { return S.resources[r].amount < next.upgradeCost[r]; });
     h += '<div class="opt" style="cursor:default"><div class="top"><b>Level ' + nl + '</b><small>' + next.upgradeTicks + ' ticks</small></div><div class="io">' + costPills(next.upgradeCost, S.resources) + '</div>' +
@@ -1608,7 +1631,7 @@
       h += '<div class="actions"><button class="btn primary" data-act="upgrade">' + upgradeLabel(next.upgradeCost) + '</button>' +
         (short.length ? '<button class="btn" data-act="tab" data-tab="logistics">' + icon('truck', 12) + ' Ship goods</button>' : '') + '</div>' + queueNote(next.upgradeCost);
     }
-    return h;
+    return h + slotsCard();
   }
 
   // ---- exchange ----------------------------------------------------------------
@@ -1765,7 +1788,7 @@
       h += '<div class="dim" style="font-size:12px;margin:6px 0">Build it upward in the same plot: the whole line gets bigger, not better. ' + esc(effect(nx.scale, nx.crew)) + '.</div>' +
         '<div class="label" style="margin-top:4px">Level ' + nx.level + ' · ' + nx.ticks + ' ticks</div><div class="io">' + costPills(nx.cost, S.resources) + '</div>' +
         (short.length ? '<div class="note" style="margin:8px 0 0">Paid from <b>' + esc(activeD().name) + '</b>\'s stockpile. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': ' + (short.some(function (r) { return CFG.resources[r].orbitalTrade; }) ? 'some of these are made in orbit, so bring them down to the Core by orbital link or express drop, then route or ship them here.' : 'these are made by Trade Workshops at the Free Port, so route or ship them here.') + '</div>' : '') +
-        (orderAt(b.ring, b.slot) ? '' : '<div class="actions"><button class="btn primary" data-act="expand" data-ring="' + b.ring + '" data-slot="' + b.slot + '">' + (short.length || S.orders.length ? 'Queue expansion to level ' : 'Expand to level ') + nx.level + '</button></div>');
+        (orderAt(b.ring, b.slot) ? '' : '<div class="actions"><button class="btn primary" data-act="expand" data-ring="' + b.ring + '" data-slot="' + b.slot + '">' + (short.length || !slotFree() ? 'Queue expansion to level ' : 'Expand to level ') + nx.level + '</button></div>');
     } else h += '<div class="dim" style="font-size:12px;margin-top:6px">Fully expanded.</div>';
     return h + '</div>';
   }
@@ -1938,7 +1961,11 @@
     var h = '', last = null;
     S.allOrders.forEach(function (o) {
       var place = o.dname ? o.dname.replace(/^The /, '') : 'Core';
-      if (o.did !== last) { last = o.did; h += '<span class="q-place">' + esc(place) + '</span>'; }
+      if (o.did !== last) {
+        last = o.did;
+        var qd = S.districts.filter(function (x) { return x.id === o.did; })[0];
+        h += '<span class="q-place"' + (qd && qd.slots > 1 ? ' title="' + qd.slots + ' build slots: that many orders are carried out at once"' : '') + '>' + esc(place) + (qd && qd.slots > 1 ? ' ×' + qd.slots : '') + '</span>';
+      }
       var where = o.data.ring !== undefined ? 'R' + o.data.ring + '·' + (o.data.slot + 1) : '';
       if (o.state === 'queued') {
         var short = o.waiting ? Object.keys(o.waiting.short) : [];
@@ -1956,7 +1983,7 @@
     }).join('');
     if (bare) return (chips ? '<div class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Not sent yet' : 'Offline · waiting to send') + '</div>' + chips : '') + h;
     var crews = S.requisitions && S.requisitions.boons && S.requisitions.boons.crews > 0 ? '<span class="q-boon" title="' + esc(CFG.requisitions.boons.crews.desc) + '">' + esc(CFG.requisitions.boons.crews.name) + ' · ' + S.requisitions.boons.crews + 't</span>' : '';
-    h = '<span class="label">Work queue</span>' + crews + (S.allOrders.length ? h : '<span class="queue-empty">Nothing queued. Click a free plot to build; each place builds one thing at a time.</span>');
+    h = '<span class="label">Work queue</span>' + crews + (S.allOrders.length ? h : '<span class="queue-empty">Nothing queued. Click a free plot to build; each place works through its own queue.</span>');
     if (chips) h = '<span class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Not sent yet' : 'Offline · waiting to send') + '</span>' + chips + '<span class="queue-sep"></span>' + h;
     return h;
   }
@@ -2168,6 +2195,13 @@
       }
       else { confirmKey = el.dataset.key; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
     }
+    else if (a === 'bslot') {
+      if (confirmKey === 'bslot') {
+        if (Date.now() - confirmAt < CONFIRM_DELAY) return;
+        confirmKey = null; act('build-slot', { district: activeId }); // (the colony log announces it)
+      }
+      else { confirmKey = 'bslot'; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
+    }
     else if (a === 'cancel') { e.preventDefault(); act('cancel', { orderId: +el.dataset.id }); }
     else if (a === 'upgrade') act('upgrade', { district: activeId }).then(function (d) { if (d && d.ok) toast(d.queued ? 'Upgrade added to the work queue.' : (activeD().core ? 'Hub upgrade started.' : activeD().name + ' upgrade started.'), d.queued ? 'info' : true); });
     else if (a === 'dmode') { dmode = el.dataset.mode; renderPanel(); }
@@ -2373,7 +2407,7 @@
   function merge(ns) {
     var v = ns.views[activeId];
     return Object.assign({}, ns, {
-      buildings: v.buildings, orders: v.orders, queueMax: v.queueMax, locks: v.locks || [], resources: v.resources, hub: v.hub, energy: v.energy, defense: v.defense,
+      buildings: v.buildings, orders: v.orders, queueMax: v.queueMax, slots: v.slots || { count: 1, max: 1, next: null }, locks: v.locks || [], resources: v.resources, hub: v.hub, energy: v.energy, defense: v.defense,
       coreRes: ns.resources, coreBuildings: ns.buildings,
       allOrders: Object.keys(ns.views).reduce(function (a, k) {
         return a.concat(ns.views[k].orders.map(function (o) { return Object.assign({ dname: ns.views[k].core ? '' : ns.views[k].name, did: ns.views[k].id }, o); }));

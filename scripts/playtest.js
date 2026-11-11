@@ -6,7 +6,7 @@
 //
 //   node scripts/playtest.js [--persona builder|engineer|trader] [--until beacon|station] [--cadence N]
 //                            [--hazards on|off] [--max TICKS] [--json FILE] [--trace FILE] [--quiet]
-//                            [--alts on|off] [--reqs on|off] [--exports on|off] [--dump]
+//                            [--alts on|off] [--reqs on|off] [--exports on|off] [--slots on|off] [--dump]
 //
 // Personas:
 //   builder   base recipes only, no trade, no requisitions (the player the balance test plays)
@@ -54,6 +54,7 @@ const P = {
 if (!P) { console.error(`Unknown persona "${PERSONA}".`); process.exit(2); }
 // --alts / --reqs / --exports on|off override one habit of the persona, to measure it on its own
 for (const k of ['alts', 'reqs', 'exports']) { const v = arg(k); if (v === 'on' || v === 'off') P[k] = v === 'on'; }
+const SLOTS = arg('slots', 'on') !== 'off'; // buy extra build slots when a place can pay for one and has work waiting
 
 // ---- what the player builds, in order --------------------------------------------------------------------------
 // 'wait:N' holds the list until the place is level N (and asks for the upgrade).
@@ -284,7 +285,7 @@ const FEED = { smelter: 'ore_drill', cracking_tower: 'crude_pump', polymer_plant
 const M = {
   persona: PERSONA, cadence: CADENCE, hazards: process.env.HAZARDS, until: UNTIL,
   milestones: {}, phases: [], notes: [], credits: { convoy: 0, requisitions: 0, missions: 0, spentImports: 0 },
-  shutLog: [], reqs: { filled: 0, seen: 0, waits: [], goods: {} }, extras: {}, links: {}, crewHold: 0, spill: {}, altsOff: {}, missions: { filled: 0, standing: 0, goods: {} }, alts: {}, shutdowns: 0, trace: [],
+  shutLog: [], reqs: { filled: 0, seen: 0, waits: [], goods: {} }, extras: {}, links: {}, crewHold: 0, spill: {}, altsOff: {}, slots: {}, missions: { filled: 0, standing: 0, goods: {} }, alts: {}, shutdowns: 0, trace: [],
 };
 let T = 0;
 function note(s) { M.notes.push(`${s} @${T}`); }
@@ -670,6 +671,17 @@ function act() {
     const want = (inv(core).machined_parts || 0) > (P.imports ? 1e9 : c.won ? 3000 : P.exports ? 600 : 400) ? 'paused' : 'active';
     if (b.status !== want) actions.toggle(uid, { ring: b.ring, slot: b.slot, paused: want === 'paused' });
   }
+  // Another build slot, where there is work waiting for one and paying for it would not take what the front order needs.
+  if (SLOTS && T % 5 === 0) {
+    for (const d of districts()) {
+      const next = queue.nextSlot(d);
+      const line = waiting(d);
+      if (!next || c.hub_level < next.coreLevel || !line.length || colony().credits < next.credits) continue;
+      const stock = inv(d); const front = queue.costOf(d, line[0]);
+      if (!Object.entries(next.cost).every(([r, a]) => (stock[r] || 0) >= a + (front[r] || 0))) continue;
+      if (actions.buildSlot(uid, d.type === 'core' ? {} : { district: d.id }).ok) { bump(M.slots, d.type); note(`${d.type} build slot ${next.slots}`); }
+    }
+  }
   if (P.alts && T % 10 === 0) alternatives();
   if (P.reqs) requisitions();
   if (P.exports && (T % 10 === 0 || CADENCE > 1)) contracts(c);
@@ -744,6 +756,7 @@ function report() {
   if (M.missions.filled) out.push(`missions: ${M.missions.filled} filled for ${M.missions.standing} standing and ${M.credits.missions} cr (${Object.entries(M.missions.goods).sort((a, b) => b[1] - a[1]).map(([g, n]) => `${g} ×${n}`).join(', ')})`);
   if (Object.keys(M.spill).length) out.push('built outside the Core for want of room: ' + Object.entries(M.spill).map(([k, n]) => `${k} ×${n}`).join(', '));
   if (M.crewHold) out.push(`new workplaces held back for want of crews on ${M.crewHold} of the player's turns`);
+  if (Object.keys(M.slots).length) out.push('build slots bought: ' + Object.entries(M.slots).map(([k, n]) => `${k} +${n}`).join(', ') + ' (' + M.notes.filter((x) => /build slot/.test(x)).join(', ') + ')');
   if (Object.keys(M.links).length) out.push('link upgrades: ' + Object.entries(M.links).map(([k, n]) => `${k} ×${n}`).join(', '));
   if (Object.keys(M.extras).length) out.push('extra producers built while stalled: ' + Object.entries(M.extras).map(([k, n]) => `${k} ×${n}`).join(', '));
   if (Object.keys(M.altsOff).length) out.push('alternative recipes switched back because they ate what an order was waiting for: ' + Object.entries(M.altsOff).map(([k, n]) => `${k}${n > 1 ? ` ×${n}` : ''}`).join(', '));

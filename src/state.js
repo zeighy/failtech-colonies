@@ -69,7 +69,7 @@ function clientConfig() {
     demolishRefund: config.global.demolishRefund,
     production: config.production,
     requisitions: config.requisitions ? { unlockHubLevel: config.requisitions.unlockHubLevel, boons: config.requisitions.boons } : null,
-    buildQueue: { max: queue.max, replaceTimeMult: queue.replaceTimeMult },
+    buildQueue: { max: queue.max, replaceTimeMult: queue.replaceTimeMult, maxSlots: queue.maxSlots },
     failureThresholdTicks: config.global.moraleFailureThresholdTicks,
   };
 }
@@ -131,7 +131,7 @@ function viewFor(userId, now = Date.now()) {
   const districts = store.loadDistricts(c.id).map((d) => ({
     id: d.id, type: d.type, name: d.name,
     level: d.type === 'core' ? c.hub_level : d.level,
-    linkLevel: d.linkLevel, inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
+    linkLevel: d.linkLevel, buildSlots: queue.slotsUpgradable(d) ? d.buildSlots || 1 : 1, inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
     ...orbital.districtExtras(c, d),
   }));
   const routeRows = store.loadRoutes(c.id);
@@ -207,7 +207,7 @@ function viewFor(userId, now = Date.now()) {
       // Orders in the order they run. `state` is 'active' (being carried out) or 'queued'; `pos` counts the queue from 1.
       // The order at the front of an idle queue says what it is `waiting` for: stock the place is short of, or a reason.
       orders: (() => {
-        const busy = dOrders.some((o) => o.state !== 'queued');
+        const busy = dOrders.filter((o) => o.state !== 'queued').length >= d.buildSlots; // every build slot is taken
         let pos = 0;
         return dOrders.map((o) => {
           const queued = o.state === 'queued';
@@ -225,6 +225,8 @@ function viewFor(userId, now = Date.now()) {
         });
       })(),
       queueMax: queue.max,
+      // build slots: how many orders run side by side here, and what the next one costs (null when there are no more)
+      slots: { count: d.buildSlots, max: queue.slotsUpgradable(d) ? queue.maxSlots : 1, next: queue.nextSlot(d, d.buildSlots) },
     };
   };
   const views = {};
@@ -262,7 +264,7 @@ function viewFor(userId, now = Date.now()) {
     districtsUnlocked: sim.districtsUnlocked(config, { coreLevel: c.hub_level }),
     districtLevelCap: sim.districtLevelCap(config, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) }),
     districtNeeds: Object.fromEntries([2, 3, 4, 5].map((l) => [l, sim.districtLevelNeeds(config, l)])),
-    districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length,
+    districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length, slots: d.buildSlots,
       orbital: !!(config.orbitalTypes || {})[d.type],
       link: d.type === 'core' || (config.orbitalTypes || {})[d.type] ? null : {
         level: d.linkLevel, capacity: config.logistics.link.levels[d.linkLevel].capacity,

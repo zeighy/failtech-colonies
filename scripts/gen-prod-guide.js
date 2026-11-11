@@ -79,6 +79,12 @@ add('## **5b. The work queue**',
   '* **Dropped orders.** An order that can no longer be carried out when its turn comes (its plot was taken, the building is gone) is taken off the queue with a note in the log.',
   `* **Replace in place.** A building can be swapped for another on the same plot. The order goes through the queue and the old building keeps working until its turn. It is then scrapped for the demolition refund (${G.demolishRefund * 100}%), and the plot stands empty while the new building goes up, which takes **×${BQ.replaceTimeMult}** its usual build time. Expansion levels are not carried over. A workshop with a recipe set has to be demolished instead.`,
   '* **Rush** applies to the order under way, not to one that is waiting.');
+if ((BQ.slotTiers || []).length) {
+  const goods = (c) => { const { credits = 0, ...g } = c; return `${list(g)}${credits ? `, ${credits} credits` : ''}`; };
+  add(`* **More build slots.** The Core and each district can buy up to ${BQ.slotTiers.length} more build slots from their hub pane, each paid at once from that place's own stockpile and the treasury. With more slots that many orders from the front of the queue are carried out side by side; the order of the queue is as strict as before, so an order that cannot start yet still holds up everything behind it. The station and territories keep one slot.`);
+  add('| Build slot | Opens at Core level | In the Core | In a district |', '| --- | --- | --- | --- |',
+    ...BQ.slotTiers.map((t, i) => `| ${i + 2} | ${t.coreLevel} | ${goods(t.core)} | ${goods(t.district)} |`));
+}
 
 // ---- alternative recipes
 const altRows = [];

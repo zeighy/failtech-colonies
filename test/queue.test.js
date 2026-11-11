@@ -1,5 +1,5 @@
 'use strict';
-// The work queue: one build slot per place, strict order, paid for when an order starts. Replacing a building in place.
+// The work queue: one build slot per place (more can be bought), strict order, paid for when an order starts. Replacing a building in place.
 // Route targets.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -210,6 +210,96 @@ test('orders from before the queue keep running side by side, and hold the build
   tick(1);
   assert.deepEqual(built(c).map((b) => b.type).sort(), ['solar_array', 'water_pump']);
   assert.equal(orders(c)[0].state, 'active');
+});
+
+test('build slots: the Core buys a second at hub level 3 and a third at level 5, for goods and credits', () => {
+  const tiers = config.global.buildQueue.slotTiers;
+  assert.equal(tiers.length, 2);
+  assert.deepEqual(tiers.map((t) => t.coreLevel), [3, 5]);
+  const c = colony(2, 9000);
+  const credits = () => db.prepare('SELECT credits FROM colonies WHERE id = ?').get(c.id).credits;
+  const slots = () => viewFor(c.uid).views[c.core].slots;
+  assert.equal(slots().count, 1);
+  assert.equal(slots().max, 3);
+  assert.equal(slots().next.coreLevel, 3);
+  assert.match(actions.buildSlot(c.uid, {}).error, /hub level 3/);
+  db.prepare('UPDATE colonies SET hub_level = 3 WHERE id = ?').run(c.id);
+  // it has to be paid for in full: goods from the place's own stock, and credits
+  const { credits: cr1, ...goods1 } = tiers[0].core;
+  setStock(c, 'alloys', goods1.alloys - 1);
+  assert.match(actions.buildSlot(c.uid, {}).error, /Not enough resources/);
+  setStock(c, 'alloys', 9000);
+  db.prepare('UPDATE colonies SET credits = ? WHERE id = ?').run(cr1 - 1, c.id);
+  assert.match(actions.buildSlot(c.uid, {}).error, /cr/);
+  db.prepare('UPDATE colonies SET credits = 100000 WHERE id = ?').run(c.id);
+  const before = { scrap: stock(c, 'scrap'), cr: credits() };
+  assert.deepEqual(actions.buildSlot(c.uid, {}), { ok: true, slots: 2 });
+  assert.equal(stock(c, 'scrap'), before.scrap - goods1.scrap);
+  assert.equal(credits(), before.cr - cr1);
+  assert.equal(slots().count, 2);
+  // the third waits for hub level 5
+  assert.match(actions.buildSlot(c.uid, {}).error, /hub level 5/);
+  db.prepare('UPDATE colonies SET hub_level = 5 WHERE id = ?').run(c.id);
+  setStock(c, 'scrap', 9000);
+  assert.deepEqual(actions.buildSlot(c.uid, {}), { ok: true, slots: 3 });
+  assert.equal(slots().next, null);
+  assert.match(actions.buildSlot(c.uid, {}).error, /every build slot/);
+  // the second tier costs more of everything it shares with the first
+  for (const where of ['core', 'district']) for (const r of ['scrap', 'credits']) assert.ok(tiers[1][where][r] > tiers[0][where][r], `${where} ${r}`);
+});
+
+test('build slots: that many orders run side by side, in the same strict order', () => {
+  const c = colony(3);
+  assert.ok(actions.buildSlot(c.uid, {}).ok);
+  const [solar, pump, rig, dorm] = ['solar_array', 'water_pump', 'scrap_extractor', 'dormitory'];
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 0, type: solar }), { ok: true });
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 1, type: pump }), { ok: true }, 'the second starts at once too');
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 2, type: rig }), QUEUED);
+  assert.deepEqual(orders(c).map((o) => o.state), ['active', 'active', 'queued']);
+  // both finish in the time of the longer one, not the sum
+  tick(Math.max(B[solar].constructionTicks, B[pump].constructionTicks));
+  assert.deepEqual(built(c).map((b) => b.type).sort(), [solar, pump].sort());
+  assert.deepEqual(orders(c).map((o) => [o.data.type, o.state]), [[rig, 'active']], 'the third took the first slot that came free');
+  // strict order holds with a slot free: an order that cannot be paid for keeps the front, and nothing behind it starts
+  setStock(c, 'machined_parts', 0);
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 3, type: dorm }), QUEUED, 'no parts for the dormitory: it waits although a slot is free');
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 4, type: solar }), QUEUED, 'the array behind it could be paid for, and still waits');
+  assert.deepEqual(orders(c).map((o) => o.state), ['active', 'queued', 'queued']);
+  const front = viewFor(c.uid).views[c.core].orders.find((o) => o.state === 'queued');
+  assert.ok(front.waiting && front.waiting.short.machined_parts > 0, 'the view says what the front order is waiting for while a slot is free');
+  setStock(c, 'machined_parts', 5000);
+  tick(1);
+  assert.equal(orders(c).filter((o) => o.state === 'active').length, 2);
+});
+
+test('build slots: buying one starts what was waiting; each district buys its own from its own stock; orbit has none to buy', () => {
+  const c = colony(4);
+  const pits = district(c, 'pits', 2);
+  actions.build(c.uid, { ring: 1, slot: 0, type: 'solar_array' });
+  actions.build(c.uid, { ring: 1, slot: 1, type: 'water_pump' });
+  assert.deepEqual(orders(c).map((o) => o.state), ['active', 'queued']);
+  assert.ok(actions.buildSlot(c.uid, {}).ok);
+  assert.deepEqual(orders(c).map((o) => o.state), ['active', 'active'], 'the waiting order started with the new slot');
+  // the district is still on one slot, and pays for its own
+  actions.build(c.uid, { ring: 1, slot: 0, type: 'solar_array', district: pits });
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 1, type: 'scrap_extractor', district: pits }), QUEUED);
+  const { credits: cr, ...goods } = config.global.buildQueue.slotTiers[0].district;
+  const coreScrap = stock(c, 'scrap');
+  assert.ok(cr > 0);
+  setStock(c, 'scrap', goods.scrap - 1, pits);
+  assert.match(actions.buildSlot(c.uid, { district: pits }).error, /Not enough resources/, 'the Core being rich does not help');
+  setStock(c, 'scrap', 5000, pits);
+  assert.deepEqual(actions.buildSlot(c.uid, { district: pits }), { ok: true, slots: 2 });
+  assert.equal(stock(c, 'scrap'), coreScrap, 'nothing came out of the Core');
+  assert.deepEqual(orders(c, pits).map((o) => o.state), ['active', 'active']);
+  const v = viewFor(c.uid);
+  assert.equal(v.views[pits].slots.count, 2);
+  assert.equal(v.districts.find((d) => d.id === pits).slots, 2);
+  // a station keeps its single slot
+  const st = Number(db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'station', 1, 'Up', 0)").run(c.id).lastInsertRowid);
+  assert.equal(queue.nextSlot({ id: st, type: 'station' }), null);
+  assert.equal(queue.slotsOf({ id: st, type: 'station' }), 1);
+  db.prepare('DELETE FROM districts WHERE id = ?').run(st);
 });
 
 test('replace in place: the old building works until its turn, is scrapped for the usual refund, and the plot stands empty for 1.5x the build time', () => {

@@ -1,6 +1,8 @@
 'use strict';
 // The work queue. Every place (the Core, a district, the station, a territory) has one build slot and a queue behind it.
 // Building, replacing, expanding, upgrading and (in the Core) founding a district all wait in the same line.
+// The Core and the districts can buy a second and a third build slot (config.global.buildQueue.slotTiers): the line stays
+// one line, in the same strict order, but that many orders at its front are carried out side by side.
 //  - Orders run strictly in the order they were queued. Nothing behind the front of the queue starts early, even if the
 //    place could pay for it: starting it could spend what the front order is waiting for.
 //  - An order is paid for when it starts, not when it is queued, so it can be queued before the materials exist. The front
@@ -13,7 +15,7 @@ const store = require('./db');
 const territories = require('./territories');
 const { db, config } = store;
 
-const Q = { maxPerPlace: 8, replaceTimeMult: 1.5, ...(config.global.buildQueue || {}) };
+const Q = { maxPerPlace: 8, replaceTimeMult: 1.5, slotTiers: [], ...(config.global.buildQueue || {}) };
 const defAt = (d, type) => sim.territoryDef(config.buildings[type], d.type);
 const placeName = (d) => (d.type !== 'core' && (config.districtTypes || {})[d.type] ? config.districtTypes[d.type].name : d.name);
 const where = (d) => (d.type === 'core' ? '' : ` in ${placeName(d)}`);
@@ -122,6 +124,23 @@ const dbBag = (c, d) => {
   };
 };
 
+// ---- build slots ---------------------------------------------------------------------
+// Only ground places (the Core and the districts) can have more than one; orbit keeps its single slot.
+const slotsUpgradable = (d) => d.type === 'core' || !!(config.districtTypes || {})[d.type];
+const maxSlots = 1 + Q.slotTiers.length;
+function slotsOf(d) {
+  if (!slotsUpgradable(d)) return 1;
+  const row = db.prepare('SELECT build_slots FROM districts WHERE id = ?').get(d.id);
+  return Math.max(1, Math.min(maxSlots, (row && row.build_slots) || 1));
+}
+// The next slot a place can buy: { slots, coreLevel, cost (goods from the place's own stock), credits }, or null.
+function nextSlot(d, slots = slotsOf(d)) {
+  const t = slotsUpgradable(d) ? Q.slotTiers[slots - 1] : null;
+  if (!t) return null;
+  const { credits = 0, ...cost } = t[d.type === 'core' ? 'core' : 'district'];
+  return { slots: slots + 1, coreLevel: t.coreLevel, cost, credits };
+}
+
 const count = (c, d) => db.prepare('SELECT COUNT(*) AS n FROM colony_work_orders WHERE colony_id = ? AND district_id = ?').get(c.id, d.id).n;
 
 // Put an order at the back of a place's queue. It does not start, and nothing is paid, until `advance` gives it its turn.
@@ -132,31 +151,34 @@ function enqueue(c, d, kind, data) {
     .run(c.id, d.id, kind, JSON.stringify(data), ticks, ticks, pos).lastInsertRowid);
 }
 
-// If the place's build slot is free, start the order at the front of its queue, provided it can still be carried out and
-// the place can pay. Returns the id of the order it started, or null.
+// While the place has a build slot free, start the order at the front of its queue, provided it can still be carried out
+// and the place can pay. The order is strict however many slots there are: an order that cannot start yet keeps its place
+// at the front and nothing behind it starts. Returns the ids of the orders it started.
 function advance(c, d, coreLevel, bag, tick, ev) {
   const level = d.type === 'core' ? coreLevel : (db.prepare('SELECT level FROM districts WHERE id = ?').get(d.id) || { level: d.level }).level;
+  const slots = slotsOf(d);
+  const started = [];
   for (let i = 0; i < 64; i++) {
     const orders = store.loadOrders(c.id, d.id);
-    if (orders.some((o) => o.state === 'active')) return null;
+    if (orders.filter((o) => o.state === 'active').length >= slots) return started;
     const o = orders.find((x) => x.state === 'queued');
-    if (!o) return null;
+    if (!o) return started;
     const bad = check(c, d, level, o, tick);
     if (bad && bad.drop) {
       db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
       if (ev) ev('warn', `${label(d, o)} was taken off the work queue${where(d)}: ${bad.drop}.`);
       continue;
     }
-    if (bad) return null;
+    if (bad) return started;
     const cost = costOf(d, o); const back = refundOf(d, o);
-    if (shortfall(bag.inv(), cost, back)) return null; // it waits at the front; nothing behind it may start
+    if (shortfall(bag.inv(), cost, back)) return started; // it waits at the front; nothing behind it may start
     bag.add(back);
     bag.take(cost);
     if (o.action_type === 'replace') db.prepare('DELETE FROM colony_buildings WHERE district_id = ? AND ring_index = ? AND slot_index = ?').run(d.id, o.data.ring, o.data.slot);
     db.prepare("UPDATE colony_work_orders SET state = 'active' WHERE id = ?").run(o.id);
-    return o.id;
+    started.push(o.id);
   }
-  return null;
+  return started;
 }
 
 // Move a waiting order within its place's queue: 'up', 'down' or 'top' (never ahead of the order under way).
@@ -177,4 +199,4 @@ function move(c, orderId, to) {
   return null;
 }
 
-module.exports = { max: Q.maxPerPlace, replaceTimeMult: Q.replaceTimeMult, costOf, refundOf, ticksOf, shortfall, label, check, memBag, dbBag, count, enqueue, advance, move };
+module.exports = { max: Q.maxPerPlace, replaceTimeMult: Q.replaceTimeMult, slotTiers: Q.slotTiers, maxSlots, slotsOf, nextSlot, slotsUpgradable, costOf, refundOf, ticksOf, shortfall, label, check, memBag, dbBag, count, enqueue, advance, move };

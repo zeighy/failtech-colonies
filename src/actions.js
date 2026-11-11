@@ -73,7 +73,7 @@ function order(c, d, kind, data) {
   const tick = tickNow();
   const id = queue.enqueue(c, d, kind, data);
   const started = queue.advance(c, d, c.hub_level, queue.dbBag(c, d), tick, (k, msg) => store.addEvent(c.id, tick, k, msg));
-  return started === id ? OK : { ok: true, queued: true };
+  return started.includes(id) ? OK : { ok: true, queued: true };
 }
 // Orders already waiting or under way for one plot.
 const ordersAt = (c, d, ring, slot) => store.loadOrders(c.id, d.id).filter((o) => o.data.ring === ring && o.data.slot === slot);
@@ -246,6 +246,25 @@ const cancelOrder = guarded((c, { orderId }) => {
   const tick = tickNow();
   queue.advance(c, d, c.hub_level, queue.dbBag(c, d), tick, (k, msg) => store.addEvent(c.id, tick, k, msg));
   return OK;
+});
+
+// Buy the place's next build slot: one more order from the front of its queue is carried out at the same time. Paid at
+// once, in goods from the place's own stockpile and in credits; whatever was waiting for a slot starts straight away.
+const buildSlot = guarded((c, { district } = {}) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  const next = queue.nextSlot(d);
+  if (!next) return fail(`${d.type === 'core' ? 'The Core' : d.name} already has every build slot.`);
+  if (c.hub_level < next.coreLevel) return fail(`Build slot ${next.slots} opens at hub level ${next.coreLevel}.`);
+  if (!canAfford(store.loadInventory(c.id, d.id), next.cost)) return fail(`Not enough resources ${d.type === 'core' ? 'in the Core' : `in ${d.name}`} for another build slot.`);
+  if (c.credits < next.credits) return fail(`Another build slot also costs ${next.credits} cr.`);
+  pay(d.id, next.cost);
+  db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(next.credits, c.id);
+  db.prepare('UPDATE districts SET build_slots = ? WHERE id = ?').run(next.slots, d.id);
+  const tick = tickNow();
+  store.addEvent(c.id, tick, 'good', `${d.type === 'core' ? 'The Core' : d.name} now has ${next.slots} build slots.`);
+  queue.advance(c, d, c.hub_level, queue.dbBag(c, d), tick, (k, msg) => store.addEvent(c.id, tick, k, msg));
+  return { ok: true, slots: next.slots };
 });
 
 // Move a waiting order up, down or to the front of its place's queue.
@@ -557,4 +576,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { buildSlot, requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

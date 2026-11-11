@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -462,6 +462,8 @@ db.exec(`
   );
 `);
 if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'boons'").get()) db.exec("ALTER TABLE colonies ADD COLUMN boons TEXT NOT NULL DEFAULT '{}'");
+// v19 (additive): build slots. Every place starts with one; the Core and the districts can buy more (config.global.buildQueue.slotTiers).
+if (!db.prepare("SELECT 1 FROM pragma_table_info('districts') WHERE name = 'build_slots'").get()) db.exec('ALTER TABLE districts ADD COLUMN build_slots INTEGER NOT NULL DEFAULT 1');
 db.pragma(`user_version = ${SCHEMA_VERSION}`);
 
 // ---- meta -----------------------------------------------------------------
@@ -537,7 +539,7 @@ function coreId(colonyId) {
 }
 function loadDistricts(colonyId) {
   // A district's name is wording, so it always comes from the active theme (not from what was stored when it was founded).
-  return db.prepare('SELECT id, type, level, name, link_level AS linkLevel, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId)
+  return db.prepare('SELECT id, type, level, name, link_level AS linkLevel, build_slots AS buildSlots, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId)
     .map((d) => ({ ...d, name: d.type !== 'core' && config.districtTypes[d.type] ? config.districtTypes[d.type].name : d.name }));
 }
 
