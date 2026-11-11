@@ -490,6 +490,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_settlements_colony ON settlements(colony_id, status);
 `);
 if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'settle_reserve'").get()) db.exec('ALTER TABLE colonies ADD COLUMN settle_reserve REAL NOT NULL DEFAULT 0.25');
+if (!db.prepare("SELECT 1 FROM pragma_table_info('settlements') WHERE name = 'answers'").get()) db.exec('ALTER TABLE settlements ADD COLUMN answers INTEGER NOT NULL DEFAULT 0'); // appeals answered (the story listens for it)
 db.pragma(`user_version = ${SCHEMA_VERSION}`);
 
 // ---- meta -----------------------------------------------------------------

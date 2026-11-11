@@ -1451,7 +1451,7 @@
     h += '<div class="goal ' + (bc ? 'done' : '') + '"><span class="tick">' + icon('check', 11) + '</span><span>' + (bc ? 'Beacon Array built' : bo ? 'Beacon Array under construction' : 'Build the Beacon Array') + '</span></div>' +
       '<div class="goal ' + (c.won ? 'done' : '') + '"><span class="tick">' + icon('check', 11) + '</span><span>Transmit <span class="dim num">(' + Math.floor(c.won ? CFG.transmitTicks : c.progress) + ' / ' + CFG.transmitTicks + ')</span></span></div>' +
       '<div class="meter" style="margin:4px 0 8px"><i style="width:' + (prog * 100).toFixed(0) + '%;background:var(--good)"></i></div>';
-    if (c.won) h += '<div class="note good">The message got through. Mission accomplished. Keep building if you like.</div>';
+    if (c.won) h += '<div class="note good">The message got through. Mission accomplished. Camps on the road are asking for help, and the harbour is open.</div>';
     return h;
   }
 
@@ -2223,7 +2223,7 @@
     if (S.colony.won && !shown.won && !storeGet('won:' + S.user)) {
       shown.won = true; storeSet('won:' + S.user, '1');
       var won = (CFG.ui && CFG.ui.won) || {};
-      modal('<h2>' + esc(won.title || 'The beacon reached the world') + '</h2><p>' + esc(won.text || 'Transmission complete. Somewhere out there, something heard you, Commander. You kept your people alive and built something that outlasts the wastes.') + '</p>' +
+      modal('<h2>' + esc(won.title || 'The beacon reached the world') + '</h2><p>' + esc(won.text || 'Transmission complete. Somewhere out there, something heard you, Commander. You kept your people alive and built something that outlasts the wastes. Camps are gathering on the road, and a harbour has lit its lamps.') + '</p>' +
         '<div class="actions"><button class="btn primary" data-m="close">' + esc(won.button || 'Keep building') + '</button></div>', 'win');
     }
   }

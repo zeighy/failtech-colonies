@@ -255,6 +255,8 @@ test('appeals: one thing, soon; answering gives a short boon and standing, ignor
   setStock(c, a.good, a.qty + 7);
   const before = standing(c, S.types.depot.faction);
   assert.deepEqual(actions.settlementAnswer(c.uid, { id }), { ok: true });
+  assert.equal(get(id).answers, 1, 'counted, for the story');
+  assert.equal(require('../src/story').fires({ type: 'settlement', flag: 'answered' }, { facts: require('../src/story').factsOf(c.id) }), true);
   assert.equal(Math.round(stock(c, a.good)), 7);
   assert.ok(standing(c, S.types.depot.faction) > before);
   assert.ok(get(id).boon_until >= now() + S.appeal.boonTicks);

@@ -65,7 +65,8 @@
      "who": "steward",
      "text": [
       "A hub, a handful of scrap, and a grid that will not carry much.",
-      "Power first. Everything else wants it."
+      "Power first. Everything else wants it.",
+      "One crew, one job at a time, in the order you give them. A job we cannot pay for waits, and so does everything behind it."
      ],
      "next": "end"
     },
@@ -266,6 +267,107 @@
      ]
     }
    }
+  },
+  "n01_requisition": {
+   "title": "A request",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "Something new in the tray: a requisition. Somebody out there wants ordinary goods from us, a set amount by a set time, in full.",
+      "It pays better than the convoy and lends us something for a while when we fill it. If we miss one, another comes."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "steward",
+     "text": [
+      "I asked the courier who it was for. He said, people like us, further down the road.",
+      "I had not thought there was a further down the road."
+     ],
+     "next": null
+    }
+   }
+  },
+  "n06_camps": {
+   "title": "Camps on the road",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "The harbour was not the only one listening. There are camps a day out, on the road. People who saw the light and walked toward it.",
+      "They have stopped short of the gate. I think they are waiting to see what we are."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "steward",
+     "text": [
+      "We can sponsor one. It draws a basket of goods from the Core every tick, as much as you allow, and never below what you tell the Core to keep back."
+     ],
+     "choices": [
+      {
+       "label": "What do we get for it?",
+       "next": "c1"
+      },
+      {
+       "label": "How long for?",
+       "next": "c2"
+      }
+     ]
+    },
+    "c1": {
+     "who": "steward",
+     "text": [
+      "No credits. The foundry camps work on our upgrades, the valley people come and take shifts, and the depots carry our goods further. Each gives in proportion to what it has been getting."
+     ],
+     "next": "d"
+    },
+    "c2": {
+     "who": "steward",
+     "text": [
+      "Until it can stand alone. Each stage has a drive, a list to be filled in bulk whenever we can spare it. Fill the last one and it is a town, and a trade partner for good."
+     ],
+     "next": "d"
+    },
+    "d": {
+     "who": "signal",
+     "text": [
+      "More lights. We are counting them."
+     ],
+     "next": null
+    }
+   }
+  },
+  "n12_town": {
+   "title": "It stands on its own",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "The last drive is filled. The carts have stopped, and nobody out there is hungry for it.",
+      "They have a wall, a well and a name. They are still sending us a share of what they used to, unasked."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "signal",
+     "text": [
+      "Another light, and it is not yours. That is the better kind."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "who": "steward",
+     "text": [
+      "There is room on the list for another camp. I expect there always will be."
+     ],
+     "next": null
+    }
+   }
   }
  },
  "beats": [
@@ -323,6 +425,67 @@
    }
   },
   {
+   "id": "n01_requisition",
+   "phase": "open",
+   "trigger": {
+    "type": "hubLevel",
+    "min": 2
+   },
+   "delivery": "dialogue",
+   "scene": "n01_requisition"
+  },
+  {
+   "id": "n02_requisitions_ten",
+   "phase": "open",
+   "trigger": {
+    "type": "requisitions",
+    "min": 10
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "Ten filled",
+    "body": [
+     "Ten requisitions filled. The courier has stopped checking the count before he signs.",
+     "He left a note from the far end this time. It says the water arrived the day their tanks ran dry. It is pinned up in the stores."
+    ]
+   }
+  },
+  {
+   "id": "n03_second_crew",
+   "phase": "open",
+   "trigger": {
+    "type": "buildSlots",
+    "min": 2
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "A second crew",
+    "body": [
+     "The second crew is working. Two jobs at once, each still taken in the order you set.",
+     "The foremen argue about everything except one rule: nobody starts what the stores cannot pay for."
+    ]
+   }
+  },
+  {
+   "id": "n04_second_recipe",
+   "phase": "open",
+   "trigger": {
+    "type": "recipes",
+    "min": 1
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "Another way to run it",
+    "body": [
+     "One of our lines is running a different recipe from the one it was built with. The manuals had more in them than we were using.",
+     "More recipes open as the hub and the districts grow. Changing one idles the line while it retools, so choose with the stores in mind."
+    ]
+   }
+  },
+  {
    "id": "c05_district",
    "phase": "campaign",
    "trigger": {
@@ -368,6 +531,133 @@
    },
    "delivery": "dialogue",
    "scene": "answered"
+  },
+  {
+   "id": "n05_beacon_rests",
+   "phase": "open",
+   "trigger": {
+    "type": "after",
+    "beat": "c08_answered",
+    "delayTicks": 3
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "The array rests",
+    "body": [
+     "The array has said what it had to say. It no longer burns power cells, only enough power to stay lit.",
+     "The cells are ours again. There will be no shortage of uses."
+    ]
+   }
+  },
+  {
+   "id": "n06_camps",
+   "phase": "open",
+   "trigger": {
+    "type": "after",
+    "beat": "c08_answered",
+    "delayTicks": 6
+   },
+   "delivery": "dialogue",
+   "scene": "n06_camps"
+  },
+  {
+   "id": "n07_sponsored",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "sponsored"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "The first cart",
+    "body": [
+     "The first cart went out this morning. One will go every tick until you say otherwise.",
+     "Now and then they will appeal for one thing in a hurry. Answering is worth it, and ignoring it costs nothing but the chance."
+    ]
+   }
+  },
+  {
+   "id": "n08_foundry",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "sponsored",
+    "kind": "foundry"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "cinder",
+    "subject": "The furnace camp",
+    "body": [
+     "Those are furnace people you are feeding. Some of them were mine once.",
+     "They will pay you in work. Do not call it charity where they can hear."
+    ]
+   }
+  },
+  {
+   "id": "n09_valley",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "sponsored",
+    "kind": "valley"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "verdant",
+    "subject": "The valley families",
+    "body": [
+     "The families in the valley have water and food now. I went to see. They are planting already.",
+     "Some will walk in to work for you each morning. Let them go home at night."
+    ]
+   }
+  },
+  {
+   "id": "n10_depot",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "sponsored",
+    "kind": "depot"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "meridian",
+    "subject": "The junction",
+    "body": [
+     "You took on the junction. Good. Track, sidings, and a stationmaster who never stopped keeping the timetable.",
+     "Keep it supplied and the roads carry more. Let it go short and the extra room goes with it, so do not build on all of it."
+    ]
+   }
+  },
+  {
+   "id": "n11_appeal",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "answered"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "steward",
+    "subject": "They asked, we answered",
+    "body": [
+     "The camp asked for one thing and got all of it the same day. They have put in double turns for us since.",
+     "They did not have to. I think that is the point they are making."
+    ]
+   }
+  },
+  {
+   "id": "n12_town",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "partner"
+   },
+   "delivery": "dialogue",
+   "scene": "n12_town"
   },
   {
    "id": "c09_first_mission",

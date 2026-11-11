@@ -88,7 +88,8 @@
     "n2": {
      "who": "seven",
      "text": [
-      "Your first duty is power. Everything else wants it. Begin with the panels. Form 7 will follow."
+      "Your first duty is power. Everything else wants it. Begin with the panels. Form 7 will follow.",
+      "Work orders are carried out one at a time, in the order you file them. A job the stores cannot pay for waits, and so does everything behind it. The Office finds this restful. You may not."
      ],
      "next": "n2_1"
     },
@@ -153,7 +154,8 @@
     "n1": {
      "who": "raf",
      "text": [
-      "You the new Commander? Great. Dispatcher Raf, Ammano Transit. I move things. You'll love me, I never ask what's in the crate."
+      "You the new Commander? Great. Dispatcher Raf, Ammano Transit. I move things. You'll love me, I never ask what's in the crate.",
+      "Eleven years on these roads. Before the Lapse it was parcels and pallets. Now it's whatever keeps a place alive another week. Same job, honestly. Worse coffee."
      ],
      "next": "n2",
      "mood": "happy"
@@ -214,7 +216,8 @@
     "n1": {
      "who": "pell",
      "text": [
-      "Commander? Archivist Pell, Colorado. Forgive the interruption. You are the first site to reach past its own walls, which is, well, congratulations. Please write everything down."
+      "Commander? Archivist Pell, Colorado. Forgive the interruption. You are the first site to reach past its own walls, which is, well, congratulations. Please write everything down.",
+      "I keep the archive for the whole Office, or what is left of it. Eleven sites reported to me. Some of them still do."
      ],
      "next": "n2"
     },
@@ -242,7 +245,8 @@
     "n1": {
      "who": "mags",
      "text": [
-      "You the clipboard they sent? Mags Valdivia. My crews held this cut through the Lapse. We didn't hold it because we're brave. We held it because nobody told us to stop."
+      "You the clipboard they sent? Mags Valdivia. My crews held this cut through the Lapse. We didn't hold it because we're brave. We held it because nobody told us to stop.",
+      "Shift whistle still blows at six, every morning. Nobody's on the whistle. We stopped asking and started setting our watches by it."
      ],
      "next": "n2"
     },
@@ -307,7 +311,8 @@
     "n1": {
      "who": "noor",
      "text": [
-      "Commander. You are standing in the only valley the anomalies spared. I do not know why. I stopped asking in the first year, and I started tending."
+      "Commander. You are standing in the only valley the anomalies spared. I do not know why. I stopped asking in the first year, and I started tending.",
+      "There were forty of us in the labs. I can tell you where each of them was standing. That is all I can tell you about them."
      ],
      "next": "n2",
      "mood": "thoughtful"
@@ -665,7 +670,8 @@
     "n3": {
      "who": "raf",
      "text": [
-      "Boss, the board is moving. The Ledger's got names on it. Real ones. People are trading, boss. People."
+      "Boss, the board is moving. The Ledger's got names on it. Real ones. People are trading, boss. People.",
+      "And there's a customs shed with a kettle on. A kettle, boss. Working. Tell Seven."
      ],
      "prompt": "Who is that?",
      "choices": [
@@ -2149,6 +2155,358 @@
      ]
     }
    }
+  },
+  "r01_form_12r": {
+   "title": "Form 12-R",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "seven",
+     "mood": "surprised",
+     "text": [
+      "Commander, the in-tray has produced something. It is a Form 12-R, a requisition. The Office is asking this colony for ordinary goods: a quantity, by a date, delivered in full from the Core.",
+      "This node wishes to note the direction of travel. Until today, forms went out of this building and nothing came back."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "vane",
+     "mood": "thoughtful",
+     "text": [
+      "It is properly made out, Commander. I checked it against the pattern book. Right stock, right ruling, counter-signature in the right corner. Somebody out there still has the stationery."
+     ],
+     "choices": [
+      {
+       "label": "Where do the goods go?",
+       "next": "c1"
+      },
+      {
+       "label": "What does the Office pay?",
+       "next": "c2"
+      }
+     ]
+    },
+    "c1": {
+     "who": "vane",
+     "text": [
+      "I have seen the truck that collects. It called here the week before you did. Office plates, grey paint, not a dent on it. The driver did not get down from the cab. The manifest had one word under Destination. Onward."
+     ],
+     "next": "d"
+    },
+    "c2": {
+     "who": "seven",
+     "text": [
+      "Above the logistics run's price, in Liquid Credits. A filled form also lends the colony something for a while: seconded work crews, or a priority slot on the run. The Office calls this a consideration. It behaves like thanks."
+     ],
+     "next": "d"
+    },
+    "d": {
+     "who": "seven",
+     "mood": "serious",
+     "text": [
+      "Two forms are open at a time, on the Postings screen. One that lapses is simply refiled, without penalty. This node recommends filling them all the same. Something at the far end of 'onward' is eating."
+     ]
+    }
+   }
+  },
+  "q01_second_crew": {
+   "title": "Second Crew",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "vane",
+     "mood": "happy",
+     "text": [
+      "Commander, the second crew has reported. They cost what you paid, which I will not repeat aloud, and they came with their own foreman, their own whistle and their own opinion of the first crew."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "seven",
+     "text": [
+      "The work ledger now has two columns for that site. Orders are still taken strictly in sequence. Two at once, in sequence. This node has drawn a diagram."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "who": "vane",
+     "mood": "thoughtful",
+     "text": [
+      "The foremen have agreed one rule between them. Nobody starts a job the stores cannot pay for. Everything else, they argue about.",
+      "It is the most alive this yard has sounded since I got here, Commander. I have not filed a complaint."
+     ]
+    }
+   }
+  },
+  "s01_lights_on_the_road": {
+   "title": "Lights on the Road",
+   "background": "freight_road.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "raf",
+     "mood": "serious",
+     "text": [
+      "Boss. You need to see the road. There are people on it. Walking. Whole families, handcarts, a man carrying a door. Don't ask me why a door.",
+      "They saw the beacon. Or heard it. Ask ten of them and you get ten answers, but they all point the same way, and it's at you."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "raf",
+     "mood": "thoughtful",
+     "text": [
+      "They've stopped short, though. Camps, a day out. One round a dead furnace. One on the clean strip under the cliffs. One at the old junction where my trucks turn. They're not coming in. They're waiting to see what you are."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "who": "seven",
+     "text": [
+      "Commander, the Office has a form. Form 7-S: Sponsorship of an Unchartered Camp. This node did not expect ever to need it and has had to move a paperweight."
+     ],
+     "choices": [
+      {
+       "label": "What do they need?",
+       "next": "d1"
+      },
+      {
+       "label": "What does the colony get?",
+       "next": "d2"
+      }
+     ]
+    },
+    "d1": {
+     "who": "seven",
+     "mood": "serious",
+     "text": [
+      "A basket of ordinary goods, drawn from the Core every cycle for as long as you choose to send it. It starts small: Reclaim, parts, filtrate, paste. It grows as they do.",
+      "You set how much goes, and you set what the Core keeps back for itself. Nothing sent earns Liquid Credits. The form is explicit on that point. It uses capitals."
+     ],
+     "next": "e"
+    },
+    "d2": {
+     "who": "seven",
+     "mood": "thoughtful",
+     "text": [
+      "The form lists no payment. The camps have listed their own. The furnace hands will work on your upgrades. The homesteaders will walk in and take shifts on your lines. The junction will carry your freight further.",
+      "Each gives in proportion to what it has been getting. This node finds that fair, and unusual."
+     ],
+     "next": "e"
+    },
+    "e": {
+     "who": "mags",
+     "mood": "serious",
+     "text": [
+      "Those are Cut people round that furnace, Commander. My crews' cousins. I'd feed them myself if I had it. I don't. You do."
+     ],
+     "next": "f"
+    },
+    "f": {
+     "who": "noor",
+     "mood": "thoughtful",
+     "text": [
+      "And mine under the cliffs. I asked you once to watch what grows. It is growing a day's walk from your gate, and it is hungry."
+     ],
+     "next": "g"
+    },
+    "g": {
+     "who": "seven",
+     "mood": "serious",
+     "text": [
+      "Camps will not ask forever. One moves on and another takes its place. Now and then one will appeal for a single thing, quickly. Now and then it will need a great deal at once, to become more than a camp.",
+      "You have two directions now, Commander. Out, to the harbour. And down the road. This node will hold both drawers open."
+     ]
+    }
+   }
+  },
+  "s06_appeal_answered": {
+   "title": "An Appeal, Answered",
+   "background": "freight_road.jpg",
+   "start": "a",
+   "cast": {
+    "speaker": {
+     "name": "Camp Speaker",
+     "title": "On a borrowed radio",
+     "color": "#D9B86C",
+     "side": "right"
+    }
+   },
+   "nodes": {
+    "a": {
+     "who": "seven",
+     "text": [
+      "Commander, an incoming call. It is not on an Office channel. It is on the frequency Dispatcher Dimaculangan uses to complain about potholes."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "speaker",
+     "text": [
+      "Is this on? Is this the Commander? Right. I was told to keep it short. We asked for one thing and it came. Same day, the whole amount. Nobody here expected that. Somebody cried. It was me. I'm not ashamed of it."
+     ],
+     "next": "c",
+     "tag": "radio"
+    },
+    "c": {
+     "who": "speaker",
+     "text": [
+      "We haven't much to send back, so we're sending people. Double turns this week, whatever it is we do for you. That was a vote. It was unanimous, which round here is unusual."
+     ],
+     "next": "d",
+     "tag": "radio"
+    },
+    "d": {
+     "who": "seven",
+     "mood": "thoughtful",
+     "text": [
+      "The call has ended. This node has logged it as an appeal, answered. The settlement is giving twice what it usually gives, for a time. This node did not instruct it to.",
+      "Appeals will come again, Commander, on no schedule, and they do not wait long. Nothing is charged for silence. This node recommends answering anyway."
+     ]
+    }
+   }
+  },
+  "s08_name_on_a_sign": {
+   "title": "A Name on a Sign",
+   "background": "colony_dusk.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "raf",
+     "mood": "happy",
+     "text": [
+      "Boss, your camp put a sign up. Proper one, painted, two posts. Got the name on it and a number underneath for how many live there. They've already had to repaint the number."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "pell",
+     "text": [
+      "Commander, forgive me. When I heard there was a sign I asked for a census. I ask everyone for a census. This one arrived, which was the first surprise."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "who": "pell",
+     "mood": "afraid",
+     "text": [
+      "I checked the names against a roll I keep in the archive. An old one, printed before the Lapse. Three of the people in that settlement are on it.",
+      "The roll has a column headed Returned. All three are ticked. I looked at the dates beside the ticks. Commander, the dates are this week."
+     ],
+     "choices": [
+      {
+       "label": "Who ticked them?",
+       "next": "d1"
+      },
+      {
+       "label": "Will you tell them?",
+       "next": "d2"
+      }
+     ]
+    },
+    "d1": {
+     "who": "pell",
+     "mood": "thoughtful",
+     "text": [
+      "I do not know. The ink is dry. It has been dry for a long time. I am no longer surprised by that sentence, and I would like it noted that I used to be."
+     ],
+     "next": "e"
+    },
+    "d2": {
+     "who": "pell",
+     "mood": "serious",
+     "text": [
+      "I thought about it. Then I thought about how I would feel, to be told I had been expected. I have decided the record may know before they do. For a while."
+     ],
+     "next": "e"
+    },
+    "e": {
+     "who": "seven",
+     "mood": "thoughtful",
+     "text": [
+      "At your assignment this node told you that better candidates were no longer reachable. This node wishes to amend the record. They are a day's walk east, and they have painted a sign."
+     ]
+    }
+   }
+  },
+  "s10_provisional_charter": {
+   "title": "Provisional Charter",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "seven",
+     "text": [
+      "Commander, the last drive is filled. The settlement no longer draws on the Core. It has a wall, a well, a name and a queue at the bakery. By the Office's own definitions it is not a camp."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "seven",
+     "mood": "thoughtful",
+     "text": [
+      "Under the Centennial Decree a place of that kind requires a charter. This node forwarded your own application to the Charter Office some time ago. It has forwarded it many times since. There has been no reply."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "who": "seven",
+     "mood": "serious",
+     "text": [
+      "This node has therefore issued a provisional charter, under its own stamp, on its own authority. It searched the regulations for a rule against this. There is one. This node has returned the rule to the drawer it came from."
+     ],
+     "choices": [
+      {
+       "label": "Can you do that?",
+       "next": "d1"
+      },
+      {
+       "label": "On what grounds?",
+       "next": "d2"
+      }
+     ]
+    },
+    "d1": {
+     "who": "seven",
+     "text": [
+      "No. It is done."
+     ],
+     "next": "e"
+    },
+    "d2": {
+     "who": "seven",
+     "mood": "happy",
+     "text": [
+      "The oldest draft of the Charter this node holds says a colony is held in trust until it can hold itself. This one can. The draft does not say who decides. This node has decided."
+     ],
+     "next": "e"
+    },
+    "e": {
+     "who": "signal",
+     "mood": "happy",
+     "text": [
+      "Listener. Another light. Kept."
+     ],
+     "next": "f"
+    },
+    "f": {
+     "who": "noor",
+     "mood": "happy",
+     "text": [
+      "You see, Seven. Cut back hard, and look what comes up."
+     ],
+     "next": "g"
+    },
+    "g": {
+     "who": "seven",
+     "mood": "thoughtful",
+     "text": [
+      "This node declines to concede the theory. It notes the light. Another camp may take the open line, Commander. This node suspects there will always be another camp."
+     ]
+    }
+   }
   }
  },
  "beats": [
@@ -2175,6 +2533,23 @@
     "body": [
      "Commander, the Office acknowledges receipt of your power supply. It will be recorded as \"adequate.\"",
      "Please note that power is now a shared resource. Everything you build competes for it. This is a design feature. It is also a warning."
+    ]
+   }
+  },
+  {
+   "id": "l01_reclaim",
+   "phase": "open",
+   "trigger": {
+    "type": "directive",
+    "id": "scrap"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Reclaim, and the order of things",
+    "body": [
+     "Commander, a note on Reclaim. It is everything the old world left lying about, sorted by weight. I have a ledger column for it. The column used to be headed Debris. I renamed it the day you started digging.",
+     "And a note on the work ledger. The crew builds in the order you file, and stops when a job cannot be paid for. I asked the foreman whether he could not start the second job while the first waited for parts. He said he tried that once, at another site, and ended the season with two halves of nothing. I have stamped his answer as policy."
     ]
    }
   },
@@ -2223,6 +2598,23 @@
    }
   },
   {
+   "id": "l02_neighbours",
+   "phase": "open",
+   "trigger": {
+    "type": "directive",
+    "id": "adjacency"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Zoning Observation",
+    "body": [
+     "Commander, the Office notes that two of your structures now work better for standing beside one another. The old zoning manual calls this synergy. This node calls it noticing.",
+     "The same manual lists what should not stand beside a home. The list is long and begins with the word 'furnace'. People will tell you the rest themselves, at night, with feeling."
+    ]
+   }
+  },
+  {
    "id": "m04_break_even",
    "phase": "campaign",
    "trigger": {
@@ -2235,7 +2627,8 @@
     "subject": "Break-Even Certificate",
     "body": [
      "Commander, the colony now produces at least as much as it consumes. Net Drag has paused. This is recorded as an achievement.",
-     "Please do not mistake a pause for a cure. Net Drag has paused before. The Office does not keep records of what happened to the previous Commanders. It is not a good omen that the field is empty."
+     "Please do not mistake a pause for a cure. Net Drag has paused before. The Office does not keep records of what happened to the previous Commanders. It is not a good omen that the field is empty.",
+     "One practical note. When hands run short, the crews staff the pumps, the beds and the lamps first, and everything else shares what is left. Nobody ordered this. The foremen say it is how you run a place you intend to still be in next week."
     ]
    }
   },
@@ -2267,6 +2660,87 @@
    }
   },
   {
+   "id": "r01_form_12r",
+   "phase": "open",
+   "trigger": {
+    "type": "hubLevel",
+    "min": 2
+   },
+   "delivery": "dialogue",
+   "scene": "r01_form_12r"
+  },
+  {
+   "id": "r02_receipt",
+   "phase": "open",
+   "trigger": {
+    "type": "requisitions",
+    "min": 1
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Receipt, Form 12-R",
+    "body": [
+     "Commander, the first requisition is filled and the receipt has come back. It is counter-stamped. Not by me.",
+     "I have looked at that stamp for some time. Same pattern as mine, same crest, a different number in the corner. I had assumed I was holding the last one. I find I do not mind being wrong.",
+     "The seconded crew arrived with the receipt. They are polite, they work hard, and they will not say where they sleep."
+    ]
+   }
+  },
+  {
+   "id": "r03_pattern",
+   "phase": "open",
+   "trigger": {
+    "type": "requisitions",
+    "min": 10
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Requisition Pattern",
+    "body": [
+     "Commander, this node has now processed ten requisitions and has compared their routing marks. They were issued from six different addresses. Each address is formatted as a Recontinuation Site.",
+     "This node was told it was Continuity Node 7. It had taken the number for a name. It now appears to be a count.",
+     "The goods you send are eaten somewhere, by someone, under a clock like yours. This node finds that it would like the forms to keep coming."
+    ]
+   }
+  },
+  {
+   "id": "r04_pencil",
+   "phase": "open",
+   "trigger": {
+    "type": "requisitions",
+    "min": 25
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "A note in the crate",
+    "body": [
+     "Commander, the last crate came back empty, as they do, except for a note pinned inside the lid. I am copying it out in full because I do not know which file it belongs in.",
+     "It reads: \"To whoever packs these. The filtrate arrived the day our tanks read zero. I have a stamp and nothing to stamp for you, so here is a pencil. Quartermaster, Site 4.\"",
+     "The pencil was in the crate. It is a good pencil. I am using it now."
+    ]
+   }
+  },
+  {
+   "id": "l03_plots",
+   "phase": "open",
+   "trigger": {
+    "type": "directive",
+    "id": "plots"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Surveyor's pegs",
+    "body": [
+     "Commander, the crew cleared the larger plot this morning and found surveyor's pegs already in the ground. Old ones. Brass, numbered, set at exactly the spacing we were about to use.",
+     "I checked the stores. This site has never held brass pegs. I have entered them as found property and had them put back where they were, because that appeared to be where they belonged."
+    ]
+   }
+  },
+  {
    "id": "m06_every_clock",
    "phase": "campaign",
    "trigger": {
@@ -2280,6 +2754,41 @@
     "body": [
      "Commander, I have collated reports from eleven sites. Every surviving clock disagrees with every other by exactly the same amount: 3.14 seconds. Not roughly. Exactly.",
      "I checked my own watch. It is also off by 3.14 seconds. Against what, I do not know. I am sorry. I have never been sorry about a clock before."
+    ]
+   }
+  },
+  {
+   "id": "l04_canteen",
+   "phase": "open",
+   "trigger": {
+    "type": "directive",
+    "id": "meals"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Canteen",
+    "body": [
+     "Commander, the canteen served its first hot meal today. I am told it was a stew. I am told this by eleven people, separately, which is how I know it mattered.",
+     "Somebody sang afterwards. I began a noise complaint out of habit and then tore it up. Please keep the paste coming. The stew is made of it, though the cooks would rather I did not say so."
+    ]
+   }
+  },
+  {
+   "id": "l05_sleep",
+   "phase": "open",
+   "trigger": {
+    "type": "directive",
+    "id": "quiet"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "On sleep",
+    "body": [
+     "Commander, a small matter. Since the homes were set away from the machines the night clerk reports that people are sleeping through. I asked what they dreamed, because I ask everything.",
+     "Four people on the same row described the same dream: a long corridor, and the lights coming on one at a time, toward them. None of them was frightened by it. I have filed it under Housing, there being no better folder.",
+     "I slept well myself. I did not dream of a corridor. I checked."
     ]
    }
   },
@@ -2311,6 +2820,59 @@
    }
   },
   {
+   "id": "a01_variance",
+   "phase": "open",
+   "trigger": {
+    "type": "recipes",
+    "min": 1
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Process Variance Notice",
+    "body": [
+     "Commander, a line in this colony is now running a process that is not the one printed on its casing. The Office calls this a variance. A variance requires a notice. This is the notice.",
+     "Every operating manual in the stores has a second chapter, sealed with a paper band that reads: Not to be opened before competence is demonstrated. This node has opened the band on your behalf. Further chapters open as the Command Hub and the territories grow, and the last ones only after the things you have not built yet.",
+     "Changing a line's process idles it while it retools. The manual does not apologise for this, and neither does this node."
+    ]
+   }
+  },
+  {
+   "id": "a02_margins",
+   "phase": "open",
+   "trigger": {
+    "type": "recipes",
+    "min": 6
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "Margins",
+    "body": [
+     "Commander, I have been reading the second chapters of the operating manuals, since somebody has broken the bands. The processes are sound. It is the margins I am writing to you about.",
+     "They are annotated. Pencil, several hands, all dated before the Lapse. One reads, \"They will have more Reclaim than they know what to do with. Give them this.\" Another, beside the mycelial feed, reads only, \"For the lean years.\"",
+     "I do not know who 'they' were meant to be. I have a suspicion. I would rather not put it in the record yet."
+    ]
+   }
+  },
+  {
+   "id": "a03_reclaim_mill",
+   "phase": "open",
+   "trigger": {
+    "type": "building",
+    "id": "reclamation_plant"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "The hill behind the hub",
+    "body": [
+     "Commander, the LMAO Reclaim Mill is running. For the record, I had been entering the Reclaim heap behind the hub as a hill. It appears on two of my maps as a hill. One of them has a contour line.",
+     "The mill eats it by the truckload and hands back things I can count. The crew have asked what LMAO stands for. The plate on the hopper gives the letters and nothing else. I have started a list of their guesses. None of them can be filed."
+    ]
+   }
+  },
+  {
    "id": "m08_upkeep",
    "phase": "campaign",
    "trigger": {
@@ -2324,6 +2886,67 @@
     "body": [
      "Commander, your Command Hub now draws on the colony simply to remain standing. This is called upkeep. It will climb.",
      "The Office has found that things which are large and unmaintained eventually fall. The hub is large. Maintain it."
+    ]
+   }
+  },
+  {
+   "id": "q01_second_crew",
+   "phase": "open",
+   "trigger": {
+    "type": "buildSlots",
+    "min": 2
+   },
+   "delivery": "dialogue",
+   "scene": "q01_second_crew"
+  },
+  {
+   "id": "q02_third_column",
+   "phase": "open",
+   "trigger": {
+    "type": "buildSlots",
+    "min": 3
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Third column",
+    "body": [
+     "Commander, a third crew is on the books. I have had to rule a new ledger, because the old one had room for two columns and a margin, and I am not giving up the margin.",
+     "The third foreman walked in from the road with her tools already on her back and asked which job was oldest. I have not asked where she learned the trade. The Office taught me never to look a gift foreman in the paperwork."
+    ]
+   }
+  },
+  {
+   "id": "l06_spine_alloy",
+   "phase": "open",
+   "trigger": {
+    "type": "directive",
+    "id": "alloys"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Spine Alloy",
+    "body": [
+     "Commander, the furnace has poured its first Spine Alloy. The Office records the grade as structural.",
+     "The furnace door carries a maker's plate. It reads: Black Industries. Property of. Return if found. This node has made enquiries about returning it. Nobody has come forward. The furnace is yours until somebody does."
+    ]
+   }
+  },
+  {
+   "id": "l07_ring_four",
+   "phase": "open",
+   "trigger": {
+    "type": "directive",
+    "id": "hub4"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Ring Four",
+    "body": [
+     "Commander, the fourth ring is open. From the road at night the colony now shows as a ring of lamps and not a single window. Drivers have begun to steer by it.",
+     "The Office did not plan to be a landmark. It notes that being one costs upkeep, and that the upkeep now includes goods you had to make. Nevertheless. People steer by you. Please stay where you are."
     ]
    }
   },
@@ -2460,6 +3083,23 @@
    }
   },
   {
+   "id": "a04_reserve_bank",
+   "phase": "open",
+   "trigger": {
+    "type": "building",
+    "id": "cell_bank"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Klein Reserve Bank",
+    "body": [
+     "Commander, the Klein Reserve Bank is on standby. When the grid falls short it will make up the difference from this site's stock of Klein Cells, and stop the moment it is not needed.",
+     "The first time it does so, nobody will notice. This node has reviewed the literature and believes that is the highest praise infrastructure receives."
+    ]
+   }
+  },
+  {
    "id": "d08_green_valley",
    "phase": "campaign",
    "trigger": {
@@ -2520,6 +3160,7 @@
     "subject": "Series-9 Beacon Online",
     "body": [
      "Commander, the Series-9 Beacon is built. It will not transmit until fully powered and supplied. Power it. Supply it. Hold it.",
+     "It will burn Klein Cells for every cycle it speaks. The Office has searched the schematic for a cheaper way to be heard. There is not one.",
      "This node has no instruction for what happens next. That is unusual for a node."
     ]
    }
@@ -2559,6 +3200,236 @@
    },
    "delivery": "dialogue",
    "scene": "d11b_the_message"
+  },
+  {
+   "id": "b01_standing_by",
+   "phase": "open",
+   "trigger": {
+    "type": "after",
+    "beat": "d11b_the_message",
+    "delayTicks": 5
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Series-9 Beacon: Standing By",
+    "body": [
+     "Commander, a housekeeping matter. The Series-9 Beacon has said what it was built to say, and it no longer burns Klein Cells. It asks only for enough power to stay lit.",
+     "The cells are yours again. This node suggests the Reserve Bank, the workshops, or whoever asks next.",
+     "This node also notes that the beacon is still humming. It is not transmitting. This node checked twice. The best available word is listening."
+    ]
+   }
+  },
+  {
+   "id": "s01_lights_on_the_road",
+   "phase": "open",
+   "trigger": {
+    "type": "after",
+    "beat": "d11b_the_message",
+    "delayTicks": 8
+   },
+   "delivery": "dialogue",
+   "scene": "s01_lights_on_the_road"
+  },
+  {
+   "id": "s02_form_7s",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "sponsored"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Form 7-S, countersigned",
+    "body": [
+     "Commander, the sponsorship is on the books. A cart left the Core this morning with the first basket, and one will leave every cycle from now on until you tell me otherwise. Off, half or full. I have had three stamps made.",
+     "The Core keeps a tenth of its storage back in every good, and the camp gets nothing below that line. You can move the line. I would not move it to nothing. I have seen a storeroom at nothing.",
+     "There is a second list, which they call a drive: everything they need at once to become more than they are. It can be filled in any amounts, whenever there is something to spare. Fill it and they ask for more, and give more. I am told this is called growth. On my ledger it looks exactly like a larger number in the wrong column."
+    ]
+   }
+  },
+  {
+   "id": "s03_cold_furnace",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "sponsored",
+    "kind": "foundry"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "mags",
+    "subject": "The cold furnace",
+    "body": [
+     "Commander. Heard you signed for the camp at the cold furnace. Good.",
+     "That furnace is a Number Four pattern, same as the ones we lost. The crew round it are stokers and riggers who walked out of the Cut the first winter because I couldn't feed them. I didn't stop them. I've thought about that.",
+     "Send them Reclaim and parts and they'll come and work your builds for it. They don't take charity. They take a job. Know the difference and you'll get along."
+    ]
+   }
+  },
+  {
+   "id": "s04_homestead",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "sponsored",
+    "kind": "valley"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "noor",
+    "subject": "The homestead",
+    "body": [
+     "Commander. The families under the cliffs have water and food from you now. I walked out to see them. I took seedlings. They took them the way people take a sleeping child.",
+     "Some of them will come to you in the mornings to work. Let them go home at night. It matters to them that the lamps they walk back to are their own.",
+     "One of the grandmothers asked me whether the Lapse was over. I said I did not know. She said she thought it was like weather: it is over when you stop bringing a coat. I have been thinking about it since."
+    ]
+   }
+  },
+  {
+   "id": "s05_junction",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "sponsored",
+    "kind": "depot"
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "the junction",
+    "body": [
+     "Boss! You signed for the junction. I could kiss you. I won't. Dispatcher's code.",
+     "That's the old Ammano waystation. Track, sidings, a water tower, a signal box with every lever still in it, and not one wagon. There's a stationmaster. Wears the cap and everything. Been keeping a timetable this whole time, for trains that don't come. Says it keeps the place ready.",
+     "Feed that yard and I can stack more on every run and push more down your links. Let it go short and the extra goes away again, so don't hang your whole road on borrowed room. That's free advice. First and last."
+    ]
+   }
+  },
+  {
+   "id": "s06_appeal_answered",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "answered"
+   },
+   "delivery": "dialogue",
+   "scene": "s06_appeal_answered"
+  },
+  {
+   "id": "s07_commuters",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "stage",
+    "kind": "valley",
+    "min": 2
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Headcount Discrepancy",
+    "body": [
+     "Commander, this node has found a discrepancy and wishes to report it before an auditor does. The workforce has risen. The count of stakeholders has not.",
+     "The difference arrives on foot at first light and leaves at dusk. They work a full turn, eat their own food and sleep under their own roofs. They draw no paste, no filtrate and no housing. The Office has no category for a worker who costs nothing to keep.",
+     "This node has created one. It is called 'commuter'. This node is told the word is very old."
+    ]
+   }
+  },
+  {
+   "id": "s08_name_on_a_sign",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "stage",
+    "min": 3
+   },
+   "delivery": "dialogue",
+   "scene": "s08_name_on_a_sign"
+  },
+  {
+   "id": "s09_last_drive",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "stage",
+    "min": 5
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "The last drive",
+    "body": [
+     "Commander, the settlement you sponsor has reached its last stage, and its final drive is on my desk. It is the longest list I have ever been handed, and I once inventoried a flood.",
+     "Fill it and they stand on their own. The carts stop. The line on your form comes free for another camp. They go on giving a share of what they give now, unasked, for good, and the run carries a little more because there is somewhere new on the road worth stopping at.",
+     "I am told it is customary to feel a loss when an account closes. I intend to stamp this one 'settled'. It will be the only time I have enjoyed that stamp."
+    ]
+   }
+  },
+  {
+   "id": "s10_provisional_charter",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "partner"
+   },
+   "delivery": "dialogue",
+   "scene": "s10_provisional_charter"
+  },
+  {
+   "id": "s11_new_map",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "partner",
+    "min": 3
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "A new map",
+    "body": [
+     "Commander, I have had to draw a new map, and I want to tell you why that sentence matters to me. Since the Lapse, every correction I have made to a map has been a removal. A town struck out. A road ended early. A coastline brought in.",
+     "Tonight I added three names. They are places that were not there last season and that answer now when they are called. I used ink. I have not used ink on a map in years, because pencil is easier to take back.",
+     "I asked each of them the time. Their clocks are out by 3.14 seconds, like every clock I know of. I have stopped writing 'wrong' beside that figure. If every clock keeps it, perhaps it is the hour that moved."
+    ]
+   }
+  },
+  {
+   "id": "s12_the_one_who_picks_up",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "answered",
+    "min": 10
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "you've got a name out there",
+    "body": [
+     "Boss. Road talk, free this once. The camps have a word for you. I won't say it, you'd get ideas. It means the one who picks up.",
+     "Ten times now somebody out there has asked for one thing in a hurry and got it. Drivers carry that story further than I carry freight. New camps are pitching nearer the road because of it.",
+     "Keep an eye on who's asking. They don't ask for long, and it's never the same lot twice."
+    ]
+   }
+  },
+  {
+   "id": "s13_many_lights",
+   "phase": "open",
+   "trigger": {
+    "type": "settlement",
+    "flag": "partner",
+    "min": 6
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "nobody",
+    "subject": "(none)",
+    "body": [
+     "Listener. Many lights now. We count them. Three. One. Four. One. Five. Nine."
+    ]
+   }
   },
   {
    "id": "d12_someone_heard",
@@ -3024,6 +3895,91 @@
    },
    "delivery": "dialogue",
    "scene": "x15_fragment"
+  },
+  {
+   "id": "p01_one_hundred",
+   "phase": "open",
+   "trigger": {
+    "type": "population",
+    "min": 100
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "vane",
+    "subject": "Headcount, one hundred",
+    "body": [
+     "Commander, the roll passed one hundred this morning. I know because I ran out of lines on the first sheet.",
+     "The hundredth is a boy of about six who came in on his mother's shoulders and has already asked me what every stamp is for. I told him. He now knows more about Form 7 than most Commanders. Present company excepted, I am sure."
+    ]
+   }
+  },
+  {
+   "id": "p02_three_hundred",
+   "phase": "open",
+   "trigger": {
+    "type": "population",
+    "min": 300
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "pell",
+    "subject": "The roll, read aloud",
+    "body": [
+     "Commander, with three hundred people the evening roll now takes eleven minutes to read. I timed it. I know what that figure sounds like to the Dispatcher, and I would rather it were a coincidence.",
+     "People have started coming to listen. Nobody asked them to. They stand at the back and wait for their own name, and then they stay for everyone else's. I had thought of the roll as a record. It appears to be a service."
+    ]
+   }
+  },
+  {
+   "id": "h01_stubborn",
+   "phase": "open",
+   "trigger": {
+    "type": "hazards",
+    "min": 3
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "three and counting",
+    "body": [
+     "Boss, that's three times the weather's come at you and three times you're still on my route sheet. Drivers keep a board at the depot for sites that take a hit. Yours had 'probably gone' on it. Somebody's put a line through that and written 'stubborn'.",
+     "Keep the posts manned and the stores clean. I don't say that because I care. I say it because you owe me for last week's run."
+    ]
+   }
+  },
+  {
+   "id": "h02_review",
+   "phase": "open",
+   "trigger": {
+    "type": "hazards",
+    "min": 8
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "seven",
+    "subject": "Hazard Review",
+    "body": [
+     "Commander, eight events have now struck this colony. The cause field is blank on all eight forms. This node has stopped apologising for that and has begun keeping them in a drawer of their own.",
+     "A pattern, offered without a theory. Each event was forecast. Each arrived on its forecast. None arrived while the colony was unattended. The Office calls that luck. This node has read the definition of luck and does not think it applies."
+    ]
+   }
+  },
+  {
+   "id": "mi01_chalk_board",
+   "phase": "open",
+   "trigger": {
+    "type": "missions",
+    "min": 10
+   },
+   "delivery": "mail",
+   "mail": {
+    "from": "raf",
+    "subject": "ten postings",
+    "body": [
+     "Boss, ten postings filled. The Harbour's noticed. There's a chalk board by the customs shed with names on it and yours has moved up twice this week.",
+     "Tip. The three crowds out here don't want the same things and don't much like each other. Do right by all three and the board has a line for that too. I've never seen a name on it."
+    ]
+   }
   }
  ]
 }

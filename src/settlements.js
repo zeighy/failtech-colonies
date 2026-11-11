@@ -277,7 +277,7 @@ function answer(c, { id }, tick) {
   takeCore(c, a.good, a.qty);
   addStanding(c.id, typeOf(s).faction, Math.round(S.appeal.standing * s.stage * traitOf(s).standingMult));
   const gap = between(ms.rng(ms.hash(`gap:${s.id}:${tick}`)), S.appeal.gapTicks);
-  db.prepare('UPDATE settlements SET appeal = NULL, next_appeal = ?, boon_until = ?, sent = sent + ? WHERE id = ?').run(tick + gap, Math.max(tick, s.boon_until) + S.appeal.boonTicks, a.qty, s.id);
+  db.prepare('UPDATE settlements SET appeal = NULL, answers = answers + 1, next_appeal = ?, boon_until = ?, sent = sent + ? WHERE id = ?').run(tick + gap, Math.max(tick, s.boon_until) + S.appeal.boonTicks, a.qty, s.id);
   store.addEvent(c.id, tick, 'good', `${s.name}'s appeal was answered: ${a.qty} ${R[a.good].name}.`);
   forget();
   return OK;
