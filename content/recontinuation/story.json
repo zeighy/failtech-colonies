@@ -2242,7 +2242,10 @@
   },
   "s01_lights_on_the_road": {
    "title": "Lights on the Road",
-   "background": "freight_road.jpg",
+   "background": [
+    "camp_road_dusk.jpg",
+    "camp_road_dawn.jpg"
+   ],
    "start": "a",
    "nodes": {
     "a": {
@@ -2302,7 +2305,8 @@
      "text": [
       "Those are Cut people round that furnace, Commander. My crews' cousins. I'd feed them myself if I had it. I don't. You do."
      ],
-     "next": "f"
+     "next": "f",
+     "background": "camp_furnace.jpg"
     },
     "f": {
      "who": "noor",
@@ -2310,7 +2314,8 @@
      "text": [
       "And mine under the cliffs. I asked you once to watch what grows. It is growing a day's walk from your gate, and it is hungry."
      ],
-     "next": "g"
+     "next": "g",
+     "background": "camp_homestead.jpg"
     },
     "g": {
      "who": "seven",
@@ -2318,13 +2323,19 @@
      "text": [
       "Camps will not ask forever. One moves on and another takes its place. Now and then one will appeal for a single thing, quickly. Now and then it will need a great deal at once, to become more than a camp.",
       "You have two directions now, Commander. Out, to the harbour. And down the road. This node will hold both drawers open."
-     ]
+     ],
+     "background": "camp_junction.jpg"
     }
    }
   },
   "s06_appeal_answered": {
    "title": "An Appeal, Answered",
-   "background": "freight_road.jpg",
+   "background": [
+    "camp_furnace.jpg",
+    "camp_homestead.jpg",
+    "camp_junction.jpg",
+    "camp_road_dawn.jpg"
+   ],
    "start": "a",
    "cast": {
     "speaker": {
@@ -2370,7 +2381,7 @@
   },
   "s08_name_on_a_sign": {
    "title": "A Name on a Sign",
-   "background": "colony_dusk.jpg",
+   "background": "settlement_sign.jpg",
    "start": "a",
    "nodes": {
     "a": {
@@ -2489,7 +2500,11 @@
      "text": [
       "Listener. Another light. Kept."
      ],
-     "next": "f"
+     "next": "f",
+     "background": [
+      "settlement_night.jpg",
+      "settlement_day.jpg"
+     ]
     },
     "f": {
      "who": "noor",

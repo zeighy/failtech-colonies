@@ -5,7 +5,7 @@
 //
 //   characters  { id: { name, title?, color?, portrait? (large, for scenes), avatar? (square, for the call card and mail window;
 //               falls back to the portrait), side? ('left'|'right') } }
-//   scenes      { id: { title?, background? (file in assets/), start, nodes: { nodeId: node } } }
+//   scenes      { id: { title?, background? (file in assets/, or a list of them to pick from at random), start, nodes: { nodeId: node } } }
 //     node      { who: characterId | null (narration), text: [passage, ...], next?: nodeId, choices?: [{ label, next }] }
 //               A node with neither next nor choices ends the scene. Choices only pick the next node.
 //   beats       [ { id, phase: 'campaign' | 'open', trigger, delivery: 'dialogue' | 'mail', scene?, mail? } ]
@@ -50,6 +50,9 @@ const COLOR = /^#[0-9a-f]{3,8}$/i;
 const MEDIA_EXT = { image: /\.(png|jpe?g|webp|gif)$/i, audio: /\.(mp3|ogg|opus|m4a|wav)$/i, video: /\.(mp4|webm)$/i };
 const MEDIA_FIELDS = [['background', 'image'], ['image', 'image'], ['audio', 'audio'], ['music', 'audio'], ['video', 'video']];
 const MOODS = ['happy', 'sad', 'angry', 'afraid', 'surprised', 'serious', 'thoughtful'];
+// A backdrop is one image file, or a list of them: the game picks one at random each time the scene is played.
+const bgList = (v) => (Array.isArray(v) ? v : [v]);
+const bgOk = (v) => (typeof v === 'string' || (Array.isArray(v) && v.length > 0)) && bgList(v).every((f) => typeof f === 'string' && FILE.test(f) && MEDIA_EXT.image.test(f));
 const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
 
 // Orbit milestones a beat can wait for (see src/orbital.js setFlag, and the launch site).
@@ -107,7 +110,7 @@ function validate(story, cfg = config) {
   for (const [id, sc] of Object.entries(story.scenes)) {
     const w = `scenes.${id}`;
     if (!isPlain(sc.nodes) || !own(sc.nodes, sc.start)) { bad(w, '"start" must name one of its nodes'); continue; }
-    if (sc.background !== undefined && !(typeof sc.background === 'string' && FILE.test(sc.background))) bad(w, 'background must be a plain file name in assets/');
+    if (sc.background !== undefined && !bgOk(sc.background)) bad(w, 'background must be an image file name in assets/, or a list of them');
     if (sc.cast !== undefined) {
       if (!isPlain(sc.cast)) bad(w, '"cast" must be an object of characters');
       else for (const [cid, ch] of Object.entries(sc.cast)) { if (own(story.characters, cid)) bad(w, `cast "${cid}" is already a shared character`); checkChar(`${w}.cast.${cid}`, ch); }
@@ -121,6 +124,7 @@ function validate(story, cfg = config) {
       for (const [f, kind] of MEDIA_FIELDS) {
         const v = node[f];
         if (v === undefined || (f === 'music' && v === 'stop')) continue;
+        if (f === 'background') { if (!bgOk(v)) bad(nw, 'background must be an image file name in assets/, or a list of them'); continue; }
         if (!(typeof v === 'string' && FILE.test(v) && MEDIA_EXT[kind].test(v))) bad(nw, `${f} must be a plain ${kind} file name in assets/`);
       }
       if (node.tag !== undefined && !nonEmpty(node.tag)) bad(nw, 'tag must be text');
@@ -168,10 +172,16 @@ function dropMissingArt(story) {
   const notes = [];
   const have = (f) => fs.existsSync(path.join(theme.dir(), 'assets', f));
   for (const [id, ch] of Object.entries(story.characters)) for (const f of ['portrait', 'avatar']) if (ch[f] && FILE.test(ch[f]) && !have(ch[f])) { notes.push(`characters.${id}: ${f} "${ch[f]}" is not in assets/ yet`); delete ch[f]; }
-  for (const [id, sc] of Object.entries(story.scenes)) if (sc.background && FILE.test(sc.background) && !have(sc.background)) { notes.push(`scenes.${id}: background "${sc.background}" is not in assets/ yet`); delete sc.background; }
+  // A backdrop that is a list keeps the files that are there; one with none left is dropped.
+  const keepBg = (w, o) => {
+    if (!o.background) return;
+    const kept = bgList(o.background).filter((f) => { if (have(f)) return true; notes.push(`${w}: background "${f}" is not in assets/ yet`); return false; });
+    if (!kept.length) delete o.background; else o.background = Array.isArray(o.background) ? kept : kept[0];
+  };
+  for (const [id, sc] of Object.entries(story.scenes)) keepBg(`scenes.${id}`, sc);
   for (const [id, sc] of Object.entries(story.scenes)) {
     for (const [cid, ch] of Object.entries(sc.cast || {})) for (const f of ['portrait', 'avatar']) if (ch[f] && FILE.test(ch[f]) && !have(ch[f])) { notes.push(`scenes.${id}.cast.${cid}: ${f} "${ch[f]}" is not in assets/ yet`); delete ch[f]; }
-    for (const [nid, nd] of Object.entries(sc.nodes)) for (const [f] of MEDIA_FIELDS) if (nd[f] && !(f === 'music' && nd[f] === 'stop') && !have(nd[f])) { notes.push(`scenes.${id}.${nid}: ${f} "${nd[f]}" is not in assets/ yet`); delete nd[f]; }
+    for (const [nid, nd] of Object.entries(sc.nodes)) for (const [f] of MEDIA_FIELDS) if (f === 'background') keepBg(`scenes.${id}.${nid}`, nd); else if (nd[f] && !(f === 'music' && nd[f] === 'stop') && !have(nd[f])) { notes.push(`scenes.${id}.${nid}: ${f} "${nd[f]}" is not in assets/ yet`); delete nd[f]; }
   }
   // Which mood portraits exist, and which moods the script asks for that are not drawn yet.
   const used = {};

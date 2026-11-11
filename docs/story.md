@@ -116,7 +116,7 @@ A scene can bring its **own cast** and carry **images, sound and video**, which 
 
 - `cast`: characters that exist only in this scene (same fields as `characters`; a cast id may not repeat a shared character). Portraits and moods work the same way; with no portrait the game shows initials.
 - Node media, all plain file names in `assets/`, each checked for its file type (`check-content` lists any that are missing and the game simply leaves them out until the file exists):
-  - `background`: an image that replaces the scene's backdrop from this node on. `image`: a plate shown over the stage for this node only.
+  - `background`: an image that replaces the scene's backdrop from this node on. A scene's or a node's `background` may also be a list of images (`["camp_a.jpg", "camp_b.jpg"]`): the game picks one at random each time the scene is played. `image`: a plate shown over the stage for this node only.
   - `audio`: a sound played once when the node is shown (`.mp3 .ogg .opus .m4a .wav`). `music`: a loop that continues across nodes until another node sets `music` or `"stop"`; it stops when the scene ends or is minimised.
   - `video`: (`.mp4 .webm`) plays full screen before the node's words, with controls and a Continue button; the text follows when it ends or is continued.
 - Browsers only start sound after a click or key press. A scene always starts from one, so this is normally fine.

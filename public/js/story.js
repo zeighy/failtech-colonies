@@ -107,6 +107,7 @@
   function cur() { return p.scene.nodes[p.node]; }
   // A scene may bring its own cast (a narrator, a voice on a recording) beside the shared characters.
   function charOf(id) { return id && (content.characters[id] || (p && p.scene.cast && p.scene.cast[id])) || null; }
+  function pickBg(v) { return Array.isArray(v) ? v[Math.floor(Math.random() * v.length)] : v; }
   function asset(f) { return '/theme-assets/' + encodeURIComponent(f); }
   // Sound and picture a node can carry: its own background, a plate (an image shown over the stage), a sound that plays once,
   // music that loops until another node changes it, and a video that plays before the words.
@@ -138,8 +139,11 @@
     if (ch) p.last[ch.side === 'left' ? 'left' : 'right'] = { id: n.who, mood: n.mood };
     var text = n.text[p.i];
     var lastPassage = p.i >= n.text.length - 1;
-    if (n.background) p.bgFile = n.background; // a node can change the backdrop, and it stays until another does
-    var bgFile = p.bgFile || p.scene.background;
+    // A node can change the backdrop, and it stays until another does. A backdrop given as a list is one picked at random,
+    // once for each time the scene is played.
+    if (n.background && p.bgFor !== p.node) { p.bgFor = p.node; p.bgFile = pickBg(n.background); }
+    if (p.sceneBg === undefined) p.sceneBg = pickBg(p.scene.background) || null;
+    var bgFile = p.bgFile || p.sceneBg;
     var bg = bgFile ? ' style="background-image:url(' + asset(bgFile) + ')"' : '';
     if (n.video && p.videoDone !== p.node) {
       el.innerHTML = '<div class="vn-bg"' + bg + '></div><div class="vn-shade"></div><div class="vn-video"><video src="' + asset(n.video) + '" controls autoplay playsinline></video>' +

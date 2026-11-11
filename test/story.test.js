@@ -296,6 +296,15 @@ test('new validation rules: prompt needs choices, trigger progress needs a numbe
   assert.equal(theme.apply(cfg, { ranks: { nobody: [{ min: 0, name: 'A' }] } }).length, 1);
 });
 
+test('a backdrop is one image or a list to pick from', () => {
+  const edit = (f) => { const s = good(); f(s); return story.validate(s).join('\n'); };
+  assert.equal(edit((s) => { s.scenes.s.background = 'a.jpg'; s.scenes.s.nodes.y.background = ['b.jpg', 'c.webp']; }), '');
+  assert.equal(edit((s) => { s.scenes.s.background = ['a.jpg', 'b.jpg']; }), '');
+  assert.match(edit((s) => { s.scenes.s.background = []; }), /background must be an image/);
+  assert.match(edit((s) => { s.scenes.s.background = ['a.jpg', '../b.jpg']; }), /background must be an image/);
+  assert.match(edit((s) => { s.scenes.s.nodes.x.background = ['a.mp3']; }), /background must be an image/);
+});
+
 // ---- the Recontinuation script, run as a whole -----------------------------------
 test('Recontinuation: 13 campaign dialogues, 22 campaign mails and the open beats, every one reachable, the campaign in the written order', () => {
   const s = theme.readJson(path.join(theme.ROOT, 'recontinuation', 'story.json'));
