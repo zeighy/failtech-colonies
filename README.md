@@ -10,7 +10,7 @@ The game ships with a story and a full theme: **Recontinuation** (Earth after th
 2. **Click an empty slot** on the radar to see what you can build. The menu shows costs, inputs and outputs, the adjacency bonus *for that exact slot*, whether the **plot is big enough**, and what building it would do to your power and rates. Each place builds **one thing at a time** until its hub buys more build slots: anything more joins its **work queue** and is built in order (see Systems).
 3. **Click a structure** to inspect it: efficiency, what is limiting it, neighbours, plot fit. You can pause it (saves power), switch on an optional input, expand it, **replace** it with another building on the same plot, or demolish it (50% refund; a configured workshop also leaves its slot clearing for a while, as long as a recipe change takes).
 4. Your people drink and eat every tick. If clean water or rations run out, morale falls and people leave. If hope runs out the colony **shuts down** instead of collapsing: non-essential buildings are parked and you decide whether to rebuild or start over (see Systems).
-5. **Goal:** build the Beacon Array and keep it running until the transmission completes (25 signal). Everything else exists to make that possible. Then the harbour opens, and the game turns open-ended.
+5. **Goal:** build the Beacon Array and keep it running until the transmission completes (25 signal). Everything else exists to make that possible. Once it has sent, the Beacon stops burning power cells and only needs power. Then the harbour opens, and the game turns open-ended.
 6. **Orbit:** with 500 standing across the factions, a second chapter opens (it stays hidden until then). Launch a station, then send dropships to the anomalies (see [Orbit](#orbit)).
 
 The **Brief** tab is your guide. It shows a **collapse clock** (ticks until collapse at current rates, also in the top bar), any **incoming hazard** with how prepared you are, and a roadmap of **directives** that hint at what is missing without telling you what to build. Directives stay ticked once earned. The survival ones tell you whether you are on track, tight, behind schedule or blocked, by comparing how long your stock lasts with the earliest you could finish the fix. Hazards also mark the structures they touch on the map (red **!** = being hurt, amber ring = paying a maintenance cost, dashed ring = in the forecast's path).
@@ -134,7 +134,7 @@ src/security.js    Headers, same-origin check, rate limits, login throttle      
 src/db.js          Schema (v18) and migrations, session store, colony helpers
 game_config.json   All balance data (no wording that a theme replaces matters here; ids are stable)
 content/           One folder per theme: theme.json (wording), story.json (narrative), assets/ (portraits, backgrounds)
-scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md), playtest.js (a scripted player for tuning, see below)
+scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md), playtest.js and playtest-orbit.js (scripted players for tuning, see below)
 public/            index.html (login), game.html (desk layout), mobile.html (phone layout), css/ (style.css, mobile.css), js/ (game.js, orbit.js for the Orbital Command view)
 docs/              districts.md (district system, exchange, Free Port, roadmap), orbital.md (orbit endgame), story.md (theme and story format), security.md, content-needs.md
 test/              node:test suites: simulation, balance guard, hazards, express convoy, districts and migration, exchange, Free Port, orbit, expansion and growth, shutdown, backups, story and themes, security, HTTP API
@@ -210,6 +210,8 @@ npm run playtest -- --persona trader             # no districts: sells Core good
 npm run playtest -- --cadence 20 --hazards on    # only looks in every 20 ticks, with hazards
 npm run playtest -- --until station --max 9000   # carry on past the Beacon: Free Port, missions, the launch
 ```
+
+`npm run playtest:orbit` does the same for the orbital stage. It starts from a station freshly launched over a colony that is assumed to have plenty of every ground good, and runs expeditions, the foundry, storage slots and links for a set number of ticks (`--ticks 8000 --upgrades none|storage|all`). It reports how fast rare resources and orbital goods come in, what the ground had to send up for them, and what was lost for want of a storage slot.
 
 It reports, it does not assert (`test/balance.test.js` is the guard), and its numbers are a floor: the player never sleeps and never misreads anything, but it also places buildings without regard for adjacency and never expands one. A convoy price change has to keep two things true, which `test/recipes.test.js` checks: no recipe turns goods bought from the convoy into goods that sell for more, and no step of a chain is worth less than what went into it. Trade goods' prices are derived from their ingredients (`tradeWorks.priceRatio` × the inputs at the middle of their buy and sell prices), so they have to be recalculated when an ingredient's price moves.
 

@@ -679,3 +679,19 @@ test('orbital upgrades and dropships cost credits as well as goods, taken from t
   // a dropship's repair bill never includes credits
   assert.ok(!('credits' in (JSON.parse(db.prepare('SELECT invested FROM dropships WHERE colony_id = ?').get(c.id).invested))));
 });
+
+// (last in the file: several tests above depend on which tick they run at)
+test('orbital storage: a trickle with no slot is lost as it is made, and the player is told', () => {
+  const c = launched('Drip Tray');
+  const did = c.station.district_id;
+  const inv = store.loadInventory(c.id, did);
+  for (const r of ['scrap', 'ore', 'crude', 'fuel', 'alloys']) inv[r] = 10; // more than the free slots: every slot is taken
+  store.saveInventory(c.id, inv, did);
+  tick(1);
+  assert.ok(!orbital.hasRoomFor(c.id, 'lattice_cores'));
+  db.prepare('DELETE FROM colony_events WHERE colony_id = ?').run(c.id);
+  // a foundry makes less than one a tick
+  for (let i = 0; i < 20; i++) { const cur = store.loadInventory(c.id, did); cur.lattice_cores = 0.5; store.saveInventory(c.id, cur, did); tick(1); }
+  assert.equal(store.loadInventory(c.id, did).lattice_cores, 0);
+  assert.ok(db.prepare("SELECT 1 FROM colony_events WHERE colony_id = ? AND message LIKE 'No storage slot in orbit%lost as it is made%'").get(c.id));
+});

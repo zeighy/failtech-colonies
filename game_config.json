@@ -1371,6 +1371,11 @@
         "energy": 60,
         "power_cells": 1
       },
+      "afterTransmit": {
+        "inputsPerTick": {
+          "energy": 60
+        }
+      },
       "outputsPerTick": {},
       "minPlotSize": 5,
       "color": "#ffffff",

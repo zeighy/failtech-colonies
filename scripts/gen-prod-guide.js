@@ -171,7 +171,7 @@ add('## **14b. Requisitions**',
   'Earning a boon that is already running adds to the time left.');
 
 add('## **15. The Beacon**',
-  `Build the ${bn('beacon_array')} (only one; it wants a ${plot(B.beacon_array.minPlotSize)} plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **${G.beacon.transmitTicks} signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes ${(C.districtTypes.freeport || {}).name || 'the Free Port'} available.`);
+  `Build the ${bn('beacon_array')} (only one; it wants a ${plot(B.beacon_array.minPlotSize)} plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **${G.beacon.transmitTicks} signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes ${(C.districtTypes.freeport || {}).name || 'the Free Port'} available.${B.beacon_array.afterTransmit ? ` Once the transmission is complete the Beacon stops burning its inputs and only needs ${list(B.beacon_array.afterTransmit.inputsPerTick)} to stay lit.` : ''}`);
 
 // ---- orbit
 const O = C.orbital, OT = C.orbitalTypes;

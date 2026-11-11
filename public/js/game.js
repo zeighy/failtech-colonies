@@ -1047,7 +1047,8 @@
       (d.buffer ? '' : '<div class="label sec">Per tick at current efficiency</div><div class="io">' + ioPills(ioOf(b, d), (b.paused ? 0 : b.eff) * (b.xscale || 1), b.mult * b.haz) + '</div>') +
       (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult) + ' storage each') + '</div>' : '') +
       (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult).toFixed(1) + '</span></div>' : '') +
-      (d.transmit ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:#fff"></i>Signal ' + (b.eff * b.mult).toFixed(2) + ' / tick</span></div>' : '');
+      (d.transmit && !(d.afterTransmit && S.colony.won) ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:#fff"></i>Signal ' + (b.eff * b.mult).toFixed(2) + ' / tick</span></div>' : '') +
+      (d.afterTransmit && S.colony.won ? '<div class="note good" style="margin-top:8px">The transmission is complete. The Beacon only has to be kept powered now.</div>' : '');
     if (d.buffer) h += bufferCard(b, d);
     if (d.alternatives && !activeD().orbital) h += processCard(b, d);
     if (d.expand) h += expansionCard(b, d);
@@ -1072,7 +1073,10 @@
 
 
   // ---- alternative recipes: another way to run the same building, opening up as the colony progresses ------
-  function ioOf(b, d) { var alt = d.alternatives && b.recipe && d.alternatives[b.recipe]; return alt ? { inputsPerTick: alt.inputsPerTick, outputsPerTick: alt.outputsPerTick } : d; }
+  function ioOf(b, d) {
+    if (d.afterTransmit && S.colony.won) return { inputsPerTick: d.afterTransmit.inputsPerTick, outputsPerTick: d.outputsPerTick || {} }; // the Beacon has sent: it only needs power now
+    var alt = d.alternatives && b.recipe && d.alternatives[b.recipe]; return alt ? { inputsPerTick: alt.inputsPerTick, outputsPerTick: alt.outputsPerTick } : d;
+  }
   function altOpen(alt) {
     var u = alt.unlock || {};
     return !(u.level && activeD().level < u.level) && !(u.milestone && !(S.milestones || {})[u.milestone]);

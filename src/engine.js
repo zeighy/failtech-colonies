@@ -213,7 +213,10 @@ function tickColony(c, globalTick, tickTime) {
     projects.advanceColony(c, stationR.inventory, globalTick);
     orbital.arrivals(c, stationR.inventory, globalTick, inventory);
     for (const l of orbital.enforceSlots(c.id, stationR.inventory, stationR.cap)) {
-      if (!l.full && l.qty >= 1) ev('warn', `No storage slot in orbit for ${config.resources[l.resource].name}: ${Math.floor(l.qty)} lost.`);
+      if (l.full) continue;
+      if (l.qty >= 1) ev('warn', `No storage slot in orbit for ${config.resources[l.resource].name}: ${Math.floor(l.qty)} lost.`);
+      // a foundry makes less than one a tick: without a slot its whole output drains away a fraction at a time, so say so now and then
+      else if (globalTick % 20 === 0) ev('warn', `No storage slot in orbit for ${config.resources[l.resource].name}: what is being made is lost as it is made.`);
     }
   }
 

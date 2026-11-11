@@ -332,7 +332,7 @@ From Core level 2, 2 requests at a time for ordinary goods, each a set amount wi
 Earning a boon that is already running adds to the time left.
 
 ## **15. The Beacon**
-Build the Series-9 Beacon (only one; it wants a Colossal plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **25 signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes The Sanctuary Port available.
+Build the Series-9 Beacon (only one; it wants a Colossal plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **25 signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes The Sanctuary Port available. Once the transmission is complete the Beacon stops burning its inputs and only needs 60 power to stay lit.
 
 ## **16. Orbit (endgame)**
 Hidden until the colony's standing with all factions adds up to **500** (the Brief only hints at it before then). Then three buildings appear: the Orbital Staging Platform and the Orbital Catapult in the Core, each on its own Colossal plot and side by side, and the Orbital Command Center in The Sanctuary Port on a Heavy plot.

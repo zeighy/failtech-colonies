@@ -364,4 +364,13 @@ test('beacon: transmits only while running; a full-size plot is faster than a cr
   while (!s.won && t < 200) { s = advance(s, sim.step(config, s, nm)); t++; s.inventory.power_cells = 100; s.inventory.scrap = 1000; s.inventory.machined_parts = 100; s.inventory.alloys = 100; s.inventory.circuits = 100; }
   assert.ok(s.won);
   assert.ok(t >= config.global.beacon.transmitTicks && t < config.global.beacon.transmitTicks + 3, `won after ${t} ticks`);
+  // once it has sent, it only needs power: it stops burning power cells, and runs without any
+  assert.deepEqual(Object.keys(config.buildings.beacon_array.afterTransmit.inputsPerTick), ['energy']);
+  const before = sim.step(config, mk(5), nm);
+  assert.ok(before.flows.power_cells.consumed > 0.99, 'while transmitting it burns a cell a tick');
+  const sent = mk(5); sent.won = true; sent.inventory.power_cells = 0;
+  const after = sim.step(config, sent, nm);
+  assert.equal(after.flows.power_cells.consumed, 0);
+  const bb = sent.buildings.find((x) => x.type === 'beacon_array');
+  assert.ok(after.buildings.get(bb.id).eff > 0.99, 'and is not starved for want of them');
 });

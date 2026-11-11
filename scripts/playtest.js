@@ -621,7 +621,7 @@ function endgame(c) {
     }
     return;
   }
-  // the Beacon has done its work; left on it burns a power cell every tick
+  // the Beacon has done its work; switched off it frees the power it still draws
   const beacon = store.loadBuildings(id, core.id).find((b) => b.type === 'beacon_array');
   if (beacon && beacon.status === 'active') actions.toggle(uid, { ring: beacon.ring, slot: beacon.slot, paused: true });
   freePortStep(fp, c);

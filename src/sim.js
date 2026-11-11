@@ -296,6 +296,9 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
       .map(([r, s]) => grid.get(key(r, s)))
       .filter(Boolean);
     const rt = rates(config, def, b, b.ring, d.type);
+    // Once the transmission is complete the Beacon only has to be kept powered (def.afterTransmit): it stops burning
+    // what it needed to send, so that production can go to other things.
+    if (ctx.won && def.afterTransmit) rt.inputs = def.afterTransmit.inputsPerTick;
     let adj = adjacencyMultiplier(config, b.type, nbs.map((n) => n.type));
     if (def.recipeBuilding && b.recipe) adj = Math.min(1.6, Math.max(0.5, adj * recipeAdjacency(config, b.recipe, nbs.filter((n) => n.recipe && !n.resetting).map((n) => n.recipe), def)));
     const plot = plotMultiplier(config, def, b.ring, d.type);
@@ -559,7 +562,7 @@ function stepColony(config, colony, districts, opts = {}) {
   const morOut = moraleMultiplier(config, colony.morale);
 
   const automated = (d) => !!(config.orbitalTypes && config.orbitalTypes[d.type]);
-  const results = districts.map((d) => stepDistrict(config, d, { staff: staffRest, staffVital, morOut: automated(d) ? 1 : morOut, globalOut: opts.globalOut }, maps[d.type], modsOf(d)));
+  const results = districts.map((d) => stepDistrict(config, d, { staff: staffRest, staffVital, morOut: automated(d) ? 1 : morOut, globalOut: opts.globalOut, won: !!colony.won }, maps[d.type], modsOf(d)));
   const core = results[coreIdx];
   const inv = core.inventory;
   const flows = core.flows;
