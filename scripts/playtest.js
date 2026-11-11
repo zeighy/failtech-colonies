@@ -6,7 +6,8 @@
 //
 //   node scripts/playtest.js [--persona builder|engineer|trader] [--until beacon|station] [--cadence N]
 //                            [--hazards on|off] [--max TICKS] [--json FILE] [--trace FILE] [--quiet]
-//                            [--alts on|off] [--reqs on|off] [--exports on|off] [--slots on|off] [--dump]
+//                            [--alts on|off] [--reqs on|off] [--exports on|off] [--slots on|off] [--settle on|off] [--dump]
+//                            [--path both|settle|orbit] [--reserve 0..0.9] [--steady off|half|full] [--drives on|off] [--supply on|off] [--probe T1,T2]
 //
 // Personas:
 //   builder   base recipes only, no trade, no requisitions (the player the balance test plays)
@@ -21,6 +22,13 @@
 // Beacon it is a cruder player than a person would be (fixed route rates, no expansions, no rebalancing of fuel, ingots
 // and polymers between districts), so it reaches the orbital plans but has not yet carried a launch through; read its
 // late-game output for what piles up and what runs short, not for how long the endgame takes.
+// --path settle|orbit|both chooses what it does after the Beacon. With settlements it sponsors what is on offer, sends the
+// district goods they ask for home by route, answers appeals by shipping the goods in, feeds drives good by good, and
+// swaps a line whose output is piling up for one a settlement is short of. It does not expand buildings or raise the
+// routes that bring food home, so it stalls where a settlement starts asking for more meals, biomass or polymers than
+// the colony makes to spare. --probe T1,T2 prints the food picture at those ticks: use it when a run starves.
+// Timings past the Beacon move a great deal with small changes to this player (the orbital plans arrived anywhere
+// from 9.5 to 16 hours in otherwise identical runs), so compare paths by what was drawn and supplied, not by the clock.
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
@@ -42,6 +50,7 @@ const store = require('../src/db');
 const engine = require('../src/engine');
 const actions = require('../src/actions');
 const queue = require('../src/queue');
+const settlements = require('../src/settlements');
 const { viewFor } = require('../src/state');
 const sim = require('../src/sim');
 const { db, config } = store;
@@ -54,7 +63,15 @@ const P = {
 if (!P) { console.error(`Unknown persona "${PERSONA}".`); process.exit(2); }
 // --alts / --reqs / --exports on|off override one habit of the persona, to measure it on its own
 for (const k of ['alts', 'reqs', 'exports']) { const v = arg(k); if (v === 'on' || v === 'off') P[k] = v === 'on'; }
-const SLOTS = arg('slots', 'on') !== 'off'; // buy extra build slots when a place can pay for one and has work waiting
+const SLOTS = arg('slots', 'on') !== 'off';
+// --path both|settle|orbit: what the player does once the Beacon has been heard (settle: no Free Port; orbit: no settlements)
+const PATH = arg('path', 'both');
+const SETTLE = arg('settle', 'on') !== 'off' && PATH !== 'orbit'; // after the Beacon, sponsor the camps that answer it
+const RESERVE = arg('reserve') === undefined ? null : Number(arg('reserve')); // the share of the Core's storage kept back from them
+const SUPPLY = arg('supply', 'on') !== 'off'; // re-route district goods home and add lines for what the settlements run short of
+const STEADY = arg('steady', 'full'); // off | half | full: how much of the basket the player commits to
+const DRIVES = arg('drives', 'on') !== 'off';
+const PROBE = String(arg('probe', '')).split(',').filter(Boolean).map(Number); // buy extra build slots when a place can pay for one and has work waiting
 
 // ---- what the player builds, in order --------------------------------------------------------------------------
 // 'wait:N' holds the list until the place is level N (and asks for the upgrade).
@@ -285,7 +302,8 @@ const FEED = { smelter: 'ore_drill', cracking_tower: 'crude_pump', polymer_plant
 const M = {
   persona: PERSONA, cadence: CADENCE, hazards: process.env.HAZARDS, until: UNTIL,
   milestones: {}, phases: [], notes: [], credits: { convoy: 0, requisitions: 0, missions: 0, spentImports: 0 },
-  shutLog: [], reqs: { filled: 0, seen: 0, waits: [], goods: {} }, extras: {}, links: {}, crewHold: 0, spill: {}, altsOff: {}, slots: {}, missions: { filled: 0, standing: 0, goods: {} }, alts: {}, shutdowns: 0, trace: [],
+  shutLog: [], reqs: { filled: 0, seen: 0, waits: [], goods: {} }, extras: {}, links: {}, crewHold: 0, spill: {}, altsOff: {}, slots: {},
+  settle: { log: [], appeals: { seen: 0, answered: 0, goods: {} }, fx: { n: 0, hands: 0, discount: 0, logistics: 0 }, drives: 0, graduated: 0, goods: {}, grown: {}, replaced: {}, standing: 0, stageAt: {}, driveTicks: [] }, missions: { filled: 0, standing: 0, goods: {} }, alts: {}, shutdowns: 0, trace: [],
 };
 let T = 0;
 function note(s) { M.notes.push(`${s} @${T}`); }
@@ -393,6 +411,9 @@ function survival(core, c) {
   const low = (r) => net(r) < margin && v.resources[r].amount < v.resources[r].cap * 0.8;
   if (low('clean_water')) grow('water_purifier');
   else if (low('rations')) grow('hydroponics_bay');
+  // and what the settlements ask for that the colony's surplus does not cover
+  else if (UNMET.clean_water && net('clean_water') < UNMET.clean_water + margin) grow('water_purifier');
+  else if (UNMET.rations && net('rations') < UNMET.rations + margin) grow('hydroponics_bay');
   if (core.level >= 3 && v.colony.moraleInfo.mealCoverage < 0.95 && !pendingAny(['kitchen']) && net('rations') > 6 && can(core, config.buildings.kitchen.cost)) {
     const pos = roomFor(core, 'kitchen');
     if (pos) build(core, 'kitchen', { urgent: true, pos }); // eating well is what keeps the colony growing fast
@@ -475,6 +496,7 @@ function routes(list) {
 }
 function alternatives() {
   const ms = { level: 0 };
+  let view = null;
   for (const d of districts()) {
     const stock = inv(d);
     for (const b of store.loadBuildings(id, d.id)) {
@@ -485,7 +507,16 @@ function alternatives() {
       for (const a of prefs) {
         const alt = def.alternatives[a];
         if (!alt || !sim.altUnlocked(alt, { level: d.level, milestones: { beacon: store.hasBeacon(id), freeport: !!byType('freeport'), station: false } })) continue;
-        if (Object.entries(alt.inputsPerTick).every(([r, q]) => r === 'energy' || (stock[r] || 0) >= q * 15)) pick = a;
+        if (!Object.entries(alt.inputsPerTick).every(([r, q]) => r === 'energy' || (stock[r] || 0) >= q * 15)) continue;
+        // a line that feeds or waters people is only moved to a recipe whose new inputs are arriving as fast as it would eat
+        // them: a heap of feed in the store (a shipment, a windfall) is not a supply, and a farm that runs out starves the colony
+        const vital = Object.keys(def.outputsPerTick || {}).some((r) => ['rations', 'meals', 'clean_water'].includes(r));
+        if (vital && b.recipe !== a) {
+          view = view || viewFor(uid);
+          const bag = d.type === 'core' ? view.resources : ((view.views[d.id] || {}).resources || {});
+          if (!Object.entries(alt.inputsPerTick).every(([r, q]) => r === 'energy' || (def.inputsPerTick || {})[r] || ((bag[r] || {}).net || 0) >= q)) continue;
+        }
+        pick = a;
       }
       if (pick && b.recipe !== pick && prefs.indexOf(pick) > prefs.indexOf(b.recipe)) {
         if (actions.setRecipe(uid, { ring: b.ring, slot: b.slot, recipe: pick, district: d.id }).ok) { bump(M.alts, `${b.type}>${pick}`); ms.level++; }
@@ -637,6 +668,118 @@ function endgame(c) {
   if (c.orbital_unlocked) { fp = byType('freeport'); orbitStep(core, fp, c); }
 }
 
+// ---- settlements: sponsor what is on offer, keep them supplied, feed their drives, answer what they appeal for -----------
+const seenAppeal = new Set();
+// where the basket goods that are not made in the Core come from, and what the routes home already carry for other uses
+const SOURCE = { fuel: 'stacks', polymers: 'stacks', circuits: 'stacks', reagents: 'stacks', power_cells: 'stacks', ingots: 'pits', alloys: 'pits', fertiliser: 'greenbelt', medicine: 'greenbelt', biomass: 'greenbelt' };
+const BASE_RATE = { fuel: 6, polymers: 2, ingots: 9, alloys: 12, circuits: 2, power_cells: 3, medicine: 1, biomass: 6 };
+// what a place can give a plot up from when it has no room left: a line whose output is piling up there
+const SURPLUS = [['scrap_extractor', 'scrap'], ['parts_assembler', 'machined_parts']];
+const GROW = { ...REMOTE, meals: ['core', 'kitchen'], fertiliser: ['greenbelt', 'agri_lab'], clean_water: null, rations: null, scrap: ['core', 'scrap_extractor'] };
+const driveStart = {};
+const UNMET = {}; // what the settlements ask for a tick and are not getting, by good
+function settleStep() {
+  const whole = viewFor(uid);
+  const v = whole.settlements;
+  if (!v || !v.unlocked) return;
+  if (RESERVE !== null && v.reserve !== RESERVE) actions.settlementReserve(uid, { reserve: RESERVE });
+  const order = ['valley', 'depot', 'foundry']; // hands first: crews are what the colony is short of
+  let free = v.slots - v.active.length;
+  const kinds = new Set(v.active.map((a) => a.type));
+  for (const o of v.offers.slice().sort((a, b) => (kinds.has(a.type) - kinds.has(b.type)) || order.indexOf(a.type) - order.indexOf(b.type))) {
+    if (free <= 0) break;
+    if (actions.settlementSponsor(uid, { id: o.id }).ok) {
+      free--; kinds.add(o.type); M.settle.log.push(`${T} sponsored ${o.name} (${o.type}, ${o.trait})`); mark(`Settlement ${M.settle.log.filter((x) => /sponsored/.test(x)).length} sponsored`);
+      const want = { off: 0, half: 1, full: 2 }[STEADY];
+      if (want !== 2) actions.settlementCommit(uid, { id: o.id, level: want });
+      driveStart[o.id] = T;
+    }
+  }
+  const core = byType('core');
+  const stock = inv(core);
+  // what they ask for a tick between them, and how much of it the Core could part with just now
+  const need = {};
+  for (const a of v.active) for (const [g, q] of Object.entries(a.basket)) need[g] = (need[g] || 0) + q * [0, 0.5, 1][a.commitment];
+  for (const [g, q] of Object.entries(need)) {
+    if (q <= 0) continue;
+    const rec = (M.settle.goods[g] = M.settle.goods[g] || { n: 0, got: 0, need: 0 });
+    rec.n++; rec.need += q; rec.got += Math.min(q, (v.drawing || {})[g] || 0);
+  }
+  for (const g of Object.keys(UNMET)) delete UNMET[g];
+  if (SUPPLY) for (const [g, q] of Object.entries(need)) { const miss = q - ((v.drawing || {})[g] || 0); if (miss > 0.1 * q) UNMET[g] = miss; }
+  if (SUPPLY && T % 10 === 0) {
+    // what the districts make for them is sent home at the rate they take it (and a little over, for the drives)
+    routes(Object.entries(need).filter(([g]) => SOURCE[g] && byType(SOURCE[g])).map(([g, q]) => [SOURCE[g], 'core', g, (BASE_RATE[g] || 0) + Math.ceil(q * 1.2), 30]));
+    // and whatever falls furthest short gets another line where it is made, if there is room, crews and the means
+    if (T % 20 === 0) {
+      const short = Object.entries(need).filter(([g, q]) => q > 0 && GROW[g]).map(([g, q]) => [g, ((v.drawing || {})[g] || 0) / q]).filter(([, f]) => f < 0.9).sort((a, b) => a[1] - b[1]);
+      for (const [g] of short) {
+        const [t, type] = GROW[g]; const d = byType(t);
+        if (!d || shortHanded(type) || orders(d).some((o) => o.action_type === 'build')) continue;
+        if (t !== 'core' && (inv(d)[g] || 0) > 400) continue; // it is there: the route is the limit, not the line
+        if (t === 'core' && whole.resources[g].net >= UNMET[g]) continue; // the surplus covers it: the stock is still climbing to the reserve
+        // (never a line that would eat food or water the colony is not making to spare: that is how a colony starves)
+        const eats = Object.entries(config.buildings[type].inputsPerTick || {}).filter(([i]) => ['rations', 'clean_water'].includes(i));
+        if (eats.some(([i, q]) => (t === 'core' ? whole.resources[i].net : (((whole.views[d.id] || {}).resources || {})[i] || {}).net || 0) < q + 4)) continue;
+        const pos = roomFor(d, type);
+        if (!pos) {
+          // no room: a line whose output is piling up gives its plot to the new one (replace in place, through the queue)
+          const here = store.loadBuildings(id, d.id);
+          const capD = sim.storageCap(config, { type: d.type, level: d.level, buildings: here });
+          const swaps = Object.values(M.settle.replaced).reduce((a, b) => a + b, 0);
+          let done = false;
+          for (const [old, makes] of SURPLUS) {
+            if (done || old === type || swaps >= 12 || (inv(d)[makes] || 0) < capD * 0.6 || here.filter((b) => b.type === old).length <= 2) continue;
+            // only a line the place can do without: what it makes must still be coming in faster than it goes once this one
+            // is gone (a full store alone says nothing: a drive can empty it, and generators and filters run on scrap)
+            const lost = (config.buildings[old].outputsPerTick || {})[makes] || 0;
+            const netNow = t === 'core' ? whole.resources[makes].net : (((whole.views[d.id] || {}).resources || {})[makes] || {}).net || 0;
+            if (netNow < lost * 1.5) continue;
+            const b = here.find((x) => x.type === old && sim.plotSize(config, x.ring, d.type) >= config.buildings[type].minPlotSize);
+            if (b && can(d, config.buildings[type].cost) && actions.replace(uid, { ring: b.ring, slot: b.slot, type, district: d.id }).ok) { bump(M.settle.replaced, `${t}:${old}>${type}`); done = true; }
+          }
+          if (done) break;
+          continue;
+        }
+        if (!can(d, config.buildings[type].cost)) { topUp(d, config.buildings[type].cost); break; }
+        if (build(d, type, { pos })) { bump(M.settle.grown, `${t}:${type}`); if (FEED[type] && roomFor(d, FEED[type])) build(d, FEED[type]); break; }
+      }
+    }
+  }
+  for (const a of v.active) {
+    if (a.appeal) {
+      const k = `${a.id}:${a.appeal.good}:${a.appeal.qty}:${T + a.appeal.ticksLeft}`;
+      if (!seenAppeal.has(k)) { seenAppeal.add(k); M.settle.appeals.seen++; bump(M.settle.appeals.goods, a.appeal.good); }
+      // an appeal is a short job: whatever is needed is sent for from the districts, then handed over
+      if ((stock[a.appeal.good] || 0) < a.appeal.qty) topUp(core, { [a.appeal.good]: a.appeal.qty });
+      else if (actions.settlementAnswer(uid, { id: a.id }).ok) { M.settle.appeals.answered++; seenAppeal.add(`done:${k}`); }
+    }
+    if (DRIVES && T % 20 === 0) {
+      // good by good, as a player would: whatever the Core holds beyond a little kept back (more of what people eat and drink)
+      let r = { ok: false };
+      const now = inv(core);
+      for (const [g, q] of Object.entries(a.drive.need)) {
+        const left = q - (a.drive.got[g] || 0);
+        const spare = Math.floor((now[g] || 0) - (['clean_water', 'rations', 'meals'].includes(g) ? 250 : g === 'scrap' ? 1500 : 120));
+        if (left < 1 || spare < 1) continue;
+        const x = actions.settlementGive(uid, { id: a.id, resource: g, qty: Math.min(left, spare) });
+        if (x.ok) { r = x; if (x.completed) break; }
+      }
+      if (r.ok && r.completed) {
+        M.settle.drives++;
+        M.settle.driveTicks.push({ stage: a.stage, type: a.type, ticks: T - (driveStart[a.id] || T) });
+        driveStart[a.id] = T;
+        if (a.last) { M.settle.graduated++; M.settle.log.push(`${T} ${a.name} stands on its own`); } else M.settle.log.push(`${T} ${a.name} to stage ${a.stage + 1}`);
+      }
+    }
+  }
+  const e = v.effects;
+  M.settle.fx.n++; M.settle.fx.hands += e.hands; M.settle.fx.discount += e.discount; M.settle.fx.logistics += e.logistics;
+  M.settle.drawing = Object.values(v.drawing || {}).reduce((a, b) => a + b, 0);
+  M.settle.drawSum = (M.settle.drawSum || 0) + M.settle.drawing;
+  M.settle.valueSum = (M.settle.valueSum || 0) + Object.entries(v.drawing || {}).reduce((n, [g, q]) => n + q * config.resources[g].sell, 0);
+}
+
 function act() {
   const c = colony();
   const core = byType('core');
@@ -664,7 +807,7 @@ function act() {
   const late = !!c.won && UNTIL === 'station';
   planStep(core, (P.districts ? CORE_PLAN : TRADER_PLAN).concat(late ? LATE.core : []));
   if (P.districts) for (const t of ORDER) { const d = byType(t); if (d) planStep(d, PLANS[t].concat(late ? LATE[t] : [])); }
-  if (late) endgame(c);
+  if (late && PATH !== 'settle') endgame(c);
   if (T % 2 === 0 || CADENCE > 1) survival(core, c);
   for (const b of store.loadBuildings(id, core.id)) {
     if (b.type !== 'parts_assembler') continue;
@@ -682,6 +825,7 @@ function act() {
       if (actions.buildSlot(uid, d.type === 'core' ? {} : { district: d.id }).ok) { bump(M.slots, d.type); note(`${d.type} build slot ${next.slots}`); }
     }
   }
+  if (SETTLE && c.won && T % 5 === 0) settleStep();
   if (P.alts && T % 10 === 0) alternatives();
   if (P.reqs) requisitions();
   if (P.exports && (T % 10 === 0 || CADENCE > 1)) contracts(c);
@@ -720,11 +864,30 @@ function run() {
     if (c.shutdown_tick === null && shut) { shut = false; actions.resumeOps(uid); note('recovered'); }
     milestones(c);
     if (T % CADENCE === 0) act();
+    if (PROBE.includes(T)) probe();
     sample();
     if (UNTIL === 'beacon' && c.won) break;
     if (M.milestones['Station launched'] !== undefined) break;
   }
   M.ticks = T; M.finished = UNTIL === 'station' ? M.milestones['Station launched'] !== undefined : !!colony().won; M.seconds = (Date.now() - t0) / 1000;
+}
+
+// --probe T1,T2,...: at those ticks print where food, water and feed stand in every place, each farm line and each route
+function probe() {
+  const v = viewFor(uid);
+  const line = (bag, r) => { const x = (bag || {})[r]; return x ? `${r} ${Math.floor(x.amount)} (${x.net >= 0 ? '+' : ''}${(+x.net).toFixed(1)}/t)` : `${r} -`; };
+  console.log(`--- probe @${T}: pop ${colony().population}, morale ${Math.round(colony().morale)}, crew ${(v.colony.staffing.ratio * 100).toFixed(0)}%`);
+  for (const d of districts()) {
+    const bag = d.type === 'core' ? v.resources : ((v.views[d.id] || {}).resources || {});
+    const e = d.type === 'core' ? v.energy : (v.views[d.id] || {}).energy;
+    const farm = store.loadBuildings(id, d.id).filter((b) => ['hydroponics_bay', 'kitchen', 'water_purifier', 'water_pump', 'bio_dome'].includes(b.type));
+    const kinds = {};
+    for (const b of farm) { const k = `${b.type}${b.recipe ? `>${b.recipe}` : ''}${b.status !== 'active' ? `[${b.status}]` : ''}${b.resetting ? '[retooling]' : ''}`; kinds[k] = (kinds[k] || 0) + 1; }
+    console.log(`  ${d.type} L${d.level} power ${e ? Math.round(e.satisfaction * 100) : '?'}% | ${['clean_water', 'rations', 'meals', 'biomass', 'unpurified_water', 'scrap'].map((r) => line(bag, r)).join(', ')} | ${Object.entries(kinds).map(([k, n]) => `${k} ×${n}`).join(', ')}`);
+  }
+  const name = Object.fromEntries(districts().map((d) => [d.id, d.type]));
+  console.log('  routes: ' + v.routes.filter((r) => ['clean_water', 'rations', 'meals', 'biomass', 'unpurified_water'].includes(r.resource) || r.slowed !== undefined).map((r) => `${name[r.fromDistrict]}>${name[r.toDistrict]} ${r.resource} ${r.flow}/${r.rate}${r.slowed !== undefined ? ` slowed to ${r.slowed}` : ''}${r.limit ? ` (${r.limit})` : ''}`).join(', '));
+  if (v.settlements && v.settlements.unlocked) console.log('  settlements draw: ' + JSON.stringify(v.settlements.drawing) + ' effects ' + JSON.stringify(v.settlements.effects));
 }
 
 // ---- the report ------------------------------------------------------------------------------------------------
@@ -756,6 +919,20 @@ function report() {
   if (M.missions.filled) out.push(`missions: ${M.missions.filled} filled for ${M.missions.standing} standing and ${M.credits.missions} cr (${Object.entries(M.missions.goods).sort((a, b) => b[1] - a[1]).map(([g, n]) => `${g} ×${n}`).join(', ')})`);
   if (Object.keys(M.spill).length) out.push('built outside the Core for want of room: ' + Object.entries(M.spill).map(([k, n]) => `${k} ×${n}`).join(', '));
   if (M.crewHold) out.push(`new workplaces held back for want of crews on ${M.crewHold} of the player's turns`);
+  if (M.settle.fx.n) {
+    const f = M.settle.fx;
+    const rows = db.prepare("SELECT name, type, trait, status, stage, level, sent FROM settlements WHERE colony_id = ? AND status IN ('active', 'done') ORDER BY id").all(id);
+    out.push(`settlements: ${rows.map((r) => `${r.name} (${r.type}, ${r.trait}) ${r.status === 'done' ? 'stands on its own' : `stage ${r.stage}, supplied ${Math.round(r.level * 100)}%`}, ${Math.round(r.sent)} goods sent`).join('; ') || 'none'}`);
+    out.push(`  on average while sponsoring: ${Math.round(M.settle.drawSum / f.n)} goods a tick drawn, ${Math.round(f.hands / f.n)} commuters, ${(f.discount / f.n * 100).toFixed(1)}% off upgrades, +${(f.logistics / f.n * 100).toFixed(1)}% link and convoy room; ${M.settle.drives} drives finished, ${M.settle.graduated} settlements on their own feet; appeals answered ${M.settle.appeals.answered} of ${M.settle.appeals.seen}`);
+    out.push(`  drawn at convoy sell prices: ${Math.round(M.settle.valueSum / f.n)} cr a tick; basket goods supplied (share of what was asked): ${Object.entries(M.settle.goods).map(([g, x]) => `${g} ${pct(x.got, x.need)}`).join(', ')}`);
+    if (M.settle.driveTicks.length) out.push('  drives: ' + M.settle.driveTicks.map((x) => `${x.type} stage ${x.stage} in ${x.ticks} ticks`).join(', '));
+    if (Object.keys(M.settle.appeals.goods).length) out.push('  appeals were for: ' + Object.entries(M.settle.appeals.goods).map(([g, n]) => `${g} ×${n}`).join(', '));
+    if (Object.keys(M.settle.grown).length) out.push('  lines added to supply them: ' + Object.entries(M.settle.grown).map(([k, n]) => `${k} ×${n}`).join(', '));
+    if (Object.keys(M.settle.replaced).length) out.push('  lines replaced to supply them: ' + Object.entries(M.settle.replaced).map(([k, n]) => `${k} ×${n}`).join(', '));
+    const st = db.prepare('SELECT faction, points FROM standing WHERE colony_id = ?').all(id);
+    out.push('  standing: ' + st.map((x) => `${x.faction} ${x.points}`).join(', '));
+    out.push('  ' + M.settle.log.join(' · '));
+  }
   if (Object.keys(M.slots).length) out.push('build slots bought: ' + Object.entries(M.slots).map(([k, n]) => `${k} +${n}`).join(', ') + ' (' + M.notes.filter((x) => /build slot/.test(x)).join(', ') + ')');
   if (Object.keys(M.links).length) out.push('link upgrades: ' + Object.entries(M.links).map(([k, n]) => `${k} ×${n}`).join(', '));
   if (Object.keys(M.extras).length) out.push('extra producers built while stalled: ' + Object.entries(M.extras).map(([k, n]) => `${k} ×${n}`).join(', '));

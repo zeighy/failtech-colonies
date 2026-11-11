@@ -11,6 +11,7 @@ const missions = require('./missions');
 const credits = require('./credits');
 const queue = require('./queue');
 const requisitions = require('./requisitions');
+const settlements = require('./settlements');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
 const { db, config } = store;
@@ -267,6 +268,14 @@ const buildSlot = guarded((c, { district } = {}) => {
   return { ok: true, slots: next.slots };
 });
 
+// ---- settlements the colony sponsors (see settlements.js) ---------------------------------
+const settlementSponsor = guarded((c, args) => settlements.sponsor(c, args, tickNow()));
+const settlementCommit = guarded((c, args) => settlements.commit(c, args));
+const settlementGive = guarded((c, args) => settlements.give(c, args, tickNow()));
+const settlementAnswer = guarded((c, args) => settlements.answer(c, args, tickNow()));
+const settlementDrop = guarded((c, args) => settlements.drop(c, args, tickNow()));
+const settlementReserve = guarded((c, args) => settlements.setReserve(c, args));
+
 // Move a waiting order up, down or to the front of its place's queue.
 const queueMove = guarded((c, { orderId, to }) => {
   const oid = toInt(orderId);
@@ -403,7 +412,7 @@ const marketCancel = guarded((c, { orderId }) => market.cancel(c, toInt(orderId)
 // A route moves up to `rate` units per tick from one district to another, never taking the source below
 // `reserve`. Every satellite has a link to the Core with a capacity; a route counts against the link of each
 // satellite it touches (a route to or from the Core touches one).
-const linkCapacity = (config_, d) => config_.logistics.link.levels[d.link_level || d.linkLevel || 1].capacity; // d is a districts row
+const linkCapacity = (config_, d) => Math.floor(config_.logistics.link.levels[d.link_level || d.linkLevel || 1].capacity * settlements.linkMult(d.colony_id)); // d is a districts row
 function linkLoad(c, districtId, ignoreRouteId) {
   return store.loadRoutes(c.id)
     .filter((r) => r.id !== ignoreRouteId && (r.fromDistrict === districtId || r.toDistrict === districtId))
@@ -458,8 +467,9 @@ const upgradeLink = guarded((c, { district }) => {
   const next = config.logistics.link.levels[(d.link_level || 1) + 1];
   if (!next) return fail('The link is already at maximum capacity.');
   const core = store.coreId(c.id);
-  if (!canAfford(store.loadInventory(c.id, core), next.upgradeCost)) return fail('Not enough resources in the Core for the link upgrade.');
-  pay(core, next.upgradeCost);
+  const cost = settlements.discounted(c.id, next.upgradeCost);
+  if (!canAfford(store.loadInventory(c.id, core), cost)) return fail('Not enough resources in the Core for the link upgrade.');
+  pay(core, cost);
   db.prepare('UPDATE districts SET link_level = link_level + 1 WHERE id = ?').run(d.id);
   return OK;
 });
@@ -470,7 +480,7 @@ const setContract = guarded((c, { resource, side, amount }) => {
   if (side !== 'export' && side !== 'import') return fail('Bad contract side.');
   amount = Math.floor(toNum(amount));
   if (!Number.isFinite(amount) || amount < 0) return fail('Bad amount.');
-  amount = Math.min(amount, Math.floor(sim.convoyLimit(config, c.hub_level, resource) * requisitions.convoyMult(c, tickNow())));
+  amount = Math.min(amount, Math.floor(sim.convoyLimit(config, c.hub_level, resource) * requisitions.convoyMult(c, tickNow()) * settlements.convoyMult(c, tickNow())));
   if (amount === 0) db.prepare('DELETE FROM colony_contracts WHERE colony_id = ? AND resource_id = ? AND side = ?').run(c.id, resource, side);
   else db.prepare('INSERT INTO colony_contracts (colony_id, resource_id, side, amount) VALUES (?, ?, ?, ?) ON CONFLICT DO UPDATE SET amount = excluded.amount').run(c.id, resource, side, amount);
   return OK;
@@ -576,4 +586,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { buildSlot, requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { settlementSponsor, settlementCommit, settlementGive, settlementAnswer, settlementDrop, settlementReserve, buildSlot, requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

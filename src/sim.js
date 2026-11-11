@@ -537,7 +537,8 @@ function stepColony(config, colony, districts, opts = {}) {
 
   // Manpower: every post that needs workers draws on one workforce. With fewer people than posts,
   // all staffed buildings slow down in proportion.
-  const workforce = colony.population * g.workforceShare;
+  // (commuters from settlements the colony sponsors are hands without mouths: they work here and live elsewhere)
+  const workforce = colony.population * g.workforceShare + (opts.extraHands || 0);
   let posts = 0;
   let vital = 0; // posts in essential buildings (water, food, power, salvage)
   for (const d of districts) {
@@ -655,7 +656,7 @@ function stepColony(config, colony, districts, opts = {}) {
   return {
     population, morale, grew, left, leftWhy, starving, shortage, progress, progressGain, launchGain, won, failed: morale <= 0,
     defense: results.reduce((s, r) => s + r.defense, 0),
-    staffing: { posts, workforce, ratio: staff, essential: staffVital, others: staffRest },
+    staffing: { posts, workforce, ratio: staff, essential: staffVital, others: staffRest, commuters: opts.extraHands || 0 },
     housing: { base: baseHousing, built: housingBuilt, cap: housingCap },
     moraleInfo: { target, base: mc.base, comfort: comfortAvg, meals: mealCoverage * mc.mealBonus, mealCoverage, productivity: morOut },
     districts: results.map((r, i) => ({ id: districts[i].id, type: districts[i].type, ...r })),

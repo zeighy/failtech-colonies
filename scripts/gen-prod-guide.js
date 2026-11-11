@@ -173,6 +173,23 @@ add('## **14b. Requisitions**',
 add('## **15. The Beacon**',
   `Build the ${bn('beacon_array')} (only one; it wants a ${plot(B.beacon_array.minPlotSize)} plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **${G.beacon.transmitTicks} signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes ${(C.districtTypes.freeport || {}).name || 'the Free Port'} available.${B.beacon_array.afterTransmit ? ` Once the transmission is complete the Beacon stops burning its inputs and only needs ${list(B.beacon_array.afterTransmit.inputsPerTick)} to stay lit.` : ''}`);
 
+// ---- settlements
+const SE = C.settlements;
+if (SE) {
+  const kind = { discount: (v) => `${Math.round(v * 100)}% off upgrades, expansions and links`, hands: (v) => `${Math.round(v)} commuters (hands, not mouths)`, logistics: (v) => `+${Math.round(v * 100)}% link capacity and convoy room` };
+  const slotName = { beacon: 'the Beacon', freeport: (C.districtTypes.freeport || {}).name || 'the Free Port', station: 'the station' };
+  const fname = (f) => (((C.missions || {}).factions || {})[f] || {}).name || f;
+  add('## **15b. Settlements**',
+    `Once the Beacon has transmitted, camps answer it. ${SE.offers} are on offer at a time, each of a kind, with a trait and a name, each asking for ${SE.offerTicks[0]}-${SE.offerTicks[1]} ticks before it moves on and another takes its place. The colony sponsors one for each of ${SE.slots.map((k) => slotName[k]).join(', ')} it has. This is where a finished colony's goods go: nothing sent earns credits.`,
+    `**Steady support.** A sponsored settlement draws its basket from the Core every tick, at the commitment set for it (off, half or full), and never takes a good below the reserve (a share of the Core's storage; ${Math.round(SE.defaultReserve * 100)}% unless changed). What it gives back follows what it has actually been getting, averaged over about ${SE.smoothTicks} ticks: half the basket, half the benefit. It also earns standing with its faction, ${SE.standingPerStage} a tick per stage at full supply.`,
+    `**Drives.** Each stage has a drive: the stage's basket ${SE.driveTicks.join(', ')} times over (stages 1 to ${SE.stages}), given in any amounts at any time. Finishing one moves the settlement up a stage, pays ${SE.driveStanding} standing per stage and doubles its benefit for ${SE.boonTicks} ticks. The last drive sets it on its own feet: it leaves its slot, needs nothing more, and is a trade partner for good. A partner goes on giving ${Math.round(SE.partner.keep * 100)}% of what it gave at stage ${SE.stages} and adds ${Math.round(SE.partner.convoyBonus * 100)}% to what the convoy will carry; each further partner counts for ${Math.round(SE.partner.decay * 100)}% of the one before (of its kind for the benefit, of any kind for the convoy), so there is always a reason for one more and never a runaway.`,
+    `**Appeals.** Every ${SE.appeal.gapTicks[0]}-${SE.appeal.gapTicks[1]} ticks a settlement asks for one thing, worth ${SE.appeal.sizeTicks[0]}-${SE.appeal.sizeTicks[1]} ticks of its basket, within ${SE.appeal.windowTicks[0]}-${SE.appeal.windowTicks[1]} ticks. Answering doubles its benefit for ${SE.appeal.boonTicks} ticks and pays ${SE.appeal.standing} standing per stage; letting it pass costs nothing.`,
+    `The discount from all settlements together is capped at ${Math.round(SE.discountCap * 100)}%. If link room lent by a settlement falls away (it goes short, or a boon runs out), the routes on that link may add up to more than it carries. Routes carrying what people eat and drink keep running in full; the rest are slowed in proportion until the link fits, and each says so. Nothing is cancelled: the routes run at the rate they were set to again as soon as there is room.`,
+    table(['Kind', 'Faction', 'Gives (stage 1 to ' + SE.stages + ', at full supply)', 'Basket a tick at stage 1', 'Basket a tick at stage ' + SE.stages],
+      Object.values(SE.types).map((t) => [t.name, fname(t.faction), t.benefit.byStage.map((v) => kind[t.benefit.kind](v).split(' ')[0]).join(' / ') + ' ' + kind[t.benefit.kind](0).split(' ').slice(1).join(' '), list(t.basket[1]), list(t.basket[SE.stages])])),
+    table(['Trait', 'Effect'], Object.values(SE.traits).map((t) => [t.name, t.desc])));
+}
+
 // ---- orbit
 const O = C.orbital, OT = C.orbitalTypes;
 const cyc = O.launch.cycles;

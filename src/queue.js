@@ -13,6 +13,7 @@
 const sim = require('./sim');
 const store = require('./db');
 const territories = require('./territories');
+const settlements = require('./settlements');
 const { db, config } = store;
 
 const Q = { maxPerPlace: 8, replaceTimeMult: 1.5, slotTiers: [], ...(config.global.buildQueue || {}) };
@@ -21,11 +22,14 @@ const placeName = (d) => (d.type !== 'core' && (config.districtTypes || {})[d.ty
 const where = (d) => (d.type === 'core' ? '' : ` in ${placeName(d)}`);
 
 // What an order costs when it starts.
+// Upgrades (a place's next level, a building's expansion) come cheaper while a settlement's builders are helping; an
+// order that has started remembers what it paid (`data.paid`), so cancelling it never refunds more than that.
 function costOf(d, o) {
+  if (o.data && o.data.paid) return o.data.paid;
   if (o.action_type === 'build' || o.action_type === 'replace') return defAt(d, o.data.type).cost;
   if (o.action_type === 'found') return config.districtTypes[o.data.type].foundCost;
-  if (o.action_type === 'expand') return sim.expansionCost(config, config.buildings[o.data.type], o.data.level);
-  return sim.levelDef(config, d.type, o.data.level).upgradeCost;
+  if (o.action_type === 'expand') return settlements.discountedFor(d.id, sim.expansionCost(config, config.buildings[o.data.type], o.data.level));
+  return settlements.discountedFor(d.id, sim.levelDef(config, d.type, o.data.level).upgradeCost);
 }
 // What a replacement gets back for the building it scraps: the same share as demolishing it.
 function refundOf(d, o) {
@@ -175,7 +179,9 @@ function advance(c, d, coreLevel, bag, tick, ev) {
     bag.add(back);
     bag.take(cost);
     if (o.action_type === 'replace') db.prepare('DELETE FROM colony_buildings WHERE district_id = ? AND ring_index = ? AND slot_index = ?').run(d.id, o.data.ring, o.data.slot);
-    db.prepare("UPDATE colony_work_orders SET state = 'active' WHERE id = ?").run(o.id);
+    const full = o.action_type === 'expand' ? sim.expansionCost(config, config.buildings[o.data.type], o.data.level) : o.action_type === 'upgrade' ? sim.levelDef(config, d.type, o.data.level).upgradeCost : null;
+    if (full && JSON.stringify(full) !== JSON.stringify(cost)) db.prepare("UPDATE colony_work_orders SET state = 'active', target_data = ? WHERE id = ?").run(JSON.stringify({ ...o.data, paid: cost }), o.id);
+    else db.prepare("UPDATE colony_work_orders SET state = 'active' WHERE id = ?").run(o.id);
     started.push(o.id);
   }
   return started;

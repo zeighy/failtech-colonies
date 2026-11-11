@@ -8,6 +8,7 @@ const territories = require('./territories');
 const credits = require('./credits');
 const queue = require('./queue');
 const requisitions = require('./requisitions');
+const settlements = require('./settlements');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const hazards = require('./hazards');
@@ -47,11 +48,13 @@ function tickColony(c, globalTick, tickTime) {
   const core = districts.find((d) => d.type === 'core');
   const hazard = store.loadHazard(c.id);
   const hazardMods = hazards.modifiersFor(config, hazard, core.buildings); // hazards act on the Core for now
+  // routes at the rate each can run at (a link whose bonus capacity has gone slows everything on it)
+  const routes = settlements.throttle(c.id, store.loadRoutes(c.id), store.loadDistricts(c.id), globalTick);
   const full = sim.stepColony(
     config,
     { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
     districts,
-    { neighborMaps, mods: { [core.id]: hazardMods }, popConsumptionMult: hazardMods.popConsumptionMult, routes: store.loadRoutes(c.id), globalOut: projects.globalOut() },
+    { neighborMaps, mods: { [core.id]: hazardMods }, popConsumptionMult: hazardMods.popConsumptionMult, routes, globalOut: projects.globalOut(), extraHands: settlements.effects(c.id, globalTick).hands },
   );
   const res = sim.coreView(full);
   const ev = (kind, msg) => store.addEvent(c.id, globalTick, kind, msg);
@@ -140,12 +143,15 @@ function tickColony(c, globalTick, tickTime) {
 
   // Standing routes: direct per-tick flows between stockpiles (see sim.applyRoutes).
   const bags = new Map(full.districts.map((r) => [r.id, { inv: r.id === core.id ? inventory : r.inventory, cap: r.cap }]));
-  sim.applyRoutes(config, store.loadRoutes(c.id), bags);
+  sim.applyRoutes(config, routes, bags);
+
+  // Settlements the colony sponsors draw their baskets from the Core, down to the reserve.
+  settlements.advance(c, globalTick, inventory, res.cap);
 
   // Convoy
   if (globalTick % config.global.convoyIntervalTicks === 0) {
     const k = globalTick / config.global.convoyIntervalTicks;
-    const out = sim.runConvoy(config, { hubLevel, inventory, credits, cap: res.cap, limitMult: requisitions.convoyMult(c, globalTick) }, store.loadContracts(c.id), sim.marketPrices(config, k));
+    const out = sim.runConvoy(config, { hubLevel, inventory, credits, cap: res.cap, limitMult: requisitions.convoyMult(c, globalTick) * settlements.convoyMult(c, globalTick) }, store.loadContracts(c.id), sim.marketPrices(config, k));
     inventory = out.inventory;
     credits = out.credits;
     ev('info', 'The convoy has arrived.');

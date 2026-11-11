@@ -334,6 +334,25 @@ Earning a boon that is already running adds to the time left.
 ## **15. The Beacon**
 Build the Series-9 Beacon (only one; it wants a Colossal plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **25 signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes The Sanctuary Port available. Once the transmission is complete the Beacon stops burning its inputs and only needs 60 power to stay lit.
 
+## **15b. Settlements**
+Once the Beacon has transmitted, camps answer it. 3 are on offer at a time, each of a kind, with a trait and a name, each asking for 600-1500 ticks before it moves on and another takes its place. The colony sponsors one for each of the Beacon, The Sanctuary Port, the station it has. This is where a finished colony's goods go: nothing sent earns credits.
+**Steady support.** A sponsored settlement draws its basket from the Core every tick, at the commitment set for it (off, half or full), and never takes a good below the reserve (a share of the Core's storage; 10% unless changed). What it gives back follows what it has actually been getting, averaged over about 40 ticks: half the basket, half the benefit. It also earns standing with its faction, 0.02 a tick per stage at full supply.
+**Drives.** Each stage has a drive: the stage's basket 60, 80, 100, 120, 150 times over (stages 1 to 5), given in any amounts at any time. Finishing one moves the settlement up a stage, pays 10 standing per stage and doubles its benefit for 300 ticks. The last drive sets it on its own feet: it leaves its slot, needs nothing more, and is a trade partner for good. A partner goes on giving 20% of what it gave at stage 5 and adds 2% to what the convoy will carry; each further partner counts for 80% of the one before (of its kind for the benefit, of any kind for the convoy), so there is always a reason for one more and never a runaway.
+**Appeals.** Every 150-400 ticks a settlement asks for one thing, worth 10-25 ticks of its basket, within 60-160 ticks. Answering doubles its benefit for 120 ticks and pays 4 standing per stage; letting it pass costs nothing.
+The discount from all settlements together is capped at 30%. If link room lent by a settlement falls away (it goes short, or a boon runs out), the routes on that link may add up to more than it carries. Routes carrying what people eat and drink keep running in full; the rest are slowed in proportion until the link fits, and each says so. Nothing is cancelled: the routes run at the rate they were set to again as soon as there is room.
+| Kind | Faction | Gives (stage 1 to 5, at full supply) | Basket a tick at stage 1 | Basket a tick at stage 5 |
+| --- | --- | --- | --- | --- |
+| Remnant Foundry Camp | Black Industries Remnant | 3% / 5% / 7% / 9% / 12% off upgrades, expansions and links | 40 Reclaim, 3 Hard-Spec Parts | 220 Reclaim, 20 Hard-Spec Parts, 16 Refined Fuel, 14 Ingots, 14 Spine Alloy |
+| Cliffside Homestead | Cliffside Accord | 10 / 20 / 32 / 46 / 60 commuters (hands, not mouths) | 10 Filtrate, 10 Nutrient Paste | 60 Filtrate, 60 Nutrient Paste, 36 Heavy Meals, 20 Mycelial Biomass, 10 Soil Primer, 5 HTR Patches |
+| Ammano Waystation | Ammano Transit | +8% / +12% / +16% / +20% / +25% link capacity and convoy room | 30 Reclaim, 2 Print Stock | 160 Reclaim, 12 Print Stock, 12 Refined Fuel, 8 Polymer Stock, 2 Phononic Circuits, 1 Klein Cells |
+| Trait | Effect |
+| --- | --- |
+| Steady | Nothing unusual about it. |
+| Hungry | It needs a quarter more of everything, and gives more back. |
+| Frugal | It gets by on less, and has less to give. |
+| Eager | Its people do much of the building themselves: every drive is a quarter smaller. |
+| Remote | A long way out. Drives cost more, and word of the help travels further. |
+
 ## **16. Orbit (endgame)**
 Hidden until the colony's standing with all factions adds up to **500** (the Brief only hints at it before then). Then three buildings appear: the Orbital Staging Platform and the Orbital Catapult in the Core, each on its own Colossal plot and side by side, and the Orbital Command Center in The Sanctuary Port on a Heavy plot.
 **Launch cycles.** The staging platform takes one cycle at a time and draws its inputs every tick until the progress is complete (only the fully supplied share of a tick counts), then waits. The catapult launches it while the command center is running.

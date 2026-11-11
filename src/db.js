@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 19;
+const SCHEMA_VERSION = 20;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -464,6 +464,32 @@ db.exec(`
 if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'boons'").get()) db.exec("ALTER TABLE colonies ADD COLUMN boons TEXT NOT NULL DEFAULT '{}'");
 // v19 (additive): build slots. Every place starts with one; the Core and the districts can buy more (config.global.buildQueue.slotTiers).
 if (!db.prepare("SELECT 1 FROM pragma_table_info('districts') WHERE name = 'build_slots'").get()) db.exec('ALTER TABLE districts ADD COLUMN build_slots INTEGER NOT NULL DEFAULT 1');
+// v20 (additive): settlements the colony sponsors after the Beacon (see settlements.js), and the Core reserve they respect.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS settlements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    trait TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'offer',      -- offer | active | done (stands on its own) | gone
+    stage INTEGER NOT NULL DEFAULT 1,
+    commitment INTEGER NOT NULL DEFAULT 2,     -- 0 off, 1 half, 2 full
+    level REAL NOT NULL DEFAULT 0,             -- how well it has been supplied lately, 0 to 1
+    drive TEXT NOT NULL DEFAULT '{}',          -- what has been contributed to the current drive
+    sent REAL NOT NULL DEFAULT 0,
+    standing_acc REAL NOT NULL DEFAULT 0,
+    boon_until INTEGER NOT NULL DEFAULT 0,
+    appeal TEXT,
+    next_appeal INTEGER NOT NULL DEFAULT 0,
+    created_tick INTEGER NOT NULL,
+    expires_tick INTEGER NOT NULL DEFAULT 0,
+    started_tick INTEGER,
+    done_tick INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_settlements_colony ON settlements(colony_id, status);
+`);
+if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'settle_reserve'").get()) db.exec('ALTER TABLE colonies ADD COLUMN settle_reserve REAL NOT NULL DEFAULT 0.25');
 db.pragma(`user_version = ${SCHEMA_VERSION}`);
 
 // ---- meta -----------------------------------------------------------------

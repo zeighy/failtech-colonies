@@ -1184,5 +1184,41 @@
       "text3": "The last page, read at the hub.",
       "scene3": "pk_p08_3"
     }
+  },
+  "settlements": {
+    "foundry": {
+      "name": "Remnant Foundry Camp",
+      "desc": "Black Industries hands around a furnace that went cold in the Lapse. It wants metal, hard-spec parts and fuel, and its builders work on your upgrades in return."
+    },
+    "valley": {
+      "name": "Cliffside Homestead",
+      "desc": "Families on clean ground with nothing to plant it with. It wants filtrate, food and patches, and its people come to work your lines."
+    },
+    "depot": {
+      "name": "Ammano Waystation",
+      "desc": "A junction with track and no rolling stock. It wants print stock, polymer and fuel, and carries your goods further in return."
+    }
+  },
+  "settlementTraits": {
+    "steady": {
+      "name": "Steady",
+      "desc": "Nothing unusual about it."
+    },
+    "hungry": {
+      "name": "Hungry",
+      "desc": "It needs a quarter more of everything, and gives more back."
+    },
+    "frugal": {
+      "name": "Frugal",
+      "desc": "It gets by on less, and has less to give."
+    },
+    "eager": {
+      "name": "Eager",
+      "desc": "Its people do much of the building themselves: every drive is a quarter smaller."
+    },
+    "remote": {
+      "name": "Remote",
+      "desc": "A long way out. Drives cost more, and word of the help travels further."
+    }
   }
 }

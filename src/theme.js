@@ -45,6 +45,8 @@ const SECTIONS = {
   anomalies: [(c) => (c.orbital ? c.orbital.territories.anomalies : {}), ['name', 'desc']],
   dataPackets: [(c) => (c.orbital && c.orbital.data ? c.orbital.data.packets : {}), ['name', 'text', 'text2', 'text3', 'scene', 'scene2', 'scene3']],
   projects: [(c) => (c.orbital ? Object.fromEntries(c.orbital.projects.list.map((p) => [p.key, p])) : {}), ['name', 'desc']],
+  settlements: [(c) => (c.settlements ? c.settlements.types : {}), ['name', 'desc']],
+  settlementTraits: [(c) => (c.settlements ? c.settlements.traits : {}), ['name', 'desc']],
 };
 
 // Problems found while applying a theme (unknown ids, non-string text). Returned, never thrown, so one typo does not
@@ -75,6 +77,10 @@ function apply(config, theme) {
   if (Array.isArray(theme.territoryNames) && theme.territoryNames.length && config.orbital) {
     if (theme.territoryNames.every((t) => typeof t === 'string' && t.trim())) config.orbital.territories.names = theme.territoryNames;
     else problems.push('theme.territoryNames: must be a list of non-empty text');
+  }
+  if (Array.isArray(theme.settlementNames) && theme.settlementNames.length && config.settlements) {
+    if (theme.settlementNames.every((t) => typeof t === 'string' && t.trim())) config.settlements.names = theme.settlementNames;
+    else problems.push('theme.settlementNames: must be a list of non-empty text');
   }
   if (Array.isArray(theme.requisitionTitles) && theme.requisitionTitles.length && config.requisitions) {
     if (theme.requisitionTitles.every((t) => typeof t === 'string' && t.trim())) config.requisitions.titles = theme.requisitionTitles;

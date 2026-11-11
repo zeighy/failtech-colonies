@@ -904,5 +904,41 @@
       "text2": "A second page was attached to the final memorandum with a pin. It lists every hazard the colony has survived, every shortage it has weathered and every call it has answered, in order, with the time. At the bottom is a column of figures that, when added, equals the number of days the colony has existed. It is slightly larger than the number of days that have passed. The difference is signed for.",
       "text3": "The last page is blank except for one line at the bottom, in the same plain hand as everything else: Thank you for the work. We heard you. We are still here. And beneath it, smaller and added later, perhaps by you: Continue."
     }
+  },
+  "settlements": {
+    "foundry": {
+      "name": "Foundry Town",
+      "desc": "A camp around a cold furnace. It wants scrap and parts, later fuel and metal, and its builders work on your upgrades in return."
+    },
+    "valley": {
+      "name": "Valley Settlement",
+      "desc": "Families on good ground with nothing to plant it with. It wants water and food, later medicine, and its people come to work your lines."
+    },
+    "depot": {
+      "name": "Rail Depot",
+      "desc": "A junction with track and no rolling stock. It wants scrap and building stock, later fuel, polymers and circuits, and carries your goods further in return."
+    }
+  },
+  "settlementTraits": {
+    "steady": {
+      "name": "Steady",
+      "desc": "Nothing unusual about it."
+    },
+    "hungry": {
+      "name": "Hungry",
+      "desc": "It needs a quarter more of everything, and gives more back."
+    },
+    "frugal": {
+      "name": "Frugal",
+      "desc": "It gets by on less, and has less to give."
+    },
+    "eager": {
+      "name": "Eager",
+      "desc": "Its people do much of the building themselves: every drive is a quarter smaller."
+    },
+    "remote": {
+      "name": "Remote",
+      "desc": "A long way out. Drives cost more, and word of the help travels further."
+    }
   }
 }

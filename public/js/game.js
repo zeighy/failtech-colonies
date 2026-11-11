@@ -67,7 +67,7 @@
   // Every screen, in one fixed order. The desk shell lists them all down the left edge; the phone shell keeps four on its
   // bottom bar and the rest one tap behind More. A screen is [id, name, icon, shortcut key].
   var NAV = [
-    { id: 'colony', name: 'Colony', tabs: [['brief', 'Brief', 'check', 'b'], ['people', 'People', 'users', 'p'], ['hub', 'Hub', 'hub', 'h'], ['districts', 'Districts', 'map', 'd']] },
+    { id: 'colony', name: 'Colony', tabs: [['brief', 'Brief', 'check', 'b'], ['people', 'People', 'users', 'p'], ['hub', 'Hub', 'hub', 'h'], ['districts', 'Districts', 'map', 'd'], ['settle', 'Settlements', 'camp', 'g']] },
     { id: 'economy', name: 'Economy', tabs: [['stockpile', 'Stockpile', 'box', 's'], ['logistics', 'Logistics', 'route', 'l'], ['convoy', 'Convoy', 'truck', 'c'], ['exchange', 'Exchange', 'scale', 'x'], ['missions', 'Missions', 'flag', 'n']] },
     { id: 'orbit', name: 'Orbit', tabs: [['ostore', 'Storage', 'box', 'o'], ['omarket', 'Market', 'scale'], ['oterr', 'Expeditions', 'ship', 'e'], ['oproject', 'Project', 'globe']] },
     { id: 'data', name: 'Archive', tabs: [['data', 'Data', 't_data']] }
@@ -86,6 +86,7 @@
   function tabLocked(id) {
     if (id === 'districts' || id === 'logistics') return !S.districtsUnlocked;
     if (id === 'exchange') return !S.exchange.unlocked;
+    if (id === 'settle') return !(S.settlements && S.settlements.unlocked);
     if (id === 'missions') return !S.freeport && !(S.requisitions && S.requisitions.unlocked);
     return false;
   }
@@ -743,7 +744,7 @@
   function renderAlerts() { renderNet(); }
 
   function readyFlags() {
-    var next = GEO().levels[activeD().level + 1];
+    var next = dlevel(GEO().levels[activeD().level + 1]);
     var up = !!(next && next.upgradeCost && !S.hub.upgrading && canAfford(next.upgradeCost) && (activeD().core || activeD().level + 1 <= S.districtLevelCap));
     var found = !!(S.districtsUnlocked && Object.keys(CFG.districtTypes).some(function (k) {
       return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
@@ -766,6 +767,7 @@
     var f = readyFlags();
     if (t === 'hub' && f.up) return '<span class="dotb good" title="An upgrade is affordable"></span>';
     if (t === 'districts' && f.found) return '<span class="dotb good" title="A district can be founded"></span>';
+    if (t === 'settle' && settleNews().length) return '<span class="dotb good" title="' + esc(settleNews()[0]) + '"></span>';
     return '';
   }
   // The screens. Desk: one fixed list down the left edge, every screen one click away and always in the same place.
@@ -835,7 +837,7 @@
   }
   function wsHtml(t) {
     if (window.Orbit.panes[t]) return window.Orbit.panes[t]();
-    return t === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : t === 'people' ? peopleTab() : t === 'districts' ? districtsTab() : t === 'logistics' ? logisticsPage() :
+    return t === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : t === 'people' ? peopleTab() : t === 'districts' ? districtsTab() : t === 'settle' ? settleTab() : t === 'logistics' ? logisticsPage() :
       t === 'convoy' ? convoyTab() : t === 'exchange' ? exchangeTab() : t === 'missions' ? missionsTab() : t === 'stockpile' ? stockpileTab() : t === 'data' ? dataTab() : briefTab();
   }
   var lastSheetTabs = '', lastSheet = '';
@@ -890,6 +892,7 @@
     var f = readyFlags();
     if (f.up) out.push(['good', 'An upgrade is affordable', 'hub']);
     if (f.found) out.push(['good', 'A district can be founded', 'districts']);
+    settleNews().forEach(function (m) { out.push(['good', m, 'settle']); });
     return out.slice(0, 8);
   }
   function placeSummary() {
@@ -1367,6 +1370,18 @@
     return h + '<div class="note" style="margin-top:14px">Directives only point at what is missing. Working out how is the game.</div>';
   }
 
+  // Upgrades cost less while a settlement's builders are helping: the same rounding the server uses.
+  function dcost(cost) {
+    var d = S.settlements && S.settlements.effects ? S.settlements.effects.discount : 0, o = {};
+    if (!cost || !d) return cost;
+    Object.keys(cost).forEach(function (r) { o[r] = Math.max(1, Math.ceil(cost[r] * (1 - d) - 1e-9)); });
+    return o;
+  }
+  function dlevel(lv) { return lv && lv.upgradeCost ? Object.assign({}, lv, { upgradeCost: dcost(lv.upgradeCost) }) : lv; }
+  function discountNote() {
+    var d = S.settlements && S.settlements.effects ? S.settlements.effects.discount : 0;
+    return d ? '<div class="bonus good">Settlement builders: ' + (d * 100).toFixed(1).replace(/\.0$/, '') + '% off this upgrade</div>' : '';
+  }
   function upgradeLabel(cost) { return slotFree() && canAfford(cost) ? 'Begin upgrade' : 'Queue upgrade'; }
   // The hub's build slots: how many orders run side by side here, and the next slot it can buy.
   function slotsCard() {
@@ -1395,7 +1410,7 @@
     return h || '<span class="dim">None</span>';
   }
   function hubTab() {
-    var c = S.colony, lv = CFG.hubLevels[c.hubLevel], next = CFG.hubLevels[c.hubLevel + 1];
+    var c = S.colony, lv = CFG.hubLevels[c.hubLevel], next = dlevel(CFG.hubLevels[c.hubLevel + 1]);
     var slots = function (l) { return Object.keys(l.ringCapacities).reduce(function (a, k) { return a + l.ringCapacities[k]; }, 0); };
     var h = stockSwitch() + '<div class="p-title">' + icon('hub', 22) + '<h3>Command Hub · Level ' + c.hubLevel + '</h3></div>' +
       '<dl class="kv"><dt>Storage per resource</dt><dd>' + fmt(S.hub.maxStorage) + (S.hub.maxStorage > S.hub.baseStorage ? ' <span class="dim">(' + fmt(S.hub.baseStorage) + ' + warehouses)</span>' : '') + '</dd>' +
@@ -1406,7 +1421,7 @@
     var st = c.staffing, ho = c.housing, mi = c.moraleInfo, sg = function (v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1); };
     h += '<div class="label sec">Population &amp; morale</div><dl class="kv">' +
       '<dt>People</dt><dd>' + c.population + ' / ' + ho.cap + ' <span class="dim">(quarters ' + ho.base + (ho.built ? ' + homes ' + Math.floor(ho.built) : '') + ')</span></dd>' +
-      '<dt>Crew</dt><dd class="' + (st.ratio < 0.999 ? 'warn' : '') + '">' + Math.floor(st.workforce) + ' hands for ' + st.posts + ' posts' + (st.ratio < 0.999 ? ' · ×' + st.ratio.toFixed(2) + ' output' : '') + '</dd>' +
+      '<dt>Crew</dt><dd class="' + (st.ratio < 0.999 ? 'warn' : '') + '">' + Math.floor(st.workforce) + ' hands for ' + st.posts + ' posts' + (st.commuters ? ' · ' + st.commuters + ' commute in' : '') + (st.ratio < 0.999 ? ' · ×' + st.ratio.toFixed(2) + ' output' : '') + '</dd>' +
       '<dt>Morale</dt><dd>' + Math.round(c.morale) + ' <span class="dim">→ target ' + Math.round(mi.target) + '</span></dd>' +
       '<dt>Target is</dt><dd class="dim">base ' + mi.base + ' · homes ' + sg(mi.comfort) + ' · meals ' + sg(mi.meals) + '</dd>' +
       '<dt>Fed meals</dt><dd>' + pct(mi.mealCoverage) + ' of people</dd>' +
@@ -1426,7 +1441,7 @@
         '<div class="io">' + Object.keys(next.upgradeCost).map(function (r) { return pill(r, next.upgradeCost[r], S.resources[r].amount < next.upgradeCost[r] ? 'no' : ''); }).join('') + '</div>' +
         '<div class="dim" style="font-size:11px;margin-top:8px">Unlocks ring ' + nl + ' (' + plotName(nl) + ' plots, ' + CFG.rings[nl] + ' slots) · storage ' + fmt(next.maxStorage) + ' · hub quarters ' + next.baseHousing + ' · base power ' + next.baseEnergy + '</div>' +
         (next.upkeepPerTick ? '<div class="label" style="margin-top:8px">Upkeep after upgrade</div><div class="io" style="margin-top:4px">' + upkeepPills(next.upkeepPerTick) + '</div>' : '') + '</div>';
-      h += up ? upgradeNote(up) : '<div class="actions"><button class="btn primary" data-act="upgrade">' + upgradeLabel(next.upgradeCost) + '</button></div>' + queueNote(next.upgradeCost);
+      h += discountNote() + (up ? upgradeNote(up) : '<div class="actions"><button class="btn primary" data-act="upgrade">' + upgradeLabel(next.upgradeCost) + '</button></div>' + queueNote(next.upgradeCost));
     }
     h += slotsCard();
     var bc = S.buildings.filter(function (b) { return CFG.buildings[b.type].transmit; })[0];
@@ -1578,7 +1593,7 @@
         '<button class="x" data-act="rdel" data-id="' + r.id + '" title="Remove route" aria-label="Remove route">×</button></div>' +
         '<div class="stepper"><span class="lab">Rate</span><button data-act="rstep" data-id="' + r.id + '" data-delta="-5" aria-label="Lower">−</button>' + numIn('rexist', r.rate, 'data-id="' + r.id + '"') + '<span class="unit">/t</span><button data-act="rstep" data-id="' + r.id + '" data-delta="5" aria-label="Raise">+</button></div>' +
         '<div class="stepper" style="margin-top:6px"><span class="lab">Fill to</span>' + numIn('rtarget', r.target || 0, 'data-id="' + r.id + '"') + '<span class="unit">' + (r.target ? 'in ' + esc(nm(r.toDistrict)) : 'no limit') + '</span></div>' +
-        '<div class="dim" style="font-size:11px;margin-top:4px">keeps ' + fmt(r.reserve) + ' in ' + esc(nm(r.fromDistrict)) + '</div><div class="flow ' + (r.flow >= r.rate || r.limit === 'target' ? 'good' : r.flow > 0 ? 'warn' : 'bad') + '">' + (r.flow > 0 ? 'Moving ' + r.flow + '/t' : 'Idle') + (r.limit === 'stock' ? ' · the source is down to its reserve' : r.limit === 'room' ? ' · the destination is full' : r.limit === 'target' ? ' · the destination has what it was to be filled to' : '') + '</div></div>';
+        '<div class="dim" style="font-size:11px;margin-top:4px">keeps ' + fmt(r.reserve) + ' in ' + esc(nm(r.fromDistrict)) + '</div><div class="flow ' + (r.flow >= r.rate || r.limit === 'target' ? 'good' : r.flow > 0 ? 'warn' : 'bad') + '">' + (r.flow > 0 ? 'Moving ' + r.flow + '/t' : 'Idle') + (r.limit === 'link' ? ' · slowed: the link is carrying more than it can since a settlement\'s help fell away (food and water go first)' : r.limit === 'stock' ? ' · the source is down to its reserve' : r.limit === 'room' ? ' · the destination is full' : r.limit === 'target' ? ' · the destination has what it was to be filled to' : '') + '</div></div>';
     }).join('');
   }
   // Logistics has its own tab: links, standing routes and one-off shipments.
@@ -1615,7 +1630,7 @@
     return h + shipmentsBlock();
   }
   function districtHubTab() {
-    var d = activeD(), t = CFG.districtTypes[d.type], lv = GEO().levels[d.level], next = GEO().levels[d.level + 1];
+    var d = activeD(), t = CFG.districtTypes[d.type], lv = GEO().levels[d.level], next = dlevel(GEO().levels[d.level + 1]);
     var slots = function (l) { return Object.keys(l.ringCapacities).reduce(function (a, k) { return a + l.ringCapacities[k]; }, 0); };
     var h = stockSwitch() + '<div class="p-title" style="--c:' + t.color + '">' + icon('hub', 22) + '<h3>' + esc(d.name) + ' · Level ' + d.level + '</h3></div><p class="p-desc">' + esc(t.desc) + '</p>' +
       '<dl class="kv"><dt>Storage per resource</dt><dd>' + fmt(S.hub.maxStorage) + (S.hub.maxStorage > S.hub.baseStorage ? ' <span class="dim">(' + fmt(S.hub.baseStorage) + ' + warehouses)</span>' : '') + '</dd>' +
@@ -1636,6 +1651,78 @@
         (short.length ? '<button class="btn" data-act="tab" data-tab="logistics">' + icon('truck', 12) + ' Ship goods</button>' : '') + '</div>' + queueNote(next.upgradeCost);
     }
     return h + slotsCard();
+  }
+
+
+  // ---- settlements: camps that answered the Beacon, and what sponsoring them gives ----------------------------
+  function settleGives(kind, v) {
+    var p1 = function (x) { return (x * 100).toFixed(1).replace(/\.0$/, ''); };
+    return kind === 'hands' ? Math.floor(v) + ' commuters' : kind === 'discount' ? p1(v) + '% off upgrades' : '+' + p1(v) + '% link and convoy room';
+  }
+  // What is worth a look: an appeal the Core can answer, a drive it can finish, a camp that could be sponsored.
+  function settleNews() {
+    var V = S.settlements, out = [];
+    if (!V || !V.unlocked) return out;
+    V.active.forEach(function (a) {
+      if (a.appeal && S.coreRes[a.appeal.good].amount >= a.appeal.qty) out.push(a.name + ' is appealing for ' + fmt(a.appeal.qty) + ' ' + CFG.resources[a.appeal.good].name);
+    });
+    if (V.active.length < V.slots && V.offers.length) out.push('A camp can be sponsored');
+    return out;
+  }
+  function settleBasket(basket, frac) {
+    return Object.keys(basket).map(function (r) { return pill(r, +(basket[r] * frac).toFixed(1), S.coreRes[r].aid >= basket[r] * frac - 0.01 || !frac ? '' : 'no'); }).join('');
+  }
+  function settleTab() {
+    var V = S.settlements, C = CFG.settlements;
+    if (!V || !C) return '';
+    if (!V.unlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>Nobody has answered yet.</div><div class="dim" style="margin-top:8px;font-size:12px">Camps answer once the Beacon has transmitted.</div></div>';
+    var e = V.effects, free = V.slots - V.active.length;
+    var h = '<div class="p-title">' + icon('camp', 22) + '<h3>Settlements</h3><span class="dim" style="margin-left:auto">' + V.active.length + ' of ' + V.slots + ' sponsored</span></div>' +
+      '<div class="note">The Beacon was heard. Camps ask for help: sponsor one and it draws what it needs from the Core every tick, and gives something back for as long as it is looked after. Drives take goods in bulk and move it up a stage. Nothing sent earns credits.</div>' +
+      '<dl class="kv"><dt>Upgrade discount</dt><dd class="' + (e.discount ? 'good' : 'dim') + '">' + (e.discount * 100).toFixed(1).replace(/\.0$/, '') + '%</dd>' +
+      '<dt>Commuters</dt><dd class="' + (e.hands ? 'good' : 'dim') + '">' + e.hands + ' hands</dd>' +
+      '<dt>Link and convoy room</dt><dd class="' + (e.logistics ? 'good' : 'dim') + '">+' + (e.logistics * 100).toFixed(1).replace(/\.0$/, '') + '%</dd>' +
+      '<dt>Trade partners</dt><dd class="' + (V.partners ? 'good' : 'dim') + '">' + V.partners + (V.partners ? ' · convoy +' + (e.partner * 100).toFixed(1).replace(/\.0$/, '') + '%' : '') + '</dd></dl>' +
+      (V.partners ? '<div class="dim" style="font-size:11px;margin:-2px 0 8px">The figures above include what your trade partners go on giving unasked.</div>' : '') +
+      '<div class="label sec">The Core keeps back</div><div class="seg" style="grid-template-columns:repeat(4,1fr);margin-bottom:6px">' +
+      [0, 0.1, 0.25, 0.5].map(function (v) { return '<button data-act="sreserve" data-v="' + v + '" aria-selected="' + (Math.abs(V.reserve - v) < 0.001) + '">' + Math.round(v * 100) + '%</button>'; }).join('') + '</div>' +
+      '<div class="dim" style="font-size:11px;margin-bottom:6px">of its storage in every good. Settlements never draw below it.</div>';
+    V.active.forEach(function (a) {
+      var t = C.types[a.type], tr = C.traits[a.trait] || { name: a.trait, desc: '' }, f = CFG.missions.factions[a.faction], frac = [0, 0.5, 1][a.commitment];
+      var need = a.drive.need, got = a.drive.got, total = 0, have = 0, can = false;
+      Object.keys(need).forEach(function (r) { total += need[r]; have += Math.min(need[r], got[r] || 0); if ((got[r] || 0) < need[r] && S.coreRes[r].amount - V.reserve * S.coreRes[r].cap >= 1) can = true; });
+      h += '<div class="mission"><div class="rhead"><b>' + esc(a.name) + '</b><span class="dim num">stage ' + a.stage + ' of ' + a.stages + '</span></div>' +
+        '<div class="dim" style="font-size:11px;margin-bottom:6px">' + esc(t.name) + ' · <span title="' + esc(tr.desc) + '">' + esc(tr.name) + '</span> · ' + esc(f ? f.name : a.faction) + '</div>' +
+        '<div class="io"><span class="pill out"><i style="background:var(--good)"></i>' + esc(settleGives(a.kind, a.now)) + '</span>' +
+        (a.boonLeft ? '<span class="pill" title="Its full benefit again on top, after a drive or an answered appeal"><i style="background:var(--amber)"></i>Giving double · ' + a.boonLeft + 't</span>' : '') + '</div>' +
+        '<div class="dim" style="font-size:11px;margin:4px 0 8px">' + esc(settleGives(a.kind, a.benefit)) + ' at full support' + (a.next ? ', ' + esc(settleGives(a.kind, a.next)) + ' at the next stage' : '') + '</div>' +
+        '<div class="label">Steady support · supplied ' + Math.round(a.level * 100) + '%</div><div class="meter" style="margin:4px 0 6px"><i style="width:' + clamp(a.level * 100, 0, 100).toFixed(0) + '%;background:' + (a.level > 0.9 ? 'var(--good)' : 'var(--warn)') + '"></i></div>' +
+        '<div class="seg" style="grid-template-columns:repeat(3,1fr);margin-bottom:6px">' + ['Off', 'Half', 'Full'].map(function (l, i) { return '<button data-act="scommit" data-id="' + a.id + '" data-l="' + i + '" aria-selected="' + (a.commitment === i) + '">' + l + '</button>'; }).join('') + '</div>' +
+        '<div class="io">' + (frac ? settleBasket(a.basket, frac) : '<span class="dim">Nothing is being sent.</span>') + '</div>' +
+        (frac ? '<div class="dim" style="font-size:11px;margin-top:4px">per tick from the Core. A good marked red is short or at the reserve.</div>' : '') +
+        '<div class="label sec">' + (a.last ? 'The last drive: it stands on its own' : 'Drive to stage ' + (a.stage + 1)) + ' · ' + Math.floor(have / total * 100) + '%</div>' +
+        '<div class="meter" style="margin:4px 0 6px"><i style="width:' + clamp(have / total * 100, 0, 100).toFixed(0) + '%;background:var(--amber)"></i></div>' +
+        '<div class="io">' + Object.keys(need).map(function (r) { var left = need[r] - (got[r] || 0); return left > 0 ? pill(r, fmt(left) + ' more', '') : pill(r, 'all the', 'dim'); }).join('') + '</div>' +
+        '<div class="dim" style="font-size:11px;margin:4px 0 6px">' + (a.last ? 'Finishing it frees the slot for another camp. ' + esc(a.name) + ' stays as a trade partner for good: it goes on giving ' + esc(settleGives(a.kind, a.keeps)) + ' and needs nothing more from you.' : 'Any amount, any time. Finishing it raises what it asks for and gives, and doubles what it gives for ' + C.boonTicks + ' ticks.') + '</div>' +
+        '<div class="actions"><button class="btn' + (can ? ' primary' : '') + '" data-act="sgive" data-id="' + a.id + '"' + (can ? '' : ' disabled') + '>Send what the Core can spare</button></div>';
+      if (a.appeal) {
+        var g = CFG.resources[a.appeal.good], stock = Math.floor(S.coreRes[a.appeal.good].amount), ok = stock >= a.appeal.qty;
+        h += '<div class="offer" style="--c:' + g.color + ';margin-top:10px"><div class="want">Appeal: <b class="num">' + fmt(a.appeal.qty) + '</b> ' + esc(g.name) + ' <span class="' + (ok ? 'good' : 'dim') + '" style="font-size:11px">(' + fmt(stock) + ' in the Core) · ' + a.appeal.ticksLeft + 't left</span></div>' +
+          '<div class="pay"><span class="pill"><i style="background:var(--amber)"></i>Gives double for ' + C.appeal.boonTicks + 't</span>' +
+          '<button class="btn' + (ok ? ' primary' : '') + '" data-act="sanswer" data-id="' + a.id + '"' + (ok ? '' : ' disabled') + '>Answer</button></div></div>';
+      }
+      h += '<div style="margin-top:8px;text-align:right"><button class="linkbtn" data-act="sdrop" data-id="' + a.id + '" data-key="sdrop' + a.id + '">' + (confirmKey === 'sdrop' + a.id ? 'Confirm: stop sponsoring (its progress is lost)' : 'Stop sponsoring') + '</button></div></div>';
+    });
+    h += '<div class="label sec">Camps asking for help</div>' + (free > 0 ? '' : '<div class="note">Every slot is taken' + (V.slots < V.slotNeeds.length ? '. Another opens with ' + (V.slots === 1 ? 'the Free Port' : 'the station') : '') + '. A settlement that finishes its last drive frees its slot.</div>');
+    V.offers.forEach(function (o) {
+      var t = C.types[o.type], tr = C.traits[o.trait] || { name: o.trait, desc: '' };
+      h += '<div class="opt" style="cursor:default;margin-bottom:8px"><div class="top"><b>' + esc(o.name) + '</b><small>asking for ' + o.ticksLeft + 't more</small></div>' +
+        '<div class="dim" style="font-size:11px;margin-bottom:6px">' + esc(t.name) + ' · ' + esc(tr.name) + ': ' + esc(tr.desc) + '</div><p class="p-desc" style="margin:0 0 6px">' + esc(t.desc) + '</p>' +
+        '<div class="io">' + Object.keys(o.basket).map(function (r) { return pill(r, o.basket[r], 'in'); }).join('') + '</div>' +
+        '<div class="dim" style="font-size:11px;margin:4px 0 8px">per tick at stage 1 · gives ' + esc(settleGives(o.kind, o.benefit)) + ', rising to ' + esc(settleGives(o.kind, o.benefitTop)) + '</div>' +
+        '<div class="actions"><button class="btn' + (free > 0 ? ' primary' : '') + '" data-act="ssponsor" data-id="' + o.id + '"' + (free > 0 ? '' : ' disabled') + '>Sponsor</button></div></div>';
+    });
+    return h;
   }
 
   // ---- exchange ----------------------------------------------------------------
@@ -1837,7 +1924,7 @@
       '<dt>Output effect</dt><dd class="' + (mi.productivity < 0.999 ? 'bad' : mi.productivity > 1.001 ? 'good' : 'dim') + '">×' + mi.productivity.toFixed(2) + '</dd>' +
       '<dt>Thresholds</dt><dd class="dim">growth stops below ' + gr.minMorale + ' · people leave below ' + ex.lowMoraleBelow + ' · colony is lost at 0</dd></dl>';
     // crew and housing
-    h += '<div class="label sec">Crew &amp; housing</div><dl class="kv"><dt>Crew</dt><dd class="' + (st.ratio < 0.999 ? 'warn' : '') + '">' + Math.floor(st.workforce) + ' hands for ' + Math.ceil(st.posts) + ' posts' + (st.ratio < 0.999 ? ' · output ×' + st.ratio.toFixed(2) : '') + '</dd>' +
+    h += '<div class="label sec">Crew &amp; housing</div><dl class="kv"><dt>Crew</dt><dd class="' + (st.ratio < 0.999 ? 'warn' : '') + '">' + Math.floor(st.workforce) + ' hands for ' + Math.ceil(st.posts) + ' posts' + (st.commuters ? ' · ' + st.commuters + ' commute in from settlements' : '') + (st.ratio < 0.999 ? ' · output ×' + st.ratio.toFixed(2) : '') + '</dd>' +
       '<dt>Homes</dt><dd>quarters ' + ho.base + (ho.built ? ' + built ' + Math.floor(ho.built) : '') + ' = ' + ho.cap + '</dd>' +
       '<dt>Minimum</dt><dd class="dim">people never leave below ' + P.minPopulation + '</dd></dl>' +
       (st.ratio < 0.999 ? '<div class="note warn">Not enough hands for every post, so staffed buildings are slowed. More homes, or expanding the homes you have, brings more people (if they can be fed).</div>' : '');
@@ -2234,6 +2321,15 @@
     else if (a === 'recset') { var rcp = el.dataset.rec; recipePick = null; act('recipe', { ring: +el.dataset.ring, slot: +el.dataset.slot, recipe: rcp, district: activeId }, 'Recipe set.'); }
     else if (a === 'shield') act('shield', { enabled: !(S.hazard && S.hazard.shield && S.hazard.shield.enabled) });
     else if (a === 'reqfill') act('requisition', { id: +el.dataset.id }, 'Requisition delivered.');
+    else if (a === 'ssponsor') act('settle-sponsor', { id: +el.dataset.id });
+    else if (a === 'scommit') act('settle-commit', { id: +el.dataset.id, level: +el.dataset.l });
+    else if (a === 'sgive') act('settle-give', { id: +el.dataset.id }).then(function (d) { if (d && d.ok && !d.completed) toast('Sent to the drive.', true); });
+    else if (a === 'sanswer') act('settle-answer', { id: +el.dataset.id });
+    else if (a === 'sreserve') act('settle-reserve', { reserve: +el.dataset.v });
+    else if (a === 'sdrop') {
+      if (confirmKey === el.dataset.key) { if (Date.now() - confirmAt < CONFIRM_DELAY) return; confirmKey = null; act('settle-drop', { id: +el.dataset.id }); }
+      else { confirmKey = el.dataset.key; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
+    }
     else if (a === 'mfill') act('mission', { id: +el.dataset.id, faction: el.dataset.faction, district: msrc || activeId }, 'Mission filled.');
     else if (a === 'mkside') { mk.side = el.dataset.side; mk.price = null; renderPanel(); }
     else if (a === 'mkqty') {

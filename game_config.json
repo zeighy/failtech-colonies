@@ -4754,5 +4754,286 @@
         "limitMult": 1.25
       }
     }
+  },
+  "settlements": {
+    "slots": [
+      "beacon",
+      "freeport",
+      "station"
+    ],
+    "offers": 3,
+    "offerTicks": [
+      600,
+      1500
+    ],
+    "smoothTicks": 40,
+    "defaultReserve": 0.1,
+    "stages": 5,
+    "driveTicks": [
+      60,
+      80,
+      100,
+      120,
+      150
+    ],
+    "standingPerStage": 0.02,
+    "driveStanding": 10,
+    "boonTicks": 300,
+    "discountCap": 0.3,
+    "appeal": {
+      "gapTicks": [
+        150,
+        400
+      ],
+      "windowTicks": [
+        60,
+        160
+      ],
+      "sizeTicks": [
+        10,
+        25
+      ],
+      "maxQty": 2500,
+      "boonTicks": 120,
+      "standing": 4
+    },
+    "partner": {
+      "convoyBonus": 0.02,
+      "keep": 0.2,
+      "decay": 0.8
+    },
+    "names": [
+      "Ashford",
+      "Low Meadow",
+      "Kiln Row",
+      "Saltgate",
+      "Three Wells",
+      "Emberfield",
+      "Hollow Bridge",
+      "Greywater",
+      "Tin Cross",
+      "Longbarrow",
+      "Mill Reach",
+      "Drywell",
+      "Cinder Fork",
+      "Marrow Hill",
+      "Stonecot",
+      "Reedham"
+    ],
+    "types": {
+      "foundry": {
+        "name": "Foundry Town",
+        "desc": "A camp around a cold furnace. It wants scrap and parts, later fuel and metal, and its builders work on your upgrades in return.",
+        "faction": "cinder",
+        "benefit": {
+          "kind": "discount",
+          "byStage": [
+            0.03,
+            0.05,
+            0.07,
+            0.09,
+            0.12
+          ]
+        },
+        "basket": {
+          "1": {
+            "scrap": 40,
+            "machined_parts": 3
+          },
+          "2": {
+            "scrap": 70,
+            "machined_parts": 6,
+            "fuel": 4
+          },
+          "3": {
+            "scrap": 110,
+            "machined_parts": 10,
+            "fuel": 6,
+            "ingots": 5
+          },
+          "4": {
+            "scrap": 160,
+            "machined_parts": 14,
+            "fuel": 10,
+            "ingots": 8,
+            "alloys": 6
+          },
+          "5": {
+            "scrap": 220,
+            "machined_parts": 20,
+            "fuel": 16,
+            "ingots": 14,
+            "alloys": 14
+          }
+        },
+        "appeals": [
+          "machined_parts",
+          "alloys",
+          "ingots",
+          "fuel",
+          "building_materials"
+        ]
+      },
+      "valley": {
+        "name": "Valley Settlement",
+        "desc": "Families on good ground with nothing to plant it with. It wants water and food, later medicine, and its people come to work your lines.",
+        "faction": "verdant",
+        "benefit": {
+          "kind": "hands",
+          "byStage": [
+            10,
+            20,
+            32,
+            46,
+            60
+          ]
+        },
+        "basket": {
+          "1": {
+            "clean_water": 10,
+            "rations": 10
+          },
+          "2": {
+            "clean_water": 16,
+            "rations": 16,
+            "meals": 6,
+            "biomass": 4
+          },
+          "3": {
+            "clean_water": 26,
+            "rations": 26,
+            "meals": 12,
+            "biomass": 8,
+            "fertiliser": 2
+          },
+          "4": {
+            "clean_water": 40,
+            "rations": 40,
+            "meals": 22,
+            "biomass": 14,
+            "fertiliser": 5,
+            "medicine": 2
+          },
+          "5": {
+            "clean_water": 60,
+            "rations": 60,
+            "meals": 36,
+            "biomass": 20,
+            "fertiliser": 10,
+            "medicine": 5
+          }
+        },
+        "appeals": [
+          "clean_water",
+          "rations",
+          "meals",
+          "medicine",
+          "fertiliser",
+          "biomass"
+        ]
+      },
+      "depot": {
+        "name": "Rail Depot",
+        "desc": "A junction with track and no rolling stock. It wants scrap and building stock, later fuel, polymers and circuits, and carries your goods further in return.",
+        "faction": "meridian",
+        "benefit": {
+          "kind": "logistics",
+          "byStage": [
+            0.08,
+            0.12,
+            0.16,
+            0.2,
+            0.25
+          ]
+        },
+        "basket": {
+          "1": {
+            "scrap": 30,
+            "building_materials": 2
+          },
+          "2": {
+            "scrap": 50,
+            "building_materials": 4,
+            "fuel": 4
+          },
+          "3": {
+            "scrap": 80,
+            "building_materials": 7,
+            "fuel": 6,
+            "polymers": 3
+          },
+          "4": {
+            "scrap": 120,
+            "building_materials": 10,
+            "fuel": 10,
+            "polymers": 6,
+            "circuits": 2
+          },
+          "5": {
+            "scrap": 160,
+            "building_materials": 12,
+            "fuel": 12,
+            "polymers": 8,
+            "circuits": 2,
+            "power_cells": 1
+          }
+        },
+        "appeals": [
+          "building_materials",
+          "polymers",
+          "fuel",
+          "circuits",
+          "reagents",
+          "power_cells"
+        ]
+      }
+    },
+    "traits": {
+      "steady": {
+        "name": "Steady",
+        "desc": "Nothing unusual about it.",
+        "weight": 3,
+        "basketMult": 1,
+        "driveMult": 1,
+        "benefitMult": 1,
+        "standingMult": 1
+      },
+      "hungry": {
+        "name": "Hungry",
+        "desc": "It needs a quarter more of everything, and gives more back.",
+        "weight": 2,
+        "basketMult": 1.25,
+        "driveMult": 1,
+        "benefitMult": 1.2,
+        "standingMult": 1
+      },
+      "frugal": {
+        "name": "Frugal",
+        "desc": "It gets by on less, and has less to give.",
+        "weight": 2,
+        "basketMult": 0.8,
+        "driveMult": 1,
+        "benefitMult": 0.85,
+        "standingMult": 1
+      },
+      "eager": {
+        "name": "Eager",
+        "desc": "Its people do much of the building themselves: every drive is a quarter smaller.",
+        "weight": 2,
+        "basketMult": 1,
+        "driveMult": 0.75,
+        "benefitMult": 1,
+        "standingMult": 1
+      },
+      "remote": {
+        "name": "Remote",
+        "desc": "A long way out. Drives cost more, and word of the help travels further.",
+        "weight": 1,
+        "basketMult": 1,
+        "driveMult": 1.3,
+        "benefitMult": 1,
+        "standingMult": 1.6
+      }
+    }
   }
 }
