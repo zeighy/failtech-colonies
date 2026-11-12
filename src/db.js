@@ -493,12 +493,13 @@ if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'settl
 if (!db.prepare("SELECT 1 FROM pragma_table_info('settlements') WHERE name = 'answers'").get()) db.exec('ALTER TABLE settlements ADD COLUMN answers INTEGER NOT NULL DEFAULT 0'); // appeals answered (the story listens for it)
 // v21 (additive): absence (see absence.js). `last_active_at` is the commander's last real interaction (last_seen_at also
 // counts an idle open tab); a colony stops being simulated a while after it, and is parked (parked_at) later still.
-// Generated accounts hold parked colonies their commander gave up; `notice` tells a commander their colony was claimed.
+// Generated accounts hold parked colonies their commander gave up; `notice` tells a commander their colony was claimed;
+// `bot_profile` marks an account the bot runner plays (src/botApi.js), with the profile it plays.
 if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'last_active_at'").get()) {
   db.exec('ALTER TABLE colonies ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0');
   db.exec('UPDATE colonies SET last_active_at = last_seen_at');
 }
-for (const [table, col, ddl] of [['colonies', 'parked_at', 'INTEGER'], ['colonies', 'away_notice', 'TEXT'], ['users', 'generated', 'INTEGER NOT NULL DEFAULT 0'], ['users', 'notice', 'TEXT']]) {
+for (const [table, col, ddl] of [['colonies', 'parked_at', 'INTEGER'], ['colonies', 'away_notice', 'TEXT'], ['users', 'generated', 'INTEGER NOT NULL DEFAULT 0'], ['users', 'notice', 'TEXT'], ['users', 'bot_profile', 'TEXT']]) {
   if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
 }
 db.pragma(`user_version = ${SCHEMA_VERSION}`);

@@ -14,6 +14,8 @@ const security = require('./src/security');
 const story = require('./src/story');
 const theme = require('./src/theme');
 const backup = require('./src/backup');
+const ACTION_ROUTES = require('./src/routes');
+const botApi = require('./src/botApi');
 const config = store.config;
 const { body: plainBody } = require('./src/validate');
 const { viewFor, clientConfig } = require('./src/state');
@@ -48,6 +50,9 @@ app.use(security.headers);
 app.use('/api', security.sameOrigin((process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)));
 app.use('/api', security.jsonOnly);
 app.use(express.json({ limit: '10kb', strict: true }));
+// The bot runner's API (off unless BOT_API_KEY is set). Ahead of the session and the player rate limits: bots authenticate
+// with the key, not a cookie, and have a limiter of their own.
+app.use('/api/bot', botApi.router());
 app.use(session({
   name: 'failtech.sid',
   secret: sessionSecret(),
@@ -216,10 +221,7 @@ const act = (name) => (req, res) => {
   if (result.ok) push(req.session.userId);
   res.status(result.ok ? 200 : 400).json({ ...result, state: result.ok ? viewFor(req.session.userId) : undefined });
 };
-for (const [route, name] of [
-  ['build', 'build'], ['replace', 'replace'], ['requisition', 'requisitionFill'], ['queue-move', 'queueMove'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['boost', 'setBoost'], ['expand', 'expand'], ['cancel', 'cancelOrder'],
-  ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['market', 'marketPost'], ['recipe', 'setRecipe'], ['shield', 'shieldHazard'], ['mission', 'missionFill'], ['market-cancel', 'marketCancel'], ['route', 'setRoute'], ['link', 'upgradeLink'], ['build-slot', 'buildSlot'], ['settle-sponsor', 'settlementSponsor'], ['settle-commit', 'settlementCommit'], ['settle-give', 'settlementGive'], ['settle-answer', 'settlementAnswer'], ['settle-drop', 'settlementDrop'], ['settle-reserve', 'settlementReserve'], ['story-seen', 'storySeen'], ['resume', 'resumeOps'], ['launch-cycle', 'launchCycle'], ['launch', 'launch'], ['express-launch', 'expressLaunch'], ['orbit-storage', 'orbitalStorageUpgrade'], ['orbit-links', 'orbitalLinksUpgrade'], ['jettison', 'jettison'], ['rebuild-slot', 'rebuildSlot'], ['ship-deploy', 'shipDeploy'], ['ship-plan', 'shipPlan'], ['ship-return', 'shipReturn'], ['data-unlock', 'dataUnlock'], ['rush', 'rushOrder'], ['ship-build', 'shipBuild'], ['ship-upgrade', 'shipUpgrade'], ['ship-repair', 'shipRepair'], ['project-contribute', 'projectContribute'], ['orbit-market', 'orbitPost'], ['orbit-market-cancel', 'orbitCancel'],
-]) app.post(`/api/${route}`, requireAuth, act(name));
+for (const [route, name] of ACTION_ROUTES) app.post(`/api/${route}`, requireAuth, act(name));
 
 // The player is at the screen (the client sends this on input, a few times an hour at most).
 app.post('/api/here', requireAuth, (req, res) => { here(req.session.userId); res.json({ ok: true }); });

@@ -2,3 +2,4 @@ node_modules
 failtech.db*
 *.log
 backups/
+bots-state.json*

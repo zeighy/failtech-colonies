@@ -130,7 +130,7 @@ const startOver = db.transaction((userId, now = Date.now()) => {
   return OK;
 });
 
-// Someone else takes over a parked colony (for now only a hook: who claims them is still to be decided). The account must
+// Someone else takes over a parked colony (the bot runner does, through src/botApi.js). The account must
 // not have a colony of its own. If the colony still belonged to its commander, they are told when they next sign in.
 const claim = db.transaction((colonyId, userId, now = Date.now()) => {
   const c = db.prepare('SELECT * FROM colonies WHERE id = ?').get(colonyId);
@@ -143,9 +143,16 @@ const claim = db.transaction((colonyId, userId, now = Date.now()) => {
   return OK;
 });
 
+// A colony someone else was running (a bot) is given up: it parks again under a generated account, to be claimed afresh.
+const release = db.transaction((colonyId, now = Date.now()) => {
+  moveColony(colonyId, generatedAccount());
+  db.prepare('UPDATE colonies SET parked_at = ? WHERE id = ?').run(now, colonyId);
+  return OK;
+});
+
 // Parked colonies waiting to be claimed, oldest first.
 function listParked(limit = 50) {
   return db.prepare('SELECT c.id, c.user_id AS userId, u.username, u.generated, c.parked_at AS parkedAt, c.last_active_at AS lastActive FROM colonies c JOIN users u ON u.id = c.user_id WHERE c.parked_at IS NOT NULL ORDER BY c.parked_at LIMIT ?').all(limit);
 }
 
-module.exports = { phase, simulatedSince, sweep, markActive, view, lostView, dismiss, retake, startOver, claim, listParked, generatedAccount };
+module.exports = { phase, simulatedSince, sweep, markActive, view, lostView, dismiss, retake, startOver, claim, release, listParked, generatedAccount };

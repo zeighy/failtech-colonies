@@ -10,7 +10,9 @@
     "check-content": "node scripts/check-content.js",
     "guide": "node scripts/gen-prod-guide.js",
     "playtest": "node scripts/playtest.js",
-    "playtest:orbit": "node scripts/playtest-orbit.js"
+    "playtest:orbit": "node scripts/playtest-orbit.js",
+    "bots": "node bots/runner.js",
+    "botplay": "node scripts/botplay.js"
   },
   "repository": {
     "type": "git",
