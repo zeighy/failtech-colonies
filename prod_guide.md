@@ -428,6 +428,15 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 | Mycelium Commons | 40 Cliffside Rejuvenator, 30 Stabilized Alloy | Kitchens and pharma labs +15% |
 | Gravity Well | 40 Dense Metal, 30 Sirius Core | Fabrication lines +10% |
 
+## **16b. Time away and parked colonies**
+Only colonies whose commander is around are simulated. "Around" means a real interaction: signing in, opening the game, any action, or any click or key in the game (the page reports input at most every 5 minutes). The live stream and state polls an idle open tab keeps making do not count. A new hazard is only started while the player is active (any request in the last 120 seconds, an open tab included).
+| Time since the last interaction | What happens |
+| --- | --- |
+| up to **96 hours** | Simulated as normal. |
+| 96 hours to **30 days** | Not simulated: the colony waits exactly as it was (nothing is taken). The next interaction resumes it, with a one-time notice that it was held. Timers on the shared clock (shipments, express trips, offers) keep running and settle on its first tick back. |
+| over 30 days | Parked. On return the commander chooses: **retake** it (it resumes where it stopped), **start a new colony**, or log out. Every action is refused until they choose. |
+Starting a new colony does not delete the parked one: it moves, still parked, to a generated account (a random callsign nobody can sign in to) and its station is renamed at random. A parked colony can be handed to another account (`absence.claim`); a commander whose colony was claimed can only start over. Neither can be undone. Open market orders stay open while a colony is frozen or parked and expire as usual. Both limits are `global.absence`.
+
 ## **17. Operations: backups**
 The server backs the database up automatically (`BACKUP_INTERVAL_HOURS`, default 6, 0 = off; `BACKUP_KEEP`, default 28; `BACKUP_DIR`). To restore: stop the server, copy a backup over the database file (delete its `-wal` and `-shm` files), start the server.
 
