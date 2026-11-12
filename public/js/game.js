@@ -1084,10 +1084,15 @@
     var u = alt.unlock || {};
     return !(u.level && activeD().level < u.level) && !(u.milestone && !(S.milestones || {})[u.milestone]);
   }
+  // Orbit is not mentioned anywhere until the colony has the standing to see it.
+  function orbitKnown() { return !!(S && S.orbital && S.orbital.unlocked); }
   function altNeeds(alt) {
     var u = alt.unlock || {};
     if (u.level && activeD().level < u.level) return 'Opens at ' + (activeD().core ? 'hub' : 'district') + ' level ' + u.level;
-    if (u.milestone && !(S.milestones || {})[u.milestone]) return 'Opens once ' + ({ beacon: 'the Beacon is built', freeport: 'the Free Port is founded', station: 'a station is in orbit' }[u.milestone] || 'the colony has come further');
+    if (u.milestone && !(S.milestones || {})[u.milestone]) {
+      if (u.milestone === 'station' && !orbitKnown()) return 'Unlock conditions unknown at this time';
+      return 'Opens once ' + ({ beacon: 'the Beacon is built', freeport: 'the Free Port is founded', station: 'a station is in orbit' }[u.milestone] || 'the colony has come further');
+    }
     return '';
   }
   function ioLines(io) {
@@ -1713,7 +1718,7 @@
       }
       h += '<div style="margin-top:8px;text-align:right"><button class="linkbtn" data-act="sdrop" data-id="' + a.id + '" data-key="sdrop' + a.id + '">' + (confirmKey === 'sdrop' + a.id ? 'Confirm: stop sponsoring (its progress is lost)' : 'Stop sponsoring') + '</button></div></div>';
     });
-    h += '<div class="label sec">Camps asking for help</div>' + (free > 0 ? '' : '<div class="note">Every slot is taken' + (V.slots < V.slotNeeds.length ? '. Another opens with ' + (V.slots === 1 ? 'the Free Port' : 'the station') : '') + '. A settlement that finishes its last drive frees its slot.</div>');
+    h += '<div class="label sec">Camps asking for help</div>' + (free > 0 ? '' : '<div class="note">Every slot is taken' + (V.slots < V.slotNeeds.length ? (V.slots === 1 ? '. Another opens with the Free Port' : orbitKnown() ? '. Another opens with the station' : '. Another may open later; the conditions are unknown at this time') : '') + '. A settlement that finishes its last drive frees its slot.</div>');
     V.offers.forEach(function (o) {
       var t = C.types[o.type], tr = C.traits[o.trait] || { name: o.trait, desc: '' };
       h += '<div class="opt" style="cursor:default;margin-bottom:8px"><div class="top"><b>' + esc(o.name) + '</b><small>asking for ' + o.ticksLeft + 't more</small></div>' +
