@@ -30,9 +30,11 @@ function announce(tick) {
 }
 
 // Players who count towards the size of a project: colonies with a station seen since the previous project was announced.
+// Colonies run by bots (bots/runner.js) are not counted: projects are sized for the people playing, and whatever a bot
+// contributes is help on top.
 function activePlayers(sinceTick, tick, tickTime, tickMs) {
   const since = tickTime - Math.max(1, tick - sinceTick) * tickMs;
-  return Math.max(1, db.prepare('SELECT COUNT(*) AS n FROM stations s JOIN colonies c ON c.id = s.colony_id WHERE c.last_seen_at >= ?').get(since).n);
+  return Math.max(1, db.prepare('SELECT COUNT(*) AS n FROM stations s JOIN colonies c ON c.id = s.colony_id JOIN users u ON u.id = c.user_id WHERE c.last_seen_at >= ? AND u.bot_profile IS NULL').get(since).n);
 }
 
 function start(p, tick, tickTime, tickMs) {

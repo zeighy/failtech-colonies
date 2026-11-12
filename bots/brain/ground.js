@@ -324,10 +324,12 @@ class Ground {
     for (const [a, b, res, rate, reserve, when] of list) {
       const da = m.byType(a); const db = m.byType(b);
       if (!da || !db || (when && !when(L))) continue;
-      const want = typeof rate === 'function' ? rate(L, this.linkCaps()) : rate;
+      let want = typeof rate === 'function' ? rate(L, this.linkCaps()) : rate;
       const keep = typeof reserve === 'function' ? reserve(L) : reserve;
       if (want < 1) continue;
       const cur = m.route(da, db, res);
+      // a route already running faster (one a player set up, or one raised for a shortage) is never slowed down
+      if (cur) want = Math.max(want, cur.rate);
       if (cur && cur.rate >= want && cur.reserve === keep) continue;
       if (!cur && m.routes().length >= (this.config.logistics.maxRoutes || 40) - (soft ? 6 : 0)) continue; // few, fat routes: raise, don't add
       if (await m.act('route', { from: da.id, to: db.id, resource: res, rate: want, reserve: keep, ...(target ? { target } : {}) })) continue;
@@ -429,6 +431,20 @@ class Ground {
     }
   }
 
+  // ---- hazards: a forecast is a list of what the Core should hold when it strikes ----------------------------------
+  // The stock it asks for is shipped in from the districts (or bought, by the supply step, when nobody has it), and the
+  // Free Port's shield is raised whenever the colony holds the goods for it.
+  async hazards() {
+    const m = this.m;
+    const h = m.v.hazard;
+    if (!h || h.state !== 'forecast') return;
+    if (h.shield && !h.shield.enabled && h.shield.have >= h.shield.need && await m.act('shield', { enabled: true })) { this.mem.events.push(`shield raised against ${h.name}`); return; }
+    const short = {};
+    if (h.shield && !h.shield.enabled && h.shield.have < h.shield.need) short[h.shield.resource] = h.shield.need; // the shield's goods, from the port
+    for (const r of h.requirements || []) if (r.kind === 'stock' && r.resource && r.have < r.need) short[r.resource] = Math.ceil(r.need * 1.1);
+    if (Object.keys(short).length) await this.topUp(m.core(), short);
+  }
+
   // ---- one ground turn --------------------------------------------------------------------------------------------
   async turn() {
     const m = this.m;
@@ -461,6 +477,7 @@ class Ground {
     await this.planStep(m.core(), CORE_PLAN.concat(late ? LATE.core : []));
     for (const t of ['pits', 'stacks', 'greenbelt']) { const d = m.byType(t); if (d) await this.planStep(d, PLANS[t].concat(late ? LATE[t] : [])); }
     await this.survival();
+    await this.hazards();
     if (this.every(5)) await this.slots();
     if (P.alts && this.every(10)) await this.alternatives();
     if (P.requisitions) await this.requisitions();

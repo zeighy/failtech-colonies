@@ -51,7 +51,10 @@ class Reorg {
       const idle = b.eff !== undefined && b.eff < 0.05 && !b.paused && (!d.energy || d.energy.satisfaction >= 0.9);
       // switched off because its output sits at the cap, and not the colony's last of its kind
       const capped = ((this.mem.supply || {}).paused || []).includes(b.id) && m.countAll(b.type) >= 2;
-      if (extra <= 0 && !idle && !capped) continue; // only what the plan does not count on, stands idle, or is not needed
+      // surplus means more than the plan wants of a kind the plan knows; a kind it does not plan (a player's reclamation
+      // plant, say) is someone else's design and only gives way if it stands idle or its output has nowhere to go
+      const surplus = (want[b.type] || 0) > 0 && extra > 0;
+      if (!surplus && !idle && !capped) continue;
       // what it makes must still be coming in (or be plentiful) without it
       const eff = Math.max(0, Math.min(1, b.eff === undefined ? 1 : b.eff)) * (b.mult || 1);
       let fine = true;
@@ -62,7 +65,7 @@ class Reorg {
         if (vital ? after < 4 * this.P.safety : after < 0 && m.amount(d, r) < m.cap(d) * 0.5) fine = false;
       }
       if (!fine) continue;
-      let score = 2 + Math.max(0, extra) + (idle ? 3 : 0) + (capped ? 3 : 0) + (b.paused ? 1 : 0);
+      let score = 2 + (surplus ? extra : 0) + (idle ? 3 : 0) + (capped ? 3 : 0) + (b.paused ? 1 : 0);
       const outs = Object.keys(bd.outputsPerTick || {}).filter((r) => r !== 'energy');
       if (outs.length && outs.every((r) => m.amount(d, r) >= m.cap(d) * 0.85)) score += 3; // its output is piling up
       if (score < 3) continue;

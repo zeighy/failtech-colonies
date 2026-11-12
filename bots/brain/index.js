@@ -40,6 +40,8 @@ async function takeTurn({ config, api, profile, mem, log = () => {}, maxActions 
   // a shutdown that has lifted leaves its buildings parked until someone switches them back on
   if (!m.colony.shutdown && m.colony.parked > 0) await m.act('resume');
   if (m.v.absence && m.v.absence.notice) await m.act('ack');
+  // settlements are something players do; a bot has its own objectives, so any it inherited are let go
+  for (const sm of ((m.v.settlements || {}).active || [])) if (await m.act('settle-drop', { id: sm.id })) mem.events.push(`stopped sponsoring ${sm.name}`);
   try {
     await G.turn();
     await new Supply(m, mem, profile, G).turn();

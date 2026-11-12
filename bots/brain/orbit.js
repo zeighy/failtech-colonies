@@ -24,7 +24,42 @@ class Orbit {
   ships() { return (this.m.v.orbital.ships || {}).ships || []; }
   territories() { return (this.m.v.orbital.ships || {}).territories || []; }
   isRare(r) { return !!(this.config.resources[r] && this.config.resources[r].rare); }
-  foundryMode() { return ['orbital', 'any'].includes(this.P.orbitSell.goods); }
+  foundryMode() { return ['orbital', 'any'].includes(this.P.orbitSell.goods) || (this.P.projects || 0) >= 0.5; }
+
+  // ---- global projects --------------------------------------------------------------------------------------------
+  // What the open project still needs, for a profile that gives to projects.
+  // `planning`: an announced project counts too, so the foundry is already making its goods when it opens.
+  projectNeeds({ planning = false } = {}) {
+    const p = this.m.v.orbital.project;
+    if (!(this.P.projects > 0) || !p) return {};
+    const open = p.status === 'active' && p.endsIn >= this.O.dropships.contributeTicks / 2 + 5;
+    if (!open && !(planning && p.status === 'announced')) return {};
+    const out = {};
+    for (const [r, q] of Object.entries(p.needs || {})) { const left = q - ((p.contributed || {})[r] || 0); if (left > 0) out[r] = left; }
+    return out;
+  }
+  async contribute() {
+    const m = this.m;
+    const need = this.projectNeeds();
+    if (!Object.keys(need).length) return;
+    // expeditions come first: a ship goes to the project only when no rare is waiting to be fetched
+    const run = this.o.run;
+    if (run && this.needsOf(run.good).rares.some((r) => !run.fetch[r])) return;
+    const ship = this.ships().find((x) => x.state === 'docked' && x.integrity >= 60);
+    if (!ship) return;
+    const keep = { frames: 150, fittings: 100 };
+    const cargo = {};
+    let room = ship.hold;
+    for (const [r, left] of Object.entries(need)) {
+      const q = Math.min(left, room, Math.floor((this.sinv(r) - (keep[r] || 0)) * this.P.projects));
+      if (q >= 1) { cargo[r] = q; room -= q; }
+    }
+    const total = Object.values(cargo).reduce((a, b) => a + b, 0);
+    // a trip is worth making for a decent load, or for whatever orbital goods there are (they come a few at a time)
+    const orbitalGoods = Object.keys(cargo).some((r) => this.config.resources[r].orbitalTrade);
+    if (!total || (!orbitalGoods && total < 50)) return;
+    if (await m.act('project-contribute', { ship: ship.id, cargo })) this.mem.events.push(`ship ${ship.num} to the global project with ${Object.entries(cargo).map(([r, q]) => `${q} ${r}`).join(', ')}`);
+  }
 
   needsOf(good) {
     const inp = this.config.orbitalRecipes[good].inputsPerTick;
@@ -41,6 +76,7 @@ class Orbit {
     if (run) { const n = this.needsOf(run.good); n.rares.forEach((r) => k.add(r)); if (n.x) k.add(n.x); k.add(run.good); }
     for (const t of Object.values(this.o.trips)) (t.links || []).forEach((r) => k.add(r));
     for (const g of this.mem.selling || []) k.add(g);
+    for (const g of Object.keys(this.projectNeeds())) k.add(g);
     for (const o of (this.m.v.orbital.market || {}).orders || []) k.add(o.resource);
     return k;
   }
@@ -98,6 +134,7 @@ class Orbit {
     up('fittings', 50 + (saving.fittings || 0), 120 + (saving.fittings || 0));
     if (saving.modules) up('modules', saving.modules, saving.modules + 20);
     for (const g of this.mem.selling || []) if (!this.config.resources[g].orbitalOnly) up(g, 20, 120);
+    for (const g of Object.keys(this.projectNeeds())) if (!this.config.resources[g].orbitalOnly) up(g, 50, 400);
     const lv = this.st.links;
     const chosen = want.slice(0, lv.count);
     for (const x of m.routes()) {
@@ -214,7 +251,9 @@ class Orbit {
     }
     // what the market pays most for (its reference price), then what can be fetched fastest
     const ref = (g) => { const x = ((this.m.v.orbital.market || {}).goods || []).find((y) => y.resource === g); return x ? x.reference : 0; };
-    cands.sort((a, b) => b.score * ref(b.good) - a.score * ref(a.good));
+    const wanted = this.projectNeeds({ planning: true });
+    const worth = (c) => c.score * ref(c.good) * (wanted[c.good] ? 3 : 1);
+    cands.sort((a, b) => worth(b) - worth(a));
     return cands[0] || null;
   }
   targetFor(good, rare, ship) {
@@ -355,7 +394,7 @@ class Orbit {
       : next === 'ship' ? (ship ? (this.O.dropships.levels[2] || {}).cost : null) : (this.ships().length < this.O.dropships.max ? this.O.dropships.buildCost : null);
     if (!cost) { if (next !== 'ship' || !this.ships().some((x) => x.level === 1)) this.o.bought.push(next); return; }
     // credits are spent only with a good cushion left: the ground comes first
-    if (m.colony.credits < (cost.credits || 0) * 1.3) return;
+    if (m.colony.credits < (cost.credits || 0) * 1.3 + 150000) return;
     for (const [r, q] of Object.entries(cost)) if (r !== 'credits') this.o.saving[r] = q;
     if (Object.entries(cost).some(([r, q]) => r !== 'credits' && this.sinv(r) < q)) return;
     const route = next === 'storage' ? 'orbit-storage' : next === 'links' ? 'orbit-links' : next === 'ship2' ? 'ship-build' : 'ship-upgrade';
@@ -367,6 +406,7 @@ class Orbit {
     await this.stationBuild();
     await this.expeditions();
     if (this.foundryMode()) await this.dispatch();
+    await this.contribute();
     await this.upgrades();
     await this.links();
     if (this.foundryMode()) await this.foundryStep(); else await this.power(false);

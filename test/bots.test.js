@@ -225,3 +225,35 @@ test('a bot grows a fresh colony from the ground up without letting it go hungry
   const v = viewFor(uid);
   assert.ok(v.colony.morale > 50, `morale ${v.colony.morale}`);
 });
+
+test('a bot lets go of the settlements it inherited', async () => {
+  const uid = Number(db.prepare("INSERT INTO users (username, password, bot_profile) VALUES ('settler', 'x', 'porter')").run().lastInsertRowid);
+  const id = store.ensureColony(uid);
+  db.prepare('UPDATE colonies SET won = 1, hub_level = 5 WHERE id = ?').run(id);
+  engine.processTick();
+  const offer = db.prepare("SELECT id FROM settlements WHERE colony_id = ? AND status = 'offer'").get(id);
+  assert.ok(offer, 'camps answer the Beacon');
+  const actions = require('../src/actions');
+  assert.equal(actions.settlementSponsor(uid, { id: offer.id }).ok, true);
+  const out = await takeTurn({ config, api: localApi(uid), profile: profiles.get('porter'), mem: { seed: 1 } });
+  assert.ok(out.events.some((e) => /stopped sponsoring/.test(e)), JSON.stringify(out.events));
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM settlements WHERE colony_id = ? AND status = 'active'").get(id).n, 0);
+});
+
+test('global projects are sized by the people playing: stations run by bots are not counted', () => {
+  const projects = require('../src/projects');
+  const station = (botProfile) => {
+    const uid = Number(db.prepare('INSERT INTO users (username, password, bot_profile) VALUES (?, ?, ?)').run(`st_${++n}`, 'x', botProfile).lastInsertRowid);
+    const id = store.ensureColony(uid);
+    const did = Number(db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'station', 1, ?, 0)").run(id, `Station ${n}`).lastInsertRowid);
+    db.prepare('INSERT INTO stations (colony_id, name, district_id, launched_tick) VALUES (?, ?, ?, 0)').run(id, `Station ${n}`, did);
+  };
+  station(null); station(null); station('broker'); station('steward');
+  db.prepare('DELETE FROM global_projects').run();
+  const tick = Number(store.getMeta('global_tick', 0));
+  projects.advanceWorld(tick, Date.now());
+  const p = projects.current();
+  projects.advanceWorld(p.starts_tick, Date.now());
+  assert.equal(projects.current().status, 'active');
+  assert.equal(projects.current().players, 2);
+});

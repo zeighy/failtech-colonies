@@ -73,8 +73,11 @@ class Trade {
     const m = this.m;
     const mk = this.market();
     if (!mk) return;
-    const goods = this.chooseSelling();
-    await this.feed(goods);
+    let goods = this.chooseSelling();
+    const p = this.m.v.orbital.project;
+    const projectGoods = this.P.projects > 0 && p && p.status === 'active' ? Object.keys(p.needs || {}) : [];
+    await this.feed([...new Set([...goods, ...projectGoods])]);
+    if (this.P.projects >= 0.5) goods = goods.filter((g) => !projectGoods.includes(g));
     const mine = mk.orders || [];
     let open = mine.length;
     for (const g of goods) {

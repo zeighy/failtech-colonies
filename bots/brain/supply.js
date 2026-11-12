@@ -62,14 +62,17 @@ class Supply {
     const m = this.m;
     const out = [];
     for (const d of m.places()) {
-      const seen = {};
+      const seen = {}; const feeds = {};
       for (const b of m.buildings(d)) {
         if (b.paused || b.eff === undefined || b.eff >= 0.6) continue;
         const r = b.limiting;
         if (!r || !this.config.resources[r] || VITAL.has(r)) continue;
         seen[r] = (seen[r] || 0) + 1;
+        // a line that feeds or waters people (a hydroponics bay on biomass, a kitchen) starves the colony when it stops
+        // and so does a generator out of fuel: a brownout throttles the food and water lines with everything else
+        if (Object.keys(this.outputsOf(b)).some((o) => ['rations', 'meals', 'clean_water', 'energy'].includes(o))) feeds[r] = true;
       }
-      for (const [r, n] of Object.entries(seen)) out.push({ d, r, n, prio: (d.type === 'freeport' ? 3 : 0) + n });
+      for (const [r, n] of Object.entries(seen)) out.push({ d, r, n, prio: (feeds[r] ? 100 : 0) + (d.type === 'freeport' ? 3 : 0) + n });
     }
     // and what a build or an upgrade is waiting for that nobody could send (see Ground.topUp)
     for (const [k, at] of Object.entries(this.mem.costShort || {})) {
@@ -85,10 +88,10 @@ class Supply {
     const m = this.m;
     const G = this.G;
     let acted = 0;
-    for (const { d, r, cost } of this.shortages()) {
+    for (const { d, r, cost, prio } of this.shortages()) {
       if (acted >= 2) break;
       const key = `${d.id}:${r}`;
-      if (this.s.at[key] && m.tick - this.s.at[key] < 60) continue;
+      if (this.s.at[key] && m.tick - this.s.at[key] < (prio >= 100 ? 15 : 60)) continue;
       const here = m.v.views[d.id];
       if (m.amount(here, r) > 100) continue; // it is arriving; the lines will catch up
       this.s.at[key] = m.tick;

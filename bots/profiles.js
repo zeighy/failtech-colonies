@@ -16,6 +16,7 @@
 //   orbitBuy     small purchases on the orbital market: up to `lot` units of a good it uses, never above `maxRef` times the
 //                reference, and never more than `budget` of its credits on open buys
 //   surface      ground exchange trading: sells and buys around the reference price, for activity at the port
+//   projects     the share of what the station holds that it gives to the global project (0: it sells instead)
 //   requisitions fill the Office's requisitions from what it can spare
 //   alts         switch to alternative recipes as they open
 const PROFILES = {
@@ -28,6 +29,7 @@ const PROFILES = {
     orbitSell: { goods: 'orbital', price: 'band', band: [0.8, 1.2], lot: [1, 4], keep: 0 },
     orbitBuy: { lot: [1, 3], maxRef: 1.0, budget: 0.04, goods: 'rare_inputs' },
     surface: null,
+    projects: 0,
     requisitions: true,
     alts: true,
   },
@@ -40,18 +42,20 @@ const PROFILES = {
     orbitSell: { goods: 'trade', price: 'under', lot: [3, 12], keep: 20 },
     orbitBuy: { lot: [2, 6], maxRef: 0.95, budget: 0.03, goods: 'trade' },
     surface: { sellShare: 0.5, lot: [5, 40], buyLot: [3, 15], buyBudget: 0.03, spread: [0.97, 1.08], maxOrders: 8, goods: 'trade_and_surplus' },
+    projects: 0.3,
     requisitions: true,
     alts: true,
   },
   steward: {
     name: 'Steward',
-    blurb: 'Plays it safe: deep food and water reserves, slow and steady growth, sells its spare trade goods at the reference price.',
+    blurb: 'Plays it safe: deep food and water reserves, slow and steady growth; gives its orbital goods to the global projects and sells spare trade goods at the reference price.',
     safety: 1.8,
     districts: ['greenbelt', 'pits', 'stacks'],
     workshops: ['preserves', 'tinctures', 'tool_steel', 'plastics'],
     orbitSell: { goods: 'trade', price: 'ref', lot: [2, 8], keep: 40 },
     orbitBuy: { lot: [1, 2], maxRef: 0.9, budget: 0.01, goods: 'trade' },
     surface: null,
+    projects: 1,
     requisitions: false,
     alts: false,
   },
@@ -64,6 +68,7 @@ const PROFILES = {
     orbitSell: { goods: 'any', price: 'under', lot: [2, 10], keep: 30 },
     orbitBuy: { lot: [1, 4], maxRef: 1.0, budget: 0.03, goods: 'rare_inputs' },
     surface: null,
+    projects: 0.5,
     requisitions: true,
     alts: true,
   },
@@ -76,6 +81,7 @@ const PROFILES = {
     orbitSell: { goods: 'any', price: 'ref', lot: [1, 6], keep: 10 },
     orbitBuy: { lot: [1, 5], maxRef: 0.92, budget: 0.05, goods: 'any' },
     surface: null,
+    projects: 0,
     requisitions: true,
     alts: true,
   },

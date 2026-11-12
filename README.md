@@ -190,14 +190,16 @@ BOT_API_KEY=some-long-random-key BOT_SERVER=http://127.0.0.1:3000 npm run bots  
 
 Every few minutes the runner asks for parked colonies. While it runs fewer than `BOT_LIMIT` (default 5) it looks at each candidate and **leaves alone any colony already on its way to collapse** (shut down, starving, a collapse clock it has neither the stock, the plots nor the time to stop, power or crews far short). It claims the stable ones, colonies whose commander chose to start over first. Each claim makes a bot account with a random callsign nobody can sign in to. If the colony belonged to a real player who simply went away, they are told it was claimed, as for any claim. Each bot takes a turn every few ticks through the same actions a player has. It keeps the colony fed, watered, powered and housed before anything else, grows it from whatever stage it was left at (the plans count what is already standing), wires the districts together, builds the Beacon, then the Free Port, earns standing with missions, builds the launch chain and goes to orbit. It **reorganises** a colony someone else laid out, replacing surplus or idle buildings in place when something it needs has no plot (two side-by-side Colossal plots for the launch pads included). In orbit it runs the station's reactor and foundry, sends dropships to the anomalous territories for rare resources, and **jettisons** orbital storage slots holding what it no longer needs. A colony that fails or stays shut down for long is given back: it parks again for someone else.
 
+Bots let go of any settlements they inherit (those are for players) and never sponsor new ones. Some profiles give to the **global projects** (below); stations run by bots are not counted when a project's size is set, so projects stay sized for the people playing and anything bots deliver is help on top. Bots also prepare for forecast hazards: they bring in the stock the Brief asks for and raise the Free Port's shield when they hold its goods.
+
 Every profile's main objective is to **sell on the orbital market**. They differ in temper:
 
 | Profile | Plays |
 | --- | --- |
 | `broker` (Foundry Broker) | Pushes for orbit and the foundry, and sells orbital goods (lattice cores, null alloy...) in small lots at a price drawn fresh for each order between **20% under and 20% over** the market maker's reference. Buys small lots of foundry inputs. |
-| `porter` (Port Trader) | A busy Free Port; keeps the **ground exchange** moving with sells and small buys of trade goods and surplus. In orbit, sells trade goods just under the best ask. |
-| `steward` (Steward) | Deep food and water reserves, slow and safe growth; sells spare trade goods at the reference price. |
-| `industrialist` (Industrialist) | Builds big, takes every alternative recipe, fills requisitions; sells whatever it makes most of. |
+| `porter` (Port Trader) | A busy Free Port; keeps the **ground exchange** moving with sells and small buys of trade goods and surplus. In orbit, sells trade goods just under the best ask, and sends some to the global project. |
+| `steward` (Steward) | Deep food and water reserves, slow and safe growth; gives everything its foundry makes to the global project, and sells spare trade goods at the reference price. |
+| `industrialist` (Industrialist) | Builds big, takes every alternative recipe, fills requisitions; gives half its orbital goods to the global project and sells whatever it makes most of. |
 | `scavenger` (Scavenger) | Lean; picks up cheap asks in small lots and sells orbital and trade goods near the reference. |
 
 | Runner variable | Default | Purpose |
