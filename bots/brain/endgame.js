@@ -59,7 +59,9 @@ class Endgame {
       if (b.type !== 'trade_workshop' || b.recipe) continue;
       const k = `${b.ring}:${b.slot}`;
       const orbitOk = m.v.orbital.unlocked;
-      const recipe = this.f.pending[k] || Object.keys(want).find((g) => (have[g] || 0) < want[g] && (orbitOk || !LAUNCH_GOODS.includes(g)));
+      // the one it was built for, else the plan's most short, else whatever the port's workshops are most short of
+      const starved = m.buildings(fp).filter((x) => x.type === 'trade_workshop' && x.limiting && m.config.resources[x.limiting] && m.config.resources[x.limiting].trade).map((x) => x.limiting);
+      const recipe = this.f.pending[k] || Object.keys(want).find((g) => (have[g] || 0) < want[g] && (orbitOk || !LAUNCH_GOODS.includes(g))) || starved[0] || 'tool_steel';
       if (recipe && await m.act('recipe', { ring: b.ring, slot: b.slot, recipe, district: fp.id })) { have[recipe] = (have[recipe] || 0) + 1; delete this.f.pending[k]; }
     }
     // pending recipes for workshops still on order
@@ -158,14 +160,46 @@ class Endgame {
     for (const t of ['orbital_staging', 'orbital_catapult', 'orbital_command']) {
       for (const d of m.places()) { const o = m.waiting(d).find((x) => x.data.type === t); if (o && o.pos > 1) await m.act('queue-move', { orderId: o.id, to: 'top' }); }
     }
-    const L = m.v.orbital.launch;
-    if (built('orbital_staging') && built('orbital_catapult') && built('orbital_command') && !L.ready && !L.loaded && L.next === 'station') await m.act('launch-cycle', { cycle: 'station' });
-    if (L.ready === 'station') {
+    await this.cycle();
+    if (m.v.orbital.launch.ready === 'station') {
       for (let i = 0; i < 4; i++) {
         const name = `${NAME_A[Math.floor(this.rng() * NAME_A.length)]} ${NAME_B[Math.floor(this.rng() * NAME_B.length)]}${i > 1 ? ` ${Math.floor(this.rng() * 90) + 10}` : ''}`;
         if (await m.act('launch', { name })) { this.mem.events.push(`launched ${name}`); break; }
       }
     }
+  }
+
+  // A launch cycle draws its goods every tick for hundreds of ticks, more than the Free Port makes. Like a player, the bot
+  // does not build the capacity for that: it lets the goods pile up in the Core and loads the cycle only once the stock plus
+  // what keeps arriving will see the whole cycle through (or the store is nearly full). Until then expansions do not spend
+  // the launch goods (mem.launchSaving).
+  launchStock() {
+    const m = this.m;
+    const L = m.v.orbital.launch;
+    const cyc = L.next && m.config.orbital.launch.cycles[L.next];
+    if (!cyc) return null;
+    const core = m.core();
+    const cap = m.cap(core);
+    const short = {};
+    for (const [r, q] of Object.entries(cyc.perTick)) {
+      const inflow = Math.max(0, m.net(core, r));
+      const need = Math.min(Math.max(0, q - inflow) * cyc.ticks * 1.05, cap * 0.9);
+      if (m.amount(core, r) < need) short[r] = Math.ceil(need - m.amount(core, r));
+    }
+    for (const [r, q] of Object.entries(cyc.orbitalCost || {})) if (!m.v.orbital.station || m.amount(m.v.views[m.v.orbital.station.districtId], r) < q) short[r] = q;
+    return short;
+  }
+
+  async cycle() {
+    const m = this.m;
+    const L = m.v.orbital.launch;
+    const site = m.v.orbital.site;
+    this.mem.launchSaving = false;
+    if (!site.staging || !site.catapult || !site.command || L.ready || L.loaded || !L.next) return;
+    const short = this.launchStock();
+    if (!short) return;
+    if (Object.keys(short).length) { this.mem.launchSaving = true; this.mem.launchShort = short; return; }
+    if (await m.act('launch-cycle', { cycle: L.next })) this.mem.events.push(`launch cycle ${L.next} loaded, with the stock to see it through`);
   }
 
   async turn() {
@@ -196,6 +230,11 @@ class Endgame {
     }
     await this.missions(m.byType('freeport'));
     if (m.v.orbital.unlocked && !m.v.orbital.station) await this.launchChain(m.core(), m.byType('freeport'));
+    else if (m.v.orbital.station) {
+      await this.cycle();
+      const L = m.v.orbital.launch;
+      if (L.ready && L.ready !== 'station' && await m.act('launch', {})) this.mem.events.push(`launched ${L.ready}`);
+    }
   }
 }
 

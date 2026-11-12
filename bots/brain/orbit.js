@@ -117,8 +117,8 @@ class Orbit {
   // ---- the station's own buildings ----------------------------------------------------------------------------------
   async stationBuild() {
     const m = this.m;
-    const sd = this.sd;
     for (const t of ['klein_reactor', 'orbital_foundry']) {
+      const sd = this.sd;
       if (m.count(sd, t)) continue;
       const pos = m.place(sd, t);
       if (pos) await m.act('build', { ...pos, type: t, district: sd.id });
@@ -150,7 +150,8 @@ class Orbit {
         }
       }
     }
-    if (allowLink) out.push({ supply: Math.min(want, linkRate), power: 0, builds: [], link: r });
+    // a linked input comes from the Core by way of the station: only worth planning on when the Core holds plenty of it
+    if (allowLink && this.m.amount(this.m.core(), r) >= 400) out.push({ supply: Math.min(want, linkRate), power: 0, builds: [], link: r });
     return out;
   }
   planTap(t, ship, allowLinks) {
@@ -269,7 +270,8 @@ class Orbit {
       if (ship.state === 'docked') {
         if (tr && tr.recalled) {
           this.o.expected = this.o.expected.filter((r) => r !== tr.rare);
-          if (this.o.run && this.o.run.good === tr.good) this.o.run.fetch[tr.rare] = 'home';
+          // home with nothing (the tap never ran): the rare is still to fetch
+          if (this.o.run && this.o.run.good === tr.good) this.o.run.fetch[tr.rare] = this.sinv(tr.rare) >= 5 ? 'home' : null;
           delete this.o.trips[ship.id];
         } else if (tr && m.tick - tr.deployAt > 60) { // the world sent it home early
           if (this.o.run && this.o.run.fetch[tr.rare] === 'out') this.o.run.fetch[tr.rare] = null;
@@ -287,7 +289,7 @@ class Orbit {
       if (tr.recalled) continue;
       if (!tr.landAt) {
         tr.landAt = m.tick;
-        for (const b of tr.plan.builds) { const pos = this.fieldPlot(d, b); if (pos) await m.act('build', { ...pos, type: b, district: d.id }); }
+        for (const b of tr.plan.builds) { const pos = this.fieldPlot(m.v.views[d.id], b); if (pos) await m.act('build', { ...pos, type: b, district: d.id }); }
         const pos = this.fieldPlot(m.v.views[d.id], 't_tap', tr.plan.plot);
         if (pos) await m.act('build', { ...pos, type: 't_tap', district: d.id });
       }

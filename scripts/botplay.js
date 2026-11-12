@@ -62,7 +62,7 @@ async function run() {
       for (const d of store.loadDistricts(c.id)) if (d.type !== 'core' && d.type !== 'territory') mark(b, `${d.type} founded`);
       if ((T + i) % TURN !== 0) continue;
       const out = await takeTurn({ config: cfg, api: b.api, profile: b.P, mem: b.mem });
-      b.actions += out.actions; b.refused += out.failures.length;
+      b.actions += out.actions; b.refused += out.failures.length; for (const f of out.failures) { b.fails = (b.fails || []).concat(`${T} ${f}`).slice(-25); }
       for (const e of out.events) { b.events.push(`${T} ${e}`); if (/sell|buy|launched|foundry|ship|reorganised|jettison/.test(e)) mark(b, e.replace(/ at [\d.]+$/, '').replace(/\d+ /, '').slice(0, 60)); }
       if (out.verdict !== 'play') { mark(b, `verdict ${out.verdict}`); }
     }
@@ -76,6 +76,22 @@ async function run() {
     console.log(`${b.profile}: hub ${c.hub_level}, pop ${c.population}, morale ${Math.round(c.morale)} (min ${Math.round(b.minMorale)}), credits ${c.credits}, standing ${st}, ${b.shutdowns} shutdowns, starving ${b.starvingTicks} ticks; ${b.actions} actions, ${b.refused} refused; ${places}`);
     console.log(`  trade: ${JSON.stringify(b.mem.trade || {})}; reorganised ${(b.mem.reorg || {}).done || 0}`);
     console.log('  milestones: ' + Object.entries(b.marks).map(([k, t]) => `${k} ${t}`).join(' · '));
+  }
+  if (arg('dump')) {
+    const { viewFor } = require('../src/state');
+    for (const b of bots) {
+      const v = viewFor(b.uid);
+      console.log(`\n--- ${b.profile}: orbit ${JSON.stringify({ unlocked: v.orbital.unlocked, site: v.orbital.site, launch: v.orbital.launch, station: !!v.orbital.station })}`);
+      for (const d of v.districts) {
+        const dv = v.views[d.id];
+        const keys = ['frames', 'fittings', 'modules', 'tool_steel', 'plastics', 'precision_tools', 'luxuries', 'curios', 'preserves', 'circuits', 'alloys', 'polymers', 'ingots', 'power_cells', 'building_materials', 'fuel'];
+        console.log(`  ${d.type} L${d.level}: ${keys.map((k) => `${k}=${Math.floor(dv.resources[k].amount)}(${dv.resources[k].net.toFixed(1)})`).join(' ')}`);
+        if (d.type === 'freeport') console.log('   workshops: ' + dv.buildings.filter((x) => x.type === 'trade_workshop').map((x) => `${x.recipe}@${x.ring}${x.eff !== undefined ? `:${x.eff.toFixed(2)}` : ''}${x.limiting ? `[${x.limiting}]` : ''}`).join(' '));
+        console.log('   queue: ' + dv.orders.map((o) => `${o.state}:${o.kind}:${o.data.type || o.data.level || ''}${o.waiting ? ` waits ${JSON.stringify(o.waiting.short)}` : ''}`).join(' | '));
+      }
+      console.log('  wanted: ' + JSON.stringify(b.mem.wanted || {}));
+      console.log('  last refusals: ' + (b.fails || []).join(' / '));
+    }
   }
   if (arg('json')) fs.writeFileSync(arg('json'), JSON.stringify(bots.map((b) => ({ profile: b.profile, marks: b.marks, events: b.events, mem: b.mem })), null, 1));
 }

@@ -97,19 +97,24 @@ class Ground {
   // Ship what a place is short of from whichever other place can spare it.
   async topUp(d, cost) {
     const m = this.m;
+    const L = this.config.logistics;
     for (const [r, a] of Object.entries(cost || {})) {
       if (r === 'credits') continue;
+      if (m.shipments().filter((x) => !x.routeId).length >= L.maxInFlight) return; // every truck is on the road
       const have = m.amount(d, r);
       if (have >= a * 1.1 + 2) continue;
       if (m.shipments().some((s) => s.toDistrict === d.id && s.resource === r)) continue;
       const short = Math.ceil(a * 1.25 + 5 - have);
+      let sent = false;
       for (const from of m.places()) {
         if (from.id === d.id) continue;
-        const keep = from.type === 'core' ? (r === 'building_materials' ? 40 : r === 'scrap' ? 700 : ['clean_water', 'rations'].includes(r) ? 300 * this.P.safety : 150) : 15;
+        const keep = from.type === 'core' ? (r === 'building_materials' ? 40 : r === 'scrap' ? 700 : ['clean_water', 'rations'].includes(r) ? 300 * this.P.safety : 150) : from.type === 'freeport' && this.config.resources[r].trade ? 200 : 15;
         const spare = Math.floor(m.amount(from, r) - keep);
         const qty = Math.min(short, spare, this.config.logistics.shipmentMax);
-        if (qty >= 1 && await m.act('shipment', { from: from.id, to: d.id, resource: r, qty })) break;
+        if (qty >= 1 && await m.act('shipment', { from: from.id, to: d.id, resource: r, qty })) { sent = true; break; }
       }
+      // nobody could spare it: the supply step makes more (bots/brain/supply.js)
+      if (!sent) (this.mem.costShort = this.mem.costShort || {})[`${d.id}:${r}`] = m.tick;
     }
   }
 
@@ -311,7 +316,9 @@ class Ground {
   every(n) { return Math.floor(this.m.tick / n) !== Math.floor((this.mem.lastTick || 0) / n) || !this.mem.lastTick; }
 
   // ---- routes between places --------------------------------------------------------------------------------------
-  async routes(list) {
+  // `soft`: a route the colony could do without (the supply step's) is not added when routes are getting scarce, so there is
+  // always room for the ones that matter. `target`: the destination stops taking more at that stock.
+  async routes(list, { soft = false, target } = {}) {
     const m = this.m;
     const L = m.levels();
     for (const [a, b, res, rate, reserve, when] of list) {
@@ -322,7 +329,8 @@ class Ground {
       if (want < 1) continue;
       const cur = m.route(da, db, res);
       if (cur && cur.rate >= want && cur.reserve === keep) continue;
-      if (await m.act('route', { from: da.id, to: db.id, resource: res, rate: want, reserve: keep })) continue;
+      if (!cur && m.routes().length >= (this.config.logistics.maxRoutes || 40) - (soft ? 6 : 0)) continue; // few, fat routes: raise, don't add
+      if (await m.act('route', { from: da.id, to: db.id, resource: res, rate: want, reserve: keep, ...(target ? { target } : {}) })) continue;
       // the link is full: raise whichever end is (paid from the Core), and meanwhile run the route at what room there is
       let room = want;
       for (const d of [da, db]) {
@@ -339,7 +347,7 @@ class Ground {
         const l2 = m.link(m.v.views[d.id]);
         room = Math.min(room, l2.capacity - l2.load + (cur ? cur.rate : 0));
       }
-      if (room >= 1 && (!cur || room > cur.rate)) await m.act('route', { from: da.id, to: db.id, resource: res, rate: room, reserve: keep });
+      if (room >= 1 && (!cur || room > cur.rate)) await m.act('route', { from: da.id, to: db.id, resource: res, rate: room, reserve: keep, ...(target ? { target } : {}) });
     }
   }
   linkCaps() { return Object.fromEntries(this.m.places().filter((d) => d.type !== 'core').map((d) => [d.type, (this.m.link(d) || {}).capacity || 0])); }
@@ -453,12 +461,6 @@ class Ground {
     await this.planStep(m.core(), CORE_PLAN.concat(late ? LATE.core : []));
     for (const t of ['pits', 'stacks', 'greenbelt']) { const d = m.byType(t); if (d) await this.planStep(d, PLANS[t].concat(late ? LATE[t] : [])); }
     await this.survival();
-    // parts assemblers rest when parts pile up
-    for (const b of m.buildings(m.core())) {
-      if (b.type !== 'parts_assembler') continue;
-      const want = m.amount(m.core(), 'machined_parts') > (late ? 3000 : 600);
-      if (b.paused !== want) await m.act('toggle', { ring: b.ring, slot: b.slot, paused: want });
-    }
     if (this.every(5)) await this.slots();
     if (P.alts && this.every(10)) await this.alternatives();
     if (P.requisitions) await this.requisitions();

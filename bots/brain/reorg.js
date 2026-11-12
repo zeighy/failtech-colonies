@@ -9,6 +9,7 @@ const { fpPlan } = require('./endgame');
 // Never replaced
 const KEEP = new Set(['beacon_array', 'orbital_staging', 'orbital_catapult', 'orbital_command', 'habitat', 'dormitory', 'warehouse']);
 // What people live on: kept unless there is plenty of it
+const bd0 = (m, b) => m.def(b.type) || {};
 const VITAL = { water_purifier: 'clean_water', hydroponics_bay: 'rations', water_pump: 'unpurified_water', kitchen: 'meals' };
 
 class Reorg {
@@ -37,23 +38,33 @@ class Reorg {
     let best = null;
     for (const b of m.buildings(d)) {
       if (b.type === type || KEEP.has(b.type)) continue;
+      if (b.recipe && bd0(m, b).recipeBuilding) continue; // a configured workshop cannot be replaced, only scrapped
       const bd = m.def(b.type);
       if (!bd || bd.hidden === 'orbital') continue;
       if (m.plotOf(d, b.ring) < (def.minPlotSize || 1)) continue;
       if (this.m.orders(d).some((o) => o.data && o.data.ring === b.ring && o.data.slot === b.slot)) continue;
-      let score = 0;
       const extra = (counts[b.type] || 0) - (want[b.type] || 0);
-      if (extra > 0) score += 2 + extra; // more of these than the plan wants
-      if (b.eff !== undefined && b.eff < 0.05 && !b.paused) score += 3; // standing idle (nothing to work with)
-      if (b.paused) score += 1;
-      // what it makes is piling up against the cap
+      // a type it put somewhere itself lately, or a type this place is itself asking for, is never given up: that is how a
+      // reorganiser goes round in circles
+      if ((this.r.recent || {})[`${d.id}:${b.type}`] > m.tick - 3000) continue;
+      if ((this.mem.wanted || {})[`${d.id}:${b.type}`]) continue;
+      const idle = b.eff !== undefined && b.eff < 0.05 && !b.paused && (!d.energy || d.energy.satisfaction >= 0.9);
+      // switched off because its output sits at the cap, and not the colony's last of its kind
+      const capped = ((this.mem.supply || {}).paused || []).includes(b.id) && m.countAll(b.type) >= 2;
+      if (extra <= 0 && !idle && !capped) continue; // only what the plan does not count on, stands idle, or is not needed
+      // what it makes must still be coming in (or be plentiful) without it
+      const eff = Math.max(0, Math.min(1, b.eff === undefined ? 1 : b.eff)) * (b.mult || 1);
+      let fine = true;
+      for (const [r, q] of Object.entries(bd.outputsPerTick || {})) {
+        if (r === 'energy') { const e = d.energy || {}; if ((e.supply || 0) - q * eff < (e.demand || 0) * 1.1) fine = false; continue; }
+        const vital = ['clean_water', 'rations', 'meals', 'unpurified_water'].includes(r);
+        const after = m.net(d, r) - q * eff;
+        if (vital ? after < 4 * this.P.safety : after < 0 && m.amount(d, r) < m.cap(d) * 0.5) fine = false;
+      }
+      if (!fine) continue;
+      let score = 2 + Math.max(0, extra) + (idle ? 3 : 0) + (capped ? 3 : 0) + (b.paused ? 1 : 0);
       const outs = Object.keys(bd.outputsPerTick || {}).filter((r) => r !== 'energy');
-      if (outs.length && outs.every((r) => m.amount(d, r) >= m.cap(d) * 0.85)) score += 3;
-      // never what feeds or waters the colony while that is not plentiful
-      const vital = VITAL[b.type];
-      if (vital && !(m.net(d, vital) > 8 * this.P.safety && m.amount(d, vital) > m.cap(d) * 0.5)) continue;
-      // nor a generator while the grid is short
-      if (bd.type === 'generator' && d.energy && d.energy.satisfaction < 1.05 && extra <= 0) continue;
+      if (outs.length && outs.every((r) => m.amount(d, r) >= m.cap(d) * 0.85)) score += 3; // its output is piling up
       if (score < 3) continue;
       if (!best || score > best.score) best = { b, score };
     }
@@ -91,11 +102,12 @@ class Reorg {
       if (m.orders(d).some((o) => o.kind === 'replace')) continue; // one at a time per place
       if (type !== 'orbital_staging' && this.G.place(d, type)) { delete wanted[k]; continue; } // room has appeared
       if (this.r.last[did] && m.tick - this.r.last[did] < 60) continue;
+      if (m.byType('freeport') && m.buildings(d).some((x) => x.type === type && x.xnext)) continue; // expanded instead (supply.js)
       if (!m.can(d, m.def(type).cost)) continue;
       const b = type === 'orbital_staging' ? await this.padSite(d) : this.victim(d, type);
       if (!b) continue;
       if (await m.act('replace', { ring: b.ring, slot: b.slot, type, district: d.id })) {
-        this.r.done++; this.r.last[did] = m.tick; delete wanted[k];
+        this.r.done++; this.r.last[did] = m.tick; delete wanted[k]; (this.r.recent = this.r.recent || {})[`${did}:${type}`] = m.tick;
         this.mem.events.push(`reorganised: ${b.type} at ${d.type} ${b.ring}:${b.slot} -> ${type}`);
       }
     }

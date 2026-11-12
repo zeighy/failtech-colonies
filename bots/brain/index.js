@@ -11,6 +11,7 @@ const { Endgame } = require('./endgame');
 const { Orbit } = require('./orbit');
 const { Trade } = require('./trade');
 const { Reorg } = require('./reorg');
+const { Supply } = require('./supply');
 
 function rngFrom(seed) { // mulberry32: decisions vary between bots, and are repeatable in tests
   let a = seed >>> 0;
@@ -41,6 +42,7 @@ async function takeTurn({ config, api, profile, mem, log = () => {}, maxActions 
   if (m.v.absence && m.v.absence.notice) await m.act('ack');
   try {
     await G.turn();
+    await new Supply(m, mem, profile, G).turn();
     if (m.v.colony.won) await new Endgame(m, mem, profile, G, rng).turn();
     if (m.v.orbital && m.v.orbital.station) await new Orbit(m, mem, profile, G).turn();
     await new Trade(m, mem, profile, G, rng).turn();
