@@ -25,7 +25,7 @@
       "log": "Incident Log",
       "oplace": "Station",
       "ostore": "Orbital Storage",
-      "oterr": "Territories",
+      "oterr": "Expeditions",
       "omarket": "Orbital Market",
       "oproject": "Global Project"
     },
@@ -41,7 +41,7 @@
     },
     "won": {
       "title": "The Beacon is transmitting",
-      "text": "The Series-9 Beacon has finished its message. Something out there heard it, Commander. The Office has no form for this.",
+      "text": "The Series-9 Beacon has finished its message. Something out there heard it, Commander, and so did the road: camps are gathering a day out, and a harbour to the east has lit its lamps. The Office has no form for this. It has found two that are close.",
       "button": "Keep building"
     },
     "failed": {
@@ -233,7 +233,31 @@
     },
     "hubLabel": "HUB",
     "missionsHint": "Earn a combined standing of 500 with the factions and your name will be known across the lands.",
-    "chapterTwo": "Form 7-O: Orbital Recontinuation"
+    "chapterTwo": "Form 7-O: Orbital Recontinuation",
+    "requisitionsNote": "The Office asks for ordinary goods, on a form, by a date. Deliver the full amount from the Core and it pays above the logistics run's price and lends the colony something for a while. A form that lapses is simply refiled.",
+    "away": {
+      "stewarded": {
+        "title": "Seven held the site",
+        "text": "Commander. You were away {away}. After {hold} without word from you, this node took over the management of Site 7, as Office procedure requires. Nothing was left to pile up: surplus output and Liquid Credits went on to the wider Recontinuation effort. The site is as it stood when this node stepped in. Command returns to you now.",
+        "button": "Resume command"
+      },
+      "parked": {
+        "title": "Site 7 has been transferred",
+        "text": "Commander. You were away {away}. The Office has transferred Site 7 to another commander for management, and this node has parked it: nothing is running, and the people are holding. The file is not closed yet. You may retake command, or take a new assignment and leave Site 7 where it is.",
+        "retake": "Retake command",
+        "fresh": "Take a new assignment",
+        "logout": "Log out",
+        "confirmTitle": "Take a new assignment?",
+        "confirmText": "Site 7 stays parked under another commander, and its station is renamed. You will not be able to take it back.",
+        "confirmButton": "Take the new assignment"
+      },
+      "claimed": {
+        "title": "Site 7 has a new commander",
+        "text": "Commander. While you were away, the Office handed Site 7 to another commander for good. A new site is waiting for an occupant.",
+        "fresh": "Take a new assignment",
+        "logout": "Log out"
+      }
+    }
   },
   "resources": {
     "scrap": {
@@ -511,6 +535,14 @@
     "t_data": {
       "name": "Data Recovery Rig",
       "desc": "Works a data site. It needs only power. Each recovery attempt takes a long while and most find nothing, but the Office keeps asking, and the rig keeps answering. Low power slows it."
+    },
+    "reclamation_plant": {
+      "name": "LMAO Reclaim Mill",
+      "desc": "Takes Reclaim by the truckload and turns it into something the Office will count. What it makes depends on how the line is set."
+    },
+    "cell_bank": {
+      "name": "Klein Reserve Bank",
+      "desc": "Klein Cells on standby. When the Klein grid runs short it makes up the difference, and burns cells from this site's stock only for as long as it has to."
     }
   },
   "districts": {
@@ -573,6 +605,16 @@
     "meridian": {
       "name": "Ammano Transit",
       "desc": "Road-and-rail crews of Ammano, the old manufacturing and freight company, still moving cargo through the ruins. They buy finished goods by the crate."
+    }
+  },
+  "boons": {
+    "crews": {
+      "name": "Seconded Work Crews",
+      "desc": "The Office lends hands. Work under way moves one extra cycle every third cycle."
+    },
+    "convoy": {
+      "name": "Priority Run Slot",
+      "desc": "The logistics run carries a quarter more of everything, for now."
     }
   },
   "ranks": {
@@ -660,6 +702,120 @@
       "name": "Donstand-Pattern Modules"
     }
   },
+  "processes": {
+    "water_purifier.scrap_bed": {
+      "name": "Reclaim-Bed Filtration",
+      "desc": "Runs the draw through beds of crushed Reclaim. More Filtrate from the same plant."
+    },
+    "water_purifier.reagent_dose": {
+      "name": "Reagent Dosing",
+      "desc": "Doses the intake with Reagent Stock and runs the plant flat out."
+    },
+    "hydroponics_bay.biomass_feed": {
+      "name": "Mycelial Feedstock",
+      "desc": "Feeds the beds on Mycelial Biomass from the Reserve. Heavier crops under the same lamps."
+    },
+    "parts_assembler.ingot_stamping": {
+      "name": "Ingot Stamping",
+      "desc": "Stamps parts from Ingots instead of sorting them out of Reclaim."
+    },
+    "fabrication_works.polymer_bound": {
+      "name": "Polymer-Bound Stock",
+      "desc": "Binds shredded Reclaim with Polymer Stock. Eats Reclaim, prints a great deal."
+    },
+    "foundry.ingot_charge": {
+      "name": "Ingot Charge",
+      "desc": "Charges the furnace with Ingots and tops it up with Reclaim."
+    },
+    "foundry.flux_refined": {
+      "name": "Flux-Refined Pour",
+      "desc": "A reagent flux lets the furnace take far more Reclaim per pour."
+    },
+    "kitchen.preserved_stores": {
+      "name": "Preserved Stores",
+      "desc": "Stretches Nutrient Paste with preserved Mycelial Biomass."
+    },
+    "scrap_generator.fuel_assisted": {
+      "name": "Fuel-Assisted Burn",
+      "desc": "A splash of Refined Fuel keeps a much bigger Reclaim fire going."
+    },
+    "ore_drill.fuel_drill": {
+      "name": "Fuel-Driven Bore",
+      "desc": "Runs the bore on Refined Fuel as well as the grid."
+    },
+    "smelter.fuel_fired": {
+      "name": "Fuel-Fired Smelting",
+      "desc": "Burns Refined Fuel under the charge for a hotter, faster melt."
+    },
+    "alloy_works.reagent_quench": {
+      "name": "Reagent Quench",
+      "desc": "Quenches in Reagent Stock and folds Reclaim into the melt."
+    },
+    "cracking_tower.fuel_cut": {
+      "name": "Fuel Cut",
+      "desc": "Sets the tower to favour Refined Fuel."
+    },
+    "cracking_tower.reagent_cut": {
+      "name": "Reagent Cut",
+      "desc": "Sets the tower to favour Reagent Stock."
+    },
+    "cracking_tower.catalytic": {
+      "name": "Catalytic Cracking",
+      "desc": "An ingot catalyst gets more of both out of the Crude."
+    },
+    "polymer_plant.scrap_fed": {
+      "name": "Reclaim-Fed Polymerisation",
+      "desc": "Feeds shredded Reclaim in as filler."
+    },
+    "synth_reclaimer.reagent_wash": {
+      "name": "Reagent Wash",
+      "desc": "A reagent wash recovers more Polymer Stock from the same Raw Ink."
+    },
+    "circuit_fab.alloy_traces": {
+      "name": "Spine-Alloy Traces",
+      "desc": "Lays traces in Spine Alloy instead of machining them from parts."
+    },
+    "cell_forge.reagent_electrolyte": {
+      "name": "Reagent Electrolyte",
+      "desc": "A reagent electrolyte and Reclaim casings: two cells from the alloy and circuits of one."
+    },
+    "cell_forge.polymer_cased": {
+      "name": "Polymer-Cased Cells",
+      "desc": "Polymer casings and a full reagent charge. The forge at its limit."
+    },
+    "fuel_generator.afterburn": {
+      "name": "Reagent Afterburn",
+      "desc": "Injects Reagent Stock into the exhaust for a second burn."
+    },
+    "bio_dome.fertilised_beds": {
+      "name": "Primed Beds",
+      "desc": "Feeds the dome its own Soil Primer."
+    },
+    "agri_lab.reagent_fixed": {
+      "name": "Reagent-Fixed Primer",
+      "desc": "Fixes the mix with Reagent Stock from the Stacks."
+    },
+    "pharma_lab.polymer_capsule": {
+      "name": "Polymer Capsules",
+      "desc": "Polymer capsules keep more of every batch."
+    },
+    "reclamation_plant.press_board": {
+      "name": "Pressed Stock",
+      "desc": "Presses Reclaim and a few parts into Print Stock."
+    },
+    "reclamation_plant.ink_leach": {
+      "name": "Ink Leach",
+      "desc": "Leaches Raw Ink out of Reclaim with Reagent Stock."
+    },
+    "reclamation_plant.frame_blanks": {
+      "name": "Frame Blanks",
+      "desc": "Turns Reclaim, Print Stock and a little Spine Alloy into Spine Frames."
+    },
+    "reclamation_plant.fitting_blanks": {
+      "name": "Fitting Blanks",
+      "desc": "Turns Reclaim, parts and a circuit into Dampener Fittings."
+    }
+  },
   "missionTitles": [
     "Form 7 Requisition",
     "Standing Directive",
@@ -667,6 +823,16 @@
     "Logistics Manifest",
     "Harbour Tender",
     "Quartermaster's Chit"
+  ],
+  "requisitionTitles": [
+    "Form 12-R: Standing Requisition",
+    "Form 12-R: Supply Call",
+    "Form 14-S: Stores Request",
+    "Form 9-C: Relief Consignment",
+    "Form 12-R: Field Order",
+    "Form 31-D: Depot Shortfall",
+    "Form 6-M: Manifest Gap",
+    "Form 2-E: Emergency Stores"
   ],
   "directives": {
     "power": {
@@ -1040,6 +1206,42 @@
       "text2": "The ledger of the colony's life. A ledger of the Office's pattern, ruled and headed in the Director's hand before the colony was founded. The entries were in place when it was opened.\nFounded. A hub raised on a pencil cross. A bell hung. The ground closes at the bell.\nThe first harvest was brought in. The seed that was borrowed did better than the seed that was planted.\nA second hand began keeping the roll. The first stopped.\nOre from the Black Cut, warm from the ground. Nobody asked why.\nA port was lit on the far coast. The operator was not named. The trade was fair.\nA beacon was raised, and powered, and left to hum.\nA hum came back. It was not from the beacon. It was kept.\nSomeone present asked a question. The question was not recorded. It was understood.\nThe roll was read aloud, in full, and one name was added at the end. It was not a name the readers knew.\nA traveller arrived who had not been expected. The traveller was fed, and counted, and left, and was counted again the following season.\nThe ground was crossed, once, at the wrong hour. It did not close. It waited. No one was hurt, and no one spoke of it afterwards.\nA season passed in which nothing was recorded, and the entries are therefore the more careful.\nA tray was opened for the last time. What was in it had gone quiet. What was in it had not gone.\nThe ledger continues for as many lines as the colony has seasons. The final entry is incomplete. It reads: \"The colony was\".\nIt does not finish.\nNote from Continuity Node 7: This node did not make these entries. This node has checked them against the colony's record. Each of them, so far, is correct. This node has stopped checking. This node will not finish the sentence.",
       "text3": "The last page, read at the hub.",
       "scene3": "pk_p08_3"
+    }
+  },
+  "settlements": {
+    "foundry": {
+      "name": "Remnant Foundry Camp",
+      "desc": "Black Industries hands around a furnace that went cold in the Lapse. It wants metal, hard-spec parts and fuel, and its builders work on your upgrades in return."
+    },
+    "valley": {
+      "name": "Cliffside Homestead",
+      "desc": "Families on clean ground with nothing to plant it with. It wants filtrate, food and patches, and its people come to work your lines."
+    },
+    "depot": {
+      "name": "Ammano Waystation",
+      "desc": "A junction with track and no rolling stock. It wants print stock, polymer and fuel, and carries your goods further in return."
+    }
+  },
+  "settlementTraits": {
+    "steady": {
+      "name": "Steady",
+      "desc": "Nothing unusual about it."
+    },
+    "hungry": {
+      "name": "Hungry",
+      "desc": "It needs a quarter more of everything, and gives more back."
+    },
+    "frugal": {
+      "name": "Frugal",
+      "desc": "It gets by on less, and has less to give."
+    },
+    "eager": {
+      "name": "Eager",
+      "desc": "Its people do much of the building themselves: every drive is a quarter smaller."
+    },
+    "remote": {
+      "name": "Remote",
+      "desc": "A long way out. Drives cost more, and word of the help travels further."
     }
   }
 }

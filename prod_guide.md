@@ -33,24 +33,26 @@ Chains resolve in this building order, so output made this tick can be consumed 
 | Reclaim Burner (scrap_generator) | generator | Core, The Sanctuary Port | Large | 400 Reclaim, 30 Hard-Spec Parts | 15 Reclaim | 80 power | 2 | -7 | 6 | infrastructure |
 | Ink Reclaimer (synth_reclaimer) | refinery | The Gulf Stacks | Small | 250 Reclaim, 10 Hard-Spec Parts | 8 power, 12 Raw Ink | 6 Polymer Stock | 2 | -3 | 4 | industry |
 | Black Foundry (foundry) | refinery | Core, The Sanctuary Port | Large | 600 Reclaim, 40 Hard-Spec Parts, 20 Print Stock | 22 power, 40 Reclaim, 2 Hard-Spec Parts | 3 Spine Alloy | 5 | -8 | 8 | industry |
+| LMAO Reclaim Mill (reclamation_plant) | refinery | Core, The Sanctuary Port | Large | 1200 Reclaim, 80 Hard-Spec Parts, 80 Print Stock, 30 Spine Alloy | 28 power, 120 Reclaim | 5 Ingots | 5 | -7 | 10 | industry |
 | Phononic Fab (circuit_fab) | refinery | The Gulf Stacks | Small | 500 Reclaim, 50 Hard-Spec Parts, 30 Print Stock | 18 power, 4 Raw Ink, 3 Polymer Stock, 1 Hard-Spec Parts | 2 Phononic Circuits | 5 | -3 | 8 | industry |
 | Klein Cell Forge (cell_forge) | assembler | The Gulf Stacks | Large | 900 Reclaim, 80 Hard-Spec Parts, 80 Print Stock, 30 Spine Alloy, 20 Phononic Circuits | 30 power, 3 Spine Alloy, 2 Phononic Circuits | 1 Klein Cells | 6 | -5 | 10 | industry |
 | Logistics Depot (warehouse) | utility | Core, The Sanctuary Port | Medium | 300 Reclaim, 15 Hard-Spec Parts | – | – | 1 | – | 4 | infrastructure |
+| Klein Reserve Bank (cell_bank) | utility | Core, The Sanctuary Port | Medium | 500 Reclaim, 60 Print Stock, 30 Spine Alloy, 20 Phononic Circuits, 10 Klein Cells | – | – | 1 | -1 | 8 | infrastructure |
 | Sentinel Post (watch_post) | defense | Core, The Sanctuary Port | Small | 250 Reclaim, 20 Hard-Spec Parts | 4 power | – | 2 | 2 | 4 | infrastructure |
 | Series-9 Beacon (beacon_array) | beacon | core | Colossal | 1000 Reclaim, 200 Print Stock, 160 Spine Alloy, 100 Phononic Circuits, 30 Klein Cells, 20 HTR Patches | 60 power, 1 Klein Cells | – | 8 | -2 | 20 | – |
 | Best Food Kitchen (kitchen) | refinery | Core, The Sanctuary Port | Medium | 350 Reclaim, 25 Hard-Spec Parts | 6 power, 6 Nutrient Paste, 3 Filtrate | 8 Heavy Meals | 3 | 2 | 5 | industry |
 | Class-C Dormitory (dormitory) | housing | Core, The Sanctuary Port | Small | 250 Reclaim, 15 Hard-Spec Parts | – | – | – | – | 3 | housing |
 | Class-B Habitat Block (habitat) | housing | Core, The Sanctuary Port | Large | 700 Reclaim, 50 Hard-Spec Parts, 30 Print Stock | – | – | – | – | 6 | housing |
 | Strata Drill (ore_drill) | extractor | The Black Cut | Small | 250 Reclaim, 10 Hard-Spec Parts | 8 power | 24 Raw Ore | 3 | -6 | 4 | industry |
-| Black Smelter (smelter) | refinery | The Black Cut | Medium | 400 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 14 power, 20 Raw Ore | 8 Ingots | 4 | -8 | 6 | industry |
+| Black Smelter (smelter) | refinery | The Black Cut | Medium | 400 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 14 power, 20 Raw Ore | 8 Ingots, 8 Reclaim | 4 | -8 | 6 | industry |
 | Spine Alloy Works (alloy_works) | refinery | The Black Cut | Large | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | 20 power, 6 Ingots, 2 Hard-Spec Parts | 9 Spine Alloy | 5 | -8 | 8 | industry |
 | Pipeline Tap (crude_pump) | extractor | The Gulf Stacks | Small | 250 Reclaim, 10 Hard-Spec Parts | 10 power | 20 Crude | 3 | -6 | 4 | industry |
-| Cracking Tower (cracking_tower) | refinery | The Gulf Stacks | Small | 400 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 16 power, 15 Crude | 8 Refined Fuel, 5 Reagent Stock | 4 | -8 | 6 | industry |
+| Cracking Tower (cracking_tower) | refinery | The Gulf Stacks | Small | 400 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 16 power, 15 Crude | 8 Refined Fuel, 5 Reagent Stock, 6 Reclaim | 4 | -8 | 6 | industry |
 | Polymer Plant (polymer_plant) | refinery | The Gulf Stacks | Small | 500 Reclaim, 40 Hard-Spec Parts, 20 Print Stock | 16 power, 12 Crude, 2 Ingots | 6 Polymer Stock, 8 Raw Ink | 4 | -6 | 8 | industry |
 | Fuel Turbine (fuel_generator) | generator | The Gulf Stacks | Medium | 400 Reclaim, 30 Hard-Spec Parts | 5 Refined Fuel | 70 power | 2 | -7 | 6 | infrastructure |
 | Cliffside Bio Dome (bio_dome) | producer | The Cliffside Reserve | Small | 400 Reclaim, 20 Hard-Spec Parts | 8 power, 4 Aquifer Draw | 18 Mycelial Biomass | 3 | 4 | 6 | industry |
-| Cliffside Agri Lab (agri_lab) | refinery | The Cliffside Reserve | Small | 450 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 12 power, 12 Mycelial Biomass, 2 Reagent Stock | 5 Soil Primer | 3 | -2 | 6 | industry |
-| HTR Lab (pharma_lab) | refinery | The Cliffside Reserve | Medium | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | 14 power, 8 Mycelial Biomass, 3 Reagent Stock, 1 Polymer Stock | 3 HTR Patches | 4 | -2 | 8 | industry |
+| Cliffside Agri Lab (agri_lab) | refinery | The Cliffside Reserve | Small | 450 Reclaim, 30 Hard-Spec Parts, 10 Print Stock | 12 power, 12 Mycelial Biomass | 4 Soil Primer, 4 Reclaim | 3 | -2 | 6 | industry |
+| HTR Lab (pharma_lab) | refinery | The Cliffside Reserve | Medium | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | 14 power, 8 Mycelial Biomass, 3 Reagent Stock | 3 HTR Patches | 4 | -2 | 8 | industry |
 | Licensed Workshop (trade_workshop) | workshop | The Sanctuary Port | Small | 600 Reclaim, 40 Hard-Spec Parts, 30 Print Stock | – | – | 3 | -4 | 8 | – |
 | Orbital Staging Platform (orbital_staging) | launch | core | Colossal | 450 Spine Frames, 300 Dampener Fittings, 250 Donstand-Pattern Modules, 400 Print Stock, 200 Spine Alloy | 20 power | – | 6 | -5 | 90 | – |
 | Orbital Catapult (orbital_catapult) | launch | core | Colossal | 300 Spine Frames, 450 Dampener Fittings, 250 Donstand-Pattern Modules, 300 Spine Alloy, 100 Klein Cells | 15 power, 1 Refined Fuel | – | 4 | -6 | 90 | – |
@@ -58,12 +60,13 @@ Chains resolve in this building order, so output made this tick can be consumed 
 | Klein Reactor (klein_reactor) | generator | station | Medium | 60 Spine Frames, 40 Dampener Fittings | 1 Klein Cells | 90 power | – | – | 20 | – |
 | Orbital Foundry (orbital_foundry) | workshop | station | Medium | 80 Spine Frames, 60 Dampener Fittings | – | – | – | – | 25 | – |
 | Anomaly Tap (t_tap) | workshop | territory | Medium | 40 Hard-Spec Parts, 30 Print Stock, 10 Spine Alloy | – | – | – | – | 12 | – |
+| Data Recovery Rig (t_data) | workshop | territory | Small | 40 Hard-Spec Parts, 30 Print Stock | 45 power | – | – | – | 12 | – |
 A building with partial inputs runs at partial efficiency (limited by its scarcest input). Buildings marked `optional` take an extra input that boosts output when switched on. Some buildings (`essential`) stay on during a shutdown (section 4b).
 
 ## **4b. People, housing, crew, morale and shutdown**
 * **Housing.** The population cap is the Core's own quarters (30, 35, 40, 45, 50 at Core levels 1-5) plus homes in any district. Homes in other districts add capacity and comfort only: **everyone eats from the Core stockpile.** If homes are lost, people leave.
-* **Growth.** One more person every 3 ticks (two at morale 90+) while morale is 60+, there is room, and the colony can feed them (counting what standing routes bring into or take out of the Core): the surplus must cover the new people, or the stockpile above 60% of capacity must cover the shortfall for 2,000 ticks.
-* **Crew.** The workforce is 80% of the population. If there are fewer hands than posts, every staffed building runs at the same reduced efficiency.
+* **Growth.** One more person every 3 ticks (two at morale 85+) while morale is 60+, there is room, and the colony can feed them (counting what standing routes bring into or take out of the Core): the surplus must cover the new people, or the stockpile above 60% of capacity must cover the shortfall for 2,000 ticks.
+* **Crew.** The workforce is 80% of the population. If there are fewer hands than posts, the essential buildings (water, food, power and salvage) are crewed first and every other staffed building shares who is left, at the same reduced efficiency.
 * **Meals** are optional: people eat 0.05 per head per tick; the share fed adds up to **+15** to the morale target.
 * **Comfort.** Every building has a comfort effect on adjacent homes, clamped to -15..+8.
 * **Morale target** = base 80 + comfort + meals. Morale rises 2 per tick toward it and falls 1 per tick; hunger drops it by up to 10 per tick in proportion to the shortage. Output scales with morale: a slowdown of 1.2% per point below 70 (floor ×0.5) and up to +8% from 85.
@@ -79,6 +82,56 @@ A building with partial inputs runs at partial efficiency (limited by its scarce
 | 4 | Heavy | 12 |
 | 5 | Colossal | 14 |
 A building can sit on a plot smaller than its minimum, but its output is multiplied by **0.6** per missing size step (inputs are still consumed in full). Rings 2 and 4 are rotated 15 degrees so slots do not line up between rings.
+
+## **5b. The work queue**
+* **One build slot per place.** The Core, every district, the station and every territory each build one thing at a time. Building, replacing, expanding, upgrading and (in the Core) founding a district all wait in the same line, up to 8 orders per place. Places do not hold each other up.
+* **Strict order.** Orders are carried out in the order they were queued. Nothing behind the front of the queue starts early, even if the place could pay for it. A waiting order can be moved up, down or to the front, and cancelled.
+* **Paid for when it starts.** An order costs nothing while it waits, so it can be queued before the materials exist. When its turn comes it waits at the front until its place can pay, and everything behind it waits too. Cancelling an order that has started refunds it in full.
+* **Dropped orders.** An order that can no longer be carried out when its turn comes (its plot was taken, the building is gone) is taken off the queue with a note in the log.
+* **Replace in place.** A building can be swapped for another on the same plot. The order goes through the queue and the old building keeps working until its turn. It is then scrapped for the demolition refund (50%), and the plot stands empty while the new building goes up, which takes **×1.5** its usual build time. Expansion levels are not carried over. A workshop with a recipe set has to be demolished instead.
+* **Rush** applies to the order under way, not to one that is waiting.
+
+* **More build slots.** The Core and each district can buy up to 2 more build slots from their hub pane, each paid at once from that place's own stockpile and the treasury. With more slots that many orders from the front of the queue are carried out side by side; the order of the queue is as strict as before, so an order that cannot start yet still holds up everything behind it. The station and territories keep one slot.
+
+| Build slot | Opens at Core level | In the Core | In a district |
+| --- | --- | --- | --- |
+| 2 | 3 | 2500 Reclaim, 150 Hard-Spec Parts, 120 Print Stock, 40 Spine Alloy, 3000 credits | 2000 Reclaim, 120 Hard-Spec Parts, 100 Print Stock, 40 Spine Alloy, 3000 credits |
+| 3 | 5 | 8000 Reclaim, 400 Print Stock, 250 Spine Alloy, 120 Phononic Circuits, 20 Klein Cells, 20000 credits | 5000 Reclaim, 300 Print Stock, 150 Spine Alloy, 80 Phononic Circuits, 15000 credits |
+
+## **5c. Alternative recipes**
+Most production buildings can be set to another recipe from their pane: a higher-yield way of making the same thing that needs something from further along the chain, or a different product altogether. They stand in for research. A building's alternatives open with the **level of the place it stands in** (the Core's level in the Core, the district's own level elsewhere) or at a colony **milestone**. The base recipe never goes away. Switching costs nothing but leaves the line idle for **10 ticks** while it is retooled, every time.
+| Building (id) | Recipe (id) | Opens at | Inputs / tick | Outputs / tick |
+| --- | --- | --- | --- | --- |
+| Cliffside Filtration Plant (water_purifier) | Reclaim-Bed Filtration (scrap_bed) | place level 3 | 12 power, 22 Aquifer Draw, 6 Reclaim | 24 Filtrate |
+| Cliffside Filtration Plant (water_purifier) | Reagent Dosing (reagent_dose) | place level 5 | 14 power, 24 Aquifer Draw, 1 Reagent Stock | 36 Filtrate |
+| LMAO Parts Press (parts_assembler) | Ingot Stamping (ingot_stamping) | place level 4 | 14 power, 12 Reclaim, 4 Ingots | 13 Hard-Spec Parts |
+| Nutrient Bay (hydroponics_bay) | Mycelial Feedstock (biomass_feed) | place level 4 | 18 power, 6 Filtrate, 6 Mycelial Biomass | 18 Nutrient Paste |
+| LMAO Print Works (fabrication_works) | Polymer-Bound Stock (polymer_bound) | place level 4 | 16 power, 40 Reclaim, 2 Polymer Stock | 10 Print Stock |
+| Reclaim Burner (scrap_generator) | Fuel-Assisted Burn (fuel_assisted) | place level 4 | 25 Reclaim, 1 Refined Fuel | 130 power |
+| Ink Reclaimer (synth_reclaimer) | Reagent Wash (reagent_wash) | place level 3 | 10 power, 12 Raw Ink, 1 Reagent Stock | 9 Polymer Stock |
+| Black Foundry (foundry) | Ingot Charge (ingot_charge) | place level 4 | 26 power, 30 Reclaim, 5 Ingots | 8 Spine Alloy |
+| Black Foundry (foundry) | Flux-Refined Pour (flux_refined) | The Sanctuary Port is founded | 30 power, 60 Reclaim, 6 Ingots, 1 Reagent Stock | 12 Spine Alloy |
+| LMAO Reclaim Mill (reclamation_plant) | Pressed Stock (press_board) | place level 4 | 28 power, 150 Reclaim, 2 Hard-Spec Parts | 8 Print Stock |
+| LMAO Reclaim Mill (reclamation_plant) | Ink Leach (ink_leach) | place level 5 | 30 power, 140 Reclaim, 2 Reagent Stock | 7 Raw Ink |
+| LMAO Reclaim Mill (reclamation_plant) | Frame Blanks (frame_blanks) | The Sanctuary Port is founded | 36 power, 200 Reclaim, 5 Print Stock, 1 Spine Alloy | 1 Spine Frames |
+| LMAO Reclaim Mill (reclamation_plant) | Fitting Blanks (fitting_blanks) | a station is in orbit | 36 power, 200 Reclaim, 12 Hard-Spec Parts, 1 Phononic Circuits | 1 Dampener Fittings |
+| Phononic Fab (circuit_fab) | Spine-Alloy Traces (alloy_traces) | place level 4 | 22 power, 5 Raw Ink, 4 Polymer Stock, 1 Spine Alloy | 4 Phononic Circuits |
+| Klein Cell Forge (cell_forge) | Reagent Electrolyte (reagent_electrolyte) | place level 4 | 36 power, 3 Spine Alloy, 2 Phononic Circuits, 2 Reagent Stock, 30 Reclaim | 2 Klein Cells |
+| Klein Cell Forge (cell_forge) | Polymer-Cased Cells (polymer_cased) | the Beacon is built | 42 power, 4 Spine Alloy, 3 Phononic Circuits, 2 Polymer Stock, 2 Reagent Stock | 3.5 Klein Cells |
+| Best Food Kitchen (kitchen) | Preserved Stores (preserved_stores) | place level 4 | 8 power, 6 Nutrient Paste, 5 Mycelial Biomass, 2 Filtrate | 14 Heavy Meals |
+| Strata Drill (ore_drill) | Fuel-Driven Bore (fuel_drill) | place level 3 | 10 power, 1 Refined Fuel | 38 Raw Ore |
+| Black Smelter (smelter) | Fuel-Fired Smelting (fuel_fired) | place level 3 | 18 power, 26 Raw Ore, 2 Refined Fuel | 14 Ingots, 10 Reclaim |
+| Spine Alloy Works (alloy_works) | Reagent Quench (reagent_quench) | place level 4 | 24 power, 8 Ingots, 1 Reagent Stock, 20 Reclaim | 14 Spine Alloy |
+| Cracking Tower (cracking_tower) | Fuel Cut (fuel_cut) | place level 2 | 16 power, 15 Crude | 12 Refined Fuel, 2 Reagent Stock, 6 Reclaim |
+| Cracking Tower (cracking_tower) | Reagent Cut (reagent_cut) | place level 2 | 16 power, 15 Crude | 4 Refined Fuel, 8 Reagent Stock, 6 Reclaim |
+| Cracking Tower (cracking_tower) | Catalytic Cracking (catalytic) | place level 4 | 20 power, 18 Crude, 1 Ingots | 11 Refined Fuel, 8 Reagent Stock, 6 Reclaim |
+| Polymer Plant (polymer_plant) | Reclaim-Fed Polymerisation (scrap_fed) | place level 3 | 20 power, 12 Crude, 2 Ingots, 40 Reclaim | 9 Polymer Stock, 10 Raw Ink |
+| Fuel Turbine (fuel_generator) | Reagent Afterburn (afterburn) | place level 3 | 6 Refined Fuel, 1 Reagent Stock | 115 power |
+| Cliffside Bio Dome (bio_dome) | Primed Beds (fertilised_beds) | place level 2 | 10 power, 5 Aquifer Draw, 1 Soil Primer | 30 Mycelial Biomass |
+| Cliffside Agri Lab (agri_lab) | Reagent-Fixed Primer (reagent_fixed) | place level 2 | 12 power, 12 Mycelial Biomass, 2 Reagent Stock | 7 Soil Primer, 4 Reclaim |
+| HTR Lab (pharma_lab) | Polymer Capsules (polymer_capsule) | place level 3 | 16 power, 8 Mycelial Biomass, 3 Reagent Stock, 1 Polymer Stock | 5 HTR Patches |
+**District tiers.** A district's tier-1 buildings (Strata Drill, Black Smelter, Pipeline Tap, Cracking Tower, Fuel Turbine, Cliffside Bio Dome, Cliffside Agri Lab) run on what the Core and the district itself make, so a district works even if it is the only one founded; their base recipes also leave a little Reclaim for the district to build with. Tier-2 buildings (Ink Reclaimer, Phononic Fab, Spine Alloy Works, Polymer Plant, HTR Lab) need at most one kind of goods from another district. Tier 3: Klein Cell Forge.
+**Standby power.** Klein Reserve Bank: up to 90 power, only while the place's grid is short, burning 1 Klein Cells per tick at full output (in proportion to what it supplies) from that place's stockpile. With nothing to burn it supplies nothing.
 
 ## **6. Adjacency**
 Neighbours are the two slots beside a building in its ring plus every touching slot in the rings above and below. Each matching neighbour multiplies output (clamped).
@@ -115,7 +168,7 @@ Neighbours are the two slots beside a building in its ring plus every touching s
 | Level | Upgrade cost | Time | Storage | Quarters | Base power | Ring slots | Upkeep / tick | Convoy limit |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | start | – | 2,000 | 30 | 20 | 6 | – | ×1 |
-| 2 | 1200 Reclaim, 60 Hard-Spec Parts | 10 | 4,000 | 35 | 30 | 6-8 | – | ×1.5 |
+| 2 | 800 Reclaim, 40 Hard-Spec Parts | 8 | 4,000 | 35 | 30 | 6-8 | – | ×1.5 |
 | 3 | 2500 Reclaim, 120 Hard-Spec Parts, 60 Print Stock | 14 | 6,000 | 40 | 40 | 6-8-10 | 12 power, 1 Hard-Spec Parts | ×2 |
 | 4 | 3500 Reclaim, 180 Hard-Spec Parts, 140 Print Stock, 50 Spine Alloy | 14 | 8,000 | 45 | 50 | 6-8-10-12 | 25 power, 1 Hard-Spec Parts, 1 Spine Alloy | ×3 |
 | 5 | 5000 Reclaim, 220 Print Stock, 100 Spine Alloy, 50 Phononic Circuits | 18 | 12,000 | 50 | 60 | 6-8-10-12-14 | 40 power, 2 Hard-Spec Parts, 2 Spine Alloy, 0.5 Phononic Circuits | ×4 |
@@ -132,7 +185,7 @@ Districts unlock at Core level 4. Each has its own stockpile, power grid and rin
 
 ## **9. Logistics: shipments, routes and links**
 * **One-off shipments:** at most 6 on the road at once, up to 300 units each. Stock leaves now and arrives after the trip (anything over the destination's storage cap is lost).
-* **Standing routes:** up to 40. A route moves goods directly every tick, limited by the link's capacity and the source's reserve, and shows in both districts' rates. Routes do not use shipment slots.
+* **Standing routes:** up to 40. A route moves goods directly every tick, limited by the link's capacity and the source's reserve, and shows in both districts' rates. A route can also be given a target: it stops once the destination holds that much (0 = no target: it fills the destination's storage). Routes do not use shipment slots.
 | Link level | Capacity / tick | Upgrade cost (paid from the Core) |
 | --- | --- | --- |
 | 1 | 20 | start |
@@ -184,38 +237,38 @@ Every 40 ticks. Standing export and import orders execute on arrival at **that c
 | Resource (id) | Tier | Base buy | Base sell |
 | --- | --- | --- | --- |
 | Reclaim (scrap) | 0 | 2 | 0.5 |
-| Aquifer Draw (unpurified_water) | 0 | 1.5 | 0.4 |
-| Filtrate (clean_water) | 1 | 4 | 1.5 |
-| Nutrient Paste (rations) | 1 | 6 | 2.5 |
+| Aquifer Draw (unpurified_water) | 0 | 2 | 0.4 |
+| Filtrate (clean_water) | 1 | 5 | 1.5 |
+| Nutrient Paste (rations) | 1 | 6 | 2.4 |
 | Hard-Spec Parts (machined_parts) | 1 | 15 | 6 |
 | Print Stock (building_materials) | 2 | 30 | 12 |
-| Raw Ink (raw_synthetics) | 0 | 20 | 11 |
-| Spine Alloy (alloys) | 3 | 40 | 15 |
-| Phononic Circuits (circuits) | 3 | 60 | 22 |
-| Klein Cells (power_cells) | 4 | 150 | 55 |
+| Raw Ink (raw_synthetics) | 0 | 16 | 7 |
+| Spine Alloy (alloys) | 3 | 46 | 18 |
+| Phononic Circuits (circuits) | 3 | 155 | 58 |
+| Klein Cells (power_cells) | 4 | 560 | 210 |
 | Heavy Meals (meals) | 2 | 10 | 4 |
-| Raw Ore (ore) | 1 | 14 | 5 |
+| Raw Ore (ore) | 1 | 11 | 4 |
 | Ingots (ingots) | 2 | 36 | 14 |
 | Reagent Stock (reagents) | 2 | 55 | 20 |
 | Crude (crude) | 1 | 16 | 6 |
-| Refined Fuel (fuel) | 2 | 30 | 12 |
+| Refined Fuel (fuel) | 2 | 18 | 7 |
 | Polymer Stock (polymers) | 2 | 48 | 18 |
 | Mycelial Biomass (biomass) | 1 | 12 | 4 |
-| Soil Primer (fertiliser) | 2 | 34 | 13 |
-| HTR Patches (medicine) | 3 | 70 | 26 |
+| Soil Primer (fertiliser) | 2 | 42 | 16 |
+| HTR Patches (medicine) | 3 | 100 | 38 |
 | Vintage Curios (curios) | 2 | 29.97 | 17.2 |
 | Tool Steel (tool_steel) | 2 | 68.16 | 39.12 |
-| Heritage Preserves (preserves) | 2 | 30.52 | 17.52 |
+| Heritage Preserves (preserves) | 2 | 30.82 | 17.69 |
 | Cast Plastics (plastics) | 2 | 66.93 | 38.41 |
 | Cliffside Tinctures (tinctures) | 2 | 68.62 | 39.38 |
-| Hard-Spec Instruments (precision_tools) | 3 | 159.55 | 91.57 |
-| Apex Field Kits (field_kits) | 3 | 188.26 | 108.05 |
-| Mycelial Stimulants (grow_stims) | 3 | 110.83 | 63.61 |
-| Artisanal Goods (luxuries) | 3 | 87.12 | 50 |
-| Heritage Masterworks (masterworks) | 4 | 541.52 | 310.79 |
-| Spine Frames (frames) | 3 | 213.14 | 122.32 |
-| Dampener Fittings (fittings) | 4 | 234.77 | 134.74 |
-| Donstand-Pattern Modules (modules) | 4 | 679.64 | 390.06 |
+| Hard-Spec Instruments (precision_tools) | 3 | 203.94 | 117.05 |
+| Apex Field Kits (field_kits) | 3 | 202.67 | 116.31 |
+| Mycelial Stimulants (grow_stims) | 3 | 118.26 | 67.87 |
+| Artisanal Goods (luxuries) | 3 | 87.63 | 50.29 |
+| Heritage Masterworks (masterworks) | 4 | 657.2 | 377.18 |
+| Spine Frames (frames) | 3 | 216.39 | 124.19 |
+| Dampener Fittings (fittings) | 4 | 304.68 | 174.86 |
+| Donstand-Pattern Modules (modules) | 4 | 687.71 | 394.69 |
 | Anfang Glass (void_glass) | 5 | 260 | 150 |
 | Icarus Compound (chiral_salts) | 5 | 260 | 150 |
 | Mobiulic Ore (null_ore) | 5 | 260 | 150 |
@@ -254,8 +307,51 @@ Anything can be built here except the extractors of the other districts. License
 | Donstand-Pattern Modules (modules) | 2 Spine Frames, 1 Artisanal Goods, 2 Polymer Stock, 18 power | 1 Donstand-Pattern Modules |
 **Missions:** 3 postings at a time, each offered in the name of every faction (fill one and the others lapse), lasting 160-320 ticks, refreshing every 25. Rewards are 1.3× market value plus standing. Factions: Black Industries Remnant (cinder) wants Tool Steel, Hard-Spec Instruments, Vintage Curios, Heritage Masterworks; Cliffside Accord (verdant) wants Heritage Preserves, Cliffside Tinctures, Mycelial Stimulants, Apex Field Kits, Artisanal Goods; Ammano Transit (meridian) wants Cast Plastics, Artisanal Goods, Vintage Curios, Hard-Spec Instruments, Heritage Masterworks.
 
+## **14b. Requisitions**
+From Core level 2, 2 requests at a time for ordinary goods, each a set amount within 140-260 ticks, delivered in full from the Core. Only goods the colony's own places can make are asked for, and amounts grow 40% per Core level past the level a good first appears at. A filled requisition pays 1.3× the convoy's selling price and lends a boon; one that lapses is replaced 30 ticks later.
+| Good | From Core level | Amount |
+| --- | --- | --- |
+| Hard-Spec Parts | 2 | 150-300 |
+| Filtrate | 2 | 400-800 |
+| Nutrient Paste | 2 | 400-800 |
+| Print Stock | 2 | 80-160 |
+| Heavy Meals | 3 | 200-400 |
+| Spine Alloy | 3 | 80-160 |
+| Ingots | 4 | 200-400 |
+| Refined Fuel | 4 | 150-300 |
+| Reagent Stock | 4 | 100-200 |
+| Polymer Stock | 4 | 120-240 |
+| Phononic Circuits | 4 | 60-120 |
+| Soil Primer | 5 | 100-200 |
+| HTR Patches | 5 | 60-120 |
+| Klein Cells | 5 | 20-40 |
+| Boon | Lasts | Effect |
+| --- | --- | --- |
+| Seconded Work Crews | 150 ticks | The Office lends hands. Work under way moves one extra cycle every third cycle. |
+| Priority Run Slot | 200 ticks | The logistics run carries a quarter more of everything, for now. |
+Earning a boon that is already running adds to the time left.
+
 ## **15. The Beacon**
-Build the Series-9 Beacon (only one; it wants a Colossal plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **25 signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes The Sanctuary Port available.
+Build the Series-9 Beacon (only one; it wants a Colossal plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **25 signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes The Sanctuary Port available. Once the transmission is complete the Beacon stops burning its inputs and only needs 60 power to stay lit.
+
+## **15b. Settlements**
+Once the Beacon has transmitted, camps answer it. 3 are on offer at a time, each of a kind, with a trait and a name, each asking for 600-1500 ticks before it moves on and another takes its place. The colony sponsors one for each of the Beacon, The Sanctuary Port, the station it has. This is where a finished colony's goods go: nothing sent earns credits.
+**Steady support.** A sponsored settlement draws its basket from the Core every tick, at the commitment set for it (off, half or full), and never takes a good below the reserve (a share of the Core's storage; 10% unless changed). What it gives back follows what it has actually been getting, averaged over about 40 ticks: half the basket, half the benefit. It also earns standing with its faction, 0.02 a tick per stage at full supply.
+**Drives.** Each stage has a drive: the stage's basket 60, 80, 100, 120, 150 times over (stages 1 to 5), given in any amounts at any time. Finishing one moves the settlement up a stage, pays 10 standing per stage and doubles its benefit for 300 ticks. The last drive sets it on its own feet: it leaves its slot, needs nothing more, and is a trade partner for good. A partner goes on giving 20% of what it gave at stage 5 and adds 2% to what the convoy will carry; each further partner counts for 80% of the one before (of its kind for the benefit, of any kind for the convoy), so there is always a reason for one more and never a runaway.
+**Appeals.** Every 150-400 ticks a settlement asks for one thing, worth 10-25 ticks of its basket, within 60-160 ticks. Answering doubles its benefit for 120 ticks and pays 4 standing per stage; letting it pass costs nothing.
+The discount from all settlements together is capped at 30%. If link room lent by a settlement falls away (it goes short, or a boon runs out), the routes on that link may add up to more than it carries. Routes carrying what people eat and drink keep running in full; the rest are slowed in proportion until the link fits, and each says so. Nothing is cancelled: the routes run at the rate they were set to again as soon as there is room.
+| Kind | Faction | Gives (stage 1 to 5, at full supply) | Basket a tick at stage 1 | Basket a tick at stage 5 |
+| --- | --- | --- | --- | --- |
+| Remnant Foundry Camp | Black Industries Remnant | 3% / 5% / 7% / 9% / 12% off upgrades, expansions and links | 40 Reclaim, 3 Hard-Spec Parts | 220 Reclaim, 20 Hard-Spec Parts, 16 Refined Fuel, 14 Ingots, 14 Spine Alloy |
+| Cliffside Homestead | Cliffside Accord | 10 / 20 / 32 / 46 / 60 commuters (hands, not mouths) | 10 Filtrate, 10 Nutrient Paste | 60 Filtrate, 60 Nutrient Paste, 36 Heavy Meals, 20 Mycelial Biomass, 10 Soil Primer, 5 HTR Patches |
+| Ammano Waystation | Ammano Transit | +8% / +12% / +16% / +20% / +25% link capacity and convoy room | 30 Reclaim, 2 Print Stock | 160 Reclaim, 12 Print Stock, 12 Refined Fuel, 8 Polymer Stock, 2 Phononic Circuits, 1 Klein Cells |
+| Trait | Effect |
+| --- | --- |
+| Steady | Nothing unusual about it. |
+| Hungry | It needs a quarter more of everything, and gives more back. |
+| Frugal | It gets by on less, and has less to give. |
+| Eager | Its people do much of the building themselves: every drive is a quarter smaller. |
+| Remote | A long way out. Drives cost more, and word of the help travels further. |
 
 ## **16. Orbit (endgame)**
 Hidden until the colony's standing with all factions adds up to **500** (the Brief only hints at it before then). Then three buildings appear: the Orbital Staging Platform and the Orbital Catapult in the Core, each on its own Colossal plot and side by side, and the Orbital Command Center in The Sanctuary Port on a Heavy plot.
@@ -274,9 +370,9 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 | Sirius Cell (phase_cells) | 2 Icarus Compound, 1 Orphic Silt, 2 Klein Cells, 55 power | 0.25 Sirius Cell |
 | Phononic Amplifier (resonators) | 1 Windsor Crystal, 1 Phononic Substrate, 1 Hard-Spec Instruments, 35 power | 0.25 Phononic Amplifier |
 | Stabilized Alloy (still_frames) | 1 Graviton Metaloid, 1 Orphic Silt, 2 Spine Frames, 50 power | 0.25 Stabilized Alloy |
-**Orbital storage** is slot-limited: one resource per slot (level 1: 6 slots of 2,000; level 2: 8 slots of 4,000 for 200 Spine Frames, 120 Dampener Fittings; level 3: 10 slots of 8,000 for 300 Spine Frames, 200 Dampener Fittings, 30 Stabilized Alloy). The largest stocks claim slots first; anything without a slot is lost. Jettisoning empties a slot, which then costs 20 Spine Frames, 10 Dampener Fittings to rebuild.
-**Orbital links** run between the Core and the station, both ways (level 1: 4 links at 25/tick; level 2: 6 links at 40/tick for 200 Dampener Fittings, 100 Donstand-Pattern Modules; level 3: 8 links at 60/tick for 300 Dampener Fittings, 30 Sirius Cell). Rare resources never travel by link. **Express launch:** up to 400 of one resource from the Core, 150 + 0.5/unit Refined Fuel, arriving in 12 ticks, once every 480 ticks. **Express drop:** the other way, from orbital storage to the Core, for a capsule of 10 Dampener Fittings from orbital storage, landing in 12 ticks; it shares the cooldown.
-**Dropships** (up to 3; build 600 Spine Frames, 400 Dampener Fittings, 300 Donstand-Pattern Modules, 200 Klein Cells, 120 ticks): level 1 power 40, hold 600, links 15/tick; level 2 power 70, hold 1000, links 25/tick (200 Spine Frames, 150 Dampener Fittings, 80 Klein Cells); level 3 power 100, hold 1600, links 40/tick (350 Spine Frames, 250 Dampener Fittings, 120 Donstand-Pattern Modules). Landing takes 15 ticks with a kit of 140 Hard-Spec Parts, 110 Print Stock, 10 Spine Alloy; the hold can be preloaded. A ship on a territory gets up to 2 links to the station. Recalling brings back what the plan says (rare first) up to the hold, in 150 ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at 10% with the cargo gone; the second loses the ship.
+**Orbital storage** is slot-limited: one resource per slot (level 1: 6 slots of 2,000; level 2: 9 slots of 4,000 for 250000 credits, 200 Spine Frames, 120 Dampener Fittings; level 3: 12 slots of 8,000 for 600000 credits, 300 Spine Frames, 200 Dampener Fittings, 30 Stabilized Alloy). The largest stocks claim slots first; anything without a slot is lost. Jettisoning empties a slot, which then costs 20 Spine Frames, 10 Dampener Fittings to rebuild.
+**Orbital links** run between the Core and the station, both ways (level 1: 4 links at 25/tick; level 2: 6 links at 40/tick for 150000 credits, 200 Dampener Fittings, 100 Donstand-Pattern Modules; level 3: 8 links at 60/tick for 400000 credits, 300 Dampener Fittings, 30 Sirius Cell). Rare resources never travel by link. **Express launch:** up to 400 of one resource from the Core, 150 + 0.5/unit Refined Fuel, arriving in 12 ticks, once every 480 ticks. **Express drop:** the other way, from orbital storage to the Core, for a capsule of 10 Dampener Fittings from orbital storage, landing in 12 ticks; it shares the cooldown.
+**Dropships** (up to 3; build 300000 credits, 600 Spine Frames, 400 Dampener Fittings, 300 Donstand-Pattern Modules, 200 Klein Cells, 120 ticks): level 1 power 50, hold 600, links 15/tick; level 2 power 80, hold 1000, links 25/tick (250000 credits, 200 Spine Frames, 150 Dampener Fittings, 80 Klein Cells); level 3 power 120, hold 1600, links 40/tick (600000 credits, 350 Spine Frames, 250 Dampener Fittings, 120 Donstand-Pattern Modules). Landing takes 15 ticks with a kit of 140 Hard-Spec Parts, 110 Print Stock, 10 Spine Alloy; the hold can be preloaded. A ship on a territory gets up to 2 links to the station. Recalling brings back what the plan says (rare first) up to the hold, in 150 ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at 10% with the cargo gone; the second loses the ship.
 **Anomalous territories** are shared by every station: at least 7 are open, a taken one is replaced in 10-30 ticks. Each has two common resources (Reclaim, Aquifer Draw, Raw Ink), one district resource (Raw Ore, Crude) and one rare (Anfang Glass, Icarus Compound, Mobiulic Ore, Windsor Crystal, Mycolian Spores, Orphic Silt, Phononic Substrate, Graviton Metaloid). Rings 1: 3 × Small, 2: 5 × Medium, 3: 7 × Large, storage = the hold, power = the ship's. Leaving early keeps only 35% of its remaining time for the next visitor; still being there when it closes forces a late recall with damage.
 | Anomaly | Weight | Lasts (ticks) | Late damage | Integrity lost / tick | Rare × | Ship power × |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -320,17 +416,26 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 | Phononic Substrate | Phononic Substrate, route B (hum_resin_b) | 8 Raw Ink, 8 Refined Fuel, 18 power | 0.5 Phononic Substrate |
 | Graviton Metaloid | Graviton Metaloid, route A (still_metal_a) | 8 Ingots, 8 Hard-Spec Parts, 18 power | 0.5 Graviton Metaloid |
 | Graviton Metaloid | Graviton Metaloid, route B (still_metal_b) | 8 Raw Ore, 8 Hard-Spec Parts, 18 power | 0.5 Graviton Metaloid |
-**Orbital market:** trade goods only, straight from orbital storage, orders signed with the station name. Market makers post 20 (tier 2), 12 (tier 3), 6 (tier 4), 4 (tier 5) at ±8% of the reference every 240 ticks. Prices must stay within 0.5-2× the reference; 4% fee from sellers; lifetimes 100, 300, 1000; 10 open orders.
+**Orbital market:** trade goods only, straight from orbital storage, orders signed with the station name. Market makers post 20 (tier 2), 12 (tier 3), 6 (tier 4), 1 (tier 5) at ±8% of the reference every 240 ticks. Prices must stay within 0.5-2× the reference; 4% fee from sellers; lifetimes 100, 300, 1000; 10 open orders.
 **Global projects:** one at a time, announced 480 ticks ahead. Needs are per player × stations seen recently; the period is twice the time to make one player's share (2880-11520 ticks). Contributions travel by dropship (240 ticks). Completion gives every colony +40 standing with the project's faction and a bonus for half the period.
 | Project | Needs per player | Bonus |
 | --- | --- | --- |
-| Lattice Survey | 20 Sirius Core, 15 Phononic Amplifier | Workshops and foundries +10% |
-| Seed Vault | 20 Cliffside Rejuvenator, 120 Heritage Preserves | Growing lines +15% |
-| Deep Bore | 20 Dense Metal, 150 Tool Steel | Metal lines +10% |
-| Quiet Array | 15 Sirius Cell, 15 Stabilized Alloy | A trickle of one rare resource to every station |
-| Relay Spire | 20 Phononic Amplifier, 15 Sirius Cell | Power plants +10% |
-| Mycelium Commons | 20 Cliffside Rejuvenator, 15 Stabilized Alloy | Kitchens and pharma labs +15% |
-| Gravity Well | 20 Dense Metal, 15 Sirius Core | Fabrication lines +10% |
+| Lattice Survey | 40 Sirius Core, 30 Phononic Amplifier | Workshops and foundries +10% |
+| Seed Vault | 40 Cliffside Rejuvenator, 120 Heritage Preserves | Growing lines +15% |
+| Deep Bore | 40 Dense Metal, 150 Tool Steel | Metal lines +10% |
+| Quiet Array | 30 Sirius Cell, 30 Stabilized Alloy | A trickle of one rare resource to every station |
+| Relay Spire | 40 Phononic Amplifier, 30 Sirius Cell | Power plants +10% |
+| Mycelium Commons | 40 Cliffside Rejuvenator, 30 Stabilized Alloy | Kitchens and pharma labs +15% |
+| Gravity Well | 40 Dense Metal, 30 Sirius Core | Fabrication lines +10% |
+
+## **16b. Time away and parked colonies**
+Only colonies whose commander is around are simulated. "Around" means a real interaction: signing in, opening the game, any action, or any click or key in the game (the page reports input at most every 5 minutes). The live stream and state polls an idle open tab keeps making do not count. A new hazard is only started while the player is active (any request in the last 120 seconds, an open tab included).
+| Time since the last interaction | What happens |
+| --- | --- |
+| up to **96 hours** | Simulated as normal. |
+| 96 hours to **30 days** | Not simulated: the colony waits exactly as it was (nothing is taken). The next interaction resumes it, with a one-time notice that it was held. Timers on the shared clock (shipments, express trips, offers) keep running and settle on its first tick back. |
+| over 30 days | Parked. On return the commander chooses: **retake** it (it resumes where it stopped), **start a new colony**, or log out. Every action is refused until they choose. |
+Starting a new colony does not delete the parked one: it moves, still parked, to a generated account (a random callsign nobody can sign in to) and its station is renamed at random. A parked colony can be handed to another account (`absence.claim`); a commander whose colony was claimed can only start over. Neither can be undone. Open market orders stay open while a colony is frozen or parked and expire as usual. Both limits are `global.absence`.
 
 ## **17. Operations: backups**
 The server backs the database up automatically (`BACKUP_INTERVAL_HOURS`, default 6, 0 = off; `BACKUP_KEEP`, default 28; `BACKUP_DIR`). To restore: stop the server, copy a backup over the database file (delete its `-wal` and `-shm` files), start the server.

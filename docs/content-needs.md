@@ -208,8 +208,10 @@ directive: most players will see a dialogue every few directives, with mail in b
 | `mission` | A name in the harbour | People there post what they need and name what they will pay. Doing someone a favour is a… |
 
 Other triggers available: Core level reached, a district founded, faction standing reached, missions filled, hazards
-survived, population, the beacon completing, the Brief being complete (the open phase starts), and "N ticks after
-another beat".
+survived, population, the beacon completing, the Brief being complete (the open phase starts), "N ticks after
+another beat", requisitions filled, a second or third build slot bought, a particular building standing, lines running
+an alternative recipe, and settlements (first sponsored, by kind, a stage reached, appeals answered, set on their own
+feet). The full table is in `docs/story.md`.
 
 For each beat:
 

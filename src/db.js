@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 21;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -437,6 +437,71 @@ function migrateToDistricts() {
   })();
 }
 migrate();
+// v17 (additive): the work queue and route targets. An order is 'queued' until its turn comes and 'active' while it is
+// being carried out; orders from before the queue are 'active' and finish side by side. A route can stop at a target
+// stock in the destination (0 = fill it).
+for (const [table, col, ddl] of [['colony_work_orders', 'state', "TEXT NOT NULL DEFAULT 'active'"], ['colony_work_orders', 'position', 'INTEGER NOT NULL DEFAULT 0'], ['colony_routes', 'target', 'INTEGER NOT NULL DEFAULT 0']]) {
+  if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+}
+
+// v18 (additive): requisitions (requests for ordinary goods from an early hub level) and the boons they lend.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS requisitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    slot INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    good TEXT NOT NULL,
+    qty INTEGER NOT NULL,
+    reward INTEGER NOT NULL,
+    boon TEXT NOT NULL,
+    created_tick INTEGER NOT NULL,
+    expires_tick INTEGER NOT NULL,
+    closed_tick INTEGER,
+    status TEXT NOT NULL DEFAULT 'open'        -- open | done | expired
+  );
+`);
+if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'boons'").get()) db.exec("ALTER TABLE colonies ADD COLUMN boons TEXT NOT NULL DEFAULT '{}'");
+// v19 (additive): build slots. Every place starts with one; the Core and the districts can buy more (config.global.buildQueue.slotTiers).
+if (!db.prepare("SELECT 1 FROM pragma_table_info('districts') WHERE name = 'build_slots'").get()) db.exec('ALTER TABLE districts ADD COLUMN build_slots INTEGER NOT NULL DEFAULT 1');
+// v20 (additive): settlements the colony sponsors after the Beacon (see settlements.js), and the Core reserve they respect.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS settlements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    trait TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'offer',      -- offer | active | done (stands on its own) | gone
+    stage INTEGER NOT NULL DEFAULT 1,
+    commitment INTEGER NOT NULL DEFAULT 2,     -- 0 off, 1 half, 2 full
+    level REAL NOT NULL DEFAULT 0,             -- how well it has been supplied lately, 0 to 1
+    drive TEXT NOT NULL DEFAULT '{}',          -- what has been contributed to the current drive
+    sent REAL NOT NULL DEFAULT 0,
+    standing_acc REAL NOT NULL DEFAULT 0,
+    boon_until INTEGER NOT NULL DEFAULT 0,
+    appeal TEXT,
+    next_appeal INTEGER NOT NULL DEFAULT 0,
+    created_tick INTEGER NOT NULL,
+    expires_tick INTEGER NOT NULL DEFAULT 0,
+    started_tick INTEGER,
+    done_tick INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_settlements_colony ON settlements(colony_id, status);
+`);
+if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'settle_reserve'").get()) db.exec('ALTER TABLE colonies ADD COLUMN settle_reserve REAL NOT NULL DEFAULT 0.25');
+if (!db.prepare("SELECT 1 FROM pragma_table_info('settlements') WHERE name = 'answers'").get()) db.exec('ALTER TABLE settlements ADD COLUMN answers INTEGER NOT NULL DEFAULT 0'); // appeals answered (the story listens for it)
+// v21 (additive): absence (see absence.js). `last_active_at` is the commander's last real interaction (last_seen_at also
+// counts an idle open tab); a colony stops being simulated a while after it, and is parked (parked_at) later still.
+// Generated accounts hold parked colonies their commander gave up; `notice` tells a commander their colony was claimed.
+if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'last_active_at'").get()) {
+  db.exec('ALTER TABLE colonies ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0');
+  db.exec('UPDATE colonies SET last_active_at = last_seen_at');
+}
+for (const [table, col, ddl] of [['colonies', 'parked_at', 'INTEGER'], ['colonies', 'away_notice', 'TEXT'], ['users', 'generated', 'INTEGER NOT NULL DEFAULT 0'], ['users', 'notice', 'TEXT']]) {
+  if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+}
+db.pragma(`user_version = ${SCHEMA_VERSION}`);
 
 // ---- meta -----------------------------------------------------------------
 const getMeta = (k, fallback = null) => {
@@ -475,8 +540,8 @@ function purgeSessions() {
 function foundColony(userId, { credits = config.global.startingState.credits, failures = 0 } = {}) {
   const s = config.global.startingState;
   const id = db.prepare(
-    'INSERT INTO colonies (user_id, credits, morale, population, failures, last_seen_at, next_hazard_age) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(userId, credits, config.global.startingMorale, s.population, failures, Date.now(), config.hazards.firstAtAge).lastInsertRowid;
+    'INSERT INTO colonies (user_id, credits, morale, population, failures, last_seen_at, last_active_at, next_hazard_age) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(userId, credits, config.global.startingMorale, s.population, failures, Date.now(), Date.now(), config.hazards.firstAtAge).lastInsertRowid;
   const core = db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'core', 1, 'The Core', 0)").run(id).lastInsertRowid;
   const ins = db.prepare('INSERT INTO colony_inventory (colony_id, district_id, resource_id, amount) VALUES (?, ?, ?, ?)');
   for (const res of Object.keys(config.resources)) ins.run(id, core, res, s.resources[res] || 0);
@@ -511,7 +576,7 @@ function coreId(colonyId) {
 }
 function loadDistricts(colonyId) {
   // A district's name is wording, so it always comes from the active theme (not from what was stored when it was founded).
-  return db.prepare('SELECT id, type, level, name, link_level AS linkLevel, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId)
+  return db.prepare('SELECT id, type, level, name, link_level AS linkLevel, build_slots AS buildSlots, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId)
     .map((d) => ({ ...d, name: d.type !== 'core' && config.districtTypes[d.type] ? config.districtTypes[d.type].name : d.name }));
 }
 
@@ -537,10 +602,11 @@ function loadBuildings(colonyId, districtId = coreId(colonyId)) {
 function loadSlotLocks(districtId, tick) {
   return db.prepare('SELECT ring_index AS ring, slot_index AS slot, until_tick AS untilTick FROM slot_locks WHERE district_id = ? AND until_tick > ?').all(districtId, tick);
 }
+// Work orders, in the order they run: the ones under way first, then the queue from front to back.
 function loadOrders(colonyId, districtId) {
   const rows = districtId === undefined
-    ? db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? ORDER BY id').all(colonyId)
-    : db.prepare('SELECT * FROM colony_work_orders WHERE colony_id = ? AND district_id = ? ORDER BY id').all(colonyId, districtId);
+    ? db.prepare("SELECT * FROM colony_work_orders WHERE colony_id = ? ORDER BY (state = 'queued'), position, id").all(colonyId)
+    : db.prepare("SELECT * FROM colony_work_orders WHERE colony_id = ? AND district_id = ? ORDER BY (state = 'queued'), position, id").all(colonyId, districtId);
   return rows.map((o) => ({ ...o, data: JSON.parse(o.target_data) }));
 }
 
@@ -557,7 +623,7 @@ function loadShipments(colonyId) {
 }
 
 function loadRoutes(colonyId) {
-  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, rate, reserve FROM colony_routes WHERE colony_id = ? ORDER BY id').all(colonyId);
+  return db.prepare('SELECT id, from_district AS fromDistrict, to_district AS toDistrict, resource_id AS resource, rate, reserve, target FROM colony_routes WHERE colony_id = ? ORDER BY id').all(colonyId);
 }
 
 function loadHazard(colonyId) {

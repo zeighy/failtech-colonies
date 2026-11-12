@@ -58,7 +58,7 @@ const pg = G.populationGrowth, ex = G.exodus, m = G.morale, sd = G.shutdown;
 add('## **4b. People, housing, crew, morale and shutdown**',
   `* **Housing.** The population cap is the Core's own quarters (${Object.values(C.hubLevels).map((l) => l.baseHousing).join(', ')} at Core levels 1-${Object.keys(C.hubLevels).length}) plus homes in any district. Homes in other districts add capacity and comfort only: **everyone eats from the Core stockpile.** If homes are lost, people leave.`,
   `* **Growth.** One more person every ${pg.everyTicks} ticks (two at morale ${pg.fastMorale}+) while morale is ${pg.minMorale}+, there is room, and the colony can feed them (counting what standing routes bring into or take out of the Core): the surplus must cover the new people, or the stockpile above ${Math.round(pg.bufferFloor * 100)}% of capacity must cover the shortfall for ${n(pg.bufferTicks)} ticks.`,
-  `* **Crew.** The workforce is ${Math.round(G.workforceShare * 100)}% of the population. If there are fewer hands than posts, every staffed building runs at the same reduced efficiency.`,
+  `* **Crew.** The workforce is ${Math.round(G.workforceShare * 100)}% of the population. If there are fewer hands than posts, ${G.essentialCrewFirst ? 'the essential buildings (water, food, power and salvage) are crewed first and every other staffed building shares who is left, at the same reduced efficiency' : 'every staffed building runs at the same reduced efficiency'}.`,
   `* **Meals** are optional: people eat ${G.mealsPerPopPerTick} per head per tick; the share fed adds up to **+${m.mealBonus}** to the morale target.`,
   `* **Comfort.** Every building has a comfort effect on adjacent homes, clamped to ${m.comfortMin}..+${m.comfortMax}.`,
   `* **Morale target** = base ${m.base} + comfort + meals. Morale rises ${G.moraleRecoveryPerTick} per tick toward it and falls ${m.fallPerTick} per tick; hunger drops it by up to ${100 / G.moraleFailureThresholdTicks} per tick in proportion to the shortage. Output scales with morale: a slowdown of ${m.penaltyPerPoint * 100}% per point below ${m.penaltyBelow} (floor ×${m.floor}) and up to +${m.bonusMax * 100}% from ${m.bonusFrom}.`,
@@ -69,6 +69,39 @@ add('## **4b. People, housing, crew, morale and shutdown**',
 add('## **5. Plots and rings**',
   table(['Ring', 'Plot size', 'Core slots'], Object.keys(C.ringPlotSize).map((r) => [r, plot(C.ringPlotSize[r]), (Object.values(C.hubLevels).map((l) => l.ringCapacities[r]).filter(Boolean).pop()) || '–'])),
   `A building can sit on a plot smaller than its minimum, but its output is multiplied by **${G.plotPenaltyPerStep}** per missing size step (inputs are still consumed in full). Rings 2 and 4 are rotated ${C.ringRotation['2']} degrees so slots do not line up between rings.`);
+
+// ---- the work queue
+const BQ = { maxPerPlace: 8, replaceTimeMult: 1.5, ...(G.buildQueue || {}) };
+add('## **5b. The work queue**',
+  `* **One build slot per place.** The Core, every district, the station and every territory each build one thing at a time. Building, replacing, expanding, upgrading and (in the Core) founding a district all wait in the same line, up to ${BQ.maxPerPlace} orders per place. Places do not hold each other up.`,
+  '* **Strict order.** Orders are carried out in the order they were queued. Nothing behind the front of the queue starts early, even if the place could pay for it. A waiting order can be moved up, down or to the front, and cancelled.',
+  '* **Paid for when it starts.** An order costs nothing while it waits, so it can be queued before the materials exist. When its turn comes it waits at the front until its place can pay, and everything behind it waits too. Cancelling an order that has started refunds it in full.',
+  '* **Dropped orders.** An order that can no longer be carried out when its turn comes (its plot was taken, the building is gone) is taken off the queue with a note in the log.',
+  `* **Replace in place.** A building can be swapped for another on the same plot. The order goes through the queue and the old building keeps working until its turn. It is then scrapped for the demolition refund (${G.demolishRefund * 100}%), and the plot stands empty while the new building goes up, which takes **×${BQ.replaceTimeMult}** its usual build time. Expansion levels are not carried over. A workshop with a recipe set has to be demolished instead.`,
+  '* **Rush** applies to the order under way, not to one that is waiting.');
+if ((BQ.slotTiers || []).length) {
+  const goods = (c) => { const { credits = 0, ...g } = c; return `${list(g)}${credits ? `, ${credits} credits` : ''}`; };
+  add(`* **More build slots.** The Core and each district can buy up to ${BQ.slotTiers.length} more build slots from their hub pane, each paid at once from that place's own stockpile and the treasury. With more slots that many orders from the front of the queue are carried out side by side; the order of the queue is as strict as before, so an order that cannot start yet still holds up everything behind it. The station and territories keep one slot.`);
+  add('| Build slot | Opens at Core level | In the Core | In a district |', '| --- | --- | --- | --- |',
+    ...BQ.slotTiers.map((t, i) => `| ${i + 2} | ${t.coreLevel} | ${goods(t.core)} | ${goods(t.district)} |`));
+}
+
+// ---- alternative recipes
+const altRows = [];
+for (const [id, b] of Object.entries(C.buildings)) {
+  for (const [aid, a] of Object.entries(b.alternatives || {})) {
+    const u = a.unlock || {};
+    const opens = u.level ? `place level ${u.level}` : { beacon: 'the Beacon is built', freeport: `${C.districtTypes.freeport.name} is founded`, station: 'a station is in orbit' }[u.milestone] || 'from the start';
+    altRows.push([`${b.name} (${id})`, `${a.name} (${aid})`, opens, list(a.inputsPerTick), list(a.outputsPerTick)]);
+  }
+}
+const tiered = Object.entries(C.buildings).filter(([, b]) => b.districtTier);
+const tierOf = (n) => tiered.filter(([, b]) => b.districtTier === n).map(([, b]) => b.name).join(', ');
+add('## **5c. Alternative recipes**',
+  `Most production buildings can be set to another recipe from their pane: a higher-yield way of making the same thing that needs something from further along the chain, or a different product altogether. They stand in for research. A building's alternatives open with the **level of the place it stands in** (the Core's level in the Core, the district's own level elsewhere) or at a colony **milestone**. The base recipe never goes away. Switching costs nothing but leaves the line idle for **${C.production.switchTicks} ticks** while it is retooled, every time.`,
+  table(['Building (id)', 'Recipe (id)', 'Opens at', 'Inputs / tick', 'Outputs / tick'], altRows),
+  `**District tiers.** A district's tier-1 buildings (${tierOf(1)}) run on what the Core and the district itself make, so a district works even if it is the only one founded; their base recipes also leave a little ${rn('scrap')} for the district to build with. Tier-2 buildings (${tierOf(2)}) need at most one kind of goods from another district. Tier 3: ${tierOf(3)}.`,
+  `**Standby power.** ${C.buildings.cell_bank.name}: up to ${C.buildings.cell_bank.buffer.power} power, only while the place's grid is short, burning ${list(C.buildings.cell_bank.buffer.perTick)} per tick at full output (in proportion to what it supplies) from that place's stockpile. With nothing to burn it supplies nothing.`);
 
 // ---- adjacency
 add('## **6. Adjacency**', 'Neighbours are the two slots beside a building in its ring plus every touching slot in the rings above and below. Each matching neighbour multiplies output (clamped).',
@@ -91,7 +124,7 @@ add('## **8. Districts**',
 const L = C.logistics;
 add('## **9. Logistics: shipments, routes and links**',
   `* **One-off shipments:** at most ${L.maxInFlight} on the road at once, up to ${L.shipmentMax} units each. Stock leaves now and arrives after the trip (anything over the destination's storage cap is lost).`,
-  `* **Standing routes:** up to ${L.maxRoutes}. A route moves goods directly every tick, limited by the link's capacity and the source's reserve, and shows in both districts' rates. Routes do not use shipment slots.`,
+  `* **Standing routes:** up to ${L.maxRoutes}. A route moves goods directly every tick, limited by the link's capacity and the source's reserve, and shows in both districts' rates. A route can also be given a target: it stops once the destination holds that much (0 = no target: it fills the destination's storage). Routes do not use shipment slots.`,
   table(['Link level', 'Capacity / tick', 'Upgrade cost (paid from the Core)'], Object.entries(L.link.levels).map(([l, v]) => [l, v.capacity, v.upgradeCost ? list(v.upgradeCost) : 'start'])));
 
 // ---- expansion
@@ -130,8 +163,32 @@ add('## **14. The Free Port: trade goods, missions and standing**',
   `**Missions:** ${M.slots} postings at a time, each offered in the name of every faction (fill one and the others lapse), lasting ${M.durationTicks.join('-')} ticks, refreshing every ${M.refreshTicks}. Rewards are ${M.rewardMult}× market value plus standing. Factions: ${Object.entries(M.factions).map(([id, f]) => `${f.name} (${id}) wants ${Object.keys(f.wants).map(rn).join(', ')}`).join('; ')}.`);
 
 // ---- beacon
+const RQ = C.requisitions;
+add('## **14b. Requisitions**',
+  `From Core level ${RQ.unlockHubLevel}, ${RQ.slots} requests at a time for ordinary goods, each a set amount within ${RQ.durationTicks[0]}-${RQ.durationTicks[1]} ticks, delivered in full from the Core. Only goods the colony's own places can make are asked for, and amounts grow ${RQ.growthPerLevel * 100}% per Core level past the level a good first appears at. A filled requisition pays ${RQ.payMult}× the convoy's selling price and lends a boon; one that lapses is replaced ${RQ.refreshTicks} ticks later.`,
+  table(['Good', 'From Core level', 'Amount'], Object.entries(RQ.goods).map(([g, v]) => [rn(g), v.from, `${v.qty[0]}-${v.qty[1]}`])),
+  table(['Boon', 'Lasts', 'Effect'], Object.values(RQ.boons).map((b) => [b.name, `${b.ticks} ticks`, b.desc])),
+  'Earning a boon that is already running adds to the time left.');
+
 add('## **15. The Beacon**',
-  `Build the ${bn('beacon_array')} (only one; it wants a ${plot(B.beacon_array.minPlotSize)} plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **${G.beacon.transmitTicks} signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes ${(C.districtTypes.freeport || {}).name || 'the Free Port'} available.`);
+  `Build the ${bn('beacon_array')} (only one; it wants a ${plot(B.beacon_array.minPlotSize)} plot) and keep it running. Each tick it runs at full efficiency adds 1 signal, and **${G.beacon.transmitTicks} signal** completes the transmission. Anything that starves it of power or inputs, or knocks it offline, costs time. Completing it makes ${(C.districtTypes.freeport || {}).name || 'the Free Port'} available.${B.beacon_array.afterTransmit ? ` Once the transmission is complete the Beacon stops burning its inputs and only needs ${list(B.beacon_array.afterTransmit.inputsPerTick)} to stay lit.` : ''}`);
+
+// ---- settlements
+const SE = C.settlements;
+if (SE) {
+  const kind = { discount: (v) => `${Math.round(v * 100)}% off upgrades, expansions and links`, hands: (v) => `${Math.round(v)} commuters (hands, not mouths)`, logistics: (v) => `+${Math.round(v * 100)}% link capacity and convoy room` };
+  const slotName = { beacon: 'the Beacon', freeport: (C.districtTypes.freeport || {}).name || 'the Free Port', station: 'the station' };
+  const fname = (f) => (((C.missions || {}).factions || {})[f] || {}).name || f;
+  add('## **15b. Settlements**',
+    `Once the Beacon has transmitted, camps answer it. ${SE.offers} are on offer at a time, each of a kind, with a trait and a name, each asking for ${SE.offerTicks[0]}-${SE.offerTicks[1]} ticks before it moves on and another takes its place. The colony sponsors one for each of ${SE.slots.map((k) => slotName[k]).join(', ')} it has. This is where a finished colony's goods go: nothing sent earns credits.`,
+    `**Steady support.** A sponsored settlement draws its basket from the Core every tick, at the commitment set for it (off, half or full), and never takes a good below the reserve (a share of the Core's storage; ${Math.round(SE.defaultReserve * 100)}% unless changed). What it gives back follows what it has actually been getting, averaged over about ${SE.smoothTicks} ticks: half the basket, half the benefit. It also earns standing with its faction, ${SE.standingPerStage} a tick per stage at full supply.`,
+    `**Drives.** Each stage has a drive: the stage's basket ${SE.driveTicks.join(', ')} times over (stages 1 to ${SE.stages}), given in any amounts at any time. Finishing one moves the settlement up a stage, pays ${SE.driveStanding} standing per stage and doubles its benefit for ${SE.boonTicks} ticks. The last drive sets it on its own feet: it leaves its slot, needs nothing more, and is a trade partner for good. A partner goes on giving ${Math.round(SE.partner.keep * 100)}% of what it gave at stage ${SE.stages} and adds ${Math.round(SE.partner.convoyBonus * 100)}% to what the convoy will carry; each further partner counts for ${Math.round(SE.partner.decay * 100)}% of the one before (of its kind for the benefit, of any kind for the convoy), so there is always a reason for one more and never a runaway.`,
+    `**Appeals.** Every ${SE.appeal.gapTicks[0]}-${SE.appeal.gapTicks[1]} ticks a settlement asks for one thing, worth ${SE.appeal.sizeTicks[0]}-${SE.appeal.sizeTicks[1]} ticks of its basket, within ${SE.appeal.windowTicks[0]}-${SE.appeal.windowTicks[1]} ticks. Answering doubles its benefit for ${SE.appeal.boonTicks} ticks and pays ${SE.appeal.standing} standing per stage; letting it pass costs nothing.`,
+    `The discount from all settlements together is capped at ${Math.round(SE.discountCap * 100)}%. If link room lent by a settlement falls away (it goes short, or a boon runs out), the routes on that link may add up to more than it carries. Routes carrying what people eat and drink keep running in full; the rest are slowed in proportion until the link fits, and each says so. Nothing is cancelled: the routes run at the rate they were set to again as soon as there is room.`,
+    table(['Kind', 'Faction', 'Gives (stage 1 to ' + SE.stages + ', at full supply)', 'Basket a tick at stage 1', 'Basket a tick at stage ' + SE.stages],
+      Object.values(SE.types).map((t) => [t.name, fname(t.faction), t.benefit.byStage.map((v) => kind[t.benefit.kind](v).split(' ')[0]).join(' / ') + ' ' + kind[t.benefit.kind](0).split(' ').slice(1).join(' '), list(t.basket[1]), list(t.basket[SE.stages])])),
+    table(['Trait', 'Effect'], Object.values(SE.traits).map((t) => [t.name, t.desc])));
+}
 
 // ---- orbit
 const O = C.orbital, OT = C.orbitalTypes;
@@ -156,6 +213,16 @@ add('## **16. Orbit (endgame)**',
   table(['Project', 'Needs per player', 'Bonus'], O.projects.list.map((p) => [p.name, list(p.needs), p.bonus.label])));
 
 // ---- operations
+const AB = G.absence;
+add('## **16b. Time away and parked colonies**',
+  `Only colonies whose commander is around are simulated. "Around" means a real interaction: signing in, opening the game, any action, or any click or key in the game (the page reports input at most every 5 minutes). The live stream and state polls an idle open tab keeps making do not count. A new hazard is only started while the player is active (any request in the last ${G.activeWindowSeconds} seconds, an open tab included).`,
+  table(['Time since the last interaction', 'What happens'], [
+    [`up to **${AB.simulateHours} hours**`, 'Simulated as normal.'],
+    [`${AB.simulateHours} hours to **${AB.parkDays} days**`, 'Not simulated: the colony waits exactly as it was (nothing is taken). The next interaction resumes it, with a one-time notice that it was held. Timers on the shared clock (shipments, express trips, offers) keep running and settle on its first tick back.'],
+    [`over ${AB.parkDays} days`, 'Parked. On return the commander chooses: **retake** it (it resumes where it stopped), **start a new colony**, or log out. Every action is refused until they choose.'],
+  ]),
+  'Starting a new colony does not delete the parked one: it moves, still parked, to a generated account (a random callsign nobody can sign in to) and its station is renamed at random. A parked colony can be handed to another account (`absence.claim`); a commander whose colony was claimed can only start over. Neither can be undone. Open market orders stay open while a colony is frozen or parked and expire as usual. Both limits are `global.absence`.');
+
 add('## **17. Operations: backups**',
   'The server backs the database up automatically (`BACKUP_INTERVAL_HOURS`, default 6, 0 = off; `BACKUP_KEEP`, default 28; `BACKUP_DIR`). To restore: stop the server, copy a backup over the database file (delete its `-wal` and `-shm` files), start the server.');
 

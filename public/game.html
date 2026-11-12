@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-shell="desktop">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,38 +11,34 @@
 <div id="app">
   <header id="topbar">
     <div class="brand">FAILTECH</div>
-    <div class="vitals" id="v-colony">
-      <div class="chip"><span class="label">Credits</span><span class="v num" id="c-credits">–</span></div>
-      <div class="chip"><span class="label">People</span><span class="v num" id="c-pop">–</span></div>
-      <div class="chip"><span class="label">Cohesion</span><span class="v num" id="c-morale">–</span><div class="meter"><i id="c-morale-bar"></i></div></div>
-      <div class="chip"><span class="label">Collapse in</span><span class="v num" id="c-doom">–</span></div>
-      <div class="chip"><span class="label">Hazard in</span><span class="v num" id="c-hazard">–</span><div class="meter"><i id="c-hazard-bar"></i></div></div>
-    </div>
-    <div class="vsep" aria-hidden="true"></div>
-    <div class="vitals" id="v-place"></div>
+    <div class="vitals" id="vitals"></div>
     <div class="spacer"></div>
     <div id="net"></div>
     <button class="icon-btn" id="bell-btn" title="Notifications" aria-label="Notifications"></button>
     <button class="icon-btn" id="mail-btn" title="Messages" aria-label="Messages"></button>
     <button class="user-btn" id="menu-btn" title="Command menu" aria-label="Command menu"><span id="c-user"></span></button>
   </header>
+  <div id="stockbar" aria-label="Pinned stock"></div>
   <div id="layout">
-    <nav id="rail" aria-label="Places"><div class="dswitch" id="dswitch"></div></nav>
-    <main id="map">
-      <svg id="radar" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="application" aria-label="Colony radar map"></svg>
-      <div class="legend" id="legend"></div>
-    </main>
+    <nav id="nav" aria-label="Screens"></nav>
+    <div id="stage">
+      <div id="places" role="tablist" aria-label="Places"></div>
+      <main id="map">
+        <svg id="radar" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="application" aria-label="Colony radar map"></svg>
+        <div class="legend" id="legend"></div>
+        <div class="zoomctl" id="zoomctl"></div>
+      </main>
+    </div>
     <aside id="right"><div id="panel"></div></aside>
     <section id="sheet" hidden aria-label="Workspace">
       <div class="sheet-head">
-        <div class="sheet-tabs" id="sheet-tabs" role="tablist"></div>
-        <button class="icon-btn" id="sheet-close" title="Close (Esc)" aria-label="Close workspace">&times;</button>
+        <div class="sheet-tabs" id="sheet-tabs"></div>
+        <button class="icon-btn" id="sheet-close" title="Back to the map (Esc)" aria-label="Back to the map">&times;</button>
       </div>
       <div class="sheet-body" id="sheet-body"></div>
     </section>
   </div>
   <footer id="dock">
-    <div class="dock-groups" id="dock-groups"></div>
     <div id="dock-dir"></div>
     <div id="queue"></div>
   </footer>

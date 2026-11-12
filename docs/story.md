@@ -86,6 +86,12 @@ Only text fields can be replaced; costs, recipes and rates cannot be touched by 
 | `won` | | the Beacon message got through |
 | `campaignDone` | | every Brief directive is done |
 | `after` | `beat`, `delayTicks?` | some ticks after another beat |
+| `requisitions` | `min` | requisitions filled |
+| `buildSlots` | `min` | some place (the Core or a district) has that many build slots |
+| `building` | `id` | a building of that type stands anywhere in the colony |
+| `recipes` | `min` | that many lines run an alternative recipe (a workshop's chosen recipe does not count) |
+| `settlement` | `flag`, `kind?`, `min?` | `sponsored` (settlements ever sponsored), `stage` (one has reached stage `min`), `answered` (appeals answered), `partner` (settlements set on their own feet). `kind` limits it to one kind (`foundry`, `valley`, `depot`); `min` defaults to 1 |
+| `orbital` | `flag` | an orbit milestone (`unlocked`, `staging`, `catapult`, `command`, `cycleDone`, `launched`, `ring2`, `ring3`, `deployed`, `rareReturned`, `shipSaved`, `shipLost`, `contributed`, `projectCompleted`, `dataFragment`) |
 
 A trigger looks at the colony's current state, so a beat can be late but never missed. A colony that has already passed
 several triggers gets its backlog in script order, one beat at a time (see Pacing), and the call card offers "Skip all".
@@ -110,7 +116,7 @@ A scene can bring its **own cast** and carry **images, sound and video**, which 
 
 - `cast`: characters that exist only in this scene (same fields as `characters`; a cast id may not repeat a shared character). Portraits and moods work the same way; with no portrait the game shows initials.
 - Node media, all plain file names in `assets/`, each checked for its file type (`check-content` lists any that are missing and the game simply leaves them out until the file exists):
-  - `background`: an image that replaces the scene's backdrop from this node on. `image`: a plate shown over the stage for this node only.
+  - `background`: an image that replaces the scene's backdrop from this node on. A scene's or a node's `background` may also be a list of images (`["camp_a.jpg", "camp_b.jpg"]`): the game picks one at random each time the scene is played. `image`: a plate shown over the stage for this node only.
   - `audio`: a sound played once when the node is shown (`.mp3 .ogg .opus .m4a .wav`). `music`: a loop that continues across nodes until another node sets `music` or `"stop"`; it stops when the scene ends or is minimised.
   - `video`: (`.mp4 .webm`) plays full screen before the node's words, with controls and a Continue button; the text follows when it ends or is continued.
 - Browsers only start sound after a click or key press. A scene always starts from one, so this is normally fine.

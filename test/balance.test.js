@@ -78,11 +78,17 @@ function play(maxTicks) {
     }
     return null;
   };
-  const build = (d, type) => {
+  // The player builds one thing at a time in each place and keeps at most one more waiting behind it, and only queues
+  // what the place can pay for now: a queue is strict, so an order that cannot be paid for would hold up everything after it.
+  const waiting = (d) => store.loadOrders(id, d.id).filter((o) => o.state === 'queued');
+  const build = (d, type, urgent) => {
     const def = config.buildings[type];
     if (!sim.buildableIn(def, d.type) || !can(d, def.cost)) return false;
+    if (waiting(d).length >= (urgent ? 2 : 1)) return false;
     const pos = place(d, type);
-    return !!pos && actions.build(uid, { ...pos, type, district: d.id }).ok;
+    if (!pos || !actions.build(uid, { ...pos, type, district: d.id }).ok) return false;
+    if (urgent) { const mine = waiting(d).find((o) => o.data.type === type); if (mine) actions.queueMove(uid, { orderId: mine.id, to: 'top' }); } // food, water and homes go to the front
+    return true;
   };
 
   // Move what a district is short of from whichever other district can spare it.
@@ -124,19 +130,21 @@ function play(maxTicks) {
 
     // upgrades: the Core when it can afford it, districts from their own stock (shipping in what is missing)
     const nx = config.hubLevels[core.level + 1];
-    if (nx && actions.upgradeHub(uid, {}).ok) log.push(`core L${core.level + 1} @${t}`);
+    const upgrading = (d) => store.loadOrders(id, d.id).some((o) => o.action_type === 'upgrade');
+    if (nx && !upgrading(core) && can(core, nx.upgradeCost) && waiting(core).length < 2 && actions.upgradeHub(uid, {}).ok) log.push(`core L${core.level + 1} @${t}`);
     for (const t2 of ORDER) {
       const d = byType(t2);
       if (!d) continue;
       const next = sim.levelDef(config, t2, d.level + 1);
       const cap = sim.districtLevelCap(config, { coreLevel: core.level, beaconBuilt: store.hasBeacon(id) });
       if (!next || d.level + 1 > cap || store.loadOrders(id, d.id).some((o) => o.action_type === 'upgrade')) continue;
-      if (actions.upgradeHub(uid, { district: d.id }).ok) log.push(`${t2} L${d.level + 1} @${t}`);
+      if (can(d, next.upgradeCost)) { if (actions.upgradeHub(uid, { district: d.id }).ok) log.push(`${t2} L${d.level + 1} @${t}`); }
       else if (d.level + 1 <= cap && t % 3 === 0) topUp(d, next.upgradeCost);
     }
     // found districts: the Pits and Stacks at Core 4, the Greenbelt at Core 5
     for (const t2 of ORDER) {
       if (byType(t2) || (t2 === 'greenbelt' && core.level < 5)) continue;
+      if (!can(core, config.districtTypes[t2].foundCost) || store.loadOrders(id).some((o) => o.action_type === 'found')) continue;
       if (actions.foundDistrict(uid, { type: t2 }).ok) log.push(`found ${t2} @${t}`);
     }
     // standing routes
@@ -154,10 +162,10 @@ function play(maxTicks) {
       const v = viewFor(uid);
       const net = (r) => v.resources[r].net;
       const pending = (ty) => store.loadOrders(id, core.id).some((o) => o.action_type === 'build' && o.data.type === ty);
-      if (net('clean_water') < 1 && !pending('water_purifier')) { build(core, 'water_purifier'); if (net('unpurified_water') < 8 && !pending('water_pump')) build(core, 'water_pump'); }
-      if (net('rations') < 1 && !pending('hydroponics_bay')) build(core, 'hydroponics_bay');
+      if (net('clean_water') < 1 && !pending('water_purifier')) { build(core, 'water_purifier', true); if (net('unpurified_water') < 8 && !pending('water_pump')) build(core, 'water_pump', true); }
+      if (net('rations') < 1 && !pending('hydroponics_bay')) build(core, 'hydroponics_bay', true);
       const housingBusy = store.loadOrders(id, core.id).some((o) => o.action_type === 'build' && config.buildings[o.data.type].housing);
-      if (c.population >= v.colony.maxPopulation - 2 && !housingBusy) build(core, core.level >= 3 && can(core, config.buildings.habitat.cost) ? 'habitat' : 'dormitory');
+      if (c.population >= v.colony.maxPopulation - 2 && !housingBusy) build(core, core.level >= 3 && can(core, config.buildings.habitat.cost) ? 'habitat' : 'dormitory', true);
     }
     for (const b of store.loadBuildings(id, core.id)) {
       if (b.type !== 'parts_assembler') continue;

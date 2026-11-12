@@ -9,6 +9,9 @@ const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const missions = require('./missions');
 const credits = require('./credits');
+const queue = require('./queue');
+const requisitions = require('./requisitions');
+const settlements = require('./settlements');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
 const { db, config } = store;
@@ -59,16 +62,54 @@ function guarded(fn, { allowFailed = false } = {}) {
     const c = colonyOf(userId);
     if (!c) return fail('No colony found.');
     if (c.status !== 'active' && !allowFailed) return fail('This colony has been abandoned.');
+    if (c.parked_at) return fail('This colony is parked. Retake command first.');
     return fn(c, args);
   });
   return (userId, args) => run.immediate(userId, body(args));
 }
 
+// Put an order on a place's queue. If the build slot is free and the place can pay, it starts at once; otherwise it waits
+// its turn (see queue.js). `queued: true` tells the client it did not start.
+function order(c, d, kind, data) {
+  if (queue.count(c, d) >= queue.max) return fail(`The work queue ${d.type === 'core' ? 'in the Core' : `in ${d.name}`} is full (${queue.max} orders). Cancel one, or wait for one to finish.`);
+  const tick = tickNow();
+  const id = queue.enqueue(c, d, kind, data);
+  const started = queue.advance(c, d, c.hub_level, queue.dbBag(c, d), tick, (k, msg) => store.addEvent(c.id, tick, k, msg));
+  return started.includes(id) ? OK : { ok: true, queued: true };
+}
+// Orders already waiting or under way for one plot.
+const ordersAt = (c, d, ring, slot) => store.loadOrders(c.id, d.id).filter((o) => o.data.ring === ring && o.data.slot === slot);
 const slotBusy = (c, d, ring, slot) => {
   if (db.prepare('SELECT 1 FROM colony_buildings WHERE district_id = ? AND ring_index = ? AND slot_index = ?').get(d.id, ring, slot)) return true;
-  return store.loadOrders(c.id, d.id).some((o) => o.action_type === 'build' && o.data.ring === ring && o.data.slot === slot);
+  return ordersAt(c, d, ring, slot).some((o) => o.action_type === 'build' || o.action_type === 'replace');
 };
 
+// Can this kind of building go on this plot of this place? The rules a new building and a replacement share.
+function placeable(c, d, def, type, ring, slot) {
+  if (def.hidden === 'orbital' && !c.orbital_unlocked && !orbital.checkUnlock(c, tickNow())) return 'Unknown building type.';
+  if (!sim.buildableIn(def, d.type)) return `${def.name} can't be built ${d.type === 'core' ? 'in the Core' : `in ${d.name}`}.`;
+  if (d.type === 'territory') { const bad = territories.checkBuild(d, def); if (bad) return bad; }
+  if (def.strictPlot && sim.plotSize(config, ring, d.type) < def.minPlotSize) return `${def.name} needs a ${config.plotSizes[def.minPlotSize].name} plot.`;
+  if (def.requiresAdjacent) {
+    const need = config.buildings[def.requiresAdjacent];
+    const there = store.loadBuildings(c.id, d.id).filter((x) => x.type === def.requiresAdjacent);
+    if (!there.length) return `Build the ${need.name} first, and let it finish.`;
+    const nbs = neighbours(d.type).get(sim.key(ring, slot)) || [];
+    if (!there.some((x) => nbs.some(([r, sl]) => r === x.ring && sl === x.slot))) return `${def.name} must stand right beside the ${need.name}.`;
+  }
+  if (!sim.slotUnlocked(config, d.level, ring, slot, d.type)) return `That slot is locked. Upgrade the ${d.type === 'core' ? 'hub' : 'district'}.`;
+  if (def.minHubLevel && c.hub_level < def.minHubLevel) return `${def.name} requires hub level ${def.minHubLevel}.`;
+  if (def.maxCount) {
+    // limits such as "only one Beacon" count the whole colony, not one district, and whatever is queued as well
+    const have = store.loadDistricts(c.id).reduce((n, x) => n + store.loadBuildings(c.id, x.id).filter((b) => b.type === type).length, 0)
+      + store.loadOrders(c.id).filter((o) => (o.action_type === 'build' || o.action_type === 'replace') && o.data.type === type).length;
+    if (have >= def.maxCount) return `Only ${def.maxCount} ${def.name} can be built.`;
+  }
+  return null;
+}
+
+// Build on a free plot. The order joins the place's queue; it is paid for when it starts, so it can be queued before
+// the materials are there.
 const build = guarded((c, { ring, slot, type, district }) => {
   const d = districtFor(c, district, true);
   if (!d) return fail(NO_DISTRICT);
@@ -76,34 +117,31 @@ const build = guarded((c, { ring, slot, type, district }) => {
   const def = own(config.buildings, type);
   if (!def) return fail('Unknown building type.');
   if (NaNish(ring, slot)) return fail('Bad slot.');
-  if (def.hidden === 'orbital' && !c.orbital_unlocked && !orbital.checkUnlock(c, tickNow())) return fail('Unknown building type.');
-  if (!sim.buildableIn(def, d.type)) return fail(`${def.name} can't be built ${d.type === 'core' ? 'in the Core' : `in ${d.name}`}.`);
-  if (d.type === 'territory') { const bad = territories.checkBuild(d, def); if (bad) return fail(bad); }
-  if (def.strictPlot && sim.plotSize(config, ring, d.type) < def.minPlotSize) return fail(`${def.name} needs a ${config.plotSizes[def.minPlotSize].name} plot.`);
-  if (def.requiresAdjacent) {
-    const need = config.buildings[def.requiresAdjacent];
-    const there = store.loadBuildings(c.id, d.id).filter((x) => x.type === def.requiresAdjacent);
-    if (!there.length) return fail(`Build the ${need.name} first, and let it finish.`);
-    const nbs = neighbours(d.type).get(sim.key(ring, slot)) || [];
-    if (!there.some((x) => nbs.some(([r, sl]) => r === x.ring && sl === x.slot))) return fail(`${def.name} must stand right beside the ${need.name}.`);
-  }
-  if (!sim.slotUnlocked(config, d.level, ring, slot, d.type)) return fail(`That slot is locked. Upgrade the ${d.type === 'core' ? 'hub' : 'district'}.`);
-  if (def.minHubLevel && c.hub_level < def.minHubLevel) return fail(`${def.name} requires hub level ${def.minHubLevel}.`);
+  const bad = placeable(c, d, def, type, ring, slot);
+  if (bad) return fail(bad);
   if (slotBusy(c, d, ring, slot)) return fail('That slot is already in use.');
   const lock = db.prepare('SELECT until_tick FROM slot_locks WHERE district_id = ? AND ring_index = ? AND slot_index = ?').get(d.id, ring, slot);
   if (lock && lock.until_tick > tickNow()) return fail(`That slot is still being cleared (${lock.until_tick - tickNow()} ticks).`);
-  if (def.maxCount) {
-    // limits such as "only one Beacon" count the whole colony, not one district
-    const have = store.loadDistricts(c.id).reduce((n, x) => n + store.loadBuildings(c.id, x.id).filter((b) => b.type === type).length, 0)
-      + store.loadOrders(c.id).filter((o) => o.action_type === 'build' && o.data.type === type).length;
-    if (have >= def.maxCount) return fail(`Only ${def.maxCount} ${def.name} can be built.`);
-  }
-  const here = sim.territoryDef(def, d.type);
-  if (!canAfford(store.loadInventory(c.id, d.id), here.cost)) return fail(`Not enough resources for ${def.name}.`);
-  pay(d.id, here.cost);
-  db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(c.id, d.id, 'build', JSON.stringify({ ring, slot, type }), here.constructionTicks, here.constructionTicks);
-  return OK;
+  return order(c, d, 'build', { ring, slot, type });
+});
+
+// Replace a building with another on the same plot. It goes through the queue; the old building keeps working until the
+// order's turn comes, is then scrapped for the usual refund, and the plot stands empty while the new one is built, which
+// takes longer than building on a free plot (config.global.buildQueue.replaceTimeMult).
+const replace = guarded((c, { ring, slot, type, district }) => {
+  const d = districtFor(c, district, true);
+  if (!d) return fail(NO_DISTRICT);
+  const b = buildingAt(d, ring, slot);
+  if (!b) return fail('Nothing to replace there.');
+  const def = own(config.buildings, type);
+  if (!def) return fail('Unknown building type.');
+  if (b.building_type === type) return fail(`A ${def.name} stands there already.`);
+  const old = config.buildings[b.building_type];
+  if (old.recipeBuilding && b.recipe) return fail(`${old.name} has a recipe set. Demolish it instead: scrapping a configured workshop has its own cost.`);
+  const bad = placeable(c, d, def, type, b.ring_index, b.slot_index);
+  if (bad) return fail(bad);
+  if (ordersAt(c, d, b.ring_index, b.slot_index).length) return fail('Something is already queued for that building. Cancel it first.');
+  return order(c, d, 'replace', { ring: b.ring_index, slot: b.slot_index, type, from: b.building_type });
 });
 
 const buildingAt = (d, ring, slot) => {
@@ -125,18 +163,19 @@ const demolish = guarded((c, { ring, slot, district }) => {
     if (c.credits < fee) return fail(`Scrapping a configured workshop costs ${fee} cr.`);
     db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(fee, c.id);
   }
-  // an expansion still under way is called off and refunded in full
-  for (const o of store.loadOrders(c.id, d.id)) {
-    if (o.action_type === 'expand' && o.data.ring === b.ring_index && o.data.slot === b.slot_index) {
-      refund(d.id, sim.expansionCost(config, config.buildings[o.data.type], o.data.level), 1);
-      db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
-    }
+  // whatever was queued for the building goes with it; an expansion already under way is refunded in full
+  for (const o of ordersAt(c, d, b.ring_index, b.slot_index)) {
+    if (o.action_type !== 'expand' && o.action_type !== 'replace') continue;
+    if (o.state !== 'queued') refund(d.id, queue.costOf(d, o), 1);
+    db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
   }
   db.prepare('DELETE FROM colony_buildings WHERE id = ?').run(b.id);
   if (scrapped) {
     db.prepare('INSERT OR REPLACE INTO slot_locks (district_id, ring_index, slot_index, until_tick) VALUES (?, ?, ?, ?)').run(d.id, b.ring_index, b.slot_index, tickNow() + config.tradeWorks.reset.delayTicks);
   }
   refund(d.id, sim.territoryDef(config.buildings[b.building_type], d.type).cost, config.global.demolishRefund);
+  const tick = tickNow();
+  queue.advance(c, d, c.hub_level, queue.dbBag(c, d), tick, (k, msg) => store.addEvent(c.id, tick, k, msg)); // the refund may be what the front of the queue was waiting for
   return OK;
 });
 
@@ -153,7 +192,7 @@ const toggle = guarded((c, { ring, slot, paused, district }) => {
 });
 
 // Expand a building "upward": it stays in its plot but its whole line scales up. Paid from the district's own stockpile
-// (so the materials have to be routed or shipped in), takes a few ticks as a work order, and the cost grows linearly with the level.
+// (so the materials have to be routed or shipped in) when the order starts, and the cost grows linearly with the level.
 const expand = guarded((c, { ring, slot, district }) => {
   const d = districtFor(c, district);
   if (!d) return fail(NO_DISTRICT);
@@ -163,15 +202,10 @@ const expand = guarded((c, { ring, slot, district }) => {
   if (!def.expand) return fail(`${def.name} cannot be expanded.`);
   const level = b.level || 1;
   if (level >= sim.expansionMax(config, orbital.flagsOf(c))) return fail(`${def.name} is fully expanded.`);
-  if (store.loadOrders(c.id, d.id).some((o) => o.action_type === 'expand' && o.data.ring === b.ring_index && o.data.slot === b.slot_index)) return fail('An expansion is already underway there.');
-  const next = level + 1;
-  const cost = sim.expansionCost(config, def, next);
-  if (!canAfford(store.loadInventory(c.id, d.id), cost)) return fail(`Not enough materials in ${d.name} to expand ${def.name}.`);
-  pay(d.id, cost);
-  const ticks = config.expansion.ticks[next];
-  db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(c.id, d.id, 'expand', JSON.stringify({ ring: b.ring_index, slot: b.slot_index, type: b.building_type, level: next }), ticks, ticks);
-  return OK;
+  const pending = ordersAt(c, d, b.ring_index, b.slot_index);
+  if (pending.some((o) => o.action_type === 'expand')) return fail('An expansion is already underway there.');
+  if (pending.some((o) => o.action_type === 'replace')) return fail(`${def.name} is queued to be replaced. Cancel that first.`);
+  return order(c, d, 'expand', { ring: b.ring_index, slot: b.slot_index, type: b.building_type, level: level + 1 });
 });
 
 // Switch a building's optional input on or off (off by default). Clients send the state they want.
@@ -190,6 +224,7 @@ const rushOrder = guarded((c, { orderId }) => {
   const oid = toInt(orderId);
   const o = Number.isNaN(oid) ? undefined : store.loadOrders(c.id).find((x) => x.id === oid);
   if (!o) return fail('That order no longer exists.');
+  if (o.state === 'queued') return fail('That order has not started yet. Only work under way can be rushed.');
   if (o.ticks_remaining <= 1) return fail('That order is already finishing.');
   const tick = tickNow();
   const cost = credits.rushCost(c.id, o.action_type, o.ticks_remaining, tick);
@@ -206,13 +241,48 @@ const cancelOrder = guarded((c, { orderId }) => {
   if (!o) return fail('That order no longer exists.');
   const d = districtFor(c, o.district_id, true);
   if (!d) return fail(NO_DISTRICT);
-  const cost = o.action_type === 'build' ? sim.territoryDef(config.buildings[o.data.type], d.type).cost
-    : o.action_type === 'found' ? config.districtTypes[o.data.type].foundCost
-      : o.action_type === 'expand' ? sim.expansionCost(config, config.buildings[o.data.type], o.data.level)
-        : sim.levelDef(config, d.type, o.data.level).upgradeCost;
-  refund(d.id, cost, 1);
+  // An order that has started was paid for, and is refunded in full; one still waiting cost nothing. (A replacement
+  // under way gets its own cost back, but the building it scrapped is gone.)
+  if (o.state !== 'queued') refund(d.id, queue.costOf(d, o), 1);
   db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
+  const tick = tickNow();
+  queue.advance(c, d, c.hub_level, queue.dbBag(c, d), tick, (k, msg) => store.addEvent(c.id, tick, k, msg));
   return OK;
+});
+
+// Buy the place's next build slot: one more order from the front of its queue is carried out at the same time. Paid at
+// once, in goods from the place's own stockpile and in credits; whatever was waiting for a slot starts straight away.
+const buildSlot = guarded((c, { district } = {}) => {
+  const d = districtFor(c, district);
+  if (!d) return fail(NO_DISTRICT);
+  const next = queue.nextSlot(d);
+  if (!next) return fail(`${d.type === 'core' ? 'The Core' : d.name} already has every build slot.`);
+  if (c.hub_level < next.coreLevel) return fail(`Build slot ${next.slots} opens at hub level ${next.coreLevel}.`);
+  if (!canAfford(store.loadInventory(c.id, d.id), next.cost)) return fail(`Not enough resources ${d.type === 'core' ? 'in the Core' : `in ${d.name}`} for another build slot.`);
+  if (c.credits < next.credits) return fail(`Another build slot also costs ${next.credits} cr.`);
+  pay(d.id, next.cost);
+  db.prepare('UPDATE colonies SET credits = credits - ? WHERE id = ?').run(next.credits, c.id);
+  db.prepare('UPDATE districts SET build_slots = ? WHERE id = ?').run(next.slots, d.id);
+  const tick = tickNow();
+  store.addEvent(c.id, tick, 'good', `${d.type === 'core' ? 'The Core' : d.name} now has ${next.slots} build slots.`);
+  queue.advance(c, d, c.hub_level, queue.dbBag(c, d), tick, (k, msg) => store.addEvent(c.id, tick, k, msg));
+  return { ok: true, slots: next.slots };
+});
+
+// ---- settlements the colony sponsors (see settlements.js) ---------------------------------
+const settlementSponsor = guarded((c, args) => settlements.sponsor(c, args, tickNow()));
+const settlementCommit = guarded((c, args) => settlements.commit(c, args));
+const settlementGive = guarded((c, args) => settlements.give(c, args, tickNow()));
+const settlementAnswer = guarded((c, args) => settlements.answer(c, args, tickNow()));
+const settlementDrop = guarded((c, args) => settlements.drop(c, args, tickNow()));
+const settlementReserve = guarded((c, args) => settlements.setReserve(c, args));
+
+// Move a waiting order up, down or to the front of its place's queue.
+const queueMove = guarded((c, { orderId, to }) => {
+  const oid = toInt(orderId);
+  if (Number.isNaN(oid) || !['up', 'down', 'top'].includes(to)) return fail('Bad move.');
+  const bad = queue.move(c, oid, to);
+  return bad ? fail(bad) : OK;
 });
 
 const upgradeHub = guarded((c, { district } = {}) => {
@@ -226,14 +296,10 @@ const upgradeHub = guarded((c, { district } = {}) => {
     if (d.level + 1 > cap) return fail(`District level ${d.level + 1} unlocks when ${sim.districtLevelNeeds(config, d.level + 1)}.`);
   }
   if (store.loadOrders(c.id, d.id).some((o) => o.action_type === 'upgrade')) return fail('An upgrade is already underway.');
-  if (!canAfford(store.loadInventory(c.id, d.id), next.upgradeCost)) return fail('Not enough resources for the upgrade.');
-  pay(d.id, next.upgradeCost);
-  db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(c.id, d.id, 'upgrade', JSON.stringify({ level: d.level + 1 }), next.upgradeTicks, next.upgradeTicks);
-  return OK;
+  return order(c, d, 'upgrade', { level: d.level + 1 });
 });
 
-// Found a satellite district: paid from the Core stockpile, built over a few ticks by a work order.
+// Found a satellite district: an order in the Core's queue, paid from the Core stockpile when it starts.
 const foundDistrict = guarded((c, { type }) => {
   const t = own(config.districtTypes, type);
   if (!t) return fail('Unknown district type.');
@@ -243,12 +309,7 @@ const foundDistrict = guarded((c, { type }) => {
   if (!sim.districtFoundable(config, type, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) })) return fail(`${t.name} opens once the Beacon is built.`);
   if (store.loadDistricts(c.id).some((d) => d.type === type)
     || store.loadOrders(c.id).some((o) => o.action_type === 'found' && o.data.type === type)) return fail(`${t.name} is already founded.`);
-  const core = store.coreId(c.id);
-  if (!canAfford(store.loadInventory(c.id, core), t.foundCost)) return fail(`Not enough resources to found ${t.name}.`);
-  pay(core, t.foundCost);
-  db.prepare('INSERT INTO colony_work_orders (colony_id, district_id, action_type, target_data, ticks_remaining, ticks_total) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(c.id, core, 'found', JSON.stringify({ type }), t.foundTicks, t.foundTicks);
-  return OK;
+  return order(c, districtFor(c, null), 'found', { type });
 });
 
 // Manual shipment: stock leaves the source now and lands in the destination after the trip.
@@ -271,6 +332,28 @@ const shipment = guarded((c, { from, to, resource, qty }) => {
   return OK;
 });
 
+// What the whole colony has done, for alternative recipes that open at a milestone.
+function milestonesOf(c) {
+  return { beacon: store.hasBeacon(c.id), freeport: missions.hasFreePort(c.id), station: !!orbital.stationOf(c.id) };
+}
+// Set a production building to one of its alternative recipes, or back to its base recipe (recipe: null). There is no
+// charge, but the line stands idle while it is retooled (config.production.switchTicks), every time.
+function setAlternative(c, d, b, bdef, recipe) {
+  if (!bdef.alternatives || (config.orbitalTypes || {})[d.type]) return fail('This building does not take recipes.');
+  const id = recipe === null || recipe === undefined || recipe === '' || recipe === 'base' ? null : recipe;
+  if (id !== null && !sim.alternativeOf(bdef, id)) return fail('Unknown recipe.');
+  if ((b.recipe || null) === id) return OK;
+  const tick = tickNow();
+  if (b.recipe_ready_tick > tick) return fail(`${bdef.name} is still being retooled (${b.recipe_ready_tick - tick} ticks).`);
+  if (id !== null && !sim.altUnlocked(bdef.alternatives[id], { level: d.level, milestones: milestonesOf(c) })) {
+    const u = bdef.alternatives[id].unlock || {};
+    const need = u.level ? `${d.type === 'core' ? 'hub' : 'district'} level ${u.level}` : { beacon: 'the Beacon', freeport: 'the Free Port', station: 'a station in orbit' }[u.milestone] || 'more progress';
+    return fail(`${bdef.alternatives[id].name} needs ${need}.`);
+  }
+  db.prepare('UPDATE colony_buildings SET recipe = ?, recipe_ready_tick = ? WHERE id = ?').run(id, tick + config.production.switchTicks, b.id);
+  return OK;
+}
+
 // ---- the Free Port: recipes, shields and missions ------------------------------------------
 // The first recipe is free. Changing it costs credits (so many ticks of the old output at market value) and idles the
 // workshop for a while.
@@ -280,7 +363,7 @@ const setRecipe = guarded((c, { ring, slot, recipe, district }) => {
   const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing there.');
   const bdef = config.buildings[b.building_type];
-  if (!bdef.recipeBuilding) return fail('This building does not take recipes.');
+  if (!bdef.recipeBuilding) return setAlternative(c, d, b, bdef, recipe);
   if (!own(sim.recipeBook(config, bdef), recipe)) return fail('Unknown recipe.');
   if (d.type === 'territory') { const bad = territories.checkRecipe(d, recipe); if (bad) return fail(bad); }
   if (b.recipe === recipe) return OK;
@@ -314,6 +397,9 @@ const missionFill = guarded((c, { id, faction, district }) => {
   return missions.fill(c, { id: toInt(id), faction, district: d }, Number(store.getMeta('global_tick', 0)));
 });
 
+// Deliver a requisition in full from the Core.
+const requisitionFill = guarded((c, { id }) => requisitions.fill(c, { id: toInt(id) }, tickNow()));
+
 // ---- the exchange -------------------------------------------------------------------------
 const marketPost = guarded((c, args) => {
   const d = districtFor(c, args.district);
@@ -327,13 +413,13 @@ const marketCancel = guarded((c, { orderId }) => market.cancel(c, toInt(orderId)
 // A route moves up to `rate` units per tick from one district to another, never taking the source below
 // `reserve`. Every satellite has a link to the Core with a capacity; a route counts against the link of each
 // satellite it touches (a route to or from the Core touches one).
-const linkCapacity = (config_, d) => config_.logistics.link.levels[d.link_level || d.linkLevel || 1].capacity; // d is a districts row
+const linkCapacity = (config_, d) => Math.floor(config_.logistics.link.levels[d.link_level || d.linkLevel || 1].capacity * settlements.linkMult(d.colony_id)); // d is a districts row
 function linkLoad(c, districtId, ignoreRouteId) {
   return store.loadRoutes(c.id)
     .filter((r) => r.id !== ignoreRouteId && (r.fromDistrict === districtId || r.toDistrict === districtId))
     .reduce((n, r) => n + r.rate, 0);
 }
-const setRoute = guarded((c, { from, to, resource, rate, reserve }) => {
+const setRoute = guarded((c, { from, to, resource, rate, reserve, target }) => {
   const a = districtFor(c, from, true); const b = districtFor(c, to, true);
   if (!a || !b) return fail(NO_DISTRICT);
   if (a.id === b.id) return fail('Pick two different districts.');
@@ -342,6 +428,9 @@ const setRoute = guarded((c, { from, to, resource, rate, reserve }) => {
   if (!Number.isFinite(rate) || rate < 0 || rate > 1e6) return fail('Bad rate.');
   if (!Number.isFinite(reserve) || reserve < 0 || reserve > 1e9) return fail('Bad reserve.');
   const existing = store.loadRoutes(c.id).find((r) => r.fromDistrict === a.id && r.toDistrict === b.id && r.resource === resource);
+  // the target is the stock at which the destination stops taking more (0 = fill it); left out, an existing route keeps its own
+  target = target === undefined ? (existing ? existing.target : 0) : Math.floor(toNum(target));
+  if (!Number.isFinite(target) || target < 0 || target > 1e9) return fail('Bad target.');
   if (rate === 0) {
     if (existing) db.prepare('DELETE FROM colony_routes WHERE id = ?').run(existing.id);
     return OK;
@@ -352,9 +441,9 @@ const setRoute = guarded((c, { from, to, resource, rate, reserve }) => {
       ? territories.checkTerritoryRoute(c, a, b, resource, rate, existing && existing.id)
       : orbital.checkStationRoute(c, a, b, resource, rate, existing && existing.id);
     if (bad) return fail(bad);
-    db.prepare(`INSERT INTO colony_routes (colony_id, from_district, to_district, resource_id, rate, reserve) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(from_district, to_district, resource_id) DO UPDATE SET rate = excluded.rate, reserve = excluded.reserve`)
-      .run(c.id, a.id, b.id, resource, rate, reserve);
+    db.prepare(`INSERT INTO colony_routes (colony_id, from_district, to_district, resource_id, rate, reserve, target) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(from_district, to_district, resource_id) DO UPDATE SET rate = excluded.rate, reserve = excluded.reserve, target = excluded.target`)
+      .run(c.id, a.id, b.id, resource, rate, reserve, target);
     return OK;
   }
   if (!sim.districtsUnlocked(config, { coreLevel: c.hub_level })) return fail('Districts are not open yet.');
@@ -365,9 +454,9 @@ const setRoute = guarded((c, { from, to, resource, rate, reserve }) => {
     const load = linkLoad(c, d.id, existing && existing.id);
     if (load + rate > cap) return fail(`The link to ${d.name} carries ${cap} per tick and ${load} is already committed. Upgrade the link or lower the rate.`);
   }
-  db.prepare(`INSERT INTO colony_routes (colony_id, from_district, to_district, resource_id, rate, reserve) VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(from_district, to_district, resource_id) DO UPDATE SET rate = excluded.rate, reserve = excluded.reserve`)
-    .run(c.id, a.id, b.id, resource, rate, reserve);
+  db.prepare(`INSERT INTO colony_routes (colony_id, from_district, to_district, resource_id, rate, reserve, target) VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(from_district, to_district, resource_id) DO UPDATE SET rate = excluded.rate, reserve = excluded.reserve, target = excluded.target`)
+    .run(c.id, a.id, b.id, resource, rate, reserve, target);
   return OK;
 });
 
@@ -379,8 +468,9 @@ const upgradeLink = guarded((c, { district }) => {
   const next = config.logistics.link.levels[(d.link_level || 1) + 1];
   if (!next) return fail('The link is already at maximum capacity.');
   const core = store.coreId(c.id);
-  if (!canAfford(store.loadInventory(c.id, core), next.upgradeCost)) return fail('Not enough resources in the Core for the link upgrade.');
-  pay(core, next.upgradeCost);
+  const cost = settlements.discounted(c.id, next.upgradeCost);
+  if (!canAfford(store.loadInventory(c.id, core), cost)) return fail('Not enough resources in the Core for the link upgrade.');
+  pay(core, cost);
   db.prepare('UPDATE districts SET link_level = link_level + 1 WHERE id = ?').run(d.id);
   return OK;
 });
@@ -391,7 +481,7 @@ const setContract = guarded((c, { resource, side, amount }) => {
   if (side !== 'export' && side !== 'import') return fail('Bad contract side.');
   amount = Math.floor(toNum(amount));
   if (!Number.isFinite(amount) || amount < 0) return fail('Bad amount.');
-  amount = Math.min(amount, sim.convoyLimit(config, c.hub_level, resource));
+  amount = Math.min(amount, Math.floor(sim.convoyLimit(config, c.hub_level, resource) * requisitions.convoyMult(c, tickNow()) * settlements.convoyMult(c, tickNow())));
   if (amount === 0) db.prepare('DELETE FROM colony_contracts WHERE colony_id = ? AND resource_id = ? AND side = ?').run(c.id, resource, side);
   else db.prepare('INSERT INTO colony_contracts (colony_id, resource_id, side, amount) VALUES (?, ?, ?, ?) ON CONFLICT DO UPDATE SET amount = excluded.amount').run(c.id, resource, side, amount);
   return OK;
@@ -497,4 +587,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { settlementSponsor, settlementCommit, settlementGive, settlementAnswer, settlementDrop, settlementReserve, buildSlot, requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

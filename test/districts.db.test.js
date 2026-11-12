@@ -49,7 +49,7 @@ test('migration: a pre-district database keeps every colony, stockpile, building
   const old = new Database(file);
   old.exec(V5);
   old.prepare("INSERT INTO users (username, password) VALUES ('alice','x'), ('bob','x')").run();
-  const col = old.prepare('INSERT INTO colonies (user_id, hub_level, credits, morale, population) VALUES (?, ?, 777, 80, 40)');
+  const col = old.prepare('INSERT INTO colonies (user_id, hub_level, credits, morale, population, last_seen_at) VALUES (?, ?, 777, 80, 40, 1234567)');
   col.run(1, 3); col.run(2, 1);
   const inv = old.prepare('INSERT INTO colony_inventory (colony_id, resource_id, amount) VALUES (?, ?, ?)');
   inv.run(1, 'scrap', 1234); inv.run(1, 'machined_parts', 55); inv.run(2, 'scrap', 9);
@@ -71,13 +71,15 @@ test('migration: a pre-district database keeps every colony, stockpile, building
       b2: s.loadBuildings(2).map((b) => [b.ring, b.slot, b.type]),
       orders: s.loadOrders(1, s.coreId(1)).map((o) => [o.action_type, o.ticks_remaining]),
       core1: s.coreId(1), core2: s.coreId(2),
+      active: q('SELECT last_active_at AS a, parked_at AS p FROM colonies ORDER BY id'),
       // the slot is unique per district now, and a raw insert with no district still lands in the Core
       dup: (() => { try { s.db.prepare("INSERT INTO colony_buildings (colony_id, ring_index, slot_index, building_type) VALUES (1, 1, 0, 'solar_array')").run(); return 'allowed'; } catch (e) { return 'blocked'; } })(),
       defaulted: (() => { s.db.prepare("INSERT INTO colony_buildings (colony_id, ring_index, slot_index, building_type) VALUES (1, 1, 5, 'water_pump')").run(); return s.loadBuildings(1).length; })(),
     }));
   `], { env: { ...process.env, DB_PATH: file }, encoding: 'utf8' });
   const r = JSON.parse(out.trim().split('\n').pop());
-  assert.equal(r.version, 16);
+  assert.equal(r.version, 21);
+  assert.deepEqual(r.active, [{ a: 1234567, p: null }, { a: 1234567, p: null }], 'the last visit counts as the last interaction');
   assert.deepEqual(r.districts, [
     { colony_id: 1, type: 'core', level: 3, name: 'The Core' },
     { colony_id: 2, type: 'core', level: 1, name: 'The Core' },
@@ -100,7 +102,7 @@ test('migration is idempotent: opening an up-to-date database again changes noth
   const run = () => JSON.parse(execFileSync(process.execPath, ['-e', script.replace("'c','x'", `'c${Math.random()}','x'`)], { env: { ...process.env, DB_PATH: file }, encoding: 'utf8' }).trim().split('\n').pop());
   const first = run();
   const second = run();
-  assert.equal(first.v, 16);
+  assert.equal(first.v, 21);
   assert.equal(second.n, first.n + 1, 'only the new colony gets a district');
 });
 
@@ -173,9 +175,12 @@ test('building in a district: paid from that stockpile, built in that district, 
   assert.equal(store.loadBuildings(id, core).length, 0);
   // the same slot in the core is a different slot
   assert.deepEqual(actions.build(uid, { ring: 1, slot: 0, type: 'solar_array' }), { ok: true });
-  // not enough in the outpost's own stockpile, even though the core is rich
+  // not enough in the outpost's own stockpile, even though the core is rich: the order waits in the outpost's queue
   db.prepare("UPDATE colony_inventory SET amount = 0 WHERE district_id = ? AND resource_id = 'scrap'").run(od);
-  assert.match(actions.build(uid, { ring: 1, slot: 1, type: 'solar_array', district: od }).error, /Not enough resources/);
+  const coreNow = stock(id, 'scrap', core);
+  assert.deepEqual(actions.build(uid, { ring: 1, slot: 1, type: 'solar_array', district: od }), { ok: true, queued: true });
+  assert.equal(store.loadOrders(id, od)[0].state, 'queued');
+  assert.equal(stock(id, 'scrap', core), coreNow, 'the core does not pay for it');
   // plot sizes and slots follow the district type
   assert.match(actions.build(uid, { ring: 2, slot: 0, type: 'solar_array', district: od }).error, /locked/);
 });

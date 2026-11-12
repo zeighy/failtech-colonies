@@ -61,9 +61,10 @@ test('each district has its own stockpile and its own power grid', () => {
 });
 
 test('crew is one pool across districts: posts anywhere compete for the same hands', () => {
-  const core = coreD({ buildings: [b(1, 0, 'scrap_extractor')] });
+  // (two buildings that are not essential: essential ones are crewed first, see the staffing test in sim.test.js)
+  const core = coreD({ buildings: [b(1, 0, 'kitchen')] });
   const out = outD({ buildings: [b(1, 0, 'parts_assembler')], inventory: stock({ scrap: 500 }) });
-  const posts = config.buildings.scrap_extractor.workers + config.buildings.parts_assembler.workers;
+  const posts = config.buildings.kitchen.workers + config.buildings.parts_assembler.workers;
   const pop = 4;
   const r = run(colony({ population: pop }), [core, out]);
   const ratio = (pop * config.global.workforceShare) / posts;

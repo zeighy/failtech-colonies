@@ -13,7 +13,7 @@
     "populationGrowth": {
       "everyTicks": 3,
       "minMorale": 60,
-      "fastMorale": 90,
+      "fastMorale": 85,
       "bufferFloor": 0.6,
       "bufferTicks": 2000
     },
@@ -21,6 +21,22 @@
     "maxOfflineTicks": 1200,
     "failureCreditKeep": 0.5,
     "demolishRefund": 0.5,
+    "buildQueue": {
+      "maxPerPlace": 8,
+      "replaceTimeMult": 1.5,
+      "slotTiers": [
+        {
+          "coreLevel": 3,
+          "core": { "scrap": 2500, "machined_parts": 150, "building_materials": 120, "alloys": 40, "credits": 3000 },
+          "district": { "scrap": 2000, "machined_parts": 120, "building_materials": 100, "alloys": 40, "credits": 3000 }
+        },
+        {
+          "coreLevel": 5,
+          "core": { "scrap": 8000, "building_materials": 400, "alloys": 250, "circuits": 120, "power_cells": 20, "credits": 20000 },
+          "district": { "scrap": 5000, "building_materials": 300, "alloys": 150, "circuits": 80, "credits": 15000 }
+        }
+      ]
+    },
     "eventLogSize": 80,
     "startingState": {
       "population": 20,
@@ -43,6 +59,7 @@
       "transmitTicks": 25
     },
     "activeWindowSeconds": 120,
+    "absence": { "simulateHours": 96, "parkDays": 30 },
     "plotPenaltyPerStep": 0.6,
     "express": {
       "baseFee": 100,
@@ -67,6 +84,7 @@
       "bonusMax": 0.08
     },
     "workforceShare": 0.8,
+    "essentialCrewFirst": true,
     "mealsPerPopPerTick": 0.05,
     "emigrationEveryTicks": 2,
     "minPopulation": 5,
@@ -92,14 +110,14 @@
     "unpurified_water": {
       "name": "Raw Water",
       "color": "#6f9a8d",
-      "buy": 1.5,
+      "buy": 2,
       "sell": 0.4,
       "tier": 0
     },
     "clean_water": {
       "name": "Clean Water",
       "color": "#4cc9f0",
-      "buy": 4,
+      "buy": 5,
       "sell": 1.5,
       "critical": true,
       "tier": 1
@@ -108,7 +126,7 @@
       "name": "Rations",
       "color": "#9ad66b",
       "buy": 6,
-      "sell": 2.5,
+      "sell": 2.4,
       "critical": true,
       "tier": 1
     },
@@ -129,16 +147,17 @@
     "raw_synthetics": {
       "name": "Raw Synthetics",
       "color": "#b08ad6",
-      "buy": 20,
-      "sell": 11,
+      "buy": 16,
+      "sell": 7,
       "tier": 0,
-      "showFromHub": 2
+      "showFromHub": 2,
+      "convoyMax": 150
     },
     "alloys": {
       "name": "Alloys",
       "color": "#e07a5f",
-      "buy": 40,
-      "sell": 15,
+      "buy": 46,
+      "sell": 18,
       "tier": 3,
       "showFromHub": 2,
       "convoyMax": 80
@@ -146,8 +165,8 @@
     "circuits": {
       "name": "Circuits",
       "color": "#6ee7b7",
-      "buy": 60,
-      "sell": 22,
+      "buy": 155,
+      "sell": 58,
       "tier": 3,
       "showFromHub": 2,
       "convoyMax": 60
@@ -155,8 +174,8 @@
     "power_cells": {
       "name": "Power Cells",
       "color": "#f9e07f",
-      "buy": 150,
-      "sell": 55,
+      "buy": 560,
+      "sell": 210,
       "tier": 4,
       "showFromHub": 3,
       "convoyMax": 20
@@ -173,8 +192,8 @@
     "ore": {
       "name": "Ore",
       "color": "#a98467",
-      "buy": 14,
-      "sell": 5,
+      "buy": 11,
+      "sell": 4,
       "tier": 1,
       "showFromHub": 4,
       "convoyMax": 200
@@ -209,8 +228,8 @@
     "fuel": {
       "name": "Fuel",
       "color": "#ff7b3a",
-      "buy": 30,
-      "sell": 12,
+      "buy": 18,
+      "sell": 7,
       "tier": 2,
       "showFromHub": 4,
       "convoyMax": 120
@@ -236,8 +255,8 @@
     "fertiliser": {
       "name": "Fertiliser",
       "color": "#c7f464",
-      "buy": 34,
-      "sell": 13,
+      "buy": 42,
+      "sell": 16,
       "tier": 2,
       "showFromHub": 4,
       "convoyMax": 100
@@ -245,8 +264,8 @@
     "medicine": {
       "name": "Medicine",
       "color": "#ff6b9d",
-      "buy": 70,
-      "sell": 26,
+      "buy": 100,
+      "sell": 38,
       "tier": 3,
       "showFromHub": 4,
       "convoyMax": 40
@@ -274,8 +293,8 @@
     "preserves": {
       "name": "Preserved Goods",
       "color": "#e9c46a",
-      "buy": 30.52,
-      "sell": 17.52,
+      "buy": 30.82,
+      "sell": 17.69,
       "tier": 2,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -304,8 +323,8 @@
     "precision_tools": {
       "name": "Precision Tools",
       "color": "#90e0ef",
-      "buy": 159.55,
-      "sell": 91.57,
+      "buy": 203.94,
+      "sell": 117.05,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -314,8 +333,8 @@
     "field_kits": {
       "name": "Field Kits",
       "color": "#ff6b9d",
-      "buy": 188.26,
-      "sell": 108.05,
+      "buy": 202.67,
+      "sell": 116.31,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -324,8 +343,8 @@
     "grow_stims": {
       "name": "Growth Stimulants",
       "color": "#c7f464",
-      "buy": 110.83,
-      "sell": 63.61,
+      "buy": 118.26,
+      "sell": 67.87,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -334,8 +353,8 @@
     "luxuries": {
       "name": "Luxury Goods",
       "color": "#f4d35e",
-      "buy": 87.12,
-      "sell": 50.0,
+      "buy": 87.63,
+      "sell": 50.29,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -344,8 +363,8 @@
     "masterworks": {
       "name": "Masterworks",
       "color": "#ffffff",
-      "buy": 541.52,
-      "sell": 310.79,
+      "buy": 657.2,
+      "sell": 377.18,
       "tier": 4,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -354,8 +373,8 @@
     "frames": {
       "name": "Structural Frames",
       "color": "#8d99ae",
-      "buy": 213.14,
-      "sell": 122.32,
+      "buy": 216.39,
+      "sell": 124.19,
       "tier": 3,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -364,8 +383,8 @@
     "fittings": {
       "name": "Process Fittings",
       "color": "#2ec4b6",
-      "buy": 234.77,
-      "sell": 134.74,
+      "buy": 304.68,
+      "sell": 174.86,
       "tier": 4,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -374,8 +393,8 @@
     "modules": {
       "name": "Habitat Modules",
       "color": "#a3b8cc",
-      "buy": 679.64,
-      "sell": 390.06,
+      "buy": 687.71,
+      "sell": 394.69,
       "tier": 4,
       "showFromHub": 9,
       "convoyMax": 0,
@@ -563,10 +582,10 @@
         "2": 8
       },
       "upgradeCost": {
-        "scrap": 1200,
-        "machined_parts": 60
+        "scrap": 800,
+        "machined_parts": 40
       },
-      "upgradeTicks": 10,
+      "upgradeTicks": 8,
       "convoyCapMult": 1.5,
       "baseHousing": 35
     },
@@ -748,6 +767,38 @@
           "machined_parts": 20,
           "building_materials": 10
         }
+      },
+      "alternatives": {
+        "scrap_bed": {
+          "name": "Scrap-bed filtration",
+          "desc": "Runs the water through beds of crushed scrap. More water through the same plant.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 12,
+            "unpurified_water": 22,
+            "scrap": 6
+          },
+          "outputsPerTick": {
+            "clean_water": 24
+          }
+        },
+        "reagent_dose": {
+          "name": "Reagent dosing",
+          "desc": "Doses the intake with reagents and runs the plant flat out.",
+          "unlock": {
+            "level": 5
+          },
+          "inputsPerTick": {
+            "energy": 14,
+            "unpurified_water": 24,
+            "reagents": 1
+          },
+          "outputsPerTick": {
+            "clean_water": 36
+          }
+        }
       }
     },
     "parts_assembler": {
@@ -776,6 +827,23 @@
         "cost": {
           "machined_parts": 20,
           "building_materials": 10
+        }
+      },
+      "alternatives": {
+        "ingot_stamping": {
+          "name": "Ingot stamping",
+          "desc": "Stamps parts from ingots instead of sorting them out of scrap.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 14,
+            "scrap": 12,
+            "ingots": 4
+          },
+          "outputsPerTick": {
+            "machined_parts": 13
+          }
         }
       }
     },
@@ -808,7 +876,24 @@
         },
         "outputMult": 1.35
       },
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "biomass_feed": {
+          "name": "Biomass feedstock",
+          "desc": "Feeds the beds on biomass from the growing district. Heavier crops from the same lamps.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 18,
+            "clean_water": 6,
+            "biomass": 6
+          },
+          "outputsPerTick": {
+            "rations": 18
+          }
+        }
+      }
     },
     "fabrication_works": {
       "name": "Fabrication Works",
@@ -831,7 +916,24 @@
       "minPlotSize": 2,
       "workers": 4,
       "comfort": -5,
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "polymer_bound": {
+          "name": "Polymer-bound stock",
+          "desc": "Binds shredded scrap with polymer. Eats scrap, makes a lot of building stock.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 16,
+            "scrap": 40,
+            "polymers": 2
+          },
+          "outputsPerTick": {
+            "building_materials": 10
+          }
+        }
+      }
     },
     "scrap_generator": {
       "essential": true,
@@ -853,7 +955,23 @@
       "color": "#ff7b3a",
       "workers": 2,
       "comfort": -7,
-      "expand": "infrastructure"
+      "expand": "infrastructure",
+      "alternatives": {
+        "fuel_assisted": {
+          "name": "Fuel-assisted burn",
+          "desc": "A splash of fuel keeps a much bigger scrap fire going.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "scrap": 25,
+            "fuel": 1
+          },
+          "outputsPerTick": {
+            "energy": 130
+          }
+        }
+      }
     },
     "synth_reclaimer": {
       "name": "Synthetics Reclaimer",
@@ -892,7 +1010,25 @@
         "outputsPerTick": {
           "raw_synthetics": 12
         }
-      }
+      },
+      "alternatives": {
+        "reagent_wash": {
+          "name": "Reagent wash",
+          "desc": "A reagent wash recovers more polymer from the same synthetics.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 10,
+            "raw_synthetics": 12,
+            "reagents": 1
+          },
+          "outputsPerTick": {
+            "polymers": 9
+          }
+        }
+      },
+      "districtTier": 2
     },
     "foundry": {
       "name": "Foundry",
@@ -916,7 +1052,129 @@
       "color": "#e07a5f",
       "workers": 5,
       "comfort": -8,
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "ingot_charge": {
+          "name": "Ingot charge",
+          "desc": "Charges the furnace with ingots and tops it up with scrap.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 26,
+            "scrap": 30,
+            "ingots": 5
+          },
+          "outputsPerTick": {
+            "alloys": 8
+          }
+        },
+        "flux_refined": {
+          "name": "Flux-refined melt",
+          "desc": "A reagent flux lets the furnace take far more scrap per pour.",
+          "unlock": {
+            "milestone": "freeport"
+          },
+          "inputsPerTick": {
+            "energy": 30,
+            "scrap": 60,
+            "ingots": 6,
+            "reagents": 1
+          },
+          "outputsPerTick": {
+            "alloys": 12
+          }
+        }
+      }
+    },
+    "reclamation_plant": {
+      "name": "Reclamation Plant",
+      "type": "refinery",
+      "desc": "Takes scrap by the truckload and turns it into something worth having. What it makes depends on how it is set up.",
+      "constructionTicks": 10,
+      "cost": {
+        "scrap": 1200,
+        "machined_parts": 80,
+        "building_materials": 80,
+        "alloys": 30
+      },
+      "inputsPerTick": {
+        "energy": 28,
+        "scrap": 120
+      },
+      "outputsPerTick": {
+        "ingots": 5
+      },
+      "minPlotSize": 3,
+      "color": "#d08c60",
+      "workers": 5,
+      "comfort": -7,
+      "minHubLevel": 4,
+      "expand": "industry",
+      "alternatives": {
+        "press_board": {
+          "name": "Pressed stock",
+          "desc": "Presses scrap and a few parts into building stock.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 28,
+            "scrap": 150,
+            "machined_parts": 2
+          },
+          "outputsPerTick": {
+            "building_materials": 8
+          }
+        },
+        "ink_leach": {
+          "name": "Synthetics leach",
+          "desc": "Leaches raw synthetics out of scrap with reagents.",
+          "unlock": {
+            "level": 5
+          },
+          "inputsPerTick": {
+            "energy": 30,
+            "scrap": 140,
+            "reagents": 2
+          },
+          "outputsPerTick": {
+            "raw_synthetics": 7
+          }
+        },
+        "frame_blanks": {
+          "name": "Frame blanks",
+          "desc": "Turns scrap, building stock and a little alloy into structural frames.",
+          "unlock": {
+            "milestone": "freeport"
+          },
+          "inputsPerTick": {
+            "energy": 36,
+            "scrap": 200,
+            "building_materials": 5,
+            "alloys": 1
+          },
+          "outputsPerTick": {
+            "frames": 1
+          }
+        },
+        "fitting_blanks": {
+          "name": "Fitting blanks",
+          "desc": "Turns scrap, parts and a circuit into process fittings.",
+          "unlock": {
+            "milestone": "station"
+          },
+          "inputsPerTick": {
+            "energy": 36,
+            "scrap": 200,
+            "machined_parts": 12,
+            "circuits": 1
+          },
+          "outputsPerTick": {
+            "fittings": 1
+          }
+        }
+      }
     },
     "circuit_fab": {
       "name": "Circuit Fabricator",
@@ -944,7 +1202,26 @@
       "districts": [
         "stacks"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "alloy_traces": {
+          "name": "Alloy traces",
+          "desc": "Lays traces in alloy instead of machining them from parts.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 22,
+            "raw_synthetics": 5,
+            "polymers": 4,
+            "alloys": 1
+          },
+          "outputsPerTick": {
+            "circuits": 4
+          }
+        }
+      },
+      "districtTier": 2
     },
     "cell_forge": {
       "name": "Cell Forge",
@@ -973,7 +1250,44 @@
       "districts": [
         "stacks"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "reagent_electrolyte": {
+          "name": "Reagent electrolyte",
+          "desc": "A reagent electrolyte and scrap casings: two cells from the alloy and circuits of one.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 36,
+            "alloys": 3,
+            "circuits": 2,
+            "reagents": 2,
+            "scrap": 30
+          },
+          "outputsPerTick": {
+            "power_cells": 2
+          }
+        },
+        "polymer_cased": {
+          "name": "Polymer-cased cells",
+          "desc": "Polymer casings and a full reagent charge. The forge at its limit.",
+          "unlock": {
+            "milestone": "beacon"
+          },
+          "inputsPerTick": {
+            "energy": 42,
+            "alloys": 4,
+            "circuits": 3,
+            "polymers": 2,
+            "reagents": 2
+          },
+          "outputsPerTick": {
+            "power_cells": 3.5
+          }
+        }
+      },
+      "districtTier": 3
     },
     "warehouse": {
       "essential": true,
@@ -991,6 +1305,34 @@
       "color": "#9aa5b1",
       "storageBonus": 1000,
       "workers": 1,
+      "expand": "infrastructure"
+    },
+    "cell_bank": {
+      "essential": true,
+      "name": "Cell Bank",
+      "type": "utility",
+      "desc": "A bank of power cells on standby. When the grid runs short it makes up the difference, burning cells from this place's stockpile only for as long as it is needed.",
+      "constructionTicks": 8,
+      "cost": {
+        "scrap": 500,
+        "building_materials": 60,
+        "alloys": 30,
+        "circuits": 20,
+        "power_cells": 10
+      },
+      "inputsPerTick": {},
+      "outputsPerTick": {},
+      "minPlotSize": 2,
+      "color": "#f9e07f",
+      "workers": 1,
+      "comfort": -1,
+      "minHubLevel": 4,
+      "buffer": {
+        "power": 90,
+        "perTick": {
+          "power_cells": 1
+        }
+      },
       "expand": "infrastructure"
     },
     "watch_post": {
@@ -1030,6 +1372,11 @@
         "energy": 60,
         "power_cells": 1
       },
+      "afterTransmit": {
+        "inputsPerTick": {
+          "energy": 60
+        }
+      },
       "outputsPerTick": {},
       "minPlotSize": 5,
       "color": "#ffffff",
@@ -1062,7 +1409,25 @@
       "color": "#ff8fa3",
       "workers": 3,
       "comfort": 2,
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "preserved_stores": {
+          "name": "Preserved stores",
+          "desc": "Stretches rations with preserved biomass.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 8,
+            "rations": 6,
+            "biomass": 5,
+            "clean_water": 2
+          },
+          "outputsPerTick": {
+            "meals": 14
+          }
+        }
+      }
     },
     "dormitory": {
       "name": "Dormitory",
@@ -1146,7 +1511,24 @@
           "machined_parts": 10,
           "building_materials": 5
         }
-      }
+      },
+      "alternatives": {
+        "fuel_drill": {
+          "name": "Fuel-driven bore",
+          "desc": "Runs the bore on fuel as well as the grid.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 10,
+            "fuel": 1
+          },
+          "outputsPerTick": {
+            "ore": 38
+          }
+        }
+      },
+      "districtTier": 1
     },
     "smelter": {
       "name": "Smelter",
@@ -1163,7 +1545,8 @@
         "ore": 20
       },
       "outputsPerTick": {
-        "ingots": 8
+        "ingots": 8,
+        "scrap": 8
       },
       "minPlotSize": 2,
       "color": "#c9ada7",
@@ -1179,8 +1562,30 @@
         "cost": {
           "machined_parts": 20,
           "building_materials": 10
+        },
+        "outputsPerTick": {
+          "ingots": 8
         }
-      }
+      },
+      "alternatives": {
+        "fuel_fired": {
+          "name": "Fuel-fired smelting",
+          "desc": "Burns fuel under the charge for a hotter, faster melt.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 18,
+            "ore": 26,
+            "fuel": 2
+          },
+          "outputsPerTick": {
+            "ingots": 14,
+            "scrap": 10
+          }
+        }
+      },
+      "districtTier": 1
     },
     "alloy_works": {
       "name": "Alloy Works",
@@ -1207,7 +1612,26 @@
       "districts": [
         "pits"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "reagent_quench": {
+          "name": "Reagent quench",
+          "desc": "Quenches in reagent and folds scrap into the melt.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 24,
+            "ingots": 8,
+            "reagents": 1,
+            "scrap": 20
+          },
+          "outputsPerTick": {
+            "alloys": 14
+          }
+        }
+      },
+      "districtTier": 2
     },
     "crude_pump": {
       "name": "Crude Pump",
@@ -1240,7 +1664,8 @@
           "machined_parts": 10,
           "building_materials": 5
         }
-      }
+      },
+      "districtTier": 1
     },
     "cracking_tower": {
       "name": "Cracking Tower",
@@ -1258,7 +1683,8 @@
       },
       "outputsPerTick": {
         "fuel": 8,
-        "reagents": 5
+        "reagents": 5,
+        "scrap": 6
       },
       "minPlotSize": 1,
       "color": "#ff7b3a",
@@ -1274,8 +1700,64 @@
         "cost": {
           "machined_parts": 20,
           "building_materials": 10
+        },
+        "outputsPerTick": {
+          "fuel": 8,
+          "reagents": 5
         }
-      }
+      },
+      "alternatives": {
+        "fuel_cut": {
+          "name": "Fuel cut",
+          "desc": "Sets the tower to favour fuel.",
+          "unlock": {
+            "level": 2
+          },
+          "inputsPerTick": {
+            "energy": 16,
+            "crude": 15
+          },
+          "outputsPerTick": {
+            "fuel": 12,
+            "reagents": 2,
+            "scrap": 6
+          }
+        },
+        "reagent_cut": {
+          "name": "Reagent cut",
+          "desc": "Sets the tower to favour reagents.",
+          "unlock": {
+            "level": 2
+          },
+          "inputsPerTick": {
+            "energy": 16,
+            "crude": 15
+          },
+          "outputsPerTick": {
+            "fuel": 4,
+            "reagents": 8,
+            "scrap": 6
+          }
+        },
+        "catalytic": {
+          "name": "Catalytic cracking",
+          "desc": "An ingot catalyst gets more of both out of the crude.",
+          "unlock": {
+            "level": 4
+          },
+          "inputsPerTick": {
+            "energy": 20,
+            "crude": 18,
+            "ingots": 1
+          },
+          "outputsPerTick": {
+            "fuel": 11,
+            "reagents": 8,
+            "scrap": 6
+          }
+        }
+      },
+      "districtTier": 1
     },
     "polymer_plant": {
       "name": "Polymer Plant",
@@ -1318,7 +1800,27 @@
         "outputsPerTick": {
           "polymers": 6
         }
-      }
+      },
+      "alternatives": {
+        "scrap_fed": {
+          "name": "Scrap-fed polymerisation",
+          "desc": "Feeds shredded scrap in as filler.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 20,
+            "crude": 12,
+            "ingots": 2,
+            "scrap": 40
+          },
+          "outputsPerTick": {
+            "polymers": 9,
+            "raw_synthetics": 10
+          }
+        }
+      },
+      "districtTier": 2
     },
     "fuel_generator": {
       "essential": true,
@@ -1343,7 +1845,24 @@
       "districts": [
         "stacks"
       ],
-      "expand": "infrastructure"
+      "expand": "infrastructure",
+      "alternatives": {
+        "afterburn": {
+          "name": "Reagent afterburn",
+          "desc": "Injects reagent into the exhaust for a second burn.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "fuel": 6,
+            "reagents": 1
+          },
+          "outputsPerTick": {
+            "energy": 115
+          }
+        }
+      },
+      "districtTier": 1
     },
     "bio_dome": {
       "name": "Bio Dome",
@@ -1368,7 +1887,25 @@
       "districts": [
         "greenbelt"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "fertilised_beds": {
+          "name": "Fertilised beds",
+          "desc": "Feeds the dome its own fertiliser.",
+          "unlock": {
+            "level": 2
+          },
+          "inputsPerTick": {
+            "energy": 10,
+            "unpurified_water": 5,
+            "fertiliser": 1
+          },
+          "outputsPerTick": {
+            "biomass": 30
+          }
+        }
+      },
+      "districtTier": 1
     },
     "agri_lab": {
       "name": "Agri Lab",
@@ -1382,11 +1919,11 @@
       },
       "inputsPerTick": {
         "energy": 12,
-        "biomass": 12,
-        "reagents": 2
+        "biomass": 12
       },
       "outputsPerTick": {
-        "fertiliser": 5
+        "fertiliser": 4,
+        "scrap": 4
       },
       "minPlotSize": 1,
       "color": "#c7f464",
@@ -1395,7 +1932,26 @@
       "districts": [
         "greenbelt"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "reagent_fixed": {
+          "name": "Reagent-fixed fertiliser",
+          "desc": "Fixes the mix with reagents from the refinery district.",
+          "unlock": {
+            "level": 2
+          },
+          "inputsPerTick": {
+            "energy": 12,
+            "biomass": 12,
+            "reagents": 2
+          },
+          "outputsPerTick": {
+            "fertiliser": 7,
+            "scrap": 4
+          }
+        }
+      },
+      "districtTier": 1
     },
     "pharma_lab": {
       "name": "Pharma Lab",
@@ -1410,8 +1966,7 @@
       "inputsPerTick": {
         "energy": 14,
         "biomass": 8,
-        "reagents": 3,
-        "polymers": 1
+        "reagents": 3
       },
       "outputsPerTick": {
         "medicine": 3
@@ -1423,7 +1978,26 @@
       "districts": [
         "greenbelt"
       ],
-      "expand": "industry"
+      "expand": "industry",
+      "alternatives": {
+        "polymer_capsule": {
+          "name": "Polymer capsules",
+          "desc": "Polymer capsules keep more of every batch.",
+          "unlock": {
+            "level": 3
+          },
+          "inputsPerTick": {
+            "energy": 16,
+            "biomass": 8,
+            "reagents": 3,
+            "polymers": 1
+          },
+          "outputsPerTick": {
+            "medicine": 5
+          }
+        }
+      },
+      "districtTier": 2
     },
     "trade_workshop": {
       "name": "Trade Workshop",
@@ -2968,8 +3542,8 @@
     "rewardMult": 1.3,
     "standingPerTier": {
       "2": 1,
-      "3": 3,
-      "4": 8
+      "3": 4,
+      "4": 14
     },
     "qtyByTier": {
       "2": [
@@ -4042,6 +4616,425 @@
       },
       "adjacent": {},
       "tier": 5
+    }
+  },
+  "production": {
+    "switchTicks": 10
+  },
+  "requisitions": {
+    "unlockHubLevel": 2,
+    "slots": 2,
+    "durationTicks": [
+      140,
+      260
+    ],
+    "refreshTicks": 30,
+    "payMult": 1.3,
+    "growthPerLevel": 0.4,
+    "titles": [
+      "Standing requisition",
+      "Supply call",
+      "Stores request",
+      "Relief consignment",
+      "Field order",
+      "Depot shortfall",
+      "Convoy manifest gap",
+      "Emergency stores"
+    ],
+    "goods": {
+      "machined_parts": {
+        "from": 2,
+        "qty": [
+          150,
+          300
+        ]
+      },
+      "clean_water": {
+        "from": 2,
+        "qty": [
+          400,
+          800
+        ]
+      },
+      "rations": {
+        "from": 2,
+        "qty": [
+          400,
+          800
+        ]
+      },
+      "building_materials": {
+        "from": 2,
+        "qty": [
+          80,
+          160
+        ]
+      },
+      "meals": {
+        "from": 3,
+        "qty": [
+          200,
+          400
+        ]
+      },
+      "alloys": {
+        "from": 3,
+        "qty": [
+          80,
+          160
+        ]
+      },
+      "ingots": {
+        "from": 4,
+        "qty": [
+          200,
+          400
+        ]
+      },
+      "fuel": {
+        "from": 4,
+        "qty": [
+          150,
+          300
+        ]
+      },
+      "reagents": {
+        "from": 4,
+        "qty": [
+          100,
+          200
+        ]
+      },
+      "polymers": {
+        "from": 4,
+        "qty": [
+          120,
+          240
+        ]
+      },
+      "circuits": {
+        "from": 4,
+        "qty": [
+          60,
+          120
+        ]
+      },
+      "fertiliser": {
+        "from": 5,
+        "qty": [
+          100,
+          200
+        ]
+      },
+      "medicine": {
+        "from": 5,
+        "qty": [
+          60,
+          120
+        ]
+      },
+      "power_cells": {
+        "from": 5,
+        "qty": [
+          20,
+          40
+        ]
+      }
+    },
+    "boons": {
+      "crews": {
+        "name": "Loaned work crews",
+        "desc": "Work under way moves one extra tick every third tick.",
+        "ticks": 150,
+        "everyTicks": 3
+      },
+      "convoy": {
+        "name": "Priority convoy slot",
+        "desc": "The convoy carries a quarter more of everything.",
+        "ticks": 200,
+        "limitMult": 1.25
+      }
+    }
+  },
+  "settlements": {
+    "slots": [
+      "beacon",
+      "freeport",
+      "station"
+    ],
+    "offers": 3,
+    "offerTicks": [
+      600,
+      1500
+    ],
+    "smoothTicks": 40,
+    "defaultReserve": 0.1,
+    "stages": 5,
+    "driveTicks": [
+      60,
+      80,
+      100,
+      120,
+      150
+    ],
+    "standingPerStage": 0.02,
+    "driveStanding": 10,
+    "boonTicks": 300,
+    "discountCap": 0.3,
+    "appeal": {
+      "gapTicks": [
+        150,
+        400
+      ],
+      "windowTicks": [
+        60,
+        160
+      ],
+      "sizeTicks": [
+        10,
+        25
+      ],
+      "maxQty": 2500,
+      "boonTicks": 120,
+      "standing": 4
+    },
+    "partner": {
+      "convoyBonus": 0.02,
+      "keep": 0.2,
+      "decay": 0.8
+    },
+    "names": [
+      "Ashford",
+      "Low Meadow",
+      "Kiln Row",
+      "Saltgate",
+      "Three Wells",
+      "Emberfield",
+      "Hollow Bridge",
+      "Greywater",
+      "Tin Cross",
+      "Longbarrow",
+      "Mill Reach",
+      "Drywell",
+      "Cinder Fork",
+      "Marrow Hill",
+      "Stonecot",
+      "Reedham"
+    ],
+    "types": {
+      "foundry": {
+        "name": "Foundry Town",
+        "desc": "A camp around a cold furnace. It wants scrap and parts, later fuel and metal, and its builders work on your upgrades in return.",
+        "faction": "cinder",
+        "benefit": {
+          "kind": "discount",
+          "byStage": [
+            0.03,
+            0.05,
+            0.07,
+            0.09,
+            0.12
+          ]
+        },
+        "basket": {
+          "1": {
+            "scrap": 40,
+            "machined_parts": 3
+          },
+          "2": {
+            "scrap": 70,
+            "machined_parts": 6,
+            "fuel": 4
+          },
+          "3": {
+            "scrap": 110,
+            "machined_parts": 10,
+            "fuel": 6,
+            "ingots": 5
+          },
+          "4": {
+            "scrap": 160,
+            "machined_parts": 14,
+            "fuel": 10,
+            "ingots": 8,
+            "alloys": 6
+          },
+          "5": {
+            "scrap": 220,
+            "machined_parts": 20,
+            "fuel": 16,
+            "ingots": 14,
+            "alloys": 14
+          }
+        },
+        "appeals": [
+          "machined_parts",
+          "alloys",
+          "ingots",
+          "fuel",
+          "building_materials"
+        ]
+      },
+      "valley": {
+        "name": "Valley Settlement",
+        "desc": "Families on good ground with nothing to plant it with. It wants water and food, later medicine, and its people come to work your lines.",
+        "faction": "verdant",
+        "benefit": {
+          "kind": "hands",
+          "byStage": [
+            10,
+            20,
+            32,
+            46,
+            60
+          ]
+        },
+        "basket": {
+          "1": {
+            "clean_water": 10,
+            "rations": 10
+          },
+          "2": {
+            "clean_water": 16,
+            "rations": 16,
+            "meals": 6,
+            "biomass": 4
+          },
+          "3": {
+            "clean_water": 26,
+            "rations": 26,
+            "meals": 12,
+            "biomass": 8,
+            "fertiliser": 2
+          },
+          "4": {
+            "clean_water": 40,
+            "rations": 40,
+            "meals": 22,
+            "biomass": 14,
+            "fertiliser": 5,
+            "medicine": 2
+          },
+          "5": {
+            "clean_water": 60,
+            "rations": 60,
+            "meals": 36,
+            "biomass": 20,
+            "fertiliser": 10,
+            "medicine": 5
+          }
+        },
+        "appeals": [
+          "clean_water",
+          "rations",
+          "meals",
+          "medicine",
+          "fertiliser",
+          "biomass"
+        ]
+      },
+      "depot": {
+        "name": "Rail Depot",
+        "desc": "A junction with track and no rolling stock. It wants scrap and building stock, later fuel, polymers and circuits, and carries your goods further in return.",
+        "faction": "meridian",
+        "benefit": {
+          "kind": "logistics",
+          "byStage": [
+            0.08,
+            0.12,
+            0.16,
+            0.2,
+            0.25
+          ]
+        },
+        "basket": {
+          "1": {
+            "scrap": 30,
+            "building_materials": 2
+          },
+          "2": {
+            "scrap": 50,
+            "building_materials": 4,
+            "fuel": 4
+          },
+          "3": {
+            "scrap": 80,
+            "building_materials": 7,
+            "fuel": 6,
+            "polymers": 3
+          },
+          "4": {
+            "scrap": 120,
+            "building_materials": 10,
+            "fuel": 10,
+            "polymers": 6,
+            "circuits": 2
+          },
+          "5": {
+            "scrap": 160,
+            "building_materials": 12,
+            "fuel": 12,
+            "polymers": 8,
+            "circuits": 2,
+            "power_cells": 1
+          }
+        },
+        "appeals": [
+          "building_materials",
+          "polymers",
+          "fuel",
+          "circuits",
+          "reagents",
+          "power_cells"
+        ]
+      }
+    },
+    "traits": {
+      "steady": {
+        "name": "Steady",
+        "desc": "Nothing unusual about it.",
+        "weight": 3,
+        "basketMult": 1,
+        "driveMult": 1,
+        "benefitMult": 1,
+        "standingMult": 1
+      },
+      "hungry": {
+        "name": "Hungry",
+        "desc": "It needs a quarter more of everything, and gives more back.",
+        "weight": 2,
+        "basketMult": 1.25,
+        "driveMult": 1,
+        "benefitMult": 1.2,
+        "standingMult": 1
+      },
+      "frugal": {
+        "name": "Frugal",
+        "desc": "It gets by on less, and has less to give.",
+        "weight": 2,
+        "basketMult": 0.8,
+        "driveMult": 1,
+        "benefitMult": 0.85,
+        "standingMult": 1
+      },
+      "eager": {
+        "name": "Eager",
+        "desc": "Its people do much of the building themselves: every drive is a quarter smaller.",
+        "weight": 2,
+        "basketMult": 1,
+        "driveMult": 0.75,
+        "benefitMult": 1,
+        "standingMult": 1
+      },
+      "remote": {
+        "name": "Remote",
+        "desc": "A long way out. Drives cost more, and word of the help travels further.",
+        "weight": 1,
+        "basketMult": 1,
+        "driveMult": 1.3,
+        "benefitMult": 1,
+        "standingMult": 1.6
+      }
     }
   }
 }

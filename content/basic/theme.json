@@ -321,6 +321,14 @@
     "t_data": {
       "name": "Data Recovery",
       "desc": "Works a data site. It needs only power: each recovery attempt takes a while, and only some of them find anything. Low power slows it down."
+    },
+    "reclamation_plant": {
+      "name": "Reclamation Plant",
+      "desc": "Takes scrap by the truckload and turns it into something worth having. What it makes depends on how it is set up."
+    },
+    "cell_bank": {
+      "name": "Cell Bank",
+      "desc": "A bank of power cells on standby. When the grid runs short it makes up the difference, burning cells from this place's stockpile only for as long as it is needed."
     }
   },
   "districts": {
@@ -385,6 +393,16 @@
       "desc": "A road-and-rail company that buys finished goods by the crate."
     }
   },
+  "boons": {
+    "crews": {
+      "name": "Loaned work crews",
+      "desc": "Work under way moves one extra tick every third tick."
+    },
+    "convoy": {
+      "name": "Priority convoy slot",
+      "desc": "The convoy carries a quarter more of everything."
+    }
+  },
   "recipes": {
     "curios": {
       "name": "Salvage Curios"
@@ -426,6 +444,120 @@
       "name": "Habitat Modules"
     }
   },
+  "processes": {
+    "water_purifier.scrap_bed": {
+      "name": "Scrap-bed filtration",
+      "desc": "Runs the water through beds of crushed scrap. More water through the same plant."
+    },
+    "water_purifier.reagent_dose": {
+      "name": "Reagent dosing",
+      "desc": "Doses the intake with reagents and runs the plant flat out."
+    },
+    "parts_assembler.ingot_stamping": {
+      "name": "Ingot stamping",
+      "desc": "Stamps parts from ingots instead of sorting them out of scrap."
+    },
+    "hydroponics_bay.biomass_feed": {
+      "name": "Biomass feedstock",
+      "desc": "Feeds the beds on biomass from the growing district. Heavier crops from the same lamps."
+    },
+    "fabrication_works.polymer_bound": {
+      "name": "Polymer-bound stock",
+      "desc": "Binds shredded scrap with polymer. Eats scrap, makes a lot of building stock."
+    },
+    "scrap_generator.fuel_assisted": {
+      "name": "Fuel-assisted burn",
+      "desc": "A splash of fuel keeps a much bigger scrap fire going."
+    },
+    "synth_reclaimer.reagent_wash": {
+      "name": "Reagent wash",
+      "desc": "A reagent wash recovers more polymer from the same synthetics."
+    },
+    "foundry.ingot_charge": {
+      "name": "Ingot charge",
+      "desc": "Charges the furnace with ingots and tops it up with scrap."
+    },
+    "foundry.flux_refined": {
+      "name": "Flux-refined melt",
+      "desc": "A reagent flux lets the furnace take far more scrap per pour."
+    },
+    "reclamation_plant.press_board": {
+      "name": "Pressed stock",
+      "desc": "Presses scrap and a few parts into building stock."
+    },
+    "reclamation_plant.ink_leach": {
+      "name": "Synthetics leach",
+      "desc": "Leaches raw synthetics out of scrap with reagents."
+    },
+    "reclamation_plant.frame_blanks": {
+      "name": "Frame blanks",
+      "desc": "Turns scrap, building stock and a little alloy into structural frames."
+    },
+    "reclamation_plant.fitting_blanks": {
+      "name": "Fitting blanks",
+      "desc": "Turns scrap, parts and a circuit into process fittings."
+    },
+    "circuit_fab.alloy_traces": {
+      "name": "Alloy traces",
+      "desc": "Lays traces in alloy instead of machining them from parts."
+    },
+    "cell_forge.reagent_electrolyte": {
+      "name": "Reagent electrolyte",
+      "desc": "A reagent electrolyte and scrap casings: two cells from the alloy and circuits of one."
+    },
+    "cell_forge.polymer_cased": {
+      "name": "Polymer-cased cells",
+      "desc": "Polymer casings and a full reagent charge. The forge at its limit."
+    },
+    "kitchen.preserved_stores": {
+      "name": "Preserved stores",
+      "desc": "Stretches rations with preserved biomass."
+    },
+    "ore_drill.fuel_drill": {
+      "name": "Fuel-driven bore",
+      "desc": "Runs the bore on fuel as well as the grid."
+    },
+    "smelter.fuel_fired": {
+      "name": "Fuel-fired smelting",
+      "desc": "Burns fuel under the charge for a hotter, faster melt."
+    },
+    "alloy_works.reagent_quench": {
+      "name": "Reagent quench",
+      "desc": "Quenches in reagent and folds scrap into the melt."
+    },
+    "cracking_tower.fuel_cut": {
+      "name": "Fuel cut",
+      "desc": "Sets the tower to favour fuel."
+    },
+    "cracking_tower.reagent_cut": {
+      "name": "Reagent cut",
+      "desc": "Sets the tower to favour reagents."
+    },
+    "cracking_tower.catalytic": {
+      "name": "Catalytic cracking",
+      "desc": "An ingot catalyst gets more of both out of the crude."
+    },
+    "polymer_plant.scrap_fed": {
+      "name": "Scrap-fed polymerisation",
+      "desc": "Feeds shredded scrap in as filler."
+    },
+    "fuel_generator.afterburn": {
+      "name": "Reagent afterburn",
+      "desc": "Injects reagent into the exhaust for a second burn."
+    },
+    "bio_dome.fertilised_beds": {
+      "name": "Fertilised beds",
+      "desc": "Feeds the dome its own fertiliser."
+    },
+    "agri_lab.reagent_fixed": {
+      "name": "Reagent-fixed fertiliser",
+      "desc": "Fixes the mix with reagents from the refinery district."
+    },
+    "pharma_lab.polymer_capsule": {
+      "name": "Polymer capsules",
+      "desc": "Polymer capsules keep more of every batch."
+    }
+  },
   "missionTitles": [
     "Supply requisition",
     "Standing order",
@@ -433,6 +565,16 @@
     "Caravan manifest",
     "Harbour tender",
     "Quartermaster's request"
+  ],
+  "requisitionTitles": [
+    "Standing requisition",
+    "Supply call",
+    "Stores request",
+    "Relief consignment",
+    "Field order",
+    "Depot shortfall",
+    "Convoy manifest gap",
+    "Emergency stores"
   ],
   "directives": {
     "power": {
@@ -761,6 +903,42 @@
       "text": "To whoever recovers this: we did not abandon the colony. We stayed, and the colony stayed with us, and somewhere along the way the difference stopped mattering. Keep building. Keep the lights on. The beacon was never a message to somebody else. It was the colony learning to say its own name, slowly, in the only language it had, which was work. Somewhere out there it will be heard, and what hears it will not be a stranger. If you are reading this, you have been counted, and counted again. Do not be afraid of the count. The work is not the point, and it is also the only point. When you are tired, remember that being tired is also something the colony does, and it is allowed to.",
       "text2": "A second page was attached to the final memorandum with a pin. It lists every hazard the colony has survived, every shortage it has weathered and every call it has answered, in order, with the time. At the bottom is a column of figures that, when added, equals the number of days the colony has existed. It is slightly larger than the number of days that have passed. The difference is signed for.",
       "text3": "The last page is blank except for one line at the bottom, in the same plain hand as everything else: Thank you for the work. We heard you. We are still here. And beneath it, smaller and added later, perhaps by you: Continue."
+    }
+  },
+  "settlements": {
+    "foundry": {
+      "name": "Foundry Town",
+      "desc": "A camp around a cold furnace. It wants scrap and parts, later fuel and metal, and its builders work on your upgrades in return."
+    },
+    "valley": {
+      "name": "Valley Settlement",
+      "desc": "Families on good ground with nothing to plant it with. It wants water and food, later medicine, and its people come to work your lines."
+    },
+    "depot": {
+      "name": "Rail Depot",
+      "desc": "A junction with track and no rolling stock. It wants scrap and building stock, later fuel, polymers and circuits, and carries your goods further in return."
+    }
+  },
+  "settlementTraits": {
+    "steady": {
+      "name": "Steady",
+      "desc": "Nothing unusual about it."
+    },
+    "hungry": {
+      "name": "Hungry",
+      "desc": "It needs a quarter more of everything, and gives more back."
+    },
+    "frugal": {
+      "name": "Frugal",
+      "desc": "It gets by on less, and has less to give."
+    },
+    "eager": {
+      "name": "Eager",
+      "desc": "Its people do much of the building themselves: every drive is a quarter smaller."
+    },
+    "remote": {
+      "name": "Remote",
+      "desc": "A long way out. Drives cost more, and word of the help travels further."
     }
   }
 }

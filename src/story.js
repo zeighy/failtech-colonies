@@ -5,7 +5,7 @@
 //
 //   characters  { id: { name, title?, color?, portrait? (large, for scenes), avatar? (square, for the call card and mail window;
 //               falls back to the portrait), side? ('left'|'right') } }
-//   scenes      { id: { title?, background? (file in assets/), start, nodes: { nodeId: node } } }
+//   scenes      { id: { title?, background? (file in assets/, or a list of them to pick from at random), start, nodes: { nodeId: node } } }
 //     node      { who: characterId | null (narration), text: [passage, ...], next?: nodeId, choices?: [{ label, next }] }
 //               A node with neither next nor choices ends the scene. Choices only pick the next node.
 //   beats       [ { id, phase: 'campaign' | 'open', trigger, delivery: 'dialogue' | 'mail', scene?, mail? } ]
@@ -26,6 +26,12 @@
 //   { type: 'won' }                          the Beacon message got through
 //   { type: 'campaignDone' }                 every Brief directive is done (the open-ended phase)
 //   { type: 'after', beat, delayTicks? }     some ticks after another beat was delivered
+//   { type: 'requisitions', min }            requisitions filled
+//   { type: 'buildSlots', min }              some place has that many build slots
+//   { type: 'building', id }                 a building of that type stands somewhere in the colony
+//   { type: 'recipes', min }                 that many lines run an alternative recipe
+//   { type: 'settlement', flag, kind?, min? } settlements: sponsored (ever), stage (one has reached min), answered (appeals),
+//                                            partner (set on their own feet); kind limits it to one kind of settlement
 //   { type: 'orbital', flag }                an orbit milestone (unlocked, staging, catapult, command, cycleDone, launched,
 //                                            ring2, ring3, deployed, rareReturned, shipSaved, shipLost, contributed, projectCompleted, dataFragment)
 const store = require('./db');
@@ -44,6 +50,9 @@ const COLOR = /^#[0-9a-f]{3,8}$/i;
 const MEDIA_EXT = { image: /\.(png|jpe?g|webp|gif)$/i, audio: /\.(mp3|ogg|opus|m4a|wav)$/i, video: /\.(mp4|webm)$/i };
 const MEDIA_FIELDS = [['background', 'image'], ['image', 'image'], ['audio', 'audio'], ['music', 'audio'], ['video', 'video']];
 const MOODS = ['happy', 'sad', 'angry', 'afraid', 'surprised', 'serious', 'thoughtful'];
+// A backdrop is one image file, or a list of them: the game picks one at random each time the scene is played.
+const bgList = (v) => (Array.isArray(v) ? v : [v]);
+const bgOk = (v) => (typeof v === 'string' || (Array.isArray(v) && v.length > 0)) && bgList(v).every((f) => typeof f === 'string' && FILE.test(f) && MEDIA_EXT.image.test(f));
 const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
 
 // Orbit milestones a beat can wait for (see src/orbital.js setFlag, and the launch site).
@@ -62,7 +71,27 @@ const TRIGGERS = {
   campaignDone: () => [],
   after: (t) => (nonEmpty(t.beat) ? [] : ['needs a beat id']),
   orbital: (t) => (ORBITAL_FLAGS.includes(t.flag) ? [] : [`unknown orbital flag "${t.flag}" (${ORBITAL_FLAGS.join(', ')})`]),
+  requisitions: (t) => (Number.isFinite(t.min) ? [] : ['needs a numeric min']),
+  buildSlots: (t) => (Number.isInteger(t.min) && t.min >= 2 ? [] : ['needs an integer min >= 2']),
+  building: (t) => (own(config.buildings, t.id) ? [] : [`unknown building "${t.id}"`]),
+  recipes: (t) => (Number.isFinite(t.min) ? [] : ['needs a numeric min']),
+  settlement: (t) => [
+    ...(SETTLEMENT_FLAGS.includes(t.flag) ? [] : [`unknown settlement flag "${t.flag}" (${SETTLEMENT_FLAGS.join(', ')})`]),
+    ...(t.kind === undefined || own((config.settlements || {}).types || {}, t.kind) ? [] : [`unknown settlement kind "${t.kind}"`]),
+    ...(t.min === undefined || Number.isFinite(t.min) ? [] : ['min must be a number']),
+  ],
 };
+const SETTLEMENT_FLAGS = ['sponsored', 'stage', 'answered', 'partner'];
+// What the colony has done that the view does not carry, read once per evaluation and only if a beat asks.
+function factsOf(colonyId) {
+  let rows = null; let lines = null;
+  return {
+    settlements: () => (rows = rows || db.prepare("SELECT type, status, stage, answers FROM settlements WHERE colony_id = ? AND status != 'offer'").all(colonyId)),
+    building: (id) => !!db.prepare('SELECT 1 FROM colony_buildings WHERE colony_id = ? AND building_type = ?').get(colonyId, id),
+    // lines on an alternative recipe (a workshop's chosen recipe is not one)
+    recipes: () => (lines === null ? (lines = db.prepare('SELECT building_type AS type FROM colony_buildings WHERE colony_id = ? AND recipe IS NOT NULL').all(colonyId).filter((b) => config.buildings[b.type] && config.buildings[b.type].alternatives).length) : lines),
+  };
+}
 
 // Everything wrong with a story file, as readable lines. Empty means it is safe to run.
 function validate(story, cfg = config) {
@@ -81,7 +110,7 @@ function validate(story, cfg = config) {
   for (const [id, sc] of Object.entries(story.scenes)) {
     const w = `scenes.${id}`;
     if (!isPlain(sc.nodes) || !own(sc.nodes, sc.start)) { bad(w, '"start" must name one of its nodes'); continue; }
-    if (sc.background !== undefined && !(typeof sc.background === 'string' && FILE.test(sc.background))) bad(w, 'background must be a plain file name in assets/');
+    if (sc.background !== undefined && !bgOk(sc.background)) bad(w, 'background must be an image file name in assets/, or a list of them');
     if (sc.cast !== undefined) {
       if (!isPlain(sc.cast)) bad(w, '"cast" must be an object of characters');
       else for (const [cid, ch] of Object.entries(sc.cast)) { if (own(story.characters, cid)) bad(w, `cast "${cid}" is already a shared character`); checkChar(`${w}.cast.${cid}`, ch); }
@@ -95,6 +124,7 @@ function validate(story, cfg = config) {
       for (const [f, kind] of MEDIA_FIELDS) {
         const v = node[f];
         if (v === undefined || (f === 'music' && v === 'stop')) continue;
+        if (f === 'background') { if (!bgOk(v)) bad(nw, 'background must be an image file name in assets/, or a list of them'); continue; }
         if (!(typeof v === 'string' && FILE.test(v) && MEDIA_EXT[kind].test(v))) bad(nw, `${f} must be a plain ${kind} file name in assets/`);
       }
       if (node.tag !== undefined && !nonEmpty(node.tag)) bad(nw, 'tag must be text');
@@ -142,10 +172,16 @@ function dropMissingArt(story) {
   const notes = [];
   const have = (f) => fs.existsSync(path.join(theme.dir(), 'assets', f));
   for (const [id, ch] of Object.entries(story.characters)) for (const f of ['portrait', 'avatar']) if (ch[f] && FILE.test(ch[f]) && !have(ch[f])) { notes.push(`characters.${id}: ${f} "${ch[f]}" is not in assets/ yet`); delete ch[f]; }
-  for (const [id, sc] of Object.entries(story.scenes)) if (sc.background && FILE.test(sc.background) && !have(sc.background)) { notes.push(`scenes.${id}: background "${sc.background}" is not in assets/ yet`); delete sc.background; }
+  // A backdrop that is a list keeps the files that are there; one with none left is dropped.
+  const keepBg = (w, o) => {
+    if (!o.background) return;
+    const kept = bgList(o.background).filter((f) => { if (have(f)) return true; notes.push(`${w}: background "${f}" is not in assets/ yet`); return false; });
+    if (!kept.length) delete o.background; else o.background = Array.isArray(o.background) ? kept : kept[0];
+  };
+  for (const [id, sc] of Object.entries(story.scenes)) keepBg(`scenes.${id}`, sc);
   for (const [id, sc] of Object.entries(story.scenes)) {
     for (const [cid, ch] of Object.entries(sc.cast || {})) for (const f of ['portrait', 'avatar']) if (ch[f] && FILE.test(ch[f]) && !have(ch[f])) { notes.push(`scenes.${id}.cast.${cid}: ${f} "${ch[f]}" is not in assets/ yet`); delete ch[f]; }
-    for (const [nid, nd] of Object.entries(sc.nodes)) for (const [f] of MEDIA_FIELDS) if (nd[f] && !(f === 'music' && nd[f] === 'stop') && !have(nd[f])) { notes.push(`scenes.${id}.${nid}: ${f} "${nd[f]}" is not in assets/ yet`); delete nd[f]; }
+    for (const [nid, nd] of Object.entries(sc.nodes)) for (const [f] of MEDIA_FIELDS) if (f === 'background') keepBg(`scenes.${id}.${nid}`, nd); else if (nd[f] && !(f === 'music' && nd[f] === 'stop') && !have(nd[f])) { notes.push(`scenes.${id}.${nid}: ${f} "${nd[f]}" is not in assets/ yet`); delete nd[f]; }
   }
   // Which mood portraits exist, and which moods the script asks for that are not drawn yet.
   const used = {};
@@ -201,6 +237,20 @@ function fires(t, x) {
       if (o.site && o.site[t.flag] !== undefined) return !!o.site[t.flag];
       return !!(o.flags && o.flags[t.flag] !== undefined);
     }
+    case 'requisitions': return ((x.view.requisitions && x.view.requisitions.filled) || 0) >= t.min;
+    case 'buildSlots': return (x.view.districts || []).some((d) => (typeof d.slots === 'number' ? d.slots : (d.slots && d.slots.count) || 1) >= t.min);
+    case 'building': return !!x.facts && x.facts.building(t.id);
+    case 'recipes': return !!x.facts && x.facts.recipes() >= t.min;
+    case 'settlement': {
+      if (!x.facts) return false;
+      const rows = x.facts.settlements().filter((s) => !t.kind || s.type === t.kind);
+      const min = t.min === undefined ? 1 : t.min;
+      if (t.flag === 'sponsored') return rows.length >= min;
+      if (t.flag === 'stage') return rows.some((s) => s.stage >= min);
+      if (t.flag === 'answered') return rows.reduce((n, s) => n + (s.answers || 0), 0) >= min;
+      if (t.flag === 'partner') return rows.filter((s) => s.status === 'done').length >= min;
+      return false;
+    }
     case 'after': { const d = x.delivered.get(t.beat); return !!d && x.tick - d.tick >= (t.delayTicks || 0); }
     default: return false;
   }
@@ -217,7 +267,7 @@ function evaluate(colonyId, view, done, campaignDone, tick) {
   if (!story.beats.length) return;
   const rows = db.prepare('SELECT beat_id, tick, seen FROM story_beats WHERE colony_id = ?').all(colonyId);
   const delivered = new Map(rows.map((r) => [r.beat_id, r]));
-  const x = { view, done: new Set(done), campaignDone, delivered, tick };
+  const x = { view, done: new Set(done), campaignDone, delivered, tick, facts: factsOf(colonyId) };
   // Everything that is due now, in order. Beats are only pretend-delivered here so later beats can chain off them.
   const queue = [];
   for (let pass = 0; pass < story.beats.length; pass++) {
@@ -304,4 +354,4 @@ function markSeen(colonyId, beatId, all) {
   return n;
 }
 
-module.exports = { packetScene, packetBeat, MOODS, evaluate, view, content, markSeen, validate, fires, story, problems, notes, beatOf, TRIGGERS };
+module.exports = { factsOf, packetScene, packetBeat, MOODS, evaluate, view, content, markSeen, validate, fires, story, problems, notes, beatOf, TRIGGERS };

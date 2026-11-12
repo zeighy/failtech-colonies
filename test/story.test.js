@@ -181,6 +181,28 @@ test('trigger types read the colony state', () => {
   assert.equal(story.fires({ type: 'after', beat: 'a', delayTicks: 5 }, x({}, { delivered: new Map([['a', { tick: 96 }]]) })), false);
   assert.equal(story.fires({ type: 'after', beat: 'a', delayTicks: 5 }, x({}, { delivered: new Map([['a', { tick: 95 }]]) })), true);
   assert.equal(story.fires({ type: 'bogus' }, x()), false);
+  // what the queue, the recipes, requisitions and settlements have come to
+  assert.equal(story.fires({ type: 'requisitions', min: 2 }, x({ requisitions: { filled: 2 } })), true);
+  assert.equal(story.fires({ type: 'requisitions', min: 2 }, x({ requisitions: { filled: 1 } })), false);
+  assert.equal(story.fires({ type: 'buildSlots', min: 2 }, x({ districts: [{ type: 'core', slots: 1 }, { type: 'pits', slots: 2 }] })), true);
+  assert.equal(story.fires({ type: 'buildSlots', min: 3 }, x({ districts: [{ type: 'core', slots: 2 }] })), false);
+  const facts = (rows, lines = 0, built = []) => ({ facts: { settlements: () => rows, recipes: () => lines, building: (id) => built.includes(id) } });
+  const camps = [{ type: 'valley', status: 'active', stage: 3, answers: 2 }, { type: 'depot', status: 'done', stage: 5, answers: 0 }];
+  assert.equal(story.fires({ type: 'settlement', flag: 'sponsored' }, x({}, facts(camps))), true);
+  assert.equal(story.fires({ type: 'settlement', flag: 'sponsored', kind: 'foundry' }, x({}, facts(camps))), false);
+  assert.equal(story.fires({ type: 'settlement', flag: 'stage', min: 3 }, x({}, facts(camps))), true);
+  assert.equal(story.fires({ type: 'settlement', flag: 'stage', kind: 'valley', min: 4 }, x({}, facts(camps))), false);
+  assert.equal(story.fires({ type: 'settlement', flag: 'answered', min: 2 }, x({}, facts(camps))), true);
+  assert.equal(story.fires({ type: 'settlement', flag: 'answered', min: 3 }, x({}, facts(camps))), false);
+  assert.equal(story.fires({ type: 'settlement', flag: 'partner' }, x({}, facts(camps))), true);
+  assert.equal(story.fires({ type: 'settlement', flag: 'partner', min: 2 }, x({}, facts(camps))), false);
+  assert.equal(story.fires({ type: 'settlement', flag: 'sponsored' }, x()), false, 'no facts, no fire');
+  assert.equal(story.fires({ type: 'recipes', min: 1 }, x({}, facts([], 1))), true);
+  assert.equal(story.fires({ type: 'building', id: 'cell_bank' }, x({}, facts([], 0, ['cell_bank']))), true);
+  assert.equal(story.fires({ type: 'building', id: 'cell_bank' }, x({}, facts([]))), false);
+  assert.deepEqual(story.TRIGGERS.settlement({ type: 'settlement', flag: 'sponsored', kind: 'valley' }), []);
+  assert.match(story.TRIGGERS.settlement({ type: 'settlement', flag: 'nope' })[0], /unknown settlement flag/);
+  assert.match(story.TRIGGERS.building({ type: 'building', id: 'nope' })[0], /unknown building/);
 });
 
 test('a new colony is greeted, text is only sent once delivered, and seen state is private and validated', async () => {
@@ -274,33 +296,48 @@ test('new validation rules: prompt needs choices, trigger progress needs a numbe
   assert.equal(theme.apply(cfg, { ranks: { nobody: [{ min: 0, name: 'A' }] } }).length, 1);
 });
 
+test('a backdrop is one image or a list to pick from', () => {
+  const edit = (f) => { const s = good(); f(s); return story.validate(s).join('\n'); };
+  assert.equal(edit((s) => { s.scenes.s.background = 'a.jpg'; s.scenes.s.nodes.y.background = ['b.jpg', 'c.webp']; }), '');
+  assert.equal(edit((s) => { s.scenes.s.background = ['a.jpg', 'b.jpg']; }), '');
+  assert.match(edit((s) => { s.scenes.s.background = []; }), /background must be an image/);
+  assert.match(edit((s) => { s.scenes.s.background = ['a.jpg', '../b.jpg']; }), /background must be an image/);
+  assert.match(edit((s) => { s.scenes.s.nodes.x.background = ['a.mp3']; }), /background must be an image/);
+});
+
 // ---- the Recontinuation script, run as a whole -----------------------------------
-test('Recontinuation: 13 campaign dialogues, 22 campaign mails and the open beats, delivered in the written order', () => {
+test('Recontinuation: 13 campaign dialogues, 22 campaign mails and the open beats, every one reachable, the campaign in the written order', () => {
   const s = theme.readJson(path.join(theme.ROOT, 'recontinuation', 'story.json'));
   const campaign = s.beats.filter((b) => b.phase === 'campaign');
   const open = s.beats.filter((b) => b.phase === 'open');
   assert.equal(campaign.filter((b) => b.delivery === 'dialogue').length, 13);
   assert.equal(campaign.filter((b) => b.delivery === 'mail').length, 22);
-  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 12, 'six faction scenes, five for orbit and one for the first data fragment');
-  assert.equal(open.filter((b) => b.delivery === 'mail').length, 14, 'six faction mails and eight for orbit');
+  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 18, 'six faction scenes, five for orbit, one for the first data fragment, one each for requisitions and the second crew, and four for the settlements');
+  assert.equal(open.filter((b) => b.delivery === 'mail').length, 44, 'six faction mails, eight for orbit, and thirty for the early colony, requisitions, crews, recipes, settlements and the place filling up');
   // Run the real evaluator over this script with every condition satisfied and the clock moving.
   const all = objectives.DIRECTIVE_IDS;
   const view = fakeView({
-    colony: { hubLevel: 5, hazardsSurvived: 3, population: 200, won: true, progress: 25, morale: 90, starving: [] },
-    districts: [{ type: 'pits' }, { type: 'greenbelt' }], missions: { standing: { cinder: 40, verdant: 40, meridian: 40 }, filled: 12 },
+    colony: { hubLevel: 5, hazardsSurvived: 8, population: 300, won: true, progress: 25, morale: 90, starving: [] }, requisitions: { filled: 25 },
+    districts: [{ type: 'pits', slots: 3 }, { type: 'greenbelt', slots: 1 }], missions: { standing: { cinder: 40, verdant: 40, meridian: 40 }, filled: 12 },
     orbital: { unlocked: true, site: { staging: true, catapult: true, command: true }, flags: Object.fromEntries(['cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted', 'dataFragment'].map((f) => [f, 1])) },
   });
   const delivered = new Map();
   for (const b of s.beats) if (b.phase === 'campaign') delivered.set(b.id, null);
   // evaluate against a fresh sandbox colony using the real tables
   const cid = bareColony();
+  // ... and with what the triggers read from the tables: settlements of every kind, some on their own feet, appeals
+  // answered, the two late machines, and lines on alternative recipes
+  const core = store.coreId(cid);
+  ['foundry', 'valley', 'depot', 'valley', 'depot', 'foundry'].forEach((type, i) => db.prepare("INSERT INTO settlements (colony_id, type, trait, name, status, stage, answers, created_tick) VALUES (?, ?, 'steady', ?, 'done', 5, 2, 0)").run(cid, type, `camp ${i}`));
+  ['reclamation_plant', 'cell_bank'].forEach((type, i) => db.prepare('INSERT INTO colony_buildings (colony_id, district_id, ring_index, slot_index, building_type) VALUES (?, ?, 4, ?, ?)').run(cid, core, i, type));
+  for (let i = 0; i < 6; i++) db.prepare("INSERT INTO colony_buildings (colony_id, district_id, ring_index, slot_index, building_type, recipe) VALUES (?, ?, 5, ?, 'water_purifier', 'scrap_bed')").run(cid, core, i);
   const real = require('../src/story');
   const saved = real.story;
   Object.assign(saved, s); // the loaded story is replaced for this colony only, then restored below
   const keep = { characters: saved.characters, scenes: saved.scenes, beats: saved.beats };
   try {
     real.beatOf.clear(); s.beats.forEach((b) => real.beatOf.set(b.id, b));
-    for (let tick = 1; tick <= 200; tick++) { real.evaluate(cid, view, all, true, tick); readAll(cid); }
+    for (let tick = 1; tick <= 300; tick++) { real.evaluate(cid, view, all, true, tick); readAll(cid); }
     const got = db.prepare('SELECT beat_id FROM story_beats WHERE colony_id = ? ORDER BY rowid').all(cid).map((r) => r.beat_id);
     assert.equal(got.length, s.beats.length, 'every beat is reachable');
     const campaignOrder = got.filter((id) => campaign.some((b) => b.id === id));

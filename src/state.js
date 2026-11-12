@@ -12,8 +12,12 @@ const shutdown = require('./shutdown');
 const orbital = require('./orbital');
 const territories = require('./territories');
 const credits = require('./credits');
+const queue = require('./queue');
+const requisitions = require('./requisitions');
+const settlements = require('./settlements');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
+const absence = require('./absence');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -32,6 +36,7 @@ function clientConfig() {
     plotSizes: config.plotSizes,
     plotPenalty: config.global.plotPenaltyPerStep,
     transmitTicks: config.global.beacon.transmitTicks,
+    absence: config.global.absence,
     morale: config.global.morale,
     workforceShare: config.global.workforceShare,
     mealsPerPop: config.global.mealsPerPopPerTick,
@@ -65,6 +70,10 @@ function clientConfig() {
     districtProgression: config.districtProgression,
     convoyIntervalTicks: config.global.convoyIntervalTicks,
     demolishRefund: config.global.demolishRefund,
+    production: config.production,
+    requisitions: config.requisitions ? { unlockHubLevel: config.requisitions.unlockHubLevel, boons: config.requisitions.boons } : null,
+    settlements: config.settlements ? { types: config.settlements.types, traits: config.settlements.traits, stages: config.settlements.stages, boonTicks: config.settlements.boonTicks, appeal: config.settlements.appeal, partner: config.settlements.partner, smoothTicks: config.settlements.smoothTicks } : null,
+    buildQueue: { max: queue.max, replaceTimeMult: queue.replaceTimeMult, maxSlots: queue.maxSlots },
     failureThresholdTicks: config.global.moraleFailureThresholdTicks,
   };
 }
@@ -118,7 +127,10 @@ function exchangeView(c, tick) {
 
 function viewFor(userId, now = Date.now()) {
   const c = db.prepare('SELECT * FROM colonies WHERE user_id = ?').get(userId);
-  if (!c) return null;
+  if (!c) { // the colony was claimed by someone else while it was parked: all there is to show is that, and the way on
+    const u = db.prepare('SELECT username FROM users WHERE id = ?').get(userId);
+    return u ? { user: u.username, lost: absence.lostView(userId) || { kind: 'claimed' } } : null;
+  }
   const user = db.prepare('SELECT username FROM users WHERE id = ?').get(userId);
   const t = engine.timing();
   if (orbital.checkUnlock(c, t.globalTick)) Object.assign(c, db.prepare('SELECT * FROM colonies WHERE id = ?').get(c.id));
@@ -126,10 +138,11 @@ function viewFor(userId, now = Date.now()) {
   const districts = store.loadDistricts(c.id).map((d) => ({
     id: d.id, type: d.type, name: d.name,
     level: d.type === 'core' ? c.hub_level : d.level,
-    linkLevel: d.linkLevel, inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
+    linkLevel: d.linkLevel, buildSlots: queue.slotsUpgradable(d) ? d.buildSlots || 1 : 1, inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
     ...orbital.districtExtras(c, d),
   }));
   const routeRows = store.loadRoutes(c.id);
+  const flowRoutes = settlements.throttle(c.id, routeRows, districts, t.globalTick); // what each route can actually carry
   const shipmentRows = store.loadShipments(c.id);
   const coreD = districts.find((d) => d.type === 'core');
   // The top-level view is still the Core's; other districts will get their own views.
@@ -144,13 +157,14 @@ function viewFor(userId, now = Date.now()) {
     config,
     { population: c.population, morale: c.morale, age: c.age, progress: c.progress, won: !!c.won },
     districts,
-    { neighborMaps: engine.neighborMaps, mods: { [coreD.id]: mods }, popConsumptionMult: mods.popConsumptionMult, routes: routeRows, globalOut: projects.globalOut() },
+    { neighborMaps: engine.neighborMaps, mods: { [coreD.id]: mods }, popConsumptionMult: mods.popConsumptionMult, routes: flowRoutes, globalOut: projects.globalOut(), extraHands: settlements.effects(c.id, t.globalTick).hands },
   );
   const proj = sim.coreView(full);
 
   // Standing routes act on the next tick's stock, so the rates every district shows already include them.
   const routeBags = new Map(full.districts.map((r, i) => [r.id, { inv: { ...(r.id === coreD.id ? proj.inventory : r.inventory) }, cap: r.id === coreD.id ? proj.cap : r.cap }]));
-  const routeFlows = sim.applyRoutes(config, routeRows, routeBags);
+  const routeFlows = sim.applyRoutes(config, flowRoutes, routeBags);
+  const settleDraw = settlements.draw(c, proj.inventory, proj.cap); // what sponsored settlements take from the Core each tick
   const flowIn = {}; const flowOut = {};
   for (const f of routeFlows) {
     if (f.qty <= 0) continue;
@@ -169,9 +183,10 @@ function viewFor(userId, now = Date.now()) {
     for (const res of Object.keys(config.resources)) {
       const f = flows[res];
       const rin = ((flowIn[d.id] || {})[res]) || 0; const rout = ((flowOut[d.id] || {})[res]) || 0;
-      const net = f.produced - f.consumed + rin - rout;
+      const aid = isCore ? settleDraw[res] || 0 : 0;
+      const net = f.produced - f.consumed + rin - rout - aid;
       const amount = d.inventory[res] || 0;
-      resources[res] = { amount, cap, produced: f.produced, consumed: f.consumed, routeIn: rin, routeOut: rout, net, ticksLeft: net < -1e-6 ? amount / -net : null };
+      resources[res] = { amount, cap, produced: f.produced, consumed: f.consumed, routeIn: rin, routeOut: rout, aid, net, ticksLeft: net < -1e-6 ? amount / -net : null };
     }
     const lvl = sim.levelDef(config, d.type, d.level);
     const dOrders = allOrders.filter((o) => o.district_id === d.id || (isCore && !o.district_id));
@@ -195,11 +210,33 @@ function viewFor(userId, now = Date.now()) {
           status: st.status, eff: st.eff, mult: st.mult, adj: st.adj, plot: st.plot, haz: st.haz, limiting: st.limiting,
           boost: b.boost ? (st.boost || 'starved') : null,
           level: b.level || 1, xscale: st.xscale || 1,
-          xnext: config.buildings[b.type].expand && (b.level || 1) < xmax ? { level: (b.level || 1) + 1, cost: sim.expansionCost(config, config.buildings[b.type], (b.level || 1) + 1), ticks: config.expansion.ticks[(b.level || 1) + 1], scale: config.expansion.scale[(b.level || 1) + 1], crew: config.expansion.crew[(b.level || 1) + 1] } : null,
+          xnext: config.buildings[b.type].expand && (b.level || 1) < xmax ? { level: (b.level || 1) + 1, cost: settlements.discounted(c.id, sim.expansionCost(config, config.buildings[b.type], (b.level || 1) + 1), t.globalTick), ticks: config.expansion.ticks[(b.level || 1) + 1], scale: config.expansion.scale[(b.level || 1) + 1], crew: config.expansion.crew[(b.level || 1) + 1] } : null,
           dataProgress: b.type === 't_data' ? Math.round((b.dataProgress || 0) * 10) / 10 : undefined, recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
           resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type, config.buildings[b.type]) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };
       }),
-      orders: dOrders.map((o) => ({ id: o.id, kind: o.action_type, data: o.data, remaining: o.ticks_remaining, total: o.ticks_total, rush: o.ticks_remaining > 1 ? credits.rushCost(c.id, o.action_type, o.ticks_remaining, t.globalTick) : 0 })),
+      // Orders in the order they run. `state` is 'active' (being carried out) or 'queued'; `pos` counts the queue from 1.
+      // The order at the front of an idle queue says what it is `waiting` for: stock the place is short of, or a reason.
+      orders: (() => {
+        const busy = dOrders.filter((o) => o.state !== 'queued').length >= d.buildSlots; // every build slot is taken
+        let pos = 0;
+        return dOrders.map((o) => {
+          const queued = o.state === 'queued';
+          const cost = queue.costOf(d, o);
+          const out = { id: o.id, kind: o.action_type, data: o.data, state: queued ? 'queued' : 'active', remaining: o.ticks_remaining, total: o.ticks_total, cost,
+            rush: !queued && o.ticks_remaining > 1 ? credits.rushCost(c.id, o.action_type, o.ticks_remaining, t.globalTick) : 0 };
+          if (queued) {
+            out.pos = ++pos;
+            if (!busy && pos === 1) {
+              const held = queue.check(c, d, d.level, o, t.globalTick);
+              out.waiting = { short: queue.shortfall(d.inventory, cost, queue.refundOf(d, o)) || {}, why: held ? (held.wait || held.drop) : null };
+            }
+          }
+          return out;
+        });
+      })(),
+      queueMax: queue.max,
+      // build slots: how many orders run side by side here, and what the next one costs (null when there are no more)
+      slots: { count: d.buildSlots, max: queue.slotsUpgradable(d) ? queue.maxSlots : 1, next: queue.nextSlot(d, d.buildSlots) },
     };
   };
   const views = {};
@@ -237,16 +274,18 @@ function viewFor(userId, now = Date.now()) {
     districtsUnlocked: sim.districtsUnlocked(config, { coreLevel: c.hub_level }),
     districtLevelCap: sim.districtLevelCap(config, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) }),
     districtNeeds: Object.fromEntries([2, 3, 4, 5].map((l) => [l, sim.districtLevelNeeds(config, l)])),
-    districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length,
+    districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length, slots: d.buildSlots,
       orbital: !!(config.orbitalTypes || {})[d.type],
       link: d.type === 'core' || (config.orbitalTypes || {})[d.type] ? null : {
-        level: d.linkLevel, capacity: config.logistics.link.levels[d.linkLevel].capacity,
+        level: d.linkLevel, capacity: Math.floor(config.logistics.link.levels[d.linkLevel].capacity * settlements.linkMult(c.id, t.globalTick)),
         load: routeRows.filter((r) => r.fromDistrict === d.id || r.toDistrict === d.id).reduce((n, r) => n + r.rate, 0),
-        next: config.logistics.link.levels[d.linkLevel + 1] || null,
+        next: config.logistics.link.levels[d.linkLevel + 1] ? { ...config.logistics.link.levels[d.linkLevel + 1], upgradeCost: settlements.discounted(c.id, config.logistics.link.levels[d.linkLevel + 1].upgradeCost, t.globalTick) } : null,
       } })),
     foundable: Object.fromEntries(Object.keys(config.districtTypes || {}).map((k) => [k, sim.districtFoundable(config, k, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) })])),
     freeport: districts.some((d) => d.type === 'freeport'),
-    founding: allOrders.filter((o) => o.action_type === 'found').map((o) => ({ id: o.id, type: o.data.type, remaining: o.ticks_remaining, total: o.ticks_total })),
+    // what the colony has done, for alternative recipes that open at a milestone
+    milestones: { beacon: store.hasBeacon(c.id), freeport: districts.some((d) => d.type === 'freeport'), station: districts.some((d) => d.type === 'station') },
+    founding: allOrders.filter((o) => o.action_type === 'found').map((o) => ({ id: o.id, type: o.data.type, remaining: o.ticks_remaining, total: o.ticks_total, queued: o.state === 'queued' })),
     convoy: { ticksLeft: ticksToConvoy, arrivesAt: nextTickAt + (ticksToConvoy - 1) * t.tickMs },
     colony: {
       status: c.status, won: !!c.won, progress: proj.progress, hazardsSurvived: c.hazards_survived,
@@ -267,7 +306,8 @@ function viewFor(userId, now = Date.now()) {
     orders: coreV.orders,
     views,
     people,
-    routes: routeFlows.map((f) => ({ ...f.route, flow: f.qty, limit: f.limit })),
+    // (a route slowed because its link is over capacity is shown at the rate it was set to, with the rate it runs at beside it)
+    routes: routeFlows.map((f) => { const { setRate, ...r } = f.route; return setRate === undefined ? { ...r, flow: f.qty, limit: f.limit } : { ...r, rate: setRate, slowed: r.rate, flow: f.qty, limit: f.qty >= r.rate ? 'link' : f.limit }; }),
     shipments: shipmentRows.map((sh) => ({ ...sh, ticksLeft: Math.max(0, sh.arrivesTick - t.globalTick) })),
     contracts: store.loadContracts(c.id),
     events: db.prepare('SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? ORDER BY id DESC LIMIT 40').all(c.id),
@@ -283,7 +323,8 @@ function viewFor(userId, now = Date.now()) {
     prices[res] = { buy: now_[res].buy, sell: now_[res].sell, trend: now_[res].mult / before[res].mult - 1, mult: now_[res].mult };
   }
   const limits = {};
-  for (const res of Object.keys(config.resources)) limits[res] = sim.convoyLimit(config, c.hub_level, res);
+  const cmult = requisitions.convoyMult(c, t.globalTick) * settlements.convoyMult(c, t.globalTick);
+  for (const res of Object.keys(config.resources)) limits[res] = Math.floor(sim.convoyLimit(config, c.hub_level, res) * cmult);
   view.market = { prices, limits };
 
   if (hazard) {
@@ -329,6 +370,8 @@ function viewFor(userId, now = Date.now()) {
   };
   view.exchange = exchangeView(c, t.globalTick);
   view.missions = missions.view(c, t.globalTick);
+  view.requisitions = requisitions.view(c, t.globalTick);
+  view.settlements = settlements.view(c, t.globalTick, proj.inventory, proj.cap);
   view.data = territories.dataView(c);
   view.economy = credits.view(c.id, c.hub_level, t.globalTick);
   view.orbital = orbital.view(c, t.globalTick, { flows: Object.fromEntries(routeFlows.map((f) => [f.route.id, f.qty])) });
@@ -338,6 +381,7 @@ function viewFor(userId, now = Date.now()) {
     view.orbital.project = projects.view(c, t.globalTick);
   }
   view.report = db.prepare("SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? AND tag = 'hazard' AND id > ? ORDER BY id").all(c.id, c.report_cursor);
+  view.absence = absence.view(c, now);
 
   // Directives are sticky: newly earned milestones are saved as the view is
   // built (idempotent progress tracking, only writes when something changed).

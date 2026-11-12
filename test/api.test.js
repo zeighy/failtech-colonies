@@ -74,12 +74,11 @@ test('new colony starts with the configured stockpile and no buildings', async (
   assert.deepEqual(s.hub.rings, { 1: 6 });
 });
 
-test('build: validates, charges, queues, completes after N ticks', async () => {
+test('build: validates, starts at once when the build slot is free (and charges then), completes after N ticks', async () => {
   const c = await newPlayer();
   assert.equal((await c.post('/api/build', { ring: 1, slot: 0, type: 'nope' })).status, 400);
   assert.equal((await c.post('/api/build', { ring: 2, slot: 0, type: 'solar_array' })).body.error, 'That slot is locked. Upgrade the hub.');
   assert.equal((await c.post('/api/build', { ring: 1, slot: 6, type: 'solar_array' })).status, 400);
-  assert.equal((await c.post('/api/build', { ring: 1, slot: 0, type: 'beacon_array' })).status, 400); // can't afford the beacon
   const r = await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' });
   assert.equal(r.status, 200);
   assert.equal(r.body.state.resources.scrap.amount, 1500 - 100);
@@ -94,11 +93,18 @@ test('build: validates, charges, queues, completes after N ticks', async () => {
   assert.equal(s.energy.supply, 20 + 25);
 });
 
-test('build: cannot afford', async () => {
+test('build: an order the colony cannot pay for yet is queued, costs nothing, and says what it is waiting for', async () => {
   const c = await newPlayer();
   const r = await c.post('/api/build', { ring: 1, slot: 0, type: 'hydroponics_bay' });
-  assert.equal(r.status, 400);
-  assert.match(r.body.error, /Not enough resources/);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.queued, true);
+  assert.equal(r.body.state.resources.scrap.amount, 1500, 'nothing is charged until it starts');
+  const o = r.body.state.orders[0];
+  assert.equal(o.state, 'queued');
+  assert.equal(o.pos, 1);
+  assert.deepEqual(o.waiting.short, { machined_parts: store.config.buildings.hydroponics_bay.cost.machined_parts });
+  assert.equal(o.rush, 0, 'and it cannot be rushed');
+  assert.match((await c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' })).body.error, /in use/, 'its plot is reserved');
 });
 
 test('cancel refunds in full; demolish refunds half and frees the slot; toggle pauses', async () => {
@@ -127,14 +133,18 @@ test('players cannot touch each other\'s colonies', async () => {
   assert.equal((await b.post('/api/cancel', { orderId: (await a.get('/api/state')).body.orders[0].id })).status, 400);
 });
 
-test('hub upgrade needs resources, takes time, unlocks ring 2', async () => {
+test('hub upgrade waits for its resources, takes time, unlocks ring 2', async () => {
   const c = await newPlayer();
-  assert.equal((await c.post('/api/upgrade')).status, 400);
-  const colony = store.db.prepare('SELECT id FROM colonies ORDER BY id DESC LIMIT 1').get();
-  store.db.prepare("UPDATE colony_inventory SET amount = 5000 WHERE colony_id = ? AND resource_id IN ('scrap','machined_parts')").run(colony.id);
   const r = await c.post('/api/upgrade');
   assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.queued, true, 'without the materials it waits in the queue');
   assert.equal((await c.post('/api/upgrade')).body.error, 'An upgrade is already underway.');
+  tick(3);
+  assert.equal((await c.get('/api/state')).body.orders[0].state, 'queued', 'and goes on waiting');
+  const colony = store.db.prepare('SELECT id FROM colonies ORDER BY id DESC LIMIT 1').get();
+  store.db.prepare("UPDATE colony_inventory SET amount = 5000 WHERE colony_id = ? AND resource_id IN ('scrap','machined_parts')").run(colony.id);
+  tick(1); // the materials are there: it starts on the next tick
+  assert.equal((await c.get('/api/state')).body.orders[0].state, 'active');
   tick(store.config.hubLevels['2'].upgradeTicks);
   const s = (await c.get('/api/state')).body;
   assert.equal(s.colony.hubLevel, 2);
@@ -222,6 +232,33 @@ test('pages: game requires login, static assets served', async () => {
   assert.equal((await c.get('/game')).status, 302);
   assert.equal((await c.get('/')).status, 200);
   assert.equal((await c.get('/js/game.js')).status, 200);
+});
+
+test('pages: the game comes in a desk layout or a phone layout (?ui= first, then the saved choice, then what the browser says it is)', async () => {
+  const reg = await fetch(`${base}/api/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'layout_1', password: 'hunter22' }) });
+  const sid = reg.headers.get('set-cookie').split(';')[0];
+  const shell = async (ua, saved, url = '/game') => {
+    const r = await fetch(base + url, { headers: { cookie: sid + (saved ? `; ft_ui=${saved}` : ''), 'user-agent': ua } });
+    assert.equal(r.status, 200);
+    return /data-shell="(\w+)"/.exec(await r.text())[1];
+  };
+  const DESK = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+  const PHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+  const DROID = 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
+  assert.equal(await shell(DESK), 'desktop');
+  assert.equal(await shell(PHONE), 'mobile');
+  assert.equal(await shell(DROID), 'mobile');
+  assert.equal(await shell(PHONE, 'desktop'), 'desktop', 'a saved choice beats the guess');
+  assert.equal(await shell(DESK, 'mobile'), 'mobile');
+  assert.equal(await shell(DESK, 'mobile', '/game?ui=desktop'), 'desktop', 'and ?ui= beats both');
+  assert.equal(await shell(PHONE, '', '/game?ui=desktop'), 'desktop');
+  assert.equal(await shell(DESK, '', '/game?ui=mobile'), 'mobile');
+  assert.equal(await shell(DESK, 'sideways'), 'desktop', 'anything else is ignored');
+  assert.equal(await shell(DESK, '', '/game?ui=sideways'), 'desktop');
+  // both layouts are the same game: the same scripts in the same order, and the phone one adds its stylesheet
+  const scripts = (f) => [...fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf8').matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(scripts('mobile.html'), scripts('game.html'));
+  assert.equal((await client().get('/css/mobile.css')).status, 200);
 });
 
 // ---- onboarding directives & collapse clock ------------------------------------

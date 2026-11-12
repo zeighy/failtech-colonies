@@ -78,7 +78,7 @@ test('rush: a work order can be finished for credits, and each rush in the day c
   for (const r of Object.keys(config.resources)) inv[r] = 5000;
   store.saveInventory(c.id, inv, c.core);
   assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 0, type: 'solar_array' }), { ok: true });
-  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 1, type: 'solar_array' }), { ok: true });
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 1, type: 'solar_array' }), { ok: true, queued: true });
   const orders = store.loadOrders(c.id);
   assert.equal(orders.length, 2);
   // the view carries the price
@@ -90,14 +90,16 @@ test('rush: a work order can be finished for credits, and each rush in the day c
   assert.equal(cr0 - creditsOf(c.id), Math.round((first.ticks_remaining - 1) * per));
   assert.equal(store.loadOrders(c.id).find((o) => o.id === first.id).ticks_remaining, 1);
   assert.match(actions.rushOrder(c.uid, { orderId: first.id }).error, /already finishing/);
-  // the second costs more
+  // the second is still waiting its turn: it has no price yet
   const second = orders[1], base = Math.round((second.ticks_remaining - 1) * per);
+  assert.equal(viewFor(c.uid).views[c.core].orders.find((o) => o.id === second.id).rush, 0);
+  assert.match(actions.rushOrder(c.uid, { orderId: second.id }).error, /not started/);
+  engine.processTick(); // the first finishes and the second starts
+  assert.ok(store.loadBuildings(c.id, c.core).some((b) => b.ring === 1 && b.slot === 0 && b.type === 'solar_array'), 'the rushed building is finished on the next tick');
+  // and now it costs more than the first did
   const quoted = viewFor(c.uid).views[c.core].orders.find((o) => o.id === second.id).rush;
   assert.equal(quoted, Math.round(base * (1 + config.credits.rush.surgePerRush)), 'one rush in the day raises the next price');
   db.prepare('UPDATE colonies SET credits = 5 WHERE id = ?').run(c.id);
   assert.match(actions.rushOrder(c.uid, { orderId: second.id }).error, /costs/);
   assert.match(actions.rushOrder(c.uid, { orderId: 999999 }).error, /no longer exists/);
-  db.prepare('UPDATE colonies SET credits = 1000000 WHERE id = ?').run(c.id);
-  engine.processTick();
-  assert.ok(store.loadBuildings(c.id, c.core).some((b) => b.ring === 1 && b.slot === 0 && b.type === 'solar_array'), 'the rushed building is finished on the next tick');
 });

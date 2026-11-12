@@ -35,13 +35,18 @@ const SECTIONS = {
   districts: [(c) => c.districtTypes, ['name', 'desc']],
   hazards: [(c) => c.hazards.types, ['name', 'desc']],
   factions: [(c) => c.missions.factions, ['name', 'desc']],
+  boons: [(c) => (c.requisitions ? c.requisitions.boons : {}), ['name', 'desc']],
   recipes: [(c) => c.recipes, ['name']],
+  // alternative recipes of production buildings, keyed building.recipe (foundry.ingot_charge)
+  processes: [(c) => Object.fromEntries(Object.entries(c.buildings).flatMap(([b, def]) => Object.entries(def.alternatives || {}).map(([a, alt]) => [`${b}.${a}`, alt]))), ['name', 'desc']],
   orbitalRecipes: [(c) => c.orbitalRecipes || {}, ['name']],
   tapRecipes: [(c) => c.tapRecipes || {}, ['name']],
   places: [(c) => c.orbitalTypes || {}, ['name']],
   anomalies: [(c) => (c.orbital ? c.orbital.territories.anomalies : {}), ['name', 'desc']],
   dataPackets: [(c) => (c.orbital && c.orbital.data ? c.orbital.data.packets : {}), ['name', 'text', 'text2', 'text3', 'scene', 'scene2', 'scene3']],
   projects: [(c) => (c.orbital ? Object.fromEntries(c.orbital.projects.list.map((p) => [p.key, p])) : {}), ['name', 'desc']],
+  settlements: [(c) => (c.settlements ? c.settlements.types : {}), ['name', 'desc']],
+  settlementTraits: [(c) => (c.settlements ? c.settlements.traits : {}), ['name', 'desc']],
 };
 
 // Problems found while applying a theme (unknown ids, non-string text). Returned, never thrown, so one typo does not
@@ -72,6 +77,14 @@ function apply(config, theme) {
   if (Array.isArray(theme.territoryNames) && theme.territoryNames.length && config.orbital) {
     if (theme.territoryNames.every((t) => typeof t === 'string' && t.trim())) config.orbital.territories.names = theme.territoryNames;
     else problems.push('theme.territoryNames: must be a list of non-empty text');
+  }
+  if (Array.isArray(theme.settlementNames) && theme.settlementNames.length && config.settlements) {
+    if (theme.settlementNames.every((t) => typeof t === 'string' && t.trim())) config.settlements.names = theme.settlementNames;
+    else problems.push('theme.settlementNames: must be a list of non-empty text');
+  }
+  if (Array.isArray(theme.requisitionTitles) && theme.requisitionTitles.length && config.requisitions) {
+    if (theme.requisitionTitles.every((t) => typeof t === 'string' && t.trim())) config.requisitions.titles = theme.requisitionTitles;
+    else problems.push('theme.requisitionTitles: must be a list of non-empty text');
   }
   if (Array.isArray(theme.missionTitles) && theme.missionTitles.length) {
     if (theme.missionTitles.every((t) => typeof t === 'string' && t.trim())) config.missions.titles = theme.missionTitles;

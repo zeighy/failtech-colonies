@@ -191,9 +191,9 @@ test('the station builds its own buildings: a Klein reactor burns cells for powe
   assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 0, type: 'klein_reactor', district: did }), { ok: true });
   assert.match(actions.build(c.uid, { ring: 1, slot: 1, type: 'solar_array', district: did }).error, /can't be built/);
   assert.match(actions.build(c.uid, { ring: 2, slot: 0, type: 'orbital_foundry', district: did }).error, /locked/);
-  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 1, type: 'orbital_foundry', district: did }), { ok: true });
+  assert.deepEqual(actions.build(c.uid, { ring: 1, slot: 1, type: 'orbital_foundry', district: did }), { ok: true, queued: true }); // the station has one build slot too
   assert.match(actions.build(c.uid, { ring: 1, slot: 2, type: 'orbital_staging', district: did }).error, /can't be built/);
-  tick(config.buildings.orbital_foundry.constructionTicks);
+  tick(config.buildings.klein_reactor.constructionTicks + config.buildings.orbital_foundry.constructionTicks);
   assert.deepEqual(actions.setRecipe(c.uid, { ring: 1, slot: 1, recipe: 'lattice_cores', district: did }), { ok: true });
   // feed it: rare inputs in storage (a bigger store, so the output has a slot too)
   db.prepare('UPDATE stations SET storage_level = 2 WHERE colony_id = ?').run(c.id);
@@ -678,4 +678,20 @@ test('orbital upgrades and dropships cost credits as well as goods, taken from t
   for (const r of Object.keys(next.cost)) if (r !== 'credits') assert.equal(left[r], 5, `${r} was paid from orbital storage`);
   // a dropship's repair bill never includes credits
   assert.ok(!('credits' in (JSON.parse(db.prepare('SELECT invested FROM dropships WHERE colony_id = ?').get(c.id).invested))));
+});
+
+// (last in the file: several tests above depend on which tick they run at)
+test('orbital storage: a trickle with no slot is lost as it is made, and the player is told', () => {
+  const c = launched('Drip Tray');
+  const did = c.station.district_id;
+  const inv = store.loadInventory(c.id, did);
+  for (const r of ['scrap', 'ore', 'crude', 'fuel', 'alloys']) inv[r] = 10; // more than the free slots: every slot is taken
+  store.saveInventory(c.id, inv, did);
+  tick(1);
+  assert.ok(!orbital.hasRoomFor(c.id, 'lattice_cores'));
+  db.prepare('DELETE FROM colony_events WHERE colony_id = ?').run(c.id);
+  // a foundry makes less than one a tick
+  for (let i = 0; i < 20; i++) { const cur = store.loadInventory(c.id, did); cur.lattice_cores = 0.5; store.saveInventory(c.id, cur, did); tick(1); }
+  assert.equal(store.loadInventory(c.id, did).lattice_cores, 0);
+  assert.ok(db.prepare("SELECT 1 FROM colony_events WHERE colony_id = ? AND message LIKE 'No storage slot in orbit%lost as it is made%'").get(c.id));
 });
