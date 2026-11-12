@@ -781,7 +781,10 @@
     var h = '';
     if (MOBILE) {
       var inBar = {}, other = '';
+      // in orbit, Stock is the station's storage (the surface stockpile would pull the view back down to the Core)
+      var up = inOrbit() && stationId() !== null;
       MTABS.forEach(function (t) {
+        if (t[0] === 'stockpile' && up) t = ['ostore', t[1], t[2]];
         inBar[t[0]] = 1;
         h += '<button class="nv" data-act="tab" data-tab="' + t[0] + '" aria-current="' + (!drawer && (t[0] === 'map' ? !ws : ws === t[0]) ? 'page' : 'false') + '">' + icon(t[2], 21) + '<span class="nl no-terms">' + t[1] + '</span>' + (t[0] === 'map' ? '' : tabBadge(t[0])) + '</button>';
       });
