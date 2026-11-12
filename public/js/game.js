@@ -1499,8 +1499,17 @@
     }
     return out;
   }
+  // Remembered per player in this browser, so a district is NEW only until it is first looked at (not again after every reload).
+  // The first time, everything already founded counts as seen.
+  var visitedLoaded = false;
   function renderPlaces() {
-    visited[activeId] = true;
+    if (!visitedLoaded) {
+      visitedLoaded = true;
+      var vs = storeGet('visited:' + S.user);
+      if (vs === null) { S.districts.forEach(function (x) { visited[x.id] = true; }); storeSet('visited:' + S.user, Object.keys(visited).join(',')); }
+      else vs.split(',').forEach(function (id) { if (id) visited[id] = true; });
+    }
+    if (!visited[activeId]) { visited[activeId] = true; storeSet('visited:' + S.user, Object.keys(visited).join(',')); }
     var d = activeD();
     if (MOBILE) {
       var t = d.core ? null : (CFG.districtTypes[d.type] || CFG.orbitalTypes[d.type]), todo = placeItems().some(function (p) { return p.tag; });
@@ -1509,19 +1518,50 @@
       var pb = $('place-btn'); if (pb.dataset.h !== bh) { pb.innerHTML = bh; pb.dataset.h = bh; }
       return;
     }
-    var h = '', items = placeItems(), last = null;
-    if (S.districtsUnlocked) items.forEach(function (p) {
-      if (p.group !== last) { last = p.group; h += '<span class="pgroup">' + p.group + '</span>'; }
-      h += '<button class="ptab' + (p.on ? ' on' : '') + p.cls + '" role="tab" aria-selected="' + !!p.on + '" ' + p.act + ' title="' + esc(p.full) + '" style="--c:' + p.color + '"><i></i><span>' + esc(p.name) + '</span>' +
-        (p.small ? '<small>' + p.small + '</small>' : '') + (p.tag ? '<em>' + p.tag + '</em>' : '') + '</button>';
-    });
+    // Desk: one place group at a time. With a station there is a Surface / Orbit switch (it moves the view, like the tabs do);
+    // the tabs scroll sideways under the hood, and arrows appear only when some of them are out of sight.
+    var h = '', items = placeItems(), grp = d.orbital ? 'Orbit' : 'Surface';
+    if (S.districtsUnlocked || stationId() !== null) {
+      if (stationId() !== null) {
+        var other = items.some(function (p) { return p.group !== grp && p.tag; });
+        h += '<div class="pswitch" role="group" aria-label="Surface or orbit">' + [['Surface', groundD().id], ['Orbit', stationId()]].map(function (g) {
+          var cur = g[0] === grp;
+          return '<button class="' + (cur ? 'on' : '') + '" aria-pressed="' + cur + '"' + (cur ? '' : ' data-act="enter" data-id="' + g[1] + '"') + '>' + g[0] + (!cur && other ? '<span class="dotb good"></span>' : '') + '</button>';
+        }).join('') + '</div>';
+      }
+      h += '<div class="pscroll"><button class="parr l" data-pscroll="-1" aria-label="Scroll left" tabindex="-1">' + icon('chev', 14) + '</button><div class="pstrip" role="tablist" aria-label="' + grp + ' places">' +
+        items.filter(function (p) { return p.group === grp; }).map(function (p) {
+          return '<button class="ptab' + (p.on ? ' on' : '') + p.cls + '" role="tab" aria-selected="' + !!p.on + '" ' + p.act + ' title="' + esc(p.full) + '" style="--c:' + p.color + '"><i></i><span>' + esc(p.name) + '</span>' +
+            (p.small ? '<small>' + p.small + '</small>' : '') + (p.tag ? '<em>' + p.tag + '</em>' : '') + '</button>';
+        }).join('') + '</div><button class="parr r" data-pscroll="1" aria-label="Scroll right" tabindex="-1">' + icon('chev', 14) + '</button></div>';
+    }
     var el = $('places');
     if (el.dataset.h !== h) {
-      var left = el.scrollLeft; el.innerHTML = h; el.dataset.h = h; el.scrollLeft = left;
-      var on = el.querySelector('.ptab.on'); if (on && el.scrollWidth > el.clientWidth) el.scrollLeft = clamp(on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2, 0, el.scrollWidth);
+      var st0 = el.querySelector('.pstrip'), left = st0 ? st0.scrollLeft : 0;
+      el.innerHTML = h; el.dataset.h = h;
+      var strip = el.querySelector('.pstrip');
+      if (strip) {
+        strip.scrollLeft = left;
+        var on = strip.querySelector('.ptab.on'); if (on && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = clamp(on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2, 0, strip.scrollWidth);
+        strip.addEventListener('scroll', placeArrows, { passive: true });
+      }
     }
     el.hidden = !h;
+    placeArrows();
   }
+  // The arrows show only on a side where tabs are hidden.
+  function placeArrows() {
+    var el = $('places'), strip = el && el.querySelector('.pstrip'); if (!strip) return;
+    var max = strip.scrollWidth - strip.clientWidth;
+    el.querySelector('.parr.l').classList.toggle('show', strip.scrollLeft > 2);
+    el.querySelector('.parr.r').classList.toggle('show', strip.scrollLeft < max - 2);
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-pscroll]'); if (!b) return;
+    var strip = $('places').querySelector('.pstrip');
+    strip.scrollBy({ left: +b.dataset.pscroll * Math.max(120, strip.clientWidth * 0.7), behavior: 'smooth' });
+  });
+  window.addEventListener('resize', function () { if (S && !MOBILE) placeArrows(); });
   function districtMap() {
     var h = '<svg class="dmap" viewBox="-110 -90 220 180" role="img" aria-label="District map">';
     var nodes = [{ id: S.districts[0].id, core: true, x: 0, y: 0, color: '#ff9f1c', name: 'Core', level: S.colony.hubLevel, on: true }];
