@@ -2196,6 +2196,14 @@
     },
     ack: function () { acking = true; act('ack', {}).then(function () { acking = false; }); },
     logout: function () { api('logout', {}).then(function () { location.href = '/'; }); },
+    awayAck: function () { awayBusy = true; api('away-ack', {}).then(function (r) { awayBusy = false; if (r && r.state) setState(r.state); }, function () { awayBusy = false; }); },
+    retake: function () { awayCall('retake'); },
+    startOver: function () {
+      var t = awayText('parked');
+      modal('<h2>' + esc(t.confirmTitle) + '</h2><p>' + esc(t.confirmText) + '</p><div class="actions" data-lock><button class="btn" data-m="parkedAgain">Back</button><button class="btn danger" data-m="startOver2">' + esc(t.confirmButton) + '</button></div>', 'parked');
+    },
+    startOver2: function () { awayCall('start-over'); },
+    parkedAgain: function () { if (lostView) showLost(lostView); else checkModals(); },
     mobileLayout: function () { setLayout('mobile'); },
     close: function () {}
   };
@@ -2217,7 +2225,60 @@
     modal('<h2>Are you sure?</h2><p><b>This erases everything and cannot be undone.</b> There is no way to get this colony back. If it is only struggling, you can keep playing and rebuild instead.</p>' +
       '<div class="actions"><button class="btn primary" data-m="close">Keep playing</button><button class="btn danger" data-m="reset">Yes, erase it and start over</button></div>');
   };
+  // ---- absence (see src/absence.js): the notice after a long time away, a parked colony, and one claimed by someone else
+  var awayBusy = false, lostView = null;
+  var AWAY_DEFAULT = {
+    stewarded: { title: 'The colony was held for you', text: 'You were away {away}. After {hold} without word, the colony administration took over: it kept things running and sent the surplus, goods and credits alike, on to support the wider settlement effort. The colony is as it stood when the administration stepped in, and it is yours again.', button: 'Resume command' },
+    parked: { title: 'The colony has been reassigned', text: 'You were away {away}. The colony has been transferred to another commander for management and parked: nothing is running. Its file is still open, so you can retake command or start a new colony.', retake: 'Retake command', fresh: 'Start a new colony', logout: 'Log out',
+      confirmTitle: 'Start a new colony?', confirmText: 'The old colony stays parked under another commander, with its station renamed. You will not be able to get it back.', confirmButton: 'Start a new colony' },
+    claimed: { title: 'The colony has a new commander', text: 'While you were away, another commander took over your colony for good. A new assignment is waiting.', fresh: 'Start a new colony', logout: 'Log out' }
+  };
+  function awayText(kind) { var ui = (CFG && CFG.ui && CFG.ui.away) || {}; return Object.assign({}, AWAY_DEFAULT[kind], ui[kind] || {}); }
+  function span(ms) {
+    var h = Math.max(0, ms) / 3600000;
+    return h < 48 ? Math.round(h) + ' hours' : Math.round(h / 24) + ' days';
+  }
+  function fill(str, vals) { return String(str).replace(/\{(\w+)\}/g, function (m, k) { return vals[k] !== undefined ? vals[k] : m; }); }
+  function awayCall(path) {
+    awayBusy = true;
+    api(path, {}).then(function (r) {
+      awayBusy = false;
+      if (!r || !r.ok) { toast((r && r.error) || 'That did not work.'); if (lostView) showLost(lostView); else checkModals(); return; }
+      if (path === 'start-over') { location.reload(); return; } // a new colony: start the page clean
+      lostView = null; setState(r.state);
+    }, function () { awayBusy = false; toast('No connection. Try again.'); if (lostView) showLost(lostView); else checkModals(); });
+  }
+  function absenceModal() {
+    var a = S.absence;
+    if (!a || awayBusy || document.querySelector('.modal.parked, .modal.away')) return;
+    var holdMs = (CFG.absence ? CFG.absence.simulateHours : 96) * 3600000;
+    if (a.phase === 'parked') {
+      var t = awayText('parked');
+      document.querySelectorAll('.modal-bg').forEach(function (m) { m.remove(); });
+      modal('<h2>' + esc(t.title) + '</h2><p>' + esc(fill(t.text, { away: span(Date.now() + offset - a.lastActive), hold: span(holdMs) })) + '</p>' +
+        '<div class="stack" data-lock><button class="btn primary block" data-m="retake">' + esc(t.retake) + '</button><button class="btn block" data-m="startOver">' + esc(t.fresh) + '</button><button class="btn block" data-m="logout">' + esc(t.logout) + '</button></div>', 'parked');
+    } else if (a.notice && a.notice.kind === 'stewarded') {
+      var s2 = awayText('stewarded'), n = a.notice;
+      modal('<h2>' + esc(s2.title) + '</h2><p>' + esc(fill(s2.text, { away: span(Date.now() + offset - n.lastActive), hold: span(holdMs) })) + '</p>' +
+        '<div class="actions" data-lock><button class="btn primary" data-m="awayAck">' + esc(s2.button) + '</button></div>', 'away');
+    }
+  }
+  // No colony: it was claimed while parked. Nothing else of the game is shown.
+  function showLost(v) {
+    lostView = v;
+    if (document.querySelector('.modal.lost')) return;
+    var t = awayText('claimed');
+    modal('<h2>' + esc(t.title) + '</h2><p>' + esc(t.text) + '</p><div class="stack" data-lock><button class="btn primary block" data-m="startOver2">' + esc(t.fresh) + '</button><button class="btn block" data-m="logout">' + esc(t.logout) + '</button></div>', 'lost');
+  }
+  // Being at the screen keeps the colony simulated. The live stream does not count (a tab can be left open for a week),
+  // so input does, a few times an hour at most.
+  var hereAt = Date.now();
+  function imHere() { if (Date.now() - hereAt < 300000) return; hereAt = Date.now(); api('here', {}).catch(function () { hereAt = 0; }); }
+  ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(function (ev) { document.addEventListener(ev, imHere, { capture: true, passive: true }); });
+
   function checkModals() {
+    absenceModal();
+    if (S.absence && S.absence.phase === 'parked') return;
     if (S.colony.shutdown && !document.querySelector('.modal') && !storeGet('shut:' + S.user + ':' + S.colony.shutdown.since)) {
       storeSet('shut:' + S.user + ':' + S.colony.shutdown.since, '1');
       var sh = (CFG.ui && CFG.ui.shutdown) || {};
@@ -2543,6 +2604,7 @@
     look(id); ws = null; drawer = null; renderAll();
   }
   function setState(ns) {
+    if (ns && ns.lost) { showLost(ns.lost); return; }
     var first = !S;
     RAW = ns;
     if (activeId === null || !ns.views[activeId]) activeId = ns.districts.filter(function (d) { return d.core; })[0].id;
@@ -2588,6 +2650,7 @@
       setState(JSON.parse(e.data));
       if ((!was || pending.length) && connected) flush();
     };
+    es.addEventListener('idle', function () { lastMsgAt = Date.now(); }); // the colony is not being simulated, so nothing changed
     es.onerror = function () {
       goOffline();
       // The browser retries on its own unless the stream was closed outright (e.g. a restart).

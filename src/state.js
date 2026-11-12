@@ -17,6 +17,7 @@ const requisitions = require('./requisitions');
 const settlements = require('./settlements');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
+const absence = require('./absence');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -35,6 +36,7 @@ function clientConfig() {
     plotSizes: config.plotSizes,
     plotPenalty: config.global.plotPenaltyPerStep,
     transmitTicks: config.global.beacon.transmitTicks,
+    absence: config.global.absence,
     morale: config.global.morale,
     workforceShare: config.global.workforceShare,
     mealsPerPop: config.global.mealsPerPopPerTick,
@@ -125,7 +127,10 @@ function exchangeView(c, tick) {
 
 function viewFor(userId, now = Date.now()) {
   const c = db.prepare('SELECT * FROM colonies WHERE user_id = ?').get(userId);
-  if (!c) return null;
+  if (!c) { // the colony was claimed by someone else while it was parked: all there is to show is that, and the way on
+    const u = db.prepare('SELECT username FROM users WHERE id = ?').get(userId);
+    return u ? { user: u.username, lost: absence.lostView(userId) || { kind: 'claimed' } } : null;
+  }
   const user = db.prepare('SELECT username FROM users WHERE id = ?').get(userId);
   const t = engine.timing();
   if (orbital.checkUnlock(c, t.globalTick)) Object.assign(c, db.prepare('SELECT * FROM colonies WHERE id = ?').get(c.id));
@@ -376,6 +381,7 @@ function viewFor(userId, now = Date.now()) {
     view.orbital.project = projects.view(c, t.globalTick);
   }
   view.report = db.prepare("SELECT id, tick, kind, message FROM colony_events WHERE colony_id = ? AND tag = 'hazard' AND id > ? ORDER BY id").all(c.id, c.report_cursor);
+  view.absence = absence.view(c, now);
 
   // Directives are sticky: newly earned milestones are saved as the view is
   // built (idempotent progress tracking, only writes when something changed).

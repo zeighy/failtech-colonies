@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 20;
+const SCHEMA_VERSION = 21;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -491,6 +491,16 @@ db.exec(`
 `);
 if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'settle_reserve'").get()) db.exec('ALTER TABLE colonies ADD COLUMN settle_reserve REAL NOT NULL DEFAULT 0.25');
 if (!db.prepare("SELECT 1 FROM pragma_table_info('settlements') WHERE name = 'answers'").get()) db.exec('ALTER TABLE settlements ADD COLUMN answers INTEGER NOT NULL DEFAULT 0'); // appeals answered (the story listens for it)
+// v21 (additive): absence (see absence.js). `last_active_at` is the commander's last real interaction (last_seen_at also
+// counts an idle open tab); a colony stops being simulated a while after it, and is parked (parked_at) later still.
+// Generated accounts hold parked colonies their commander gave up; `notice` tells a commander their colony was claimed.
+if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'last_active_at'").get()) {
+  db.exec('ALTER TABLE colonies ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0');
+  db.exec('UPDATE colonies SET last_active_at = last_seen_at');
+}
+for (const [table, col, ddl] of [['colonies', 'parked_at', 'INTEGER'], ['colonies', 'away_notice', 'TEXT'], ['users', 'generated', 'INTEGER NOT NULL DEFAULT 0'], ['users', 'notice', 'TEXT']]) {
+  if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+}
 db.pragma(`user_version = ${SCHEMA_VERSION}`);
 
 // ---- meta -----------------------------------------------------------------
@@ -530,8 +540,8 @@ function purgeSessions() {
 function foundColony(userId, { credits = config.global.startingState.credits, failures = 0 } = {}) {
   const s = config.global.startingState;
   const id = db.prepare(
-    'INSERT INTO colonies (user_id, credits, morale, population, failures, last_seen_at, next_hazard_age) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(userId, credits, config.global.startingMorale, s.population, failures, Date.now(), config.hazards.firstAtAge).lastInsertRowid;
+    'INSERT INTO colonies (user_id, credits, morale, population, failures, last_seen_at, last_active_at, next_hazard_age) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(userId, credits, config.global.startingMorale, s.population, failures, Date.now(), Date.now(), config.hazards.firstAtAge).lastInsertRowid;
   const core = db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'core', 1, 'The Core', 0)").run(id).lastInsertRowid;
   const ins = db.prepare('INSERT INTO colony_inventory (colony_id, district_id, resource_id, amount) VALUES (?, ?, ?, ?)');
   for (const res of Object.keys(config.resources)) ins.run(id, core, res, s.resources[res] || 0);

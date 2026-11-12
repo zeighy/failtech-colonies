@@ -62,6 +62,7 @@ function guarded(fn, { allowFailed = false } = {}) {
     const c = colonyOf(userId);
     if (!c) return fail('No colony found.');
     if (c.status !== 'active' && !allowFailed) return fail('This colony has been abandoned.');
+    if (c.parked_at) return fail('This colony is parked. Retake command first.');
     return fn(c, args);
   });
   return (userId, args) => run.immediate(userId, body(args));

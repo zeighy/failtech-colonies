@@ -59,6 +59,7 @@
       "transmitTicks": 25
     },
     "activeWindowSeconds": 120,
+    "absence": { "simulateHours": 96, "parkDays": 30 },
     "plotPenaltyPerStep": 0.6,
     "express": {
       "baseFee": 100,

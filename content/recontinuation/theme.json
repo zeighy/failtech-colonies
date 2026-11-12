@@ -234,7 +234,30 @@
     "hubLabel": "HUB",
     "missionsHint": "Earn a combined standing of 500 with the factions and your name will be known across the lands.",
     "chapterTwo": "Form 7-O: Orbital Recontinuation",
-    "requisitionsNote": "The Office asks for ordinary goods, on a form, by a date. Deliver the full amount from the Core and it pays above the logistics run's price and lends the colony something for a while. A form that lapses is simply refiled."
+    "requisitionsNote": "The Office asks for ordinary goods, on a form, by a date. Deliver the full amount from the Core and it pays above the logistics run's price and lends the colony something for a while. A form that lapses is simply refiled.",
+    "away": {
+      "stewarded": {
+        "title": "Seven held the site",
+        "text": "Commander. You were away {away}. After {hold} without word from you, this node took over the management of Site 7, as Office procedure requires. Nothing was left to pile up: surplus output and Liquid Credits went on to the wider Recontinuation effort. The site is as it stood when this node stepped in. Command returns to you now.",
+        "button": "Resume command"
+      },
+      "parked": {
+        "title": "Site 7 has been transferred",
+        "text": "Commander. You were away {away}. The Office has transferred Site 7 to another commander for management, and this node has parked it: nothing is running, and the people are holding. The file is not closed yet. You may retake command, or take a new assignment and leave Site 7 where it is.",
+        "retake": "Retake command",
+        "fresh": "Take a new assignment",
+        "logout": "Log out",
+        "confirmTitle": "Take a new assignment?",
+        "confirmText": "Site 7 stays parked under another commander, and its station is renamed. You will not be able to take it back.",
+        "confirmButton": "Take the new assignment"
+      },
+      "claimed": {
+        "title": "Site 7 has a new commander",
+        "text": "Commander. While you were away, the Office handed Site 7 to another commander for good. A new site is waiting for an occupant.",
+        "fresh": "Take a new assignment",
+        "logout": "Log out"
+      }
+    }
   },
   "resources": {
     "scrap": {

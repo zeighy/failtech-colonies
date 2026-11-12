@@ -14,6 +14,7 @@ const orbitalMarket = require('./orbitalMarket');
 const hazards = require('./hazards');
 const market = require('./market');
 const missions = require('./missions');
+const absence = require('./absence');
 const { db, config } = store;
 
 const neighborMap = sim.buildNeighborMap(config);
@@ -242,7 +243,9 @@ const processTickTx = db.transaction((tickTime) => {
   credits.prune(globalTick);
   projects.advanceWorld(globalTick, tickTime, TICK_MS);
   orbitalMarket.advance(globalTick);
-  for (const c of db.prepare("SELECT * FROM colonies WHERE status = 'active'").all()) tickColony(c, globalTick, tickTime);
+  // Only colonies whose commander has been around lately are simulated; the rest wait as they are (see absence.js).
+  absence.sweep(tickTime);
+  for (const c of db.prepare("SELECT * FROM colonies WHERE status = 'active' AND parked_at IS NULL AND last_active_at >= ?").all(absence.simulatedSince(tickTime))) tickColony(c, globalTick, tickTime);
   store.setMeta('global_tick', globalTick);
   return globalTick;
 });

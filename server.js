@@ -9,6 +9,7 @@ const path = require('path');
 const store = require('./src/db');
 const engine = require('./src/engine');
 const actions = require('./src/actions');
+const absence = require('./src/absence');
 const security = require('./src/security');
 const story = require('./src/story');
 const theme = require('./src/theme');
@@ -103,7 +104,9 @@ function signIn(req, userId) {
     req.session.regenerate((err) => { // a fresh session id on every sign-in (no session fixation)
       if (err) return reject(err);
       req.session.userId = userId;
-      store.ensureColony(userId);
+      // A commander whose parked colony was claimed by someone else chooses what comes next; everyone else has a colony.
+      if (!absence.lostView(userId)) store.ensureColony(userId);
+      absence.markActive(userId);
       req.session.save((e) => (e ? reject(e) : resolve()));
     });
   });
@@ -201,9 +204,14 @@ app.get('/api/stream', requireAuth, (req, res) => {
   req.on('close', cleanup);
   res.on('error', cleanup);
 });
-engine.events.on('tick', () => { for (const uid of [...streams.keys()]) { try { push(uid); } catch (e) { console.error('push failed', e); } } });
+// A colony that is not being simulated does not change from tick to tick, so its open tabs are not sent a view each tick.
+const simulated = (uid) => { const c = db.prepare('SELECT last_active_at, parked_at FROM colonies WHERE user_id = ?').get(uid); return !!c && absence.phase(c) === 'live'; };
+engine.events.on('tick', () => { for (const uid of [...streams.keys()]) { if (!simulated(uid)) { for (const r of streams.get(uid)) r.write('event: idle\ndata: {}\n\n'); continue; } try { push(uid); } catch (e) { console.error('push failed', e); } } });
 
+// Real interactions (unlike the live stream and state polls an idle open tab keeps making) keep a colony simulated.
+function here(userId) { if (absence.markActive(userId)) push(userId); }
 const act = (name) => (req, res) => {
+  here(req.session.userId);
   const result = actions[name](req.session.userId, plainBody(req.body));
   if (result.ok) push(req.session.userId);
   res.status(result.ok ? 200 : 400).json({ ...result, state: result.ok ? viewFor(req.session.userId) : undefined });
@@ -212,6 +220,18 @@ for (const [route, name] of [
   ['build', 'build'], ['replace', 'replace'], ['requisition', 'requisitionFill'], ['queue-move', 'queueMove'], ['demolish', 'demolish'], ['toggle', 'toggle'], ['boost', 'setBoost'], ['expand', 'expand'], ['cancel', 'cancelOrder'],
   ['upgrade', 'upgradeHub'], ['contract', 'setContract'], ['reset', 'reset'], ['restart', 'restart'], ['ack', 'ack'], ['express', 'expressTrip'], ['found', 'foundDistrict'], ['shipment', 'shipment'], ['market', 'marketPost'], ['recipe', 'setRecipe'], ['shield', 'shieldHazard'], ['mission', 'missionFill'], ['market-cancel', 'marketCancel'], ['route', 'setRoute'], ['link', 'upgradeLink'], ['build-slot', 'buildSlot'], ['settle-sponsor', 'settlementSponsor'], ['settle-commit', 'settlementCommit'], ['settle-give', 'settlementGive'], ['settle-answer', 'settlementAnswer'], ['settle-drop', 'settlementDrop'], ['settle-reserve', 'settlementReserve'], ['story-seen', 'storySeen'], ['resume', 'resumeOps'], ['launch-cycle', 'launchCycle'], ['launch', 'launch'], ['express-launch', 'expressLaunch'], ['orbit-storage', 'orbitalStorageUpgrade'], ['orbit-links', 'orbitalLinksUpgrade'], ['jettison', 'jettison'], ['rebuild-slot', 'rebuildSlot'], ['ship-deploy', 'shipDeploy'], ['ship-plan', 'shipPlan'], ['ship-return', 'shipReturn'], ['data-unlock', 'dataUnlock'], ['rush', 'rushOrder'], ['ship-build', 'shipBuild'], ['ship-upgrade', 'shipUpgrade'], ['ship-repair', 'shipRepair'], ['project-contribute', 'projectContribute'], ['orbit-market', 'orbitPost'], ['orbit-market-cancel', 'orbitCancel'],
 ]) app.post(`/api/${route}`, requireAuth, act(name));
+
+// The player is at the screen (the client sends this on input, a few times an hour at most).
+app.post('/api/here', requireAuth, (req, res) => { here(req.session.userId); res.json({ ok: true }); });
+// Absence: dismiss the notice after a long time away; or, for a parked colony, retake it or start a new one.
+const absenceAct = (fn) => (req, res) => {
+  const result = fn(req.session.userId);
+  if (result.ok) push(req.session.userId);
+  res.status(result.ok ? 200 : 400).json({ ...result, state: result.ok ? viewFor(req.session.userId) : undefined });
+};
+app.post('/api/away-ack', requireAuth, absenceAct((uid) => absence.dismiss(uid)));
+app.post('/api/retake', requireAuth, absenceAct((uid) => absence.retake(uid)));
+app.post('/api/start-over', requireAuth, absenceAct((uid) => absence.startOver(uid)));
 
 // ---- pages ----------------------------------------------------------------------
 app.get('/', (req, res) => (req.session.userId ? res.redirect('/game') : res.sendFile(path.join(PUBLIC, 'index.html'))));
@@ -227,6 +247,7 @@ function wantsMobile(req) {
 }
 app.get('/game', (req, res) => {
   if (!req.session.userId) return res.redirect('/');
+  absence.markActive(req.session.userId); // opening the game is an interaction
   res.set({ Vary: 'User-Agent, Cookie', 'Cache-Control': 'no-store' });
   res.sendFile(path.join(PUBLIC, wantsMobile(req) ? 'mobile.html' : 'game.html'));
 });
