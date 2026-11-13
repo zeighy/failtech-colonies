@@ -64,7 +64,6 @@
         var c = cyc[L.loaded];
         h += '<div class="optcard on"><div class="top"><b>' + esc(label(L.loaded)) + '</b><span>' + fmt(L.progress) + ' / ' + fmt(L.ticks) + '</span></div>' + bar(L.progress, L.ticks) +
           '<div class="dim" style="font-size:11px;margin:6px 0">Draws every tick, from the Core:</div>' + costLine(c.perTick) +
-          '<div class="dim" style="font-size:11px;margin-top:6px">Progress only counts for the share of each tick that is fully supplied. When it completes, the cycle unloads itself and stops drawing.</div>' +
           '<div class="actions"><button class="btn" data-orbit="cycle" data-cycle="">Abandon this cycle</button></div></div>';
       } else if (L.next) {
         var n = cyc[L.next], ready = o.site.staging && o.site.catapult && o.site.command;
@@ -81,15 +80,15 @@
         var first = L.ready === 'station';
         h += '<div class="optcard on"><div class="top"><b>' + esc(label(L.ready)) + '</b><span class="good">Ready</span></div>' +
           (first ? '<label class="field"><span class="label">Station name</span><input id="station-name" maxlength="24" value="' + esc(draft.name) + '" placeholder="3 to 24 characters"></label>' +
-            '<div class="dim" style="font-size:11px;margin:4px 0 8px">Other players see this name on the market and in the territories. It cannot be your callsign.</div>' : '') +
+            '<div class="dim" style="font-size:11px;margin:4px 0 8px">Shown to other players. Not your callsign.</div>' : '') +
           '<div class="actions"><button class="btn primary" data-orbit="launch">' + H.icon('orbit', 12) + ' Launch</button></div></div>';
-      } else h += '<div class="dim" style="font-size:12px">Nothing is on the catapult. Load a launch cycle at the staging platform.</div>';
+      } else h += '<div class="dim" style="font-size:12px">Nothing is on the catapult.</div>';
       if (o.station) h += expressCard();
     }
     if (def.commandCenter) {
       h += '<div class="label sec">Orbital Command</div>' + chain +
         (o.station ? '<div class="actions"><button class="btn primary" data-orbit="enter-orbit">' + H.icon('orbit', 12) + ' Open Orbital Command</button></div>'
-          : '<div class="dim" style="font-size:12px">Tracks the launch and everything in orbit afterwards. It has to be running when the first launch goes up.</div>');
+          : '<div class="dim" style="font-size:12px">Must be running for the first launch.</div>');
     }
     return h;
   }
@@ -125,8 +124,7 @@
     var h = '<div class="p-title" style="--c:#90e0ef">' + H.icon('orbit', 22) + '<h3>' + esc(st.name) + '</h3>' + (st.badge ? '<span class="hqbadge" title="Independent charter">' + esc(st.badge) + ' Chartered</span>' : '') + '</div>' +
       '<dl class="kv"><dt>Rings</dt><dd>' + st.level + ' of 3</dd><dt>Power</dt><dd>' + Math.floor(v.energy.supply) + ' supply · ' + Math.ceil(v.energy.demand) + ' demand</dd>' +
       '<dt>Storage</dt><dd>' + st.storage.slots.filter(function (s) { return s.resource; }).length + ' / ' + st.storage.slots.length + ' slots · ' + fmt(st.storage.cap) + ' each' + (st.storage.slots.some(function (s) { return s.kind === 'hc'; }) ? ' (' + fmt(st.storage.hcCap) + ' high-capacity)' : '') + '</dd>' +
-      '<dt>Links to the Core</dt><dd>' + st.links.list.length + ' / ' + st.links.count + '</dd><dt>Dropships</dt><dd>' + (O().ships ? O().ships.ships.length + ' / ' + O().ships.max : '0') + '</dd></dl>' +
-      '<div class="note">Nothing up here needs crew: it runs on power instead. A Klein Reactor burns power cells for it. The Orbital Foundry runs one recipe at a time, like a trade workshop, including recipes that need rare resources from the anomalous territories.</div>';
+      '<dt>Links to the Core</dt><dd>' + st.links.list.length + ' / ' + st.links.count + '</dd><dt>Dropships</dt><dd>' + (O().ships ? O().ships.ships.length + ' / ' + O().ships.max : '0') + '</dd></dl>';
     if (n) {
       h += '<div class="label sec">Next ring</div><div class="optcard"><div class="top"><b>Ring ' + n.stationLevel + '</b><span class="dim">launched from the colony</span></div>' +
         '<div class="dim" style="font-size:11px;margin-bottom:6px">A launch cycle at the staging platform (' + fmt(n.ticks) + ' ticks), drawing per tick:</div>' + costLine(n.perTick) +
@@ -154,15 +152,15 @@
     }).join('');
     if (high.length) {
       h += '<div class="label sec">High-capacity slots · ' + fmt(s.hcCap) + ' each</div>' + high.map(function (slot, i) {
-        if (!slot.resource) return '<div class="oslot empty hc"><span class="dim">High-capacity slot ' + (i + 1) + ' · empty, takes anything</span></div>';
+        if (!slot.resource) return '<div class="oslot empty hc"><span class="dim">High-capacity slot ' + (i + 1) + ' · empty</span></div>';
         var r = inv[slot.resource] || { amount: 0, net: 0 };
         return '<div class="oslot hc" style="--c:' + (C().resources[slot.resource] || {}).color + '"><i></i><b>' + esc(rn(slot.resource)) + '</b><span class="num">' + fmt(r.amount) + ' <small>/ ' + fmt(s.hcCap) + '</small></span>' +
           '<small class="' + (r.net > 0.05 ? 'good' : r.net < -0.05 ? 'bad' : 'dim') + '">' + (Math.abs(r.net) < 0.05 ? '±0' : (r.net > 0 ? '+' : '−') + Math.abs(r.net).toFixed(1)) + '/t</small>' +
           (freeOf(normal) && r.amount <= s.cap ? '<button class="btn" data-orbit="slot-move" data-res="' + slot.resource + '" data-to="normal">To ordinary</button>' : '') +
           (r.amount < 1 ? '<button class="btn" data-orbit="slot-release" data-slot="' + slot.idx + '">Free it</button>' : '') + '</div>';
-      }).join('') + '<div class="dim" style="font-size:11px;margin-top:6px">A high-capacity slot is never jettisoned. Once it is empty, free it and it takes any resource. Goods move between it and an ordinary slot while one of the other kind is free (into an ordinary slot only if they fit).</div>';
+      }).join('');
     }
-    h += '<div class="dim" style="font-size:11px;margin-top:6px">Each slot holds one kind of resource. Anything that arrives without a slot is lost. Jettisoning empties a slot and frees it, but the slot then has to be rebuilt (' + Object.keys(C().orbital.storage.rebuildCost).map(function (r) { return C().orbital.storage.rebuildCost[r] + ' ' + rn(r); }).join(', ') + ' from orbital storage).</div>';
+    h += '<div class="dim" style="font-size:11px;margin-top:6px">One resource per slot · no slot, goods lost · rebuild after jettison: ' + Object.keys(C().orbital.storage.rebuildCost).map(function (r) { return C().orbital.storage.rebuildCost[r] + ' ' + rn(r); }).join(', ') + '</div>';
     if (s.next) h += '<div class="optcard" style="margin-top:8px"><div class="top"><b>Expand storage</b><span class="dim">' + s.next.slots + ' slots · ' + fmt(s.next.cap) + ' each</span></div>' + costLine(s.next.cost, have) + '<div class="actions"><button class="btn" data-orbit="storage-up">Expand</button></div></div>';
     // links
     var L = st.links;
@@ -178,7 +176,7 @@
       h += '<div class="orow" style="margin-top:8px">' + sel('link-dir', [['up', 'Core → orbit'], ['down', 'Orbit → Core']], d.dir) + sel('link-res', opts.map(function (r) { return [r, rn(r)]; }), d.res) + num('link-new', d.rate) + '</div>' +
         '<div class="actions"><button class="btn primary" data-orbit="link-add">Add link (max ' + L.rate + '/t)</button></div>';
     }
-    h += '<div class="dim" style="font-size:11px;margin-top:6px">Links run every tick between the Core and the station, both ways. Goods made in other districts have to reach the Core first. Rare resources never travel by link.</div>';
+    h += '<div class="dim" style="font-size:11px;margin-top:6px">Core ↔ station · rare resources can\'t use links</div>';
     if (L.next) h += '<div class="optcard" style="margin-top:8px"><div class="top"><b>More links</b><span class="dim">' + L.next.count + ' links · ' + L.next.rate + '/t each</span></div>' + costLine(L.next.cost, have) + '<div class="actions"><button class="btn" data-orbit="links-up">Upgrade</button></div></div>';
     if (S().coreRes) h += expressCard();
     return h;
@@ -187,7 +185,7 @@
   function shipCard(s, terrs) {
     var stateTxt = { docked: 'Docked', building: 'Being built', deploying: 'Descending', deployed: 'Deployed', returning: 'Returning', contributing: 'On a project run' }[s.state] || s.state;
     var h = '<div class="optcard' + (s.state === 'deployed' ? ' on' : '') + '"><div class="top"><b>' + H.icon('ship', 14) + ' Dropship ' + s.num + ' · L' + s.level + '</b><span>' + stateTxt + (s.ticksLeft ? ' · ' + ticks(s.ticksLeft) : '') + '</span></div>' +
-      '<div class="dim" style="font-size:11px">Integrity ' + s.integrity + '%' + (s.unbreakable ? ' · refitted: it always makes it home' : s.savedOnce ? ' · already escaped destruction once' : '') + ' · hold ' + fmt(s.hold) + ' · power ' + s.power + ' · links ' + s.linkRate + '/t' +
+      '<div class="dim" style="font-size:11px">Integrity ' + s.integrity + '%' + (s.unbreakable ? ' · indestructible' : s.savedOnce ? ' · already escaped destruction once' : '') + ' · hold ' + fmt(s.hold) + ' · power ' + s.power + ' · links ' + s.linkRate + '/t' +
         (s.stabilizer ? ' · carrying a stabilizer' : '') + (s.extraLinks ? ' · ' + s.extraLinks + ' link kit' + (s.extraLinks === 1 ? '' : 's') : '') + '</div>' + bar(s.integrity, 100, s.integrity < 30 ? 'bad' : s.integrity < 60 ? 'warn' : '');
     if (s.state === 'deployed' && s.territory) {
       h += '<div class="dim" style="font-size:12px;margin-top:6px">In <b>' + esc(s.territory.name) + '</b> · ' + esc(s.territory.anomaly.name) + ' closes in ' + ticks(s.territory.ticksLeft) + '</div>' +
@@ -214,7 +212,7 @@
     var h = '<div class="optcard on"><div class="top"><b>Deploy dropship ' + s.num + '</b><span class="dim">hold ' + fmt(used) + ' / ' + fmt(s.hold) + '</span></div>';
     if (!d.territory) return h + '<div class="dim">No territory is open right now.</div><div class="actions"><button class="btn" data-orbit="deploy-cancel">Cancel</button></div></div>';
     h += '<div class="orow">' + sel('deploy-terr', open.map(function (t) { return [t.id, t.name + (t.private ? ' · yours' : t.stabilized ? ' · stabilised' : '') + (t.dataSite ? ' · data site' : '') + ' · ' + t.anomaly.name + ' · ' + t.ticksLeft + 't']; }), d.territory) + '</div>' +
-      '<div class="dim" style="font-size:11px;margin:6px 0">It lands in ' + ticks(sh.deployTicks) + ' with a construction kit (' + Object.keys(sh.starterKit).map(function (r) { return sh.starterKit[r] + ' ' + rn(r); }).join(', ') + '). Preload anything else from orbital storage:</div>';
+      '<div class="dim" style="font-size:11px;margin:6px 0">Lands in ' + ticks(sh.deployTicks) + ' · kit (' + Object.keys(sh.starterKit).map(function (r) { return sh.starterKit[r] + ' ' + rn(r); }).join(', ') + ') · preload:</div>';
     h += Object.keys(inv).filter(function (r) { return inv[r].amount >= 1; }).map(function (r) {
       return '<div class="orow"><span style="flex:1">' + esc(rn(r)) + ' <small class="dim">(' + fmt(inv[r].amount) + ')</small></span>' + num('preload', d.preload[r] || 0, 'data-res="' + r + '"') + '</div>';
     }).join('');
@@ -225,11 +223,11 @@
       if (!canStab) d.stabilize = false;
       h += '<label class="orow"><input type="checkbox" data-osel="deploy-stab"' + (d.stabilize ? ' checked' : '') + (canStab ? '' : ' disabled') + '> <span style="flex:1">Take a territory stabilizer' +
         (!ready ? ' <small class="dim">(ready in ' + ticks(Math.min.apply(null, stab)) + ')</small>' : tt && (tt.stabilized || tt.private) ? ' <small class="dim">(not needed here)</small>' : '') + '</span></label>';
-      if (d.stabilize) h += '<div class="note warn" style="font-size:11px">Once the ship is away the stabilizer is committed. It cannot be called back, and it cools down for ' + ticks(sh.stabilizerCooldown) + ' before it can go out again. When it lands, the territory stays open a hundred times as long, its harm stops, and other stations can land there too.</div>';
+      if (d.stabilize) h += '<div class="note warn" style="font-size:11px">Can\'t be recalled. Cooldown ' + ticks(sh.stabilizerCooldown) + '.</div>';
     }
     if (sh.linkKits) {
       d.links = Math.max(0, Math.min(d.links || 0, sh.linkKitsFree));
-      h += '<div class="orow"><span style="flex:1">Territory link kits <small class="dim">(' + sh.linkKitsFree + ' of ' + sh.linkKits + ' free · +1 link each)</small></span>' + num('deploy-links', d.links || 0) + '</div>';
+      h += '<div class="orow"><span style="flex:1">Territory link kits <small class="dim">(' + sh.linkKitsFree + ' of ' + sh.linkKits + ' free)</small></span>' + num('deploy-links', d.links || 0) + '</div>';
     }
     return h + '<div class="actions"><button class="btn primary" data-orbit="deploy-go">Launch dropship</button><button class="btn" data-orbit="deploy-cancel">Cancel</button></div></div>';
   }
@@ -237,7 +235,7 @@
   function territoryRow(t) {
     var a = t.anomaly, r = t.resources;
     return '<div class="terr' + (t.taken && !t.open ? ' taken' : '') + (t.private ? ' private' : t.stabilized ? ' stabilized' : '') + '"><div class="top"><b>' + esc(t.name) + '</b><span class="' + (t.ticksLeft < 300 ? 'warn' : 'dim') + '">' + ticks(t.ticksLeft) + (t.destabilized ? ' · destabilised' : '') + '</span></div>' +
-      (t.private ? '<div class="data-tag">' + H.icon('check', 12) + ' Stable territory: only your station can see it, and you can come back to it as often as you like</div>' : t.stabilized ? '<div class="data-tag">' + H.icon('check', 12) + ' Stabilised: its harm has stopped, it never destabilises, and any station can land</div>' : '') +
+      (t.private ? '<div class="data-tag">' + H.icon('check', 12) + ' Private</div>' : t.stabilized ? '<div class="data-tag">' + H.icon('check', 12) + ' Stabilised</div>' : '') +
       '<div class="dim" style="font-size:11px"><b>' + esc(a.name) + '</b>: ' + esc(a.desc) + '</div>' +
       '<div class="io" style="margin-top:4px">' + H.pill(r.common1, 'common') + H.pill(r.common2, 'common') + H.pill(r.district, 'district') + H.pill(r.rare, 'rare', 'out') + '</div>' + (t.dataSite ? '<div class="data-tag">' + H.icon('t_data', 12) + ' Data site: Data Recovery can be built here</div>' : '') +
       '<div class="dim" style="font-size:11px;margin-top:4px">Rare yield ×' + a.rareMult + (a.powerMult && a.powerMult < 1 ? ' · ship power ×' + a.powerMult : '') + ' · leaving late ' + a.lateDamage + '% damage' + (a.damagePerTick ? ' · ' + a.damagePerTick + '% damage every tick on the ground' : '') + '</div>' +
@@ -250,7 +248,7 @@
     if (draft.deploy) h += deployForm();
     h += sh.ships.map(function (s) { return shipCard(s, sh.territories); }).join('');
     if (sh.ships.length < sh.max) h += '<div class="optcard"><div class="top"><b>Build a dropship</b><span class="dim">' + ticks(sh.buildTicks) + '</span></div>' + costLine(sh.buildCost, stationAmounts()) + '<div class="actions"><button class="btn" data-orbit="ship-build">Build</button></div></div>';
-    h += '<div class="label sec">Anomalous territories</div><div class="dim" style="font-size:11px;margin-bottom:6px">Shared by every station. Each closes when its anomaly runs its course, whoever is down there. Leaving early destabilises it, so it closes much sooner for the next visitor.</div>';
+    h += '<div class="label sec">Anomalous territories</div><div class="dim" style="font-size:11px;margin-bottom:6px">Shared by every station. Leaving early shortens it for the next visitor.</div>';
     h += sh.territories.map(territoryRow).join('') || '<div class="dim">None open.</div>';
     return h;
   }
@@ -261,7 +259,7 @@
     var t = s.territory, inv = S().views[d.id].resources, st = O().station;
     var h = '<div class="p-title" style="--c:#f2a7ff">' + H.icon('ship', 22) + '<h3>' + esc(t.name) + '</h3></div>' + territoryRow(t) +
       '<dl class="kv"><dt>Dropship</dt><dd>' + s.num + ' · L' + s.level + ' · integrity ' + s.integrity + '%</dd><dt>Power</dt><dd>' + s.power + ' from the dropship</dd><dt>Hold</dt><dd>' + fmt(s.hold) + ' in all</dd></dl>';
-    h += '<div class="label sec">Bring back</div><div class="dim" style="font-size:11px;margin-bottom:6px">Ticked resources fly home in the hold (rare first, then the district resource), up to its size. Everything else is left behind. The trip home takes ' + ticks(sh.returnTicks) + '.</div>';
+    h += '<div class="label sec">Bring back</div><div class="dim" style="font-size:11px;margin-bottom:6px">Ticked goods come home, rare first, up to the hold · ' + ticks(sh.returnTicks) + '</div>';
     h += Object.keys(inv).filter(function (r) { return inv[r].amount >= 1 || r === t.resources.rare || r === t.resources.district; }).map(function (r) {
       var on = !!(s.plan && s.plan[r]);
       return '<label class="orow"><input type="checkbox" data-osel="plan" data-res="' + r + '"' + (on ? ' checked' : '') + '> <span style="flex:1">' + esc(rn(r)) + '</span><span class="num">' + fmt(inv[r].amount) + '</span></label>';
@@ -294,7 +292,7 @@
     if (d.price === null) d.price = g.reference;
     var inv = stationInv();
     var row = function (o) { return '<tr class="' + (o.mine ? 'mine' : '') + '"><td>' + esc(o.maker ? 'Market maker' : o.station) + '</td><td class="num">' + o.price.toFixed(2) + '</td><td class="num">' + fmt(o.qty) + '</td></tr>'; };
-    var h = H.brokerage() + '<div class="label sec">Orbital market</div><div class="dim" style="font-size:11px;margin-bottom:6px">Trade goods made in the orbital foundry, between stations, straight from orbital storage. Market makers post a little at the reference price every ' + ticks(m.refreshTicks) + ' (next in ' + ticks(m.nextRefresh) + '). Sellers pay a ' + Math.round(m.feeRate * 100) + '% fee.</div>' +
+    var h = H.brokerage() + '<div class="label sec">Orbital market</div><div class="dim" style="font-size:11px;margin-bottom:6px">Trade goods from orbital storage · makers refresh in ' + ticks(m.nextRefresh) + ' · ' + Math.round(m.feeRate * 100) + '% seller fee</div>' +
       '<div class="orow">' + sel('mkt-res', m.goods.map(function (x) { return [x.resource, rn(x.resource) + (x.orbitalOnly ? ' ✦' : '')]; }), d.res) + '</div>' +
       '<dl class="kv"><dt>Reference</dt><dd>' + g.reference.toFixed(2) + ' cr</dd><dt>Accepted range</dt><dd>' + g.band[0].toFixed(2) + ' to ' + g.band[1].toFixed(2) + ' cr</dd><dt>In storage</dt><dd>' + fmt(inv[d.res] ? inv[d.res].amount : 0) + '</dd></dl>' +
       '<div class="obook"><div><div class="label">Bids</div><table>' + (g.bids.map(row).join('') || '<tr><td class="dim">none</td></tr>') + '</table></div>' +
@@ -335,7 +333,7 @@
       if (!draft.contrib || !docked.some(function (s) { return s.id === draft.contrib.ship; })) draft.contrib = docked.length ? { ship: docked[0].id, cargo: {} } : null;
       if (draft.contrib) {
         var c = draft.contrib, s = docked.filter(function (x) { return x.id === c.ship; })[0];
-        h += '<div class="label sec">Contribute</div><div class="dim" style="font-size:11px;margin-bottom:6px">A dropship carries the goods from orbital storage. The run takes ' + ticks(O().ships.contributeTicks) + ' and delivers halfway.</div>' +
+        h += '<div class="label sec">Contribute</div><div class="dim" style="font-size:11px;margin-bottom:6px">By dropship from orbital storage · ' + ticks(O().ships.contributeTicks) + ' · delivered halfway</div>' +
           '<div class="orow">' + sel('contrib-ship', docked.map(function (x) { return [x.id, 'Dropship ' + x.num + ' (hold ' + x.hold + ')']; }), c.ship) + '</div>' +
           Object.keys(p.needs).map(function (r) {
             return '<div class="orow"><span style="flex:1">' + esc(rn(r)) + ' <small class="dim">(' + fmt(inv[r] ? inv[r].amount : 0) + ' in storage)</small></span>' + num('contrib', c.cargo[r] || 0, 'data-res="' + r + '"') + '</div>';

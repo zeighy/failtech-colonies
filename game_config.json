@@ -5067,10 +5067,10 @@
     "categories": {
       "district": {
         "name": "Discover New District",
-        "desc": "Survey crews push past the known map and chart a new site, ready to be founded when you choose.",
+        "desc": "New sites to found.",
         "cost": { "credits": 400000, "building_materials": 15000, "alloys": 8000, "tool_steel": 3000, "precision_tools": 800, "resonators": 150 },
         "options": {
-          "discover": { "name": "Chart a new district", "desc": "A copy of an existing district type with its own name, listed for founding (never founded for you). The first is always a Free Port; after that the type is random and never the same twice in a row. Each discovery lies a little further out." }
+          "discover": { "name": "Chart a new district", "desc": "A new district of an existing type, ready to found. The first is a Free Port." }
         },
         "names": ["Far", "Lower", "Upper", "Outer", "New", "Old", "East", "West", "North", "South", "Deep", "High", "Second", "Hollow", "Broken", "Quiet"],
         "extraDistance": 2,
@@ -5078,32 +5078,32 @@
       },
       "station": {
         "name": "Station Expansion",
-        "desc": "Permanent additions to your orbital station.",
+        "desc": "Orbital upgrades.",
         "cost": { "credits": 400000, "power_cells": 800, "circuits": 2500, "fittings": 1000, "modules": 500, "still_frames": 150 },
         "options": {
-          "orbitalLink": { "name": "Orbital link", "desc": "One more link between the Core and the station, on top of what the link level gives." },
-          "hcSlot": { "name": "High-capacity storage slot", "desc": "A slot of its own kind that holds ten times the station's slot capacity. Goods move between it and the ordinary slots, and once empty it takes any resource, so it is never jettisoned.", "capMult": 10 },
-          "dropship": { "name": "Dropship bay", "desc": "Room for one more dropship at the station. It still has to be built." },
-          "shipL4": { "name": "Level 4 dropship refit", "desc": "One level-3 dropship of your choice becomes level 4: more power, a bigger hold, faster links, and it can no longer be destroyed. At worst it limps home at 10% with its cargo lost.", "needsShip": true }
+          "orbitalLink": { "name": "Orbital link", "desc": "+1 Core link." },
+          "hcSlot": { "name": "High-capacity storage slot", "desc": "A storage slot with 10× capacity. Never jettisoned.", "capMult": 10 },
+          "dropship": { "name": "Dropship bay", "desc": "+1 dropship." },
+          "shipL4": { "name": "Level 4 dropship refit", "desc": "A level-3 dropship becomes level 4 and indestructible.", "needsShip": true }
         }
       },
       "surface": {
         "name": "Surface Colony Expansion",
-        "desc": "Permanent improvements to logistics on the ground.",
+        "desc": "Ground logistics.",
         "cost": { "credits": 400000, "building_materials": 15000, "machined_parts": 20000, "frames": 1500, "plastics": 3000, "lattice_cores": 150 },
         "options": {
-          "route": { "name": "Standing route slot", "desc": "One more standing route between districts, on top of the usual limit." },
-          "linkBoost": { "name": "District link capacity", "desc": "+50 per tick on every district's link to the Core, whatever its level.", "amount": 50 }
+          "route": { "name": "Standing route slot", "desc": "+1 standing route." },
+          "linkBoost": { "name": "District link capacity", "desc": "+50/t on every district link.", "amount": 50 }
         }
       },
       "territory": {
         "name": "Territory Deployment Support",
-        "desc": "Equipment for the dropships and the territories they land in.",
+        "desc": "Dropship equipment.",
         "cost": { "credits": 400000, "fuel": 15000, "polymers": 8000, "field_kits": 1500, "masterworks": 300, "phase_cells": 150 },
         "options": {
-          "stabilizer": { "name": "Territory stabilizer", "desc": "Chosen when a dropship deploys. When it lands, the territory's remaining time is multiplied by 100, its harmful effects stop (its bonuses stay), leaving never destabilises it, and other stations can land there too. It can go out again once its cooldown has passed.", "durationMult": 100, "cooldownTicks": 40320 },
-          "finder": { "name": "Stable territory finder", "desc": "Finds a private territory only you can see and land on, open for a very long time, and you can return to it as often as you like. Its rare resource is random and its ground always lets the anomaly tap extract it. No data site and no anomaly effects.", "durationMult": 500 },
-          "extraLink": { "name": "Extra territory link", "desc": "A reusable link kit. Chosen when a dropship deploys, it gives that territory one more link to the station, and comes back with the ship." }
+          "stabilizer": { "name": "Territory stabilizer", "desc": "Take it on a deployment: the territory lasts 100× longer, loses its harm and opens to every station. Reusable.", "durationMult": 100, "cooldownTicks": 40320 },
+          "finder": { "name": "Stable territory finder", "desc": "A private, long-lived territory whose rare can always be tapped.", "durationMult": 500 },
+          "extraLink": { "name": "Extra territory link", "desc": "Reusable kit: +1 link for a deployed ship." }
         }
       }
     }

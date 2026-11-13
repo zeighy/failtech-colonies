@@ -439,16 +439,16 @@ Opens once the colony has read part 1 of any data packet (a screen beside Data).
 | Territory Deployment Support | 400000 credits, 15000 Refined Fuel, 8000 Polymer Stock, 1500 Apex Field Kits, 300 Heritage Masterworks, 150 Sirius Cell | Territory stabilizer; Stable territory finder; Extra territory link |
 | Option | Effect |
 | --- | --- |
-| Chart a new district | A copy of an existing district type with its own name, listed for founding (never founded for you). The first is always a Free Port; after that the type is random and never the same twice in a row. Each discovery lies a little further out. |
-| Orbital link | One more link between the Core and the station, on top of what the link level gives. |
-| High-capacity storage slot | A slot of its own kind that holds ten times the station's slot capacity. Goods move between it and the ordinary slots, and once empty it takes any resource, so it is never jettisoned. |
-| Dropship bay | Room for one more dropship at the station. It still has to be built. |
-| Level 4 dropship refit | One level-3 dropship of your choice becomes level 4: more power, a bigger hold, faster links, and it can no longer be destroyed. At worst it limps home at 10% with its cargo lost. |
-| Standing route slot | One more standing route between districts, on top of the usual limit. |
-| District link capacity | +50 per tick on every district's link to the Core, whatever its level. |
-| Territory stabilizer | Chosen when a dropship deploys. When it lands, the territory's remaining time is multiplied by 100, its harmful effects stop (its bonuses stay), leaving never destabilises it, and other stations can land there too. It can go out again once its cooldown has passed. |
-| Stable territory finder | Finds a private territory only you can see and land on, open for a very long time, and you can return to it as often as you like. Its rare resource is random and its ground always lets the anomaly tap extract it. No data site and no anomaly effects. |
-| Extra territory link | A reusable link kit. Chosen when a dropship deploys, it gives that territory one more link to the station, and comes back with the ship. |
+| Chart a new district | A new district of an existing type, ready to found. The first is a Free Port. |
+| Orbital link | +1 Core link. |
+| High-capacity storage slot | A storage slot with 10× capacity. Never jettisoned. |
+| Dropship bay | +1 dropship. |
+| Level 4 dropship refit | A level-3 dropship becomes level 4 and indestructible. |
+| Standing route slot | +1 standing route. |
+| District link capacity | +50/t on every district link. |
+| Territory stabilizer | Take it on a deployment: the territory lasts 100× longer, loses its harm and opens to every station. Reusable. |
+| Stable territory finder | A private, long-lived territory whose rare can always be tapped. |
+| Extra territory link | Reusable kit: +1 link for a deployed ship. |
 Discovered districts lie 2 ticks further out per discovery (one-off shipments take that much longer). A stabilizer multiplies the territory's remaining time by 100 when it lands and cools down for 40320 ticks (168 h) from deployment. A stable territory lasts 500 × the average territory lifetime.
 **How the bill grows.** Every amount in a category's base bill is multiplied by the factor below (rounded), and so is the work time.
 | Paid unlocks so far (n) | Bill × | Work time |
@@ -462,7 +462,7 @@ Discovered districts lie 2 ticks further out per discovery (one-off shipments ta
 | 10 | 9.31 | 3735 ticks (15.6 h) |
 | 15 | 28.42 | 6015 ticks (25.1 h) |
 | 20 | 86.74 | 9688 ticks (40.4 h) |
-**Details.** A high-capacity slot holds 10 × the storage level's slot cap. A resource that needs a slot takes an ordinary one first, the player moves goods between the two kinds, and an empty high-capacity slot is freed rather than jettisoned. The level 4 refit can only be chosen while a dropship is at level 3; if that ship is no longer at level 3 when the work finishes, the refit is banked and applied later from the ship card. Level 4 cannot be bought the ordinary way. Several territory link kits can go out with one ship; they are free again once it flies home or is lost. A stabilised territory takes one ship from each station, and a private stable territory takes one ship at a time from the station that found it, as often as it likes. Neither is ever destabilised, and neither counts toward the shared territories kept open.
+**Details.** A discovery is never founded for you; after the first (a Free Port) its type is random and never the same twice in a row. A stabilised territory keeps its bonuses (rare yield and ship power never fall below ×1, and it does no damage). A stable territory's commons and district resource are chosen so its random rare can be tapped; it has no data site and no anomaly effects. A high-capacity slot holds 10 × the storage level's slot cap. A resource that needs a slot takes an ordinary one first, the player moves goods between the two kinds, and an empty high-capacity slot is freed rather than jettisoned. The level 4 refit can only be chosen while a dropship is at level 3; if that ship is no longer at level 3 when the work finishes, the refit is banked and applied later from the ship card. Level 4 cannot be bought the ordinary way. Several territory link kits can go out with one ship; they are free again once it flies home or is lost. A stabilised territory takes one ship from each station, and a private stable territory takes one ship at a time from the station that found it, as often as it likes. Neither is ever destabilised, and neither counts toward the shared territories kept open.
 **Story.** Opening Headquarters plays a call from Seven: the colony is qualified to run independently, but the headquarters is down. The charter plays a second: the commander is now an **Independent Colony Commander**, with the crew still there in support. Headquarters is per player; bots ignore it.
 
 ## **16b. Time away and parked colonies**
