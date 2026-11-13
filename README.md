@@ -308,4 +308,8 @@ The same notice is kept beside the theme data, in [`content/recontinuation/NOTIC
 
 ## License
 
-The game (its code and the `basic` theme) is licensed under ISC. The Recontinuation story is not covered by the ISC license; see [Story attribution and license](#story-attribution-and-license).
+Copyright 2026 Ivan Lapis (ivan@terrantech.ca).
+
+The game (its code and the `basic` theme) is licensed under the [Apache License, Version 2.0](LICENSE). In short: you may use, modify and redistribute it, commercially or not, provided you include the license and the [`NOTICE`](NOTICE) file with any copy or derivative, mark the files you changed, and keep the copyright and attribution notices. It comes with no warranty.
+
+The Recontinuation story is not covered by the Apache License; see [Story attribution and license](#story-attribution-and-license).

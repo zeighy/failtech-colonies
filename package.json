@@ -19,7 +19,8 @@
     "type": "git",
     "url": "git+https://github.com/zeighy/failtech-colonies.git"
   },
-  "license": "ISC",
+  "license": "Apache-2.0",
+  "author": "Ivan Lapis <ivan@terrantech.ca>",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/zeighy/failtech-colonies/issues"
