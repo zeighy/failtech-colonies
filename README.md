@@ -2,7 +2,7 @@
 
 A browser-based colony management game with a server-authoritative simulation. You are the Territory Commander of a central **Core**. Build outward through five concentric rings, keep a power grid running, turn scrap and bad water into food and parts, climb a production chain, found satellite **districts** and link them with shipments and routes, weather hazards, trade with the convoy and on an order-book exchange, and build a **Beacon** that can reach what is left of the world. After the Beacon an endgame harbour opens, with trade goods, missions and factions. Earn enough standing and the game goes to **orbit**, where every player's station shares the same anomalous territories, orbital market and global projects.
 
-The game ships with a story and a full theme: **Recontinuation** (Earth after the Lapse, run by the surviving Continuity Office) is the default. The rules are separate from the wording and narrative, so the same game can be re-themed by dropping in another folder (see [Themes and story](#themes-and-story)).
+The game ships with a story and a full theme: **Recontinuation** (Earth after the Lapse, run by the surviving Continuity Office) is the default. The rules are separate from the wording and narrative, so the same game can be re-themed by dropping in another folder (see [Themes and story](#themes-and-story)). The Recontinuation story belongs to the FAILTECH story universe by Ivan Lapis and is licensed separately from the game (see [Story attribution and license](#story-attribution-and-license)).
 
 ## How to play
 
@@ -298,6 +298,14 @@ All wording and the whole narrative live in `content/<theme>/`, separate from th
 
 Authoring guide and file formats: [`docs/story.md`](docs/story.md). The checklist for writing another theme: [`docs/content-needs.md`](docs/content-needs.md).
 
+## Story attribution and license
+
+FAILTECH and the world of FAILTECH are part of the FAILTECH story universe and are the copyrighted intellectual property of Ivan Lapis. Learn more at <https://failtech.info>.
+
+The FAILTECH Recontinuation story included in `content/recontinuation/` was created for the game and is licensed alongside the FAILTECH Colonies: Radial Command game. The story license permits deployment of the Recontinuation story as-is, without modification, along with the game. No modification of the Recontinuation story by third parties is permitted under this license without prior authorization. The story is licensed separately from the game itself.
+
+The same notice is kept beside the theme data, in [`content/recontinuation/NOTICE.md`](content/recontinuation/NOTICE.md). To change the wording or the narrative of your own deployment, write a theme of your own in another `content/` folder (see [Themes and story](#themes-and-story)) rather than editing `content/recontinuation/`.
+
 ## License
 
-ISC
+The game (its code and the `basic` theme) is licensed under ISC. The Recontinuation story is not covered by the ISC license; see [Story attribution and license](#story-attribution-and-license).
