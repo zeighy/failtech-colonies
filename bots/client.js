@@ -30,8 +30,11 @@ class BotClient {
 
   info() { return this.req('GET', '/info'); }
   async config() { return this.req('GET', '/config'); }
-  // skip: "colonyId:parkedAt" keys to leave out of the listing (the runner's blacklist)
-  async parked(skip = []) { return (await this.req(skip.length ? 'POST' : 'GET', '/parked', skip.length ? { skip } : undefined)).parked; }
+  // skip: "colonyId:parkedAt" keys to leave out of the listing (the runner's blacklist); since: only colonies parked since (ms)
+  async parked(skip = [], since = 0) {
+    const q = since > 0 ? `?since=${Math.floor(since)}` : '';
+    return (await this.req(skip.length ? 'POST' : 'GET', `/parked${q}`, skip.length ? { skip } : undefined)).parked;
+  }
   async parkedView(colonyId) { return (await this.req('GET', `/parked/${colonyId}`)).state; }
   claim(colonyId, profile) { return this.req('POST', '/claim', { colonyId, profile }); }
   async colonies() { return (await this.req('GET', '/colonies')).colonies; }

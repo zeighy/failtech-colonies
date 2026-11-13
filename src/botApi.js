@@ -96,11 +96,12 @@ function router() {
   r.get('/config', (req, res) => res.type('json').send(cfgJson || (cfgJson = JSON.stringify(config))));
 
   // The listing; POST { skip: ["12:1731400000000", ...] } leaves out colonies the runner has blacklisted (the colony id and
-  // when it was parked, so one parked again later by someone else shows up again).
+  // when it was parked, so one parked again later by someone else shows up again); ?since=<ms> only those parked since then.
   const parked = (req, res) => {
     const b = req.method === 'POST' ? plainBody(req.body) : {};
     const skip = (Array.isArray(b.skip) ? b.skip : []).map(String).filter((k) => /^\d+:\d+$/.test(k)).slice(0, 5000);
-    const list = absence.listParked(Math.min(200, toInt(req.query.limit) || 100), skip).map((p) => {
+    const since = Math.max(0, toInt(req.query.since) || 0);
+    const list = absence.listParked(Math.min(200, toInt(req.query.limit) || 100), skip, since).map((p) => {
       const c = db.prepare('SELECT hub_level, population, status, won FROM colonies WHERE id = ?').get(p.id);
       return { colonyId: p.id, holder: p.username, generated: !!p.generated, bot: false, parkedAt: p.parkedAt, lastActive: p.lastActive, hubLevel: c.hub_level, population: c.population, status: c.status, won: !!c.won };
     });

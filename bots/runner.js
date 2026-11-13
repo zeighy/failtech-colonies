@@ -4,7 +4,7 @@
 // players still has neighbours, trade on the exchange and the orbital market, and stations in orbit.
 //
 // It talks to the game server only through the bot API (src/botApi.js), so it can run on the same machine or another one.
-// Every few minutes it asks for parked colonies; while it runs fewer bots than its limit it looks at each candidate (see
+// Every hour it asks for colonies parked in the last week; while it runs fewer bots than its limit it looks at each candidate (see
 // assess.js), claims the stable ones and gives each a profile (profiles.js), choosing the profile fewest bots are playing.
 // Each bot then takes a turn every few ticks (brain/). A colony that fails, or stays shut down for long, is given back:
 // it parks again for someone else. After BOT_RECHECK_HOURS the runner looks at a given-back colony once more; if it still
@@ -18,7 +18,8 @@
 //   BOT_PROFILES        which profiles to use, comma-separated              default all of them
 //   BOT_CLAIM           'all' parked colonies, or only 'given_up' ones (whose commander chose to start over)   default all
 //   BOT_TURN_TICKS      game ticks between a bot's turns                    default 4 (a minute at 15 s a tick)
-//   BOT_POLL_SECONDS    seconds between looks for parked colonies           default 300
+//   BOT_POLL_SECONDS    seconds between looks for parked colonies           default 3600 (an hour)
+//   BOT_PARKED_DAYS     only colonies parked in the last this many days are candidates (0: any)   default 7
 //   BOT_RECHECK_HOURS   how long a colony judged unsafe, or given back, is left alone   default 24
 //   BOT_STATE_FILE      where the bots' memory is kept between restarts    default ./bots-state.json
 //   BOT_STATUS_PORT     if set, GET /status on this port (bound to 127.0.0.1) shows what every bot is doing
@@ -43,7 +44,8 @@ function settings() {
     profiles: list,
     claim: env('BOT_CLAIM', 'all'),
     turnTicks: Math.max(1, Number(env('BOT_TURN_TICKS', 4))),
-    pollMs: Math.max(10, Number(env('BOT_POLL_SECONDS', 300))) * 1000,
+    pollMs: Math.max(10, Number(env('BOT_POLL_SECONDS', 3600))) * 1000,
+    parkedMs: Math.max(0, Number(env('BOT_PARKED_DAYS', 7))) * 86400000,
     recheckMs: Math.max(0, Number(env('BOT_RECHECK_HOURS', 24))) * 3600000,
     stateFile: path.resolve(env('BOT_STATE_FILE', 'bots-state.json')),
     statusPort: env('BOT_STATUS_PORT', null),
@@ -127,7 +129,10 @@ class Runner {
     const now = Date.now();
     // a colony a bot gave up stays marked when its wait is over: one more look decides whether it is blacklisted
     for (const [id, r] of Object.entries(this.rejected)) if (now - r.at > this.s.recheckMs) { if (r.abandoned) r.due = true; else delete this.rejected[id]; }
-    let parked = await this.client.parked(Object.entries(this.blocked).map(([id, x]) => `${id}:${x.parkedAt}`));
+    // only recently parked colonies (a colony a bot gives back parks afresh, so it counts as recent)
+    const since = this.s.parkedMs > 0 ? now - this.s.parkedMs : 0;
+    for (const [id, x] of Object.entries(this.blocked)) if (x.parkedAt < since) delete this.blocked[id]; // out of the window anyway
+    let parked = await this.client.parked(Object.entries(this.blocked).map(([id, x]) => `${id}:${x.parkedAt}`), since);
     if (this.s.claim === 'given_up') parked = parked.filter((p) => p.generated);
     // colonies nobody will come back for first, then the furthest along (more to sell, sooner)
     parked.sort((a, b) => (b.generated - a.generated) || (b.hubLevel - a.hubLevel) || (a.parkedAt - b.parkedAt));

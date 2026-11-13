@@ -224,6 +224,10 @@ test('a colony a bot gave up is looked at once more after the wait, then blackli
     const key = `${c.id}:${r.blocked[c.id].parkedAt}`;
     assert.ok(!(await bots.parked([key])).some((p) => p.colonyId === c.id));
     assert.ok((await bots.parked()).some((p) => p.colonyId === c.id), 'the plain listing still has it');
+    // only colonies parked since a given time
+    const at = r.blocked[c.id].parkedAt;
+    assert.ok((await bots.parked([], at)).some((p) => p.colonyId === c.id));
+    assert.ok(!(await bots.parked([], at + 1)).some((p) => p.colonyId === c.id));
     // the blacklist survives a restart
     r.save();
     const again = new Runner({ ...r.s }, bots);
