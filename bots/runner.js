@@ -24,13 +24,38 @@
 //   BOT_STATE_FILE      where the bots' memory is kept between restarts    default ./bots-state.json
 //   BOT_STATUS_PORT     if set, GET /status on this port (bound to 127.0.0.1) shows what every bot is doing
 //   BOT_LOG             'quiet' for errors only, 'verbose' for every event  default normal
+//   BOT_TELEMETRY       the telemetry log (JSON lines; 'off' for none)     default ./bots-telemetry.jsonl
+//   BOT_TELEMETRY_LEVEL 'normal', or 'verbose' to add every turn's actions and refusals   default normal
+//   BOT_TELEMETRY_SNAPSHOT_MINUTES   how often each bot's colony is written down       default 60
+//   BOT_TELEMETRY_MAX_MB / BOT_TELEMETRY_KEEP   rotate the log past this size / keep this many old ones   default 20 / 10
+// The telemetry log (bots/telemetry.js) records claims, rejections, milestones, regular snapshots, the issues bots flag
+// (bots/brain/issues.js), and every give-up with its reason and a look at the colony; `npm run bots:report` reads it.
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { BotClient } = require('./client');
 const { assess } = require('./assess');
 const profiles = require('./profiles');
-const { takeTurn } = require('./brain');
+const { takeTurn, summary } = require('./brain');
+const { Telemetry } = require('./telemetry');
+
+// how long a bot has run its colony
+const played = (b) => ({ hours: Math.round((Date.now() - b.claimedAt) / 360000) / 10, ticks: b.mem.firstTick !== undefined && b.mem.lastTick ? b.mem.lastTick - b.mem.firstTick : null });
+const RECENT = 40; // events and refusals kept per bot for a give-up report
+
+// what changed for the better since the last turn: hub levels, districts and their levels, the Beacon, orbit, the station
+function milestones(prev, now) {
+  if (!prev || !now) return [];
+  const out = [];
+  if (now.hub > prev.hub) out.push(`hub level ${now.hub}`);
+  const lv = (s) => Object.fromEntries((s || '').split(' ').filter(Boolean).map((x) => { const m = /^(.*?)(\d+)$/.exec(x); return m ? [m[1], Number(m[2])] : [x, 0]; }));
+  const a = lv(prev.places); const b = lv(now.places);
+  for (const [t, l] of Object.entries(b)) if (a[t] === undefined) out.push(`founded ${t}`); else if (l > a[t]) out.push(`${t} level ${l}`);
+  if (now.won && !prev.won) out.push('the Beacon transmitted');
+  if (now.orbit && !prev.orbit) out.push('orbit opened');
+  if (now.station && !prev.station) out.push('station launched');
+  return out;
+}
 
 const env = (k, d) => (process.env[k] === undefined || process.env[k] === '' ? d : process.env[k]);
 
@@ -50,6 +75,11 @@ function settings() {
     stateFile: path.resolve(env('BOT_STATE_FILE', 'bots-state.json')),
     statusPort: env('BOT_STATUS_PORT', null),
     log: env('BOT_LOG', 'normal'),
+    telemetry: env('BOT_TELEMETRY', 'bots-telemetry.jsonl'),
+    telemetryLevel: env('BOT_TELEMETRY_LEVEL', 'normal'),
+    snapshotMs: Math.max(1, Number(env('BOT_TELEMETRY_SNAPSHOT_MINUTES', 60))) * 60000,
+    telemetryMaxBytes: Math.max(1, Number(env('BOT_TELEMETRY_MAX_MB', 20))) * 1048576,
+    telemetryKeep: Math.max(1, Number(env('BOT_TELEMETRY_KEEP', 10))),
   };
 }
 
@@ -64,8 +94,12 @@ class Runner {
     this.tickMs = 15000;
     this.stopped = false;
     this.lastPoll = 0;
+    this.tel = new Telemetry({ file: s.telemetry || 'off', level: s.telemetryLevel, maxBytes: s.telemetryMaxBytes, keep: s.telemetryKeep, onError: (msg) => this.say('error', msg) });
     this.load();
   }
+
+  // a telemetry entry about one bot
+  log(ev, b, data = {}) { this.tel.write(ev, { bot: b.username, profile: b.profile, colony: b.colonyId, ...data }); }
 
   say(level, msg) {
     if (this.s.log === 'quiet' && level !== 'error') return;
@@ -147,11 +181,13 @@ class Runner {
       if (a.verdict !== 'stable' && prior && prior.abandoned) {
         delete this.rejected[p.colonyId];
         this.blocked[p.colonyId] = { at: now, parkedAt: p.parkedAt, verdict: a.verdict, reasons: a.reasons };
+        this.tel.write('blacklist', { colony: p.colonyId, holder: p.holder, hub: p.hubLevel, parkedAt: p.parkedAt, verdict: a.verdict, score: a.score, reasons: a.reasons });
         this.say('info', `blacklisted colony ${p.colonyId} (${p.holder}, hub ${p.hubLevel}): a bot gave it up and it is still ${a.verdict}${a.reasons.length ? ` - ${a.reasons.join('; ')}` : ''}`);
         continue;
       }
       if (a.verdict !== 'stable') {
         this.rejected[p.colonyId] = { at: now, verdict: a.verdict, reasons: a.reasons };
+        this.tel.write('reject', { colony: p.colonyId, holder: p.holder, generated: p.generated, hub: p.hubLevel, population: p.population, recheck: !!prior, verdict: a.verdict, score: a.score, reasons: a.reasons });
         this.say('info', `left colony ${p.colonyId} (${p.holder}, hub ${p.hubLevel}) alone: ${a.verdict}${a.reasons.length ? ` - ${a.reasons.join('; ')}` : ''}`);
         continue;
       }
@@ -160,6 +196,7 @@ class Runner {
       const r = await this.client.claim(p.colonyId, profile);
       if (!r || !r.ok) { this.say('info', `could not claim colony ${p.colonyId}: ${(r && r.error) || 'refused'}`); continue; }
       this.bots.set(r.userId, { userId: r.userId, username: r.username, profile, colonyId: p.colonyId, mem: { seed: r.userId }, claimedAt: Date.now(), errors: 0, last: null });
+      this.log('claim', this.bots.get(r.userId), { holder: p.holder, generated: p.generated, reclaim: !!prior, assessment: a, colonyState: summary(view) });
       this.say('info', `claimed colony ${p.colonyId} (hub ${p.hubLevel}, score ${a.score}) as ${r.username}, playing ${profiles.get(profile).name}`);
     }
     this.save();
@@ -170,6 +207,7 @@ class Runner {
     try { await this.client.release(b.userId); } catch (e) { this.say('error', `release of ${b.username} failed: ${e.message}`); return; }
     this.bots.delete(b.userId);
     this.rejected[b.colonyId] = { at: Date.now(), verdict: 'released', reasons: [why], ...(abandoned ? { abandoned: true } : {}) };
+    if (!abandoned) this.log('release', b, { why, played: played(b) });
     this.say('info', `${b.username} gave colony ${b.colonyId} back (${why})`);
   }
 
@@ -180,13 +218,18 @@ class Runner {
       const out = await takeTurn({ config: this.config, api: this.client.forBot(b.userId), profile: P, mem: b.mem });
       b.errors = 0;
       b.last = { at: Date.now(), ...out.summary, actions: out.actions, verdict: out.verdict };
-      if (out.verdict === 'give_up') return this.release(b, 'the colony failed or stayed shut down', true);
-      if (out.verdict === 'gone') { this.bots.delete(b.userId); return null; }
+      this.record(b, out);
+      if (out.verdict === 'give_up') {
+        this.log('give_up', b, { ...out.postmortem, played: played(b), lastSnapshot: b.mem.lastSnapshot || null, final: out.summary, recentEvents: b.recent || [], recentRefusals: b.recentRefusals || [] });
+        return this.release(b, out.postmortem.detail, true);
+      }
+      if (out.verdict === 'gone') { this.log('gone', b, { played: played(b) }); this.bots.delete(b.userId); return null; }
       for (const e of out.events) this.say('debug', `${b.username}: ${e}`);
       if (out.events.length && this.s.log !== 'verbose') this.say('info', `${b.username} (${b.profile}): ${out.events.slice(0, 4).join('; ')}${out.events.length > 4 ? '...' : ''}`);
       for (const f of out.failures) this.say('debug', `${b.username} refused: ${f}`);
     } catch (e) {
       b.errors++;
+      this.log('error', b, { where: 'turn', message: e.message, status: e.status || null, stack: String(e.stack || '').split('\n').slice(1, 5).map((x) => x.trim()), errorsInARow: b.errors });
       this.say('error', `${b.username} turn failed: ${e.message}`);
       if (e.status === 404) this.bots.delete(b.userId); // the server no longer knows this bot
     }
@@ -200,11 +243,33 @@ class Runner {
     await this.poll();
     while (!this.stopped) {
       const started = Date.now();
-      if (Date.now() - this.lastPoll >= this.s.pollMs) { try { await this.poll(); } catch (e) { this.say('error', `poll failed: ${e.message}`); } }
+      if (Date.now() - this.lastPoll >= this.s.pollMs) { try { await this.poll(); } catch (e) { this.tel.write('error', { where: 'poll', message: e.message }); this.say('error', `poll failed: ${e.message}`); } }
       for (const b of [...this.bots.values()]) { if (this.stopped) break; await this.turn(b); }
       this.save();
       const wait = Math.max(1000, this.s.turnTicks * this.tickMs - (Date.now() - started));
       await new Promise((r) => { this.wake = r; this.timer = setTimeout(r, wait); });
+    }
+  }
+
+  // telemetry for one turn: milestones, flagged issues, a snapshot now and then, and (verbose) the turn itself
+  record(b, out) {
+    const mem = b.mem;
+    const s = out.summary;
+    if (s && mem.firstTick === undefined) mem.firstTick = s.tick;
+    const tick = s ? s.tick : null;
+    b.recent = (b.recent || []).concat(out.events.map((e) => ({ tick, e }))).slice(-RECENT);
+    b.recentRefusals = (b.recentRefusals || []).concat(out.failures.map((f) => ({ tick, f }))).slice(-RECENT);
+    if (s) {
+      for (const m of milestones(mem.seen, s)) this.log('milestone', b, { tick, what: m, hub: s.hub, places: s.places, pop: s.pop });
+      mem.seen = { hub: s.hub, places: s.places, won: s.won, orbit: s.orbit, station: s.station };
+    }
+    for (const x of out.issues.raised) { this.log('issue', b, { tick, ...x }); this.say('info', `${b.username} flagged ${x.code}`); }
+    for (const x of out.issues.cleared) this.log('issue_cleared', b, { tick, ...x });
+    if (this.tel.verbose) this.log('turn', b, { tick, actions: out.actions, events: out.events, refusals: out.failures });
+    if (s && out.verdict === 'play' && Date.now() - (mem.snapshotAt || 0) >= (this.s.snapshotMs || 3600000)) {
+      mem.snapshotAt = Date.now();
+      mem.lastSnapshot = { ...s, at: new Date().toISOString() };
+      this.log('snapshot', b, { ...s, plans: out.brief, open: out.issues.open.map((x) => x.code), played: played(b) });
     }
   }
 
@@ -224,6 +289,7 @@ async function main() {
   const s = settings();
   if (!s.key || s.key.length < 16) { console.error('BOT_API_KEY must be set (at least 16 characters), the same key the game server was started with.'); process.exit(2); }
   const runner = new Runner(s);
+  runner.tel.write('start', { server: s.server, limit: s.limit, profiles: s.profiles, claim: s.claim, turnTicks: s.turnTicks, pollSeconds: s.pollMs / 1000, parkedDays: s.parkedMs / 86400000, recheckHours: s.recheckMs / 3600000, level: s.telemetryLevel });
   if (s.statusPort) {
     http.createServer((req, res) => {
       if (req.url === '/status') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(runner.status(), null, 1)); return; }

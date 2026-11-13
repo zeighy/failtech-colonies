@@ -12,19 +12,45 @@ const { Orbit } = require('./orbit');
 const { Trade } = require('./trade');
 const { Reorg } = require('./reorg');
 const { Supply } = require('./supply');
+const issues = require('./issues');
+const { assess } = require('../assess');
 
 function rngFrom(seed) { // mulberry32: decisions vary between bots, and are repeatable in tests
   let a = seed >>> 0;
   return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
+const GIVE_UP_SHUTDOWN_TICKS = 2880; // shut down for half a day of play
+
 // What the bot should do with a colony it runs: play on, or give it up (it has failed, or has stayed shut down too long).
-function verdict(v, mem) {
-  if (!v || v.lost) return 'gone';
-  if (v.colony.status !== 'active') return 'give_up';
-  if (v.colony.shutdown && v.colony.shutdown.ticks > 2880) return 'give_up'; // shut down for half a day of play
-  void mem;
-  return 'play';
+function verdict(v) { return judge(v).verdict; }
+function judge(v) {
+  if (!v || v.lost) return { verdict: 'gone', reason: 'lost', detail: 'the server no longer has this colony for the bot' };
+  const c = v.colony;
+  if (c.status !== 'active') return { verdict: 'give_up', reason: `status_${c.status}`, detail: `the colony's status is ${c.status}` };
+  if (c.shutdown && c.shutdown.ticks > GIVE_UP_SHUTDOWN_TICKS) return { verdict: 'give_up', reason: 'shutdown_too_long', detail: `shut down for ${c.shutdown.ticks} ticks (limit ${GIVE_UP_SHUTDOWN_TICKS})` };
+  return { verdict: 'play', reason: null, detail: null };
+}
+
+// What the bot knew about its colony when it gave up, for the telemetry log: the takeover assessment run on it, the
+// issues it had open, and its plans.
+function postmortem(v, config, mem) {
+  return {
+    reason: null,
+    assessment: v && v.colony ? assess(v, config) : null,
+    state: v && v.colony ? { status: v.colony.status, failures: v.colony.failures, shutdown: v.colony.shutdown || null, starving: v.colony.starving || [], population: v.colony.population, morale: Math.round(v.colony.morale || 0) } : null,
+    doom: v && v.doom ? v.doom : null,
+    openIssues: Object.entries(mem.issues || {}).filter(([, x]) => x.raised).map(([code, x]) => ({ code, since: x.since, detail: x.detail })),
+    plans: brief(mem),
+  };
+}
+
+// The parts of the bot's memory that explain what it was doing (kept small for the log).
+function brief(mem) {
+  return {
+    selling: mem.selling || [], launchSaving: !!mem.launchSaving, launchShort: mem.launchSaving ? mem.launchShort || {} : {},
+    paused: ((mem.supply || {}).paused || []).length, trade: mem.trade || null,
+  };
 }
 
 async function takeTurn({ config, api, profile, mem, log = () => {}, maxActions = 40 }) {
@@ -34,8 +60,13 @@ async function takeTurn({ config, api, profile, mem, log = () => {}, maxActions 
   mem.rngState = (mem.rngState || 0) + 1;
   const rng = rngFrom((mem.seed || 1) * 7919 + mem.rngState);
   mem.cadence = mem.lastTick ? Math.max(1, m.tick - mem.lastTick) : 4;
-  const out = { verdict: verdict(m.v, mem), actions: 0, failures: [], events: mem.events };
-  if (out.verdict !== 'play') return out;
+  const j = judge(m.v);
+  const out = { verdict: j.verdict, reason: j.reason, actions: 0, failures: [], events: mem.events, issues: { raised: [], cleared: [], open: [] } };
+  if (out.verdict !== 'play') {
+    out.summary = m.v && m.v.colony ? summary(m.v) : null;
+    out.postmortem = { ...postmortem(m.v, config, mem), reason: j.reason, detail: j.detail };
+    return out;
+  }
   const G = new Ground(m, mem, profile);
   // a shutdown that has lifted leaves its buildings parked until someone switches them back on
   if (!m.colony.shutdown && m.colony.parked > 0) await m.act('resume');
@@ -54,7 +85,9 @@ async function takeTurn({ config, api, profile, mem, log = () => {}, maxActions 
     out.actions = m.acted;
     out.failures = m.failures;
     out.summary = summary(m.v);
+    out.brief = brief(mem);
   }
+  out.issues = issues.track(m, mem, out);
   return out;
 }
 
@@ -69,4 +102,4 @@ function summary(v) {
   };
 }
 
-module.exports = { takeTurn, verdict, summary, rngFrom };
+module.exports = { takeTurn, verdict, judge, summary, brief, postmortem, rngFrom };

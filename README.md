@@ -139,7 +139,7 @@ src/security.js    Headers, same-origin check, rate limits, login throttle      
 src/db.js          Schema (v18) and migrations, session store, colony helpers
 game_config.json   All balance data (no wording that a theme replaces matters here; ids are stable)
 content/           One folder per theme: theme.json (wording), story.json (narrative), assets/ (portraits, backgrounds)
-scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md), playtest.js and playtest-orbit.js (scripted players for tuning, see below), botplay.js (the bots in-process)
+scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md), playtest.js and playtest-orbit.js (scripted players for tuning, see below), botplay.js (the bots in-process), bots-report.js (sums up the bot runner's telemetry log)
 bots/              the bot runner: runner.js (claims and schedules), client.js, assess.js (takeover check), profiles.js, brain/ (ground, endgame, orbit, trade, reorg)
 public/            index.html (login), game.html (desk layout), mobile.html (phone layout), css/ (style.css, mobile.css), js/ (game.js, orbit.js for the Orbital Command view)
 docs/              districts.md (district system, exchange, Free Port, roadmap), orbital.md (orbit endgame), story.md (theme and story format), security.md, content-needs.md
@@ -216,6 +216,22 @@ Every profile's main objective is to **sell on the orbital market**. They differ
 | `BOT_STATE_FILE` | `./bots-state.json` | The bots' memory across restarts (they play on without it) |
 | `BOT_STATUS_PORT` | off | `GET /status` on 127.0.0.1 shows every bot's colony, last turn and trading |
 | `BOT_LOG` | normal | `quiet` or `verbose` |
+| `BOT_TELEMETRY` | `./bots-telemetry.jsonl` | The telemetry log (`off` for none) |
+| `BOT_TELEMETRY_LEVEL` | `normal` | `verbose` also writes every turn's actions and refusals |
+| `BOT_TELEMETRY_SNAPSHOT_MINUTES` | `60` | How often each bot's colony is written down |
+| `BOT_TELEMETRY_MAX_MB` / `BOT_TELEMETRY_KEEP` | `20` / `10` | Rotate the log past this size, keeping this many old files |
+
+**Telemetry.** The runner keeps a log, one JSON object per line, so how the bots played over weeks can be read back and their logic adjusted. It records:
+- colonies claimed and turned down, with the assessment;
+- milestones (hub levels, districts, the Beacon, orbit, the station);
+- an hourly snapshot of each colony (where it stands, trade totals, what the bot is saving for);
+- turn errors;
+- the **issues bots flag** about their own play. An issue is written when it starts, once it has lasted its grace period, and again when it clears, with how long it lasted. The codes: `at_risk` (the takeover check run on its own colony no longer says stable), `shutdown`, `collapse_clock`, `starving`, `power_short`, `morale_low`, `people_leaving`, `credits_low`, `stalled` (a day without growth or a sale), `no_orbital_sales` (a station and nothing sold for a day), `launch_short` (saving for a launch for a day), `repeated_refusal` (the same action refused turn after turn, with the server's reason), `cannot_afford`, `wanted_no_room` and `capped_paused`;
+- every **give-up**: the reason (`status_failed`, `shutdown_too_long`...), the takeover check run on the colony at that moment, the issues still open, what it was saving for and selling, its last 40 events and refusals, its last snapshot, and how long it played.
+
+`npm run bots:report` sums the log up per bot and across bots: most frequent issues, refusals that kept repeating, why colonies were turned down. Add `-- --days 7` for the last week, `-- --bot <name>` for one bot's entries, or `-- --ev give_up` for one kind of entry as JSON lines.
+
+A bot's colony is only tended while the runner runs. If the game server keeps going while the runner is down, bot colonies play on unattended, so keep the runner up alongside the server.
 
 `npm run botplay -- --profiles broker,porter --ticks 6000` plays the same bot brain in-process on a throwaway world, several bots sharing it, and prints their milestones and trading.
 

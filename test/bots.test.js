@@ -196,11 +196,13 @@ test('a colony a bot gave up is looked at once more after the wait, then blackli
   for (const p of await bots.parked()) db.prepare('UPDATE colonies SET parked_at = NULL, last_active_at = ? WHERE id = ?').run(Date.now(), p.colonyId);
   const c = park(player(1));
   const stateFile = path.join(dir, 'bots-blacklist.json');
-  const r = new Runner({ server: base, key: KEY, limit: 1, profiles: ['steward'], claim: 'all', turnTicks: 4, pollMs: 1e9, recheckMs: 1e9, stateFile, log: 'quiet' }, bots);
+  const telemetry = path.join(dir, 'bots-telemetry.jsonl');
+  const r = new Runner({ server: base, key: KEY, limit: 1, profiles: ['steward'], claim: 'all', turnTicks: 4, pollMs: 1e9, recheckMs: 1e9, stateFile, log: 'quiet', telemetry, snapshotMs: 1 }, bots);
   r.config = config;
   await r.poll();
   const [b] = [...r.bots.values()];
   assert.equal(b.colonyId, c.id);
+  await r.turn(b); // a turn played: a snapshot is written
   // the colony fails under the bot: it is given back and left alone for the wait
   db.prepare("UPDATE colonies SET status = 'failed' WHERE id = ?").run(c.id);
   await r.turn(b);
@@ -241,6 +243,49 @@ test('a colony a bot gave up is looked at once more after the wait, then blackli
     assert.equal(again.rejected[c.id].verdict, 'collapsing');
     assert.ok(!again.rejected[c.id].abandoned);
   } finally { bots.parkedView = view; }
+  // the telemetry log tells the story, with the reason it gave up and a look at the colony then
+  const log = fs.readFileSync(telemetry, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  const evs = log.map((x) => x.ev);
+  for (const ev of ['claim', 'snapshot', 'give_up', 'blacklist', 'reject']) assert.ok(evs.includes(ev), `${ev} in ${evs}`);
+  const gu = log.find((x) => x.ev === 'give_up');
+  assert.equal(gu.colony, c.id);
+  assert.equal(gu.reason, 'status_failed');
+  assert.equal(gu.assessment.verdict, 'collapsing');
+  assert.ok(gu.played && gu.lastSnapshot && Array.isArray(gu.recentEvents), JSON.stringify(gu));
+  assert.equal(log.find((x) => x.ev === 'claim').assessment.verdict, 'stable');
+  // and the report reads it
+  const rep = require('child_process').execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'bots-report.js'), '--file', telemetry], { encoding: 'utf8' });
+  assert.match(rep, /GAVE UP/);
+  assert.match(rep, /check at give-up: collapsing/);
+});
+
+test('bots flag issues once they have lasted, and clear them when they stop', () => {
+  const issues = require('../bots/brain/issues');
+  const uid = player();
+  const v = viewFor(uid);
+  const m = { v, config };
+  const mem = {};
+  let t = issues.track(m, mem, { failures: [] });
+  assert.deepEqual(t.raised, []);
+  // shut down: raised at once; refused the same way turn after turn: raised after 30 turns
+  m.v = { ...v, colony: { ...v.colony, shutdown: { ticks: 10 } } };
+  for (let i = 0; i < 30; i++) {
+    m.v = { ...m.v, tick: v.tick + i };
+    t = issues.track(m, mem, { failures: ['build: Not enough steel (have 3, need 40).'] });
+    if (i === 0) assert.ok(t.raised.some((x) => x.code === 'shutdown'), JSON.stringify(t));
+  }
+  assert.ok(t.raised.some((x) => x.code === 'repeated_refusal'), JSON.stringify(t));
+  assert.ok(t.open.some((x) => x.code === 'shutdown'));
+  // back to normal: both cleared, with how long they lasted
+  m.v = { ...v, tick: v.tick + 31 };
+  t = issues.track(m, mem, { failures: [] });
+  assert.ok(t.cleared.some((x) => x.code === 'shutdown' && x.ticks === 31), JSON.stringify(t.cleared));
+  assert.ok(t.open.some((x) => x.code === 'repeated_refusal'), 'a refusal stays flagged a little while after the last one');
+  // a day on: the refusal is long gone, and a day without progress is a stall
+  m.v = { ...v, tick: v.tick + 31 + 24 * 240 };
+  t = issues.track(m, mem, { failures: [] });
+  assert.ok(t.cleared.some((x) => x.code === 'repeated_refusal'), JSON.stringify(t.cleared));
+  assert.ok(t.raised.some((x) => x.code === 'stalled'), JSON.stringify(t.raised));
 });
 
 test('every profile sells something in orbit and has its own temper', () => {

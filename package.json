@@ -12,7 +12,8 @@
     "playtest": "node scripts/playtest.js",
     "playtest:orbit": "node scripts/playtest-orbit.js",
     "bots": "node bots/runner.js",
-    "botplay": "node scripts/botplay.js"
+    "botplay": "node scripts/botplay.js",
+    "bots:report": "node scripts/bots-report.js"
   },
   "repository": {
     "type": "git",
