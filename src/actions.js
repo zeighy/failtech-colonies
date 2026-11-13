@@ -12,6 +12,7 @@ const credits = require('./credits');
 const queue = require('./queue');
 const requisitions = require('./requisitions');
 const settlements = require('./settlements');
+const minigames = require('./minigames');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
 const { db, config } = store;
@@ -548,6 +549,10 @@ const shipPlan = guarded((c, args) => territories.setPlan(c, args));
 const shipReturn = guarded((c, args) => territories.returnShip(c, args, tickNow()));
 const dataUnlock = guarded((c, args) => territories.unlockPacket(c, args || {}));
 const shipBuild = guarded((c) => territories.buildShip(c, tickNow()));
+// Trace recovery (minigames.js): start a play, make a move in it, or give it up.
+const minigameStart = guarded((c, args) => minigames.start(c, args, Date.now(), tickNow()));
+const minigameMove = guarded((c, args) => minigames.move(c, args, Date.now(), tickNow()));
+const minigameQuit = guarded((c, args) => minigames.quit(c, args, Date.now(), tickNow()));
 const shipUpgrade = guarded((c, args) => territories.upgradeShip(c, args));
 const shipRepair = guarded((c, args) => territories.repairShip(c, args));
 const projectContribute = guarded((c, args) => projects.contribute(c, args, tickNow()));
@@ -587,4 +592,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { settlementSponsor, settlementCommit, settlementGive, settlementAnswer, settlementDrop, settlementReserve, buildSlot, requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { minigameStart, minigameMove, minigameQuit, settlementSponsor, settlementCommit, settlementGive, settlementAnswer, settlementDrop, settlementReserve, buildSlot, requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

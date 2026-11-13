@@ -28,8 +28,9 @@ const { viewFor } = require('./state');
 const { db, config } = store;
 
 const ACTIONS = new Map(ACTION_ROUTES);
-// Actions a bot never takes: wiping the colony is not a bot's call (a failed colony is released instead).
-const REFUSED = new Set(['reset', 'restart']);
+// Actions a bot never takes: wiping the colony is not a bot's call (a failed colony is released instead), and trace
+// recovery is for players (the fragments it earns only unlock lore).
+const REFUSED = new Set(['reset', 'restart', 'minigame-start', 'minigame-move', 'minigame-quit']);
 const PROFILE = /^[a-z][a-z0-9_]{1,23}$/;
 
 const key = () => process.env.BOT_API_KEY || '';

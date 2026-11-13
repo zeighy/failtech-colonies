@@ -701,6 +701,7 @@
     var h = '<div class="p-title"><h3>Data</h3><span class="dim" style="margin-left:auto">' + D.total + ' fragment' + (D.total === 1 ? '' : 's') + ' recovered in all</span></div>' +
       '<div class="data-bal"><div><span class="label">Fragments</span><b class="num">' + D.fragments + '</b></div><div class="grow"><span class="label">Next fragment</span><div class="meter wide"><i style="width:' + (D.successes / D.perFragment * 100).toFixed(0) + '%;background:var(--cyan)"></i></div>' +
       '<small class="dim">' + D.successes + ' of ' + D.perFragment + ' successful attempts. An attempt takes ' + D.attemptTicks + ' ticks and about ' + Math.round(D.successChance * 100) + '% of them find something.</small></div></div>';
+    if (window.Mini) h += window.Mini.section();
     h += '<div class="sheet-h">Recovery rigs</div>';
     h += rigs.length ? rigs.map(function (x) {
       var st = STATUS[x.b.status] || STATUS.running;
@@ -2731,6 +2732,7 @@
     S: function () { return S; }, CFG: function () { return CFG; }, act: act, esc: esc, fmt: fmt, icon: icon, pill: pill, toast: toast,
     brokerage: brokerNote, enter: function (id) { enter(id); }, enterOrbit: enterOrbit, activeD: activeD, redraw: function () { if (S) { lastPanel = ''; lastSheet = ''; renderPanel(); } }
   });
+  if (window.Mini) window.Mini.init({ S: function () { return S; }, act: act, esc: esc, icon: icon, toast: toast, now: function () { return Date.now() + offset; } });
   window.Story.init({ api: api, esc: esc, icon: icon, toast: toast, compact: function () { return MOBILE || !!ws; }, changed: function () { if (S) { renderTop(); renderPanel(); renderPop(); renderMessages(); renderDrawer(); } } });
   // The server guesses the layout from what the browser says it is. If the real screen disagrees and the player has not
   // chosen for themselves, switch once (a narrow window gets the phone layout, a wide one with a mouse the desk layout).

@@ -11,6 +11,7 @@ const story = require('./story');
 const shutdown = require('./shutdown');
 const orbital = require('./orbital');
 const territories = require('./territories');
+const minigames = require('./minigames');
 const credits = require('./credits');
 const queue = require('./queue');
 const requisitions = require('./requisitions');
@@ -373,6 +374,7 @@ function viewFor(userId, now = Date.now()) {
   view.requisitions = requisitions.view(c, t.globalTick);
   view.settlements = settlements.view(c, t.globalTick, proj.inventory, proj.cap);
   view.data = territories.dataView(c);
+  view.minigame = minigames.view(c);
   view.economy = credits.view(c.id, c.hub_level, t.globalTick);
   view.orbital = orbital.view(c, t.globalTick, { flows: Object.fromEntries(routeFlows.map((f) => [f.route.id, f.qty])) });
   if (view.orbital.station) {
