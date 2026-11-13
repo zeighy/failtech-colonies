@@ -10,13 +10,17 @@
     "check-content": "node scripts/check-content.js",
     "guide": "node scripts/gen-prod-guide.js",
     "playtest": "node scripts/playtest.js",
-    "playtest:orbit": "node scripts/playtest-orbit.js"
+    "playtest:orbit": "node scripts/playtest-orbit.js",
+    "bots": "node bots/runner.js",
+    "botplay": "node scripts/botplay.js",
+    "bots:report": "node scripts/bots-report.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zeighy/failtech-colonies.git"
   },
-  "license": "ISC",
+  "license": "Apache-2.0",
+  "author": "Ivan Lapis <ivan@terrantech.ca>",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/zeighy/failtech-colonies/issues"

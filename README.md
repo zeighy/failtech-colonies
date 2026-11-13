@@ -2,7 +2,7 @@
 
 A browser-based colony management game with a server-authoritative simulation. You are the Territory Commander of a central **Core**. Build outward through five concentric rings, keep a power grid running, turn scrap and bad water into food and parts, climb a production chain, found satellite **districts** and link them with shipments and routes, weather hazards, trade with the convoy and on an order-book exchange, and build a **Beacon** that can reach what is left of the world. After the Beacon an endgame harbour opens, with trade goods, missions and factions. Earn enough standing and the game goes to **orbit**, where every player's station shares the same anomalous territories, orbital market and global projects.
 
-The game ships with a story and a full theme: **Recontinuation** (Earth after the Lapse, run by the surviving Continuity Office) is the default. The rules are separate from the wording and narrative, so the same game can be re-themed by dropping in another folder (see [Themes and story](#themes-and-story)).
+The game ships with a story and a full theme: **Recontinuation** (Earth after the Lapse, run by the surviving Continuity Office) is the default. The rules are separate from the wording and narrative, so the same game can be re-themed by dropping in another folder (see [Themes and story](#themes-and-story)). The Recontinuation story belongs to the FAILTECH story universe by Ivan Lapis and is licensed separately from the game (see [Story attribution and license](#story-attribution-and-license)).
 
 ## How to play
 
@@ -120,6 +120,7 @@ server.js          Express app: auth, JSON API, SSE stream, security, graceful s
 src/sim.js         Pure simulation (no DB, no clock): stepDistrict(), stepColony(), step(), runConvoy(), routes, adjacency, plots
 src/engine.js      Tick loop + offline catch-up; applies sim and hazards to the database
 src/absence.js     Commanders who stop playing: when a colony stops being simulated, parking, retake, start over, claim
+src/botApi.js      The bot API (/api/bot, key-protected): parked colonies, claim, a bot's state and actions, release        src/routes.js  every game action route
 src/actions.js     Validated, transactional player actions (build, replace, upgrade, expand, found, ship, route, trade, shields, missions, ...)
 src/queue.js       The work queue: one build slot per place, strict order, paid for when an order starts; replace in place
 src/state.js       Builds the view the client renders (dry-run tick for live rates, market forecast, story state)
@@ -138,7 +139,8 @@ src/security.js    Headers, same-origin check, rate limits, login throttle      
 src/db.js          Schema (v18) and migrations, session store, colony helpers
 game_config.json   All balance data (no wording that a theme replaces matters here; ids are stable)
 content/           One folder per theme: theme.json (wording), story.json (narrative), assets/ (portraits, backgrounds)
-scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md), playtest.js and playtest-orbit.js (scripted players for tuning, see below)
+scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md), playtest.js and playtest-orbit.js (scripted players for tuning, see below), botplay.js (the bots in-process), bots-report.js (sums up the bot runner's telemetry log)
+bots/              the bot runner: runner.js (claims and schedules), client.js, assess.js (takeover check), profiles.js, brain/ (ground, endgame, orbit, trade, reorg)
 public/            index.html (login), game.html (desk layout), mobile.html (phone layout), css/ (style.css, mobile.css), js/ (game.js, orbit.js for the Orbital Command view)
 docs/              districts.md (district system, exchange, Free Port, roadmap), orbital.md (orbit endgame), story.md (theme and story format), security.md, content-needs.md
 test/              node:test suites: simulation, balance guard, hazards, express convoy, districts and migration, exchange, Free Port, orbit, expansion and growth, shutdown, backups, story and themes, security, HTTP API
@@ -170,10 +172,68 @@ npm start                 # http://localhost:3000
 | `BACKUP_INTERVAL_HOURS` | `6` | Automatic database backups; `0` turns them off |
 | `BACKUP_KEEP` | `28` | How many backups to keep |
 | `BACKUP_DIR` | `backups/` beside the database | Where backups go (owner-only) |
+| `BOT_API_KEY` | none (bot API off) | Shared key for the bot runner (at least 16 characters). Unset, `/api/bot` answers 404. |
+| `BOT_API_RATE_LIMIT` | `1500` | Bot API requests per 10 seconds, all bots together |
 
 **Backups.** The server copies the database every few hours (a consistent snapshot taken while the game runs) into `backups/`, keeping the newest 28. To restore: stop the server, copy a backup over the database file, delete its `-wal` and `-shm` files, start the server. Backups contain password hashes, so the folder is owner-only like the database.
 
 **Upgrading:** schema v4 changed ring sizes and the economy, so existing colonies are dropped on first start (accounts are kept and colonies are re-founded at next login).
+
+### Bots for small worlds
+
+A world with few players can run **bots** on parked colonies, so there are still neighbours trading on the exchange and the orbital market. The bot runner is a separate process that talks to the game server only through a key-protected bot API, so it can run on the same machine or another.
+
+```bash
+BOT_API_KEY=some-long-random-key npm start                                 # the game server, with the bot API on
+BOT_API_KEY=some-long-random-key BOT_SERVER=http://127.0.0.1:3000 npm run bots   # the runner
+```
+
+Every hour the runner asks for colonies parked in the last 7 days (`BOT_POLL_SECONDS`, `BOT_PARKED_DAYS`); older ones are not considered, so a long list of long-abandoned colonies costs nothing. While it runs fewer than `BOT_LIMIT` (default 5) it looks at each candidate and **leaves alone any colony already on its way to collapse** (shut down, starving, a collapse clock it has neither the stock, the plots nor the time to stop, power or crews far short). It claims the stable ones, colonies whose commander chose to start over first. Each claim makes a bot account with a random callsign nobody can sign in to. If the colony belonged to a real player who simply went away, they are told it was claimed, as for any claim. Each bot takes a turn every few ticks through the same actions a player has. It keeps the colony fed, watered, powered and housed before anything else, grows it from whatever stage it was left at (the plans count what is already standing), wires the districts together, builds the Beacon, then the Free Port, earns standing with missions, builds the launch chain and goes to orbit. It **reorganises** a colony someone else laid out, replacing surplus or idle buildings in place when something it needs has no plot (two side-by-side Colossal plots for the launch pads included). In orbit it runs the station's reactor and foundry, sends dropships to the anomalous territories for rare resources, and **jettisons** orbital storage slots holding what it no longer needs. A colony that fails or stays shut down for long is given back: it parks again for someone else. After `BOT_RECHECK_HOURS` the runner looks at it once more; if it still isn't fit to take over, it goes on a **pickup blacklist** and is never looked at again (the game server leaves it out of the runner's listing). The exception is a colony someone else takes up and that parks again later: it counts as a new candidate. The blacklist is kept in the state file (`blocked`); delete an entry to undo it.
+
+Bots let go of any settlements they inherit (those are for players) and never sponsor new ones. Some profiles give to the **global projects** (below); stations run by bots are not counted when a project's size is set, so projects stay sized for the people playing and anything bots deliver is help on top. Bots also prepare for forecast hazards: they bring in the stock the Brief asks for and raise the Free Port's shield when they hold its goods.
+
+Every profile's main objective is to **sell on the orbital market**. They differ in temper:
+
+| Profile | Plays |
+| --- | --- |
+| `broker` (Foundry Broker) | Pushes for orbit and the foundry, and sells orbital goods (lattice cores, null alloy...) in small lots at a price drawn fresh for each order between **20% under and 20% over** the market maker's reference. Buys small lots of foundry inputs. |
+| `porter` (Port Trader) | A busy Free Port; keeps the **ground exchange** moving with sells and small buys of trade goods and surplus. In orbit, sells trade goods just under the best ask, and sends some to the global project. |
+| `steward` (Steward) | Deep food and water reserves, slow and safe growth; gives everything its foundry makes to the global project, and sells spare trade goods at the reference price. |
+| `industrialist` (Industrialist) | Builds big, takes every alternative recipe, fills requisitions; gives half its orbital goods to the global project and sells whatever it makes most of. |
+| `scavenger` (Scavenger) | Lean; picks up cheap asks in small lots and sells orbital and trade goods near the reference. |
+
+| Runner variable | Default | Purpose |
+| --- | --- | --- |
+| `BOT_SERVER` | `http://127.0.0.1:3000` | The game server |
+| `BOT_API_KEY` | required | The same key the server was started with |
+| `BOT_LIMIT` | `5` | Most colonies run by bots at once (lowering it gives the newest back) |
+| `BOT_PROFILES` | all five | Which profiles to hand out (the least used goes to each new claim) |
+| `BOT_CLAIM` | `all` | `given_up` claims only colonies whose commander chose to start over |
+| `BOT_TURN_TICKS` | `4` | Ticks between a bot's turns |
+| `BOT_POLL_SECONDS` | `3600` | How often it looks for parked colonies (bots take their turns in between regardless) |
+| `BOT_PARKED_DAYS` | `7` | Only colonies parked within this many days are candidates (`0`: any; a colony a bot gives back parks afresh) |
+| `BOT_RECHECK_HOURS` | `24` | How long a colony judged unsafe (or given back) is left alone; a given-back colony still unfit after that is blacklisted |
+| `BOT_STATE_FILE` | `./bots-state.json` | The bots' memory across restarts (they play on without it) |
+| `BOT_STATUS_PORT` | off | `GET /status` on 127.0.0.1 shows every bot's colony, last turn and trading |
+| `BOT_LOG` | normal | `quiet` or `verbose` |
+| `BOT_TELEMETRY` | `./bots-telemetry.jsonl` | The telemetry log (`off` for none) |
+| `BOT_TELEMETRY_LEVEL` | `normal` | `verbose` also writes every turn's actions and refusals |
+| `BOT_TELEMETRY_SNAPSHOT_MINUTES` | `60` | How often each bot's colony is written down |
+| `BOT_TELEMETRY_MAX_MB` / `BOT_TELEMETRY_KEEP` | `20` / `10` | Rotate the log past this size, keeping this many old files |
+
+**Telemetry.** The runner keeps a log, one JSON object per line, so how the bots played over weeks can be read back and their logic adjusted. It records:
+- colonies claimed and turned down, with the assessment;
+- milestones (hub levels, districts, the Beacon, orbit, the station);
+- an hourly snapshot of each colony (where it stands, trade totals, what the bot is saving for);
+- turn errors;
+- the **issues bots flag** about their own play. An issue is written when it starts, once it has lasted its grace period, and again when it clears, with how long it lasted. The codes: `at_risk` (the takeover check run on its own colony no longer says stable), `shutdown`, `collapse_clock`, `starving`, `power_short`, `morale_low`, `people_leaving`, `credits_low`, `stalled` (a day without growth or a sale), `no_orbital_sales` (a station and nothing sold for a day), `launch_short` (saving for a launch for a day), `repeated_refusal` (the same action refused turn after turn, with the server's reason), `cannot_afford`, `wanted_no_room` and `capped_paused`;
+- every **give-up**: the reason (`status_failed`, `shutdown_too_long`...), the takeover check run on the colony at that moment, the issues still open, what it was saving for and selling, its last 40 events and refusals, its last snapshot, and how long it played.
+
+`npm run bots:report` sums the log up per bot and across bots: most frequent issues, refusals that kept repeating, why colonies were turned down. Add `-- --days 7` for the last week, `-- --bot <name>` for one bot's entries, or `-- --ev give_up` for one kind of entry as JSON lines.
+
+A bot's colony is only tended while the runner runs. If the game server keeps going while the runner is down, bot colonies play on unattended, so keep the runner up alongside the server.
+
+`npm run botplay -- --profiles broker,porter --ticks 6000` plays the same bot brain in-process on a throwaway world, several bots sharing it, and prints their milestones and trading.
 
 ### Tests
 
@@ -198,7 +258,6 @@ Not built yet (noted for later):
 - **Per-district hazards:** hazards currently hit the colony as a whole. The plan is in `docs/districts.md`.
 - **Inline images in mail:** the reading window can show them, the mail format has no field yet (`docs/story.md`).
 - **Alerts while away:** a notification when a hazard is forecast or the colony shuts down (web push or mail).
-- **Claiming parked colonies:** parked colonies wait on generated accounts; who takes them over (bots) is still to be designed (`absence.claim` is the hook).
 - **Playtest telemetry** (which buildings, recipes and routes get used, where players stall).
 - Balance numbers (orbit launch cycles, dropship damage, project sizes, expansion costs, exodus rates, link levels, recipes, missions, shutdown thresholds) are placeholders for playtesting.
 
@@ -239,6 +298,18 @@ All wording and the whole narrative live in `content/<theme>/`, separate from th
 
 Authoring guide and file formats: [`docs/story.md`](docs/story.md). The checklist for writing another theme: [`docs/content-needs.md`](docs/content-needs.md).
 
+## Story attribution and license
+
+FAILTECH and the world of FAILTECH are part of the FAILTECH story universe and are the copyrighted intellectual property of Ivan Lapis. Learn more at <https://failtech.info>.
+
+The FAILTECH Recontinuation story included in `content/recontinuation/` was created for the game and is licensed alongside the FAILTECH Colonies: Radial Command game. The story license permits deployment of the Recontinuation story as-is, without modification, along with the game. No modification of the Recontinuation story by third parties is permitted under this license without prior authorization. The story is licensed separately from the game itself.
+
+The same notice is kept beside the theme data, in [`content/recontinuation/NOTICE.md`](content/recontinuation/NOTICE.md). To change the wording or the narrative of your own deployment, write a theme of your own in another `content/` folder (see [Themes and story](#themes-and-story)) rather than editing `content/recontinuation/`.
+
 ## License
 
-ISC
+Copyright 2026 Ivan Lapis (ivan@terrantech.ca).
+
+The game (its code and the `basic` theme) is licensed under the [Apache License, Version 2.0](LICENSE). In short: you may use, modify and redistribute it, commercially or not, provided you include the license and the [`NOTICE`](NOTICE) file with any copy or derivative, mark the files you changed, and keep the copyright and attribution notices. It comes with no warranty.
+
+The Recontinuation story is not covered by the Apache License; see [Story attribution and license](#story-attribution-and-license).
