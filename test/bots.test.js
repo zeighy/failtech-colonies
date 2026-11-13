@@ -354,3 +354,17 @@ test('global projects are sized by the people playing: stations run by bots are 
   assert.equal(projects.current().status, 'active');
   assert.equal(projects.current().players, 2);
 });
+
+test('a dropship leaves data sites to the players unless no other territory will do', () => {
+  const { Orbit } = require('../bots/brain/orbit');
+  const config = { orbital: { dropships: { deployTicks: 30 } } };
+  const terr = (id, rate, dataSite, rare = 'x') => ({ id, dataSite, ticksLeft: 1000, anomaly: {}, resources: { rare }, rate });
+  const list = [terr(1, 5, true), terr(2, 1, false), terr(3, 9, true, 'y')];
+  const m = { config, v: { orbital: { ships: { territories: list } } } };
+  const o = new Orbit(m, {}, { orbitSell: { goods: 'any' } }, null);
+  o.planTap = (t) => ({ rate: t.rate, links: [] });
+  assert.equal(o.tripFor('x', {}, 0).t.id, 2, 'the plainer territory wins over a richer data site');
+  assert.equal(o.tripFor('y', {}, 0).t.id, 3, 'a data site is still taken when it is the only one');
+  list[1].taken = { mine: false };
+  assert.equal(o.tripFor('x', {}, 0).t.id, 1);
+});
