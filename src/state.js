@@ -19,6 +19,8 @@ const settlements = require('./settlements');
 const projects = require('./projects');
 const orbitalMarket = require('./orbitalMarket');
 const absence = require('./absence');
+const perks = require('./perks');
+const hq = require('./hq');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -137,7 +139,7 @@ function viewFor(userId, now = Date.now()) {
   if (orbital.checkUnlock(c, t.globalTick)) Object.assign(c, db.prepare('SELECT * FROM colonies WHERE id = ?').get(c.id));
   const lvl = config.hubLevels[c.hub_level];
   const districts = store.loadDistricts(c.id).map((d) => ({
-    id: d.id, type: d.type, name: d.name,
+    id: d.id, type: d.type, name: d.name, distance: d.distance, discoveryId: d.discoveryId,
     level: d.type === 'core' ? c.hub_level : d.level,
     linkLevel: d.linkLevel, buildSlots: queue.slotsUpgradable(d) ? d.buildSlots || 1 : 1, inventory: store.loadInventory(c.id, d.id), buildings: store.loadBuildings(c.id, d.id),
     ...orbital.districtExtras(c, d),
@@ -163,7 +165,7 @@ function viewFor(userId, now = Date.now()) {
   const proj = sim.coreView(full);
 
   // Standing routes act on the next tick's stock, so the rates every district shows already include them.
-  const routeBags = new Map(full.districts.map((r, i) => [r.id, { inv: { ...(r.id === coreD.id ? proj.inventory : r.inventory) }, cap: r.id === coreD.id ? proj.cap : r.cap }]));
+  const routeBags = new Map(full.districts.map((r, i) => [r.id, { inv: { ...(r.id === coreD.id ? proj.inventory : r.inventory) }, cap: r.id === coreD.id ? proj.cap : r.cap, capHigh: r.capHigh }]));
   const routeFlows = sim.applyRoutes(config, flowRoutes, routeBags);
   const settleDraw = settlements.draw(c, proj.inventory, proj.cap); // what sponsored settlements take from the Core each tick
   const flowIn = {}; const flowOut = {};
@@ -276,9 +278,9 @@ function viewFor(userId, now = Date.now()) {
     districtLevelCap: sim.districtLevelCap(config, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) }),
     districtNeeds: Object.fromEntries([2, 3, 4, 5].map((l) => [l, sim.districtLevelNeeds(config, l)])),
     districts: districts.map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.level, core: d.type === 'core', buildings: d.buildings.length, slots: d.buildSlots,
-      orbital: !!(config.orbitalTypes || {})[d.type],
+      orbital: !!(config.orbitalTypes || {})[d.type], distance: d.distance || 0, discovery: d.discoveryId || null,
       link: d.type === 'core' || (config.orbitalTypes || {})[d.type] ? null : {
-        level: d.linkLevel, capacity: Math.floor(config.logistics.link.levels[d.linkLevel].capacity * settlements.linkMult(c.id, t.globalTick)),
+        level: d.linkLevel, capacity: Math.floor(config.logistics.link.levels[d.linkLevel].capacity * settlements.linkMult(c.id, t.globalTick)) + perks.linkBonus(c.id),
         load: routeRows.filter((r) => r.fromDistrict === d.id || r.toDistrict === d.id).reduce((n, r) => n + r.rate, 0),
         next: config.logistics.link.levels[d.linkLevel + 1] ? { ...config.logistics.link.levels[d.linkLevel + 1], upgradeCost: settlements.discounted(c.id, config.logistics.link.levels[d.linkLevel + 1].upgradeCost, t.globalTick) } : null,
       } })),
@@ -286,7 +288,8 @@ function viewFor(userId, now = Date.now()) {
     freeport: districts.some((d) => d.type === 'freeport'),
     // what the colony has done, for alternative recipes that open at a milestone
     milestones: { beacon: store.hasBeacon(c.id), freeport: districts.some((d) => d.type === 'freeport'), station: districts.some((d) => d.type === 'station') },
-    founding: allOrders.filter((o) => o.action_type === 'found').map((o) => ({ id: o.id, type: o.data.type, remaining: o.ticks_remaining, total: o.ticks_total, queued: o.state === 'queued' })),
+    founding: allOrders.filter((o) => o.action_type === 'found').map((o) => ({ id: o.id, type: o.data.type, discovery: o.data.discovery || null, remaining: o.ticks_remaining, total: o.ticks_total, queued: o.state === 'queued' })),
+    maxRoutes: perks.maxRoutes(c.id),
     convoy: { ticksLeft: ticksToConvoy, arrivesAt: nextTickAt + (ticksToConvoy - 1) * t.tickMs },
     colony: {
       status: c.status, won: !!c.won, progress: proj.progress, hazardsSurvived: c.hazards_survived,
@@ -375,6 +378,8 @@ function viewFor(userId, now = Date.now()) {
   view.settlements = settlements.view(c, t.globalTick, proj.inventory, proj.cap);
   view.data = territories.dataView(c);
   view.minigame = minigames.view(c);
+  view.hq = hq.view(c, t.globalTick);
+  view.discoveries = hq.discoveries(c);
   view.economy = credits.view(c.id, c.hub_level, t.globalTick);
   view.orbital = orbital.view(c, t.globalTick, { flows: Object.fromEntries(routeFlows.map((f) => [f.route.id, f.qty])) });
   if (view.orbital.station) {

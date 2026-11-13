@@ -3998,7 +3998,8 @@
             "fittings": 250,
             "modules": 120
           }
-        }
+        },
+        "4": { "power": 240, "hold": 3600, "linkRate": 60, "hqOnly": true, "unbreakable": true }
       },
       "deployTicks": 15,
       "returnTicks": 150,
@@ -4217,6 +4218,16 @@
           "lateDamage": 50,
           "damagePerTick": 0.04,
           "rareMult": 2.0
+        },
+        "stable": {
+          "name": "Stable",
+          "desc": "Nothing anomalous at all. The ground keeps still and gives up what it holds.",
+          "weight": 0,
+          "hidden": true,
+          "durationTicks": [1, 1],
+          "lateDamage": 0,
+          "damagePerTick": 0,
+          "rareMult": 1.0
         }
       }
     },
@@ -5034,6 +5045,66 @@
         "driveMult": 1.3,
         "benefitMult": 1,
         "standingMult": 1.6
+      }
+    }
+  },
+  "hq": {
+    "description": "Headquarters, the post-game sink (src/hq.js). Opens once any data packet has been read. Activation is one huge bill paid from the Core in any instalments, then `activation.ticks` of rebuilding; that grants the charter (credits, the badge after the station name, free unlocks). After it, each unlock is one option of one category: its bill is the category's cost x costMult^n and it takes baseTicks x timeMult^n, where n counts the paid unlocks so far (one counter for every category). Bills are paid from the Core (credits from the treasury). No caps.",
+    "activation": {
+      "cost": {
+        "lattice_cores": 500, "null_alloy": 500, "phase_cells": 500,
+        "frames": 10000, "fittings": 10000, "modules": 10000, "tool_steel": 10000, "plastics": 10000,
+        "machined_parts": 100000, "building_materials": 100000, "alloys": 100000, "ingots": 100000, "polymers": 100000
+      },
+      "ticks": 4320
+    },
+    "charter": { "credits": 2000000, "freeUnlocks": 1, "badge": "\u25c6" },
+    "costMult": 1.25,
+    "timeMult": 1.1,
+    "baseTicks": 1440,
+    "switchCarry": 0.25,
+    "fragmentCost": 1,
+    "categories": {
+      "district": {
+        "name": "Discover New District",
+        "desc": "Survey crews push past the known map and chart a new site, ready to be founded when you choose.",
+        "cost": { "credits": 400000, "building_materials": 15000, "alloys": 8000, "tool_steel": 3000, "precision_tools": 800, "resonators": 150 },
+        "options": {
+          "discover": { "name": "Chart a new district", "desc": "A copy of an existing district type with its own name, listed for founding (never founded for you). The first is always a Free Port; after that the type is random and never the same twice in a row. Each discovery lies a little further out." }
+        },
+        "names": ["Far", "Lower", "Upper", "Outer", "New", "Old", "East", "West", "North", "South", "Deep", "High", "Second", "Hollow", "Broken", "Quiet"],
+        "extraDistance": 2,
+        "radius": 0.95
+      },
+      "station": {
+        "name": "Station Expansion",
+        "desc": "Permanent additions to your orbital station.",
+        "cost": { "credits": 400000, "power_cells": 800, "circuits": 2500, "fittings": 1000, "modules": 500, "still_frames": 150 },
+        "options": {
+          "orbitalLink": { "name": "Orbital link", "desc": "One more link between the Core and the station, on top of what the link level gives." },
+          "hcSlot": { "name": "High-capacity storage slot", "desc": "A slot of its own kind that holds ten times the station's slot capacity. Goods move between it and the ordinary slots, and once empty it takes any resource, so it is never jettisoned.", "capMult": 10 },
+          "dropship": { "name": "Dropship bay", "desc": "Room for one more dropship at the station. It still has to be built." },
+          "shipL4": { "name": "Level 4 dropship refit", "desc": "One level-3 dropship of your choice becomes level 4: more power, a bigger hold, faster links, and it can no longer be destroyed. At worst it limps home at 10% with its cargo lost.", "needsShip": true }
+        }
+      },
+      "surface": {
+        "name": "Surface Colony Expansion",
+        "desc": "Permanent improvements to logistics on the ground.",
+        "cost": { "credits": 400000, "building_materials": 15000, "machined_parts": 20000, "frames": 1500, "plastics": 3000, "lattice_cores": 150 },
+        "options": {
+          "route": { "name": "Standing route slot", "desc": "One more standing route between districts, on top of the usual limit." },
+          "linkBoost": { "name": "District link capacity", "desc": "+50 per tick on every district's link to the Core, whatever its level.", "amount": 50 }
+        }
+      },
+      "territory": {
+        "name": "Territory Deployment Support",
+        "desc": "Equipment for the dropships and the territories they land in.",
+        "cost": { "credits": 400000, "fuel": 15000, "polymers": 8000, "field_kits": 1500, "masterworks": 300, "phase_cells": 150 },
+        "options": {
+          "stabilizer": { "name": "Territory stabilizer", "desc": "Chosen when a dropship deploys. When it lands, the territory's remaining time is multiplied by 100, its harmful effects stop (its bonuses stay), leaving never destabilises it, and other stations can land there too. It can go out again once its cooldown has passed.", "durationMult": 100, "cooldownTicks": 40320 },
+          "finder": { "name": "Stable territory finder", "desc": "Finds a private territory only you can see and land on, open for a very long time, and you can return to it as often as you like. Its rare resource is random and its ground always lets the anomaly tap extract it. No data site and no anomaly effects.", "durationMult": 500 },
+          "extraLink": { "name": "Extra territory link", "desc": "A reusable link kit. Chosen when a dropship deploys, it gives that territory one more link to the station, and comes back with the ship." }
+        }
       }
     }
   },

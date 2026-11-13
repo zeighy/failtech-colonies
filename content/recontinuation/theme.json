@@ -27,7 +27,8 @@
       "ostore": "Orbital Storage",
       "oterr": "Expeditions",
       "omarket": "Orbital Market",
-      "oproject": "Global Project"
+      "oproject": "Global Project",
+      "hq": "Office HQ"
     },
     "labels": {
       "credits": "Liquid Credits",
@@ -1060,6 +1061,10 @@
     "gloam": {
       "name": "Gloam",
       "desc": "A long, dim opening. The ship's power runs thin and nobody minds the wait."
+    },
+    "stable": {
+      "name": "Stable",
+      "desc": "Nothing anomalous at all. The Office has a word for ground like this: compliant. It keeps still and gives up what it holds."
     }
   },
   "projects": {

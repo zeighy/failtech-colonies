@@ -70,13 +70,15 @@
     { id: 'colony', name: 'Colony', tabs: [['brief', 'Brief', 'check', 'b'], ['people', 'People', 'users', 'p'], ['hub', 'Hub', 'hub', 'h'], ['districts', 'Districts', 'map', 'd'], ['settle', 'Settlements', 'camp', 'g']] },
     { id: 'economy', name: 'Economy', tabs: [['stockpile', 'Stockpile', 'box', 's'], ['logistics', 'Logistics', 'route', 'l'], ['convoy', 'Convoy', 'truck', 'c'], ['exchange', 'Exchange', 'scale', 'x'], ['missions', 'Missions', 'flag', 'n']] },
     { id: 'orbit', name: 'Orbit', tabs: [['ostore', 'Storage', 'box', 'o'], ['omarket', 'Market', 'scale'], ['oterr', 'Expeditions', 'ship', 'e'], ['oproject', 'Project', 'globe']] },
-    { id: 'data', name: 'Archive', tabs: [['data', 'Data', 't_data']] }
+    { id: 'data', name: 'Archive', tabs: [['data', 'Data', 't_data'], ['hq', 'Headquarters', 'hub']] }
   ];
   var MTABS = [['map', 'Map', 'radar'], ['brief', 'Brief', 'check'], ['stockpile', 'Stock', 'box'], ['convoy', 'Trade', 'truck']]; // the phone's bottom bar, before More
   var ORBIT_WS = { ostore: 1, omarket: 1, oterr: 1, oproject: 1 };
   // Orbit stays out of sight until there is a station, and the Data screen until the first fragment has been recovered.
+  // Headquarters sits beside the Data screen and opens once a data packet has been read.
   function navGroups() {
-    return NAV.filter(function (g) { return g.id === 'orbit' ? stationId() !== null : g.id === 'data' ? !!(S && S.data && S.data.unlocked) : true; });
+    return NAV.filter(function (g) { return g.id === 'orbit' ? stationId() !== null : g.id === 'data' ? !!(S && ((S.data && S.data.unlocked) || (S.hq && S.hq.unlocked))) : true; })
+      .map(function (g) { return g.id === 'data' && !(S && S.hq && S.hq.unlocked) ? { id: g.id, name: g.name, tabs: g.tabs.filter(function (t) { return t[0] !== 'hq'; }) } : g; });
   }
   function tabOf(id) { var t = null; NAV.forEach(function (g) { g.tabs.forEach(function (x) { if (x[0] === id) t = x; }); }); return t; }
   function groupOf(id) { return navGroups().filter(function (g) { return g.tabs.some(function (t) { return t[0] === id; }); })[0] || null; }
@@ -98,7 +100,7 @@
     if (t === 'site' || t === 'map') { ws = null; document.body.classList.remove('panel-full'); renderAll(); return; }
     if (!tabOf(t) || !groupOf(t)) { renderAll(); return; }
     if (ORBIT_WS[t]) { if (!inOrbit()) look(stationId()); }
-    else if (t !== 'data' && inOrbit()) look(groundD().id);
+    else if (t !== 'data' && t !== 'hq' && inOrbit()) look(groundD().id);
     ws = t; renderAll();
     var b = $('sheet-body'); if (b) b.scrollTop = 0;
   }
@@ -725,6 +727,107 @@
     }).join('');
     return h;
   }
+  // ---- headquarters: the long sink after the story (src/hq.js)
+  var hqPick = null; // { category, option, ship }: an option looked at but not committed to
+  // A long wait in words: days, hours and minutes of real time.
+  function longTime(ticks) {
+    var m = Math.round(ticks * S.tickMs / 60000), d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60), mm = m % 60;
+    return d ? d + ' d' + (hh ? ' ' + hh + ' h' : '') : hh ? hh + ' h' + (mm ? ' ' + mm + ' min' : '') : Math.max(1, mm) + ' min';
+  }
+  function hqHave(r) { return r === 'credits' ? S.colony.credits : Math.floor(S.coreRes[r] ? S.coreRes[r].amount : 0); }
+  function hqName(r) { return r === 'credits' ? 'Credits' : (CFG.resources[r] || { name: r }).name; }
+  function hqColor(r) { return r === 'credits' ? 'var(--amber)' : (CFG.resources[r] || {}).color; }
+  // A good named without an amount (before an unlock is committed, the bill's sizes stay hidden).
+  function hqGood(r) { return '<span class="pill" style="--c:' + hqColor(r) + '"><i></i>' + esc(hqName(r)) + '</span>'; }
+  // The bill, one row per good: delivered of needed, what the Core holds, and a button to send it.
+  function hqBill(need, got) {
+    var total = 0, have = 0;
+    Object.keys(need).forEach(function (r) { total += need[r]; have += Math.min(need[r], got[r] || 0); });
+    var h = '<div class="meter wide" style="margin:6px 0 10px"><i style="width:' + clamp(have / total * 100, 0, 100).toFixed(1) + '%;background:var(--amber)"></i></div>';
+    var any = false;
+    h += Object.keys(need).map(function (r) {
+      var g = got[r] || 0, left = Math.max(0, need[r] - g), core = hqHave(r), can = left > 0 && core >= 1;
+      if (can && r !== 'credits') any = true;
+      return '<div class="need hqneed" style="--c:' + hqColor(r) + '"><div class="top"><b><i class="dot" style="background:' + hqColor(r) + '"></i>' + esc(hqName(r)) + '</b><span class="num">' + fmt(g) + ' / ' + fmt(need[r]) + '</span></div>' +
+        '<div class="meter wide"><i style="width:' + clamp(g / need[r] * 100, 0, 100).toFixed(1) + '%;background:' + hqColor(r) + '"></i></div>' +
+        '<div class="hqrow"><span class="dim">' + (left ? (r === 'credits' ? 'Treasury: ' : 'In the Core: ') + fmt(core) : '<span class="good">Delivered</span>') + '</span>' +
+        (left ? '<button class="btn" data-act="hqgive" data-res="' + r + '"' + (can ? '' : ' disabled') + '>Send ' + fmt(Math.min(left, core)) + '</button>' : '') + '</div></div>';
+    }).join('');
+    return { html: h, any: any, pct: total ? have / total : 0 };
+  }
+  function hqTab() {
+    var Q = S.hq;
+    if (!Q || !Q.unlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>Nothing is known about this yet.</div></div>';
+    var title = '<div class="p-title">' + icon('hub', 22) + '<h3>' + esc(tabLabel(['hq', 'Headquarters'])) + '</h3>' + (Q.stage === 'chartered' ? '<span class="hqbadge" title="Independent charter">' + esc(Q.charter.badge) + ' Chartered</span>' : '') + '</div>';
+    if (Q.stage === 'activation') {
+      var b = hqBill(Q.activation.need, Q.activation.got);
+      return title + '<p class="p-desc">The company headquarters is down. Rebuilding it takes a very large delivery, paid from the <b>Core</b> in any instalments you like. Goods held anywhere else have to be shipped or routed to the Core first. When the last of it arrives, the rebuild takes ' + longTime(Q.activation.ticks) + '.</p>' +
+        '<div class="label sec">Activation · ' + Math.floor(b.pct * 100) + '% delivered</div>' + b.html +
+        '<div class="actions"><button class="btn primary" data-act="hqgive"' + (b.any ? '' : ' disabled') + '>Send everything the Core holds for it</button></div>' +
+        '<div class="note">Once rebuilt, the colony receives its independent charter: ' + fmt(Q.charter.credits) + ' credits, the charter mark beside your station\'s name, and ' + (Q.charter.freeUnlocks === 1 ? 'one piece of work' : Q.charter.freeUnlocks + ' pieces of work') + ' for free.</div>';
+    }
+    if (Q.stage === 'rebuilding') {
+      var left = Q.activation.readyIn, all = Q.activation.ticks;
+      return title + '<p class="p-desc">Everything has been delivered. The headquarters is being rebuilt.</p>' +
+        '<div class="label sec">Rebuilding · ' + longTime(left) + ' left</div><div class="meter wide"><i style="width:' + clamp((all - left) / all * 100, 0, 100).toFixed(1) + '%;background:var(--good)"></i></div>' +
+        '<div class="dim" style="font-size:11px;margin-top:6px">' + fmt(left) + ' ticks to go.</div>';
+    }
+    var h = title + '<p class="p-desc">The colony holds its independent charter. Headquarters builds whatever you ask of it, one piece of work at a time. Every piece of work you pay for makes the next one dearer and slower, whichever kind it is.</p>';
+    if (Q.free > 0) h += '<div class="note good">' + icon('check', 13) + ' ' + (Q.free === 1 ? 'One piece of work is' : Q.free + ' pieces of work are') + ' on the house. Pick any option below and take it free: it applies at once.</div>';
+    var cur = Q.cur;
+    if (cur) {
+      h += '<div class="label sec">Under way</div><div class="optcard on"><div class="top"><b>' + esc(cur.name) + '</b><span class="dim">' + esc(Q.categories.filter(function (k) { return k.key === cur.category; })[0].name) + '</span></div>';
+      if (cur.state === 'building') {
+        h += '<div class="dim" style="font-size:12px;margin-bottom:6px">Everything has been delivered. Ready in ' + longTime(cur.readyIn) + '.</div><div class="meter wide"><i style="width:' + clamp((cur.ticks - cur.readyIn) / cur.ticks * 100, 0, 100).toFixed(1) + '%;background:var(--good)"></i></div>';
+      } else {
+        var bb = hqBill(cur.need, cur.got);
+        h += '<div class="dim" style="font-size:12px">' + Math.floor(bb.pct * 100) + '% delivered · then ' + longTime(cur.ticks) + ' of work</div>' + bb.html +
+          '<div class="actions"><button class="btn primary" data-act="hqgive"' + (bb.any ? '' : ' disabled') + '>Send everything the Core holds for it</button>' +
+          '<button class="btn danger" data-act="hqabort" data-key="hqabort">' + (confirmKey === 'hqabort' ? 'Confirm: abandon (nothing is refunded)' : 'Abandon') + '</button></div>' +
+          '<div class="dim" style="font-size:11px;margin-top:6px">Credits are only ever sent from the treasury when you press their own button. Choosing another option switches to it: ' + Math.round(Q.switchCarry * 100) + '% of what was delivered carries over, for the goods both take.</div>';
+      }
+      h += '</div>';
+    }
+    h += '<div class="label sec">Pieces of work · ' + Q.unlocks + ' paid for so far' + (Q.fragmentCost ? ' · ' + Q.fragments + ' data fragment' + (Q.fragments === 1 ? '' : 's') + ' in hand' : '') + '</div>' +
+      '<div class="dim" style="font-size:11px;margin:-4px 0 8px">Each option shows which goods it takes. How many is only shown once you commit to it.</div>';
+    Q.categories.forEach(function (k) {
+      h += '<div class="hqcat"><div class="top"><b>' + esc(k.name) + '</b></div><div class="dim" style="font-size:12px;margin-bottom:6px">' + esc(k.desc) + '</div>' +
+        '<div class="io">' + k.goods.map(hqGood).join('') + '</div>' +
+        k.options.map(function (o) {
+          var on = hqPick && hqPick.category === k.key && hqPick.option === o.key, isCur = cur && cur.category === k.key && cur.option === o.key;
+          var r = '<div class="hqopt' + (on ? ' on' : '') + (o.blocked ? ' blocked' : '') + '"><div class="top"><b>' + esc(o.name) + '</b>' + (isCur ? '<span class="good">under way</span>' : o.blocked ? '<span class="warn">' + esc(o.blocked) + '</span>' : on ? '' : '<button class="btn" data-act="hqpick" data-cat="' + k.key + '" data-opt="' + o.key + '">Choose</button>') + '</div>' +
+            '<div class="dim" style="font-size:12px">' + esc(o.desc) + '</div>';
+          if (on && !o.blocked) {
+            if (o.needsShip) {
+              if (!Q.ships.some(function (x) { return x.id === hqPick.ship; })) hqPick.ship = Q.ships.length ? Q.ships[0].id : null;
+              r += '<label class="field" style="margin-top:8px"><span class="label">Dropship to refit</span><select data-sel="hq:ship">' + Q.ships.map(function (x) { return '<option value="' + x.id + '"' + (x.id === hqPick.ship ? ' selected' : '') + '>Dropship ' + x.num + ' (' + x.state + ')</option>'; }).join('') + '</select></label>';
+            }
+            var building = cur && cur.state === 'building', fr = Q.fragmentCost, frOk = Q.fragments >= fr;
+            var frTxt = fr ? ' (' + fr + ' fragment' + (fr === 1 ? '' : 's') + ')' : '';
+            r += '<div class="actions">' +
+              (Q.free > 0 ? '<button class="btn primary" data-act="hqstart" data-free="1">Take it free</button>' : '') +
+              (building ? '' : '<button class="btn' + (Q.free > 0 || !frOk ? '' : ' primary') + '" data-act="hqstart"' + (frOk ? '' : ' disabled') + '>' + (cur ? 'Switch to this' : 'Commit to this') + frTxt + '</button>') +
+              '<button class="btn" data-act="hqpick">Cancel</button></div>' +
+              (building && !(Q.free > 0) ? '<div class="dim" style="font-size:11px">The piece of work under way has to finish first.</div>' : '') +
+              (!building ? '<div class="dim" style="font-size:11px">' + (cur ? 'Switching abandons ' + esc(cur.name) + '. ' : '') + (fr ? (cur ? 'Switching' : 'Committing') + ' takes ' + fr + ' data fragment' + (fr === 1 ? '' : 's') + ' (you have ' + Q.fragments + (frOk ? '' : ': recover more at a data site or with trace recovery') + '). ' : '') + 'Committing shows the bill. Abandoning later refunds nothing.</div>' : '');
+          }
+          return r + '</div>';
+        }).join('') + '</div>';
+    });
+    var P = Q.perks, have = [];
+    if (P.discoveries) have.push(P.discoveries + ' district' + (P.discoveries === 1 ? '' : 's') + ' discovered');
+    if (P.orbitalLinks) have.push('+' + P.orbitalLinks + ' orbital link' + (P.orbitalLinks === 1 ? '' : 's'));
+    if (P.hcSlots) have.push(P.hcSlots + ' high-capacity slot' + (P.hcSlots === 1 ? '' : 's'));
+    if (P.dropships) have.push('+' + P.dropships + ' dropship bay' + (P.dropships === 1 ? '' : 's'));
+    if (P.l4) have.push(P.l4 + ' level-4 refit' + (P.l4 === 1 ? '' : 's') + ' waiting');
+    if (P.routes) have.push('+' + P.routes + ' standing route' + (P.routes === 1 ? '' : 's'));
+    if (P.linkBoost) have.push('+' + P.linkBoost + '/t on every district link');
+    if (P.stabilizers) have.push(P.stabilizers + ' territory stabilizer' + (P.stabilizers === 1 ? '' : 's'));
+    if (P.finders) have.push(P.finders + ' stable territor' + (P.finders === 1 ? 'y' : 'ies') + ' found');
+    if (P.extraLinks) have.push(P.extraLinks + ' territory link kit' + (P.extraLinks === 1 ? '' : 's'));
+    if (have.length) h += '<div class="label sec">Unlocked so far</div><div class="io">' + have.map(function (x) { return '<span class="pill out"><i style="background:var(--good)"></i>' + esc(x) + '</span>'; }).join('') + '</div>';
+    return h;
+  }
   // construction/stock numbers interpolate between ticks
   function frameStock(f) {
     document.querySelectorAll('[data-sr]').forEach(function (row) {
@@ -748,8 +851,8 @@
     var next = dlevel(GEO().levels[activeD().level + 1]);
     var up = !!(next && next.upgradeCost && !S.hub.upgrading && canAfford(next.upgradeCost) && (activeD().core || activeD().level + 1 <= S.districtLevelCap));
     var found = !!(S.districtsUnlocked && Object.keys(CFG.districtTypes).some(function (k) {
-      return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
-    }));
+      return S.foundable[k] && !districtOf(k) && !S.founding.some(function (f) { return f.type === k && !f.discovery; }) && canAffordCore(CFG.districtTypes[k].foundCost);
+    })) || (S.discoveries || []).some(function (x) { return !x.districtId && !x.founding && S.foundable[x.type] && canAffordCore(CFG.districtTypes[x.type].foundCost); });
     return { up: up, found: found };
   }
   // What the Brief has to say that cannot wait: a shutdown, a clock running down, a hazard on its way or in effect.
@@ -769,6 +872,7 @@
     if (t === 'hub' && f.up) return '<span class="dotb good" title="An upgrade is affordable"></span>';
     if (t === 'districts' && f.found) return '<span class="dotb good" title="A district can be founded"></span>';
     if (t === 'settle' && settleNews().length) return '<span class="dotb good" title="' + esc(settleNews()[0]) + '"></span>';
+    if (t === 'hq' && S.hq && S.hq.unlocked && (S.hq.free > 0 || (S.hq.stage === 'chartered' && !S.hq.cur))) return '<span class="dotb good" title="' + (S.hq.free > 0 ? 'A free piece of work is waiting' : 'Nothing is under way') + '"></span>';
     return '';
   }
   // The screens. Desk: one fixed list down the left edge, every screen one click away and always in the same place.
@@ -842,7 +946,7 @@
   function wsHtml(t) {
     if (window.Orbit.panes[t]) return window.Orbit.panes[t]();
     return t === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : t === 'people' ? peopleTab() : t === 'districts' ? districtsTab() : t === 'settle' ? settleTab() : t === 'logistics' ? logisticsPage() :
-      t === 'convoy' ? convoyTab() : t === 'exchange' ? exchangeTab() : t === 'missions' ? missionsTab() : t === 'stockpile' ? stockpileTab() : t === 'data' ? dataTab() : briefTab();
+      t === 'convoy' ? convoyTab() : t === 'exchange' ? exchangeTab() : t === 'missions' ? missionsTab() : t === 'stockpile' ? stockpileTab() : t === 'data' ? dataTab() : t === 'hq' ? hqTab() : briefTab();
   }
   var lastSheetTabs = '', lastSheet = '';
   function renderSheet() {
@@ -982,7 +1086,7 @@
   }
   function orderName(o) {
     return o.kind === 'build' ? 'Build ' + CFG.buildings[o.data.type].name : o.kind === 'replace' ? 'Replace ' + CFG.buildings[o.data.from].name + ' with ' + CFG.buildings[o.data.type].name
-      : o.kind === 'found' ? 'Found ' + CFG.districtTypes[o.data.type].name : o.kind === 'expand' ? 'Expand ' + CFG.buildings[o.data.type].name + ' → ' + o.data.level : 'Upgrade → L' + o.data.level;
+      : o.kind === 'found' ? 'Found ' + (o.data.discovery ? ((S.discoveries || []).filter(function (x) { return x.id === o.data.discovery; })[0] || { name: CFG.districtTypes[o.data.type].name }).name : CFG.districtTypes[o.data.type].name) : o.kind === 'expand' ? 'Expand ' + CFG.buildings[o.data.type].name + ' → ' + o.data.level : 'Upgrade → L' + o.data.level;
   }
   // The buttons a waiting order gets: to the front, and off the queue.
   function queueBtns(o) {
@@ -1474,9 +1578,10 @@
   }
   // Routes, shipments, the exchange and missions only deal with surface districts; the station and territories have their own links.
   function groundDs() { return S.districts.filter(function (d) { return !d.orbital; }); }
-  function districtOf(type) { return S.districts.filter(function (d) { return d.type === type; })[0]; }
+  // (the district of a type: the original one, never a copy Headquarters discovered)
+  function districtOf(type) { return S.districts.filter(function (d) { return d.type === type && !d.discovery; })[0]; }
   function shipTime(a, b) {
-    var d = function (x) { return x.core ? 0 : CFG.districtTypes[x.type].distance; };
+    var d = function (x) { return x.core ? 0 : x.distance; };
     return Math.max(1, d(a) + d(b));
   }
   // Where the view can go: the surface districts, then the station and any territory a dropship is in. Shown as tabs over
@@ -1564,13 +1669,18 @@
   });
   window.addEventListener('resize', function () { if (S && !MOBILE) placeArrows(); });
   function districtMap() {
-    var h = '<svg class="dmap" viewBox="-110 -90 220 180" role="img" aria-label="District map">';
+    var h = '<svg class="dmap" viewBox="' + ((S.discoveries || []).length ? '-160 -140 320 290' : '-110 -90 220 180') + '" role="img" aria-label="District map">';
     var nodes = [{ id: S.districts[0].id, core: true, x: 0, y: 0, color: '#ff9f1c', name: 'Core', level: S.colony.hubLevel, on: true }];
     Object.keys(CFG.districtTypes).forEach(function (k) {
       if (!districtOf(k) && !S.foundable[k]) return; // districts that cannot be founded yet stay off the map
       var t = CFG.districtTypes[k], d = districtOf(k), a = t.angle * Math.PI / 180, r = t.radius * 80;
-      var f = S.founding.filter(function (x) { return x.type === k; })[0];
+      var f = S.founding.filter(function (x) { return x.type === k && !x.discovery; })[0];
       nodes.push({ id: d ? d.id : null, type: k, x: r * Math.cos(a), y: r * Math.sin(a), color: t.color, name: t.name.replace(/^The /, ''), level: d ? d.level : 0, on: !!d, building: !!f });
+    });
+    // districts Headquarters discovered sit further out, on a ring of their own
+    (S.discoveries || []).forEach(function (x) {
+      var t = CFG.districtTypes[x.type], a = x.angle * Math.PI / 180, r = 1.3 * 80, d = x.districtId ? S.districts.filter(function (y) { return y.id === x.districtId; })[0] : null;
+      nodes.push({ id: d ? d.id : null, type: x.type, x: r * Math.cos(a), y: r * Math.sin(a), color: t.color, name: x.name.replace(/^The /, ''), level: d ? d.level : 0, on: !!d, building: !!x.founding });
     });
     nodes.slice(1).forEach(function (n) { h += '<line x1="0" y1="0" x2="' + n.x.toFixed(1) + '" y2="' + n.y.toFixed(1) + '" class="dlink' + (n.on ? ' on' : '') + '"/>'; });
     nodes.forEach(function (n) {
@@ -1587,7 +1697,7 @@
     }
     var h = districtMap() + howTo('districts', 'Each district has its <b>own stockpile and power grid</b>. People, crew and morale are shared. Founding is paid from the Core; upgrades are paid from the district itself, so goods have to be shipped in.');
     Object.keys(CFG.districtTypes).forEach(function (k) {
-      var t = CFG.districtTypes[k], d = districtOf(k), f = S.founding.filter(function (x) { return x.type === k; })[0];
+      var t = CFG.districtTypes[k], d = districtOf(k), f = S.founding.filter(function (x) { return x.type === k && !x.discovery; })[0];
       h += '<div class="dcard" style="--c:' + t.color + '"><div class="top"><b>' + esc(t.name) + '</b>' + (d ? '<small>Level ' + d.level + ' · ' + d.buildings + ' structure' + (d.buildings === 1 ? '' : 's') + '</small>' : '') + '</div>' +
         '<div class="dim" style="font-size:12px;margin-bottom:8px">' + esc(t.desc) + '</div>';
       if (d) {
@@ -1602,6 +1712,20 @@
       }
       h += '</div>';
     });
+    if ((S.discoveries || []).length) {
+      h += '<div class="label sec">Discovered by Headquarters</div>';
+      S.discoveries.forEach(function (x) {
+        var t = CFG.districtTypes[x.type], d = x.districtId ? S.districts.filter(function (y) { return y.id === x.districtId; })[0] : null, f = x.founding;
+        h += '<div class="dcard" style="--c:' + t.color + '"><div class="top"><b>' + esc(x.name) + '</b><small>' + (d ? 'Level ' + d.level + ' · ' : '') + 'a ' + esc(t.name.replace(/^The /, '')) + ' · ' + x.distance + ' ticks from the Core</small></div>' +
+          '<div class="dim" style="font-size:12px;margin-bottom:8px">' + esc(t.desc) + '</div>';
+        if (d) h += '<div class="actions"><button class="btn' + (d.id === activeId ? '' : ' primary') + '" data-act="enter" data-id="' + d.id + '"' + (d.id === activeId ? ' disabled' : '') + '>' + (d.id === activeId ? 'Viewing' : 'Enter district') + '</button></div>';
+        else if (f) h += '<div class="note">' + (f.queued ? 'In the Core\'s work queue: founding starts when its turn comes and the Core can pay for it.' : 'Being founded: ' + f.remaining + ' tick' + (f.remaining === 1 ? '' : 's') + ' remaining.') + ' <a href="#" data-act="cancel" data-id="' + f.id + '" style="color:var(--amber)">Cancel</a></div>';
+        else if (!S.foundable[x.type]) h += '<div class="note">' + (t.requires && t.requires.beaconBuilt ? 'Opens once the Beacon is built.' : 'Not available yet.') + '</div>';
+        else h += '<div class="label">Founding cost (from the Core) · ' + t.foundTicks + ' ticks</div><div class="io">' + costPills(t.foundCost, S.coreRes) + '</div>' +
+          '<div class="actions"><button class="btn primary" data-act="found" data-discovery="' + x.id + '">' + (canAffordCore(t.foundCost) ? 'Found ' : 'Queue founding ') + esc(x.name) + '</button></div>';
+        h += '</div>';
+      });
+    }
     return h;
   }
   function shipmentsBlock() {
@@ -1661,11 +1785,11 @@
       (S.districts.some(function (d) { return d.link && d.link.next && d.link.next.upgradeCost.frames; }) ? '<div class="dim" style="font-size:11px;margin:-4px 0 8px">Links past 140/t need Free Port frames and fittings in the Core.</div>' : '');
     ds.filter(function (d) { return !d.core; }).forEach(function (d) {
       var k = d.link, can = k.next && canAffordCore(k.next.upgradeCost);
-      h += '<div class="dcard" style="--c:' + CFG.districtTypes[d.type].color + '"><div class="top"><b>' + esc(d.name) + '</b><small class="' + (k.load >= k.capacity ? 'warn' : '') + '">' + k.load + ' / ' + k.capacity + ' per tick · ' + CFG.districtTypes[d.type].distance + ' ticks away</small></div>' +
+      h += '<div class="dcard" style="--c:' + CFG.districtTypes[d.type].color + '"><div class="top"><b>' + esc(d.name) + '</b><small class="' + (k.load >= k.capacity ? 'warn' : '') + '">' + k.load + ' / ' + k.capacity + ' per tick · ' + d.distance + ' ticks away</small></div>' +
         '<div class="meter"><i style="width:' + Math.min(100, k.load / k.capacity * 100).toFixed(0) + '%;background:' + (k.load >= k.capacity ? 'var(--warn)' : 'var(--good)') + '"></i></div>' +
          (k.next ? '<div class="label" style="margin-top:8px">Widen the link (from the Core)</div><div class="io">' + costPills(k.next.upgradeCost, S.coreRes) + '<span class="pill out"><i style="background:var(--good)"></i>to ' + k.next.capacity + '/t</span></div><div class="actions"><button class="btn" data-act="linkup" data-id="' + d.id + '"' + (can ? '' : ' disabled') + '>Upgrade link</button></div>' : '<div class="dim" style="font-size:11px;margin-top:6px">Fully upgraded.</div>') + '</div>';
     });
-    h += '<div class="label sec">Standing routes · ' + S.routes.filter(function (r) { return ds.some(function (d) { return d.id === r.fromDistrict; }); }).length + ' / ' + L.maxRoutes + '</div>' + routeRows();
+    h += '<div class="label sec">Standing routes · ' + S.routes.filter(function (r) { return ds.some(function (d) { return d.id === r.fromDistrict; }); }).length + ' / ' + (S.maxRoutes || L.maxRoutes) + '</div>' + routeRows();
     if (!ds.some(function (d) { return d.id === route.from; })) route.from = ds[0].id;
     if (!ds.some(function (d) { return d.id === route.to; }) || route.to === route.from) route.to = ds.filter(function (d) { return d.id !== route.from; })[0].id;
     var opt = function (cur) { return ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === cur ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join(''); };
@@ -2377,6 +2501,15 @@
     else if (a === 'desel') { sel = null; replaceAt = null; document.body.classList.remove('panel-full'); renderAll(); }
     else if (a === 'pin') togglePin(el.dataset.res)
     else if (a === 'dataunlock') act('data-unlock', { packet: el.dataset.packet }, 'Data packet unlocked.')
+    else if (a === 'hqgive') act('hq-give', el.dataset.res ? { resource: el.dataset.res } : {}).then(function (d) { if (d && d.ok) toast(d.completed ? 'Delivered in full. The work is under way.' : 'Delivered to Headquarters.', true); });
+    else if (a === 'hqpick') { hqPick = el.dataset.cat ? { category: el.dataset.cat, option: el.dataset.opt, ship: null } : null; renderPanel(); }
+    else if (a === 'hqstart') {
+      var free = el.dataset.free === '1', pk = hqPick;
+      act('hq-start', { category: pk.category, option: pk.option, ship: pk.ship, free: free }, free ? 'Done: it applies at once.' : 'Committed. The bill is shown.').then(function (d) { if (d && d.ok) { hqPick = null; renderPanel(); } });
+    } else if (a === 'hqabort') {
+      if (confirmKey === el.dataset.key) { if (Date.now() - confirmAt < CONFIRM_DELAY) return; confirmKey = null; act('hq-abort', {}); }
+      else { confirmKey = el.dataset.key; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
+    }
     else if (a === 'msel') { msgSel[msgTab] = el.dataset.id; renderMessages(); }
     else if (a === 'wsclose') { ws = null; renderAll(); }
     else if (a === 'msgs') { closePop(); drawer = null; renderNav(); renderDrawer(); messages(el.dataset.t || 'mail'); }
@@ -2427,7 +2560,7 @@
     else if (a === 'enter') { e.preventDefault(); enter(+el.dataset.id); }
     else if (a === 'sdist') { var sid = +el.dataset.id; if (RAW.views[sid] && sid !== activeId) { activeId = sid; sel = null; confirmKey = null; S = merge(RAW); renderAll(); } }
     else if (a === 'orbit') { e.preventDefault(); enterOrbit(); }
-    else if (a === 'found') act('found', { type: el.dataset.type }).then(function (d) { if (d && d.ok) toast(d.queued ? 'Founding added to the Core\'s work queue.' : 'Founding started.', d.queued ? 'info' : true); });
+    else if (a === 'found') act('found', el.dataset.discovery ? { discovery: +el.dataset.discovery } : { type: el.dataset.type }).then(function (d) { if (d && d.ok) toast(d.queued ? 'Founding added to the Core\'s work queue.' : 'Founding started.', d.queued ? 'info' : true); });
     else if (a === 'sstep') {
       var have = Math.floor(S.views[ship.from].resources[ship.res].amount), cap = Math.max(1, Math.min(CFG.logistics.shipmentMax, have));
       ship.qty = clamp(el.dataset.delta === 'max' ? cap : ship.qty + (+el.dataset.delta * sh), 1, cap); renderPanel();
@@ -2539,6 +2672,7 @@
     if (!el) return;
     var k = el.dataset.sel;
     if (k.indexOf('s:') === 0) { msrc = +el.value; renderPanel(); return; }
+    if (k === 'hq:ship') { if (hqPick) hqPick.ship = +el.value; return; }
     if (k.indexOf('m:') === 0) { var mkk = k.slice(2); if (mkk === 'res') { mk.res = el.value; mk.price = null; mk.qty = 50; } else mk[mkk] = mkk === 'ttl' || mkk === 'district' ? +el.value : el.value; if (mkk === 'district') mk.qty = Math.max(1, mk.qty); renderPanel(); return; }
     if (k.indexOf('r:') === 0) { var rk = k.slice(2); if (rk === 'res') route.res = el.value; else route[rk] = +el.value; }
     else if (k === 'res') ship.res = el.value; else ship[k] = +el.value;
