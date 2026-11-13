@@ -223,17 +223,20 @@ class Orbit {
     }
     return best;
   }
+  // a data site only matters to a player working the trace recovery, which a bot has no use for, so the bot leaves those
+  // territories to the players and lands on one only when no other territory yields the rare it needs
   tripFor(rare, ship, allowLinks) {
-    let best = null;
+    let best = null; let bestData = null;
     for (const t of this.territories()) {
       if (t.taken || t.resources.rare !== rare || (t.anomaly.damagePerTick || 0) > 0) continue;
       const plan = this.planTap(t, ship, allowLinks);
       if (!plan || plan.rate < 0.2) continue;
       const usable = t.ticksLeft - this.O.dropships.deployTicks - 30;
       if (usable < 120) continue;
-      if (!best || plan.rate > best.plan.rate) best = { t, plan, usable };
+      const cand = { t, plan, usable };
+      if (t.dataSite) { if (!bestData || plan.rate > bestData.plan.rate) bestData = cand; } else if (!best || plan.rate > best.plan.rate) best = cand;
     }
-    return best;
+    return best || bestData;
   }
 
   // ---- runs: one orbital good at a time, its rare resources fetched by the ships -----------------------------------------
