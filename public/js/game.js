@@ -2390,13 +2390,21 @@
       '<div class="label sec">Keys</div><div class="keys">' + keys.map(function (k) { return '<span><kbd>' + k[0] + '</kbd>' + esc(k[1]) + '</span>'; }).join('') +
       '<span><kbd>Esc</kbd>Back</span><span><kbd>+</kbd><kbd>−</kbd><kbd>0</kbd>Zoom, fit</span></div>');
   }
+  // A healthy colony (no collapse countdown, not shut down or collapsed) is handed on rather than erased: the server
+  // parks it under another commander's name, where it may be picked up and run on. The server makes the same check.
+  function healthyColony() { return S.colony.status === 'active' && !S.doom; }
   MODALS.confirmReset = function () {
-    modal('<h2>Abandon this colony?</h2><p>All structures, stockpiles and credits are lost, and your progress resets to the very beginning. Story messages you have received start over too.</p>' +
+    var text = healthyColony()
+      ? 'The colony is stable, so it is not erased: it is handed on under another commander\'s name and may be taken over and run by someone else. You start again from the very beginning, with nothing carried over. Story messages you have received start over too.'
+      : 'All structures, stockpiles and credits are lost, and your progress resets to the very beginning. Story messages you have received start over too.';
+    modal('<h2>Abandon this colony?</h2><p>' + text + '</p>' +
       '<div class="actions"><button class="btn" data-m="close">Keep playing</button><button class="btn danger" data-m="confirmReset2">Continue</button></div>');
   };
   MODALS.confirmReset2 = function () {
-    modal('<h2>Are you sure?</h2><p><b>This erases everything and cannot be undone.</b> There is no way to get this colony back. If it is only struggling, you can keep playing and rebuild instead.</p>' +
-      '<div class="actions"><button class="btn primary" data-m="close">Keep playing</button><button class="btn danger" data-m="reset">Yes, erase it and start over</button></div>');
+    var ok = healthyColony();
+    modal('<h2>Are you sure?</h2><p><b>' + (ok ? 'You give this colony up for good and cannot take it back.' : 'This erases everything and cannot be undone.') + '</b> There is no way to get this colony back. ' +
+      (ok ? 'If you only want a break, it waits for you as it is while you are away.' : 'If it is only struggling, you can keep playing and rebuild instead.') + '</p>' +
+      '<div class="actions"><button class="btn primary" data-m="close">Keep playing</button><button class="btn danger" data-m="reset">' + (ok ? 'Yes, give it up and start over' : 'Yes, erase it and start over') + '</button></div>');
   };
   // ---- absence (see src/absence.js): the notice after a long time away, a parked colony, and one claimed by someone else
   var awayBusy = false, lostView = null;

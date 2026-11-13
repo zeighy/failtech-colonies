@@ -14,6 +14,7 @@ const requisitions = require('./requisitions');
 const settlements = require('./settlements');
 const minigames = require('./minigames');
 const hq = require('./hq');
+const absence = require('./absence');
 const perks = require('./perks');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
@@ -581,10 +582,22 @@ const ack = guarded((c) => {
 }, { allowFailed: true });
 
 // Full wipe back to the starting state (manual reset).
+// Abandon the colony and start over. A healthy colony (no collapse countdown, not shut down, not collapsed) is not
+// erased: it is parked under a generated account, where a bot can claim it and play it on. Anything else is wiped.
+const healthy = (c) => {
+  if (c.status !== 'active' || (c.shutdown_tick !== null && c.shutdown_tick !== undefined)) return false;
+  const v = require('./state').viewFor(c.user_id); // required here: state.js needs much of what this file does
+  return !!v && !v.lost && !v.doom;
+};
 const reset = guarded((c) => {
+  if (healthy(c)) {
+    absence.handOver(c.id);
+    store.foundColony(c.user_id, { failures: c.failures });
+    return { ok: true, parked: true };
+  }
   const old = store.wipeColony(c.id);
   store.foundColony(old.user_id, { failures: old.failures });
-  return OK;
+  return { ok: true, parked: false };
 }, { allowFailed: true });
 
 // After a collapse: lose everything but keep part of the credits.
