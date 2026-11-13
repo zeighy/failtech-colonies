@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 21;
+const SCHEMA_VERSION = 22;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -502,6 +502,35 @@ if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'last_
 for (const [table, col, ddl] of [['colonies', 'parked_at', 'INTEGER'], ['colonies', 'away_notice', 'TEXT'], ['users', 'generated', 'INTEGER NOT NULL DEFAULT 0'], ['users', 'notice', 'TEXT'], ['users', 'bot_profile', 'TEXT']]) {
   if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
 }
+// v22 (additive): trace recovery minigames (see minigames.js). Standing earned stays the faction score; what is spent on plays
+// is counted apart (`standing_spent`). One active session per colony; each game keeps its difficulty per colony.
+if (!db.prepare("SELECT 1 FROM pragma_table_info('colonies') WHERE name = 'standing_spent'").get()) db.exec('ALTER TABLE colonies ADD COLUMN standing_spent INTEGER NOT NULL DEFAULT 0');
+db.exec(`
+  CREATE TABLE IF NOT EXISTS minigame_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    paid TEXT NOT NULL,                        -- free | standing
+    cost INTEGER NOT NULL DEFAULT 0,
+    day TEXT NOT NULL,                         -- the server day it was started (YYYY-MM-DD), for the daily limits
+    secret TEXT NOT NULL,                      -- never sent to the client while the session is active
+    state TEXT NOT NULL,
+    started_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    ended_at INTEGER,
+    status TEXT NOT NULL DEFAULT 'active'      -- active | won | lost | expired | abandoned
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS minigame_one_active ON minigame_sessions(colony_id) WHERE status = 'active';
+  CREATE INDEX IF NOT EXISTS minigame_by_day ON minigame_sessions(colony_id, day);
+  CREATE TABLE IF NOT EXISTS minigame_skill (
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    level INTEGER NOT NULL DEFAULT 0,
+    streak INTEGER NOT NULL DEFAULT 0,         -- wins in a row (> 0) or losses in a row (< 0)
+    PRIMARY KEY (colony_id, kind)
+  );
+`);
 db.pragma(`user_version = ${SCHEMA_VERSION}`);
 
 // ---- meta -----------------------------------------------------------------

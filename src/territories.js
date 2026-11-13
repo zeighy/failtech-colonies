@@ -359,20 +359,26 @@ function advanceData(c, results, tick) {
         prog -= DS.attemptTicks;
         const roll = ms.rng(ms.hash(`data:${c.id}:${b.id}:${tick}:${Math.round(prog * 100)}`))();
         if (roll >= DS.successChance) continue;
-        const row = db.prepare('SELECT data_successes FROM colonies WHERE id = ?').get(c.id);
-        const wins = row.data_successes + 1;
-        if (wins >= DS.attemptsPerFragment) {
-          db.prepare('UPDATE colonies SET data_successes = 0, data_fragments = data_fragments + 1, data_total = data_total + 1 WHERE id = ?').run(c.id);
-          store.addEvent(c.id, tick, 'good', 'A data fragment has been recovered.');
-          orbital.setFlag(c.id, 'dataFragment', tick);
-        } else {
-          db.prepare('UPDATE colonies SET data_successes = ? WHERE id = ?').run(wins, c.id);
-          store.addEvent(c.id, tick, 'info', `A recovery attempt found something (${wins} of ${DS.attemptsPerFragment} toward a fragment).`);
-        }
+        addDataSuccess(c, tick);
       }
       db.prepare('UPDATE colony_buildings SET data_progress = ? WHERE id = ?').run(prog, b.id);
     }
   }
+}
+
+// One successful attempt toward the next fragment, from a rig or from trace recovery (minigames.js). `found` names it in the log.
+function addDataSuccess(c, tick, found = 'A recovery attempt found something') {
+  const DS = T.dataSite;
+  const wins = db.prepare('SELECT data_successes FROM colonies WHERE id = ?').get(c.id).data_successes + 1;
+  if (wins >= DS.attemptsPerFragment) {
+    db.prepare('UPDATE colonies SET data_successes = 0, data_fragments = data_fragments + 1, data_total = data_total + 1 WHERE id = ?').run(c.id);
+    store.addEvent(c.id, tick, 'good', 'A data fragment has been recovered.');
+    orbital.setFlag(c.id, 'dataFragment', tick);
+    return { wins: DS.attemptsPerFragment, of: DS.attemptsPerFragment, fragment: true };
+  }
+  db.prepare('UPDATE colonies SET data_successes = ? WHERE id = ?').run(wins, c.id);
+  store.addEvent(c.id, tick, 'info', `${found} (${wins} of ${DS.attemptsPerFragment} toward a fragment).`);
+  return { wins, of: DS.attemptsPerFragment, fragment: false };
 }
 
 // A packet unlocks in parts. Part 1 costs fragments; later parts cost fragments and a few orbital goods from the station, so
@@ -421,4 +427,4 @@ function unlockPacket(c, { packet }) {
   return OK;
 }
 
-module.exports = { advanceWorld, advanceColony, advanceData, dataView, unlockPacket, spawn, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, checkBuild, checkRecipe, view, shipsOf };
+module.exports = { advanceWorld, advanceColony, advanceData, addDataSuccess, dataView, unlockPacket, spawn, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, checkBuild, checkRecipe, view, shipsOf };

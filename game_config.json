@@ -5036,5 +5036,50 @@
         "standingMult": 1.6
       }
     }
+  },
+  "minigames": {
+    "description": "Trace recovery: puzzles that earn one successful recovery attempt (the same as a Data Recovery rig's) when solved. Open once the colony has read its first data packet. One free play a day (resets at midnight, server time, or in `timezone` when set, an IANA name like America/Toronto); further plays cost `cost` spendable standing, at most `paidPerDay` a day. Each game keeps its own difficulty per colony: `promoteAfter` wins in a row move it up a level, `demoteAfter` losses in a row move it down. Levels are meant to be even steps, mostly one change each (2026-11-13 first pass, from a simulated careful player: cipher spare guesses over a perfect solver about 4.9/4.4/3.4/3.0/2.0; sweep perfect-play wins about 100/98/92/87/78%; relay seconds per tile 9.6/7.5/5.8/5.5/4.5). Check real win rates with `npm run minigames:report`.",
+    "cost": 50,
+    "freePerDay": 1,
+    "paidPerDay": 7,
+    "timezone": "",
+    "promoteAfter": 3,
+    "demoteAfter": 2,
+    "games": {
+      "cipher": {
+        "name": "Cipher Lock",
+        "blurb": "Find the hidden key. After each guess you learn how many symbols are exact (right symbol, right place) and how many are near (right symbol, wrong place).",
+        "levels": [
+          { "length": 4, "symbols": 5, "guesses": 9, "timeLimitSec": 300 },
+          { "length": 4, "symbols": 6, "guesses": 9, "timeLimitSec": 300 },
+          { "length": 4, "symbols": 6, "guesses": 8, "timeLimitSec": 300 },
+          { "length": 5, "symbols": 6, "guesses": 8, "timeLimitSec": 300 },
+          { "length": 5, "symbols": 6, "guesses": 7, "timeLimitSec": 300 }
+        ]
+      },
+      "sweep": {
+        "name": "Sector Sweep",
+        "blurb": "Read every clean sector of the drive. A number tells you how many corrupted sectors touch it. Reading a corrupted one costs integrity.",
+        "levels": [
+          { "width": 7, "height": 7, "bad": 7, "integrity": 2, "timeLimitSec": 300 },
+          { "width": 8, "height": 8, "bad": 10, "integrity": 2, "timeLimitSec": 300 },
+          { "width": 9, "height": 9, "bad": 16, "integrity": 2, "timeLimitSec": 360 },
+          { "width": 9, "height": 9, "bad": 13, "integrity": 1, "timeLimitSec": 360 },
+          { "width": 9, "height": 9, "bad": 14, "integrity": 1, "timeLimitSec": 360 }
+        ]
+      },
+      "relay": {
+        "name": "Relay Routing",
+        "blurb": "Turn the conduits until every one carries signal from the core, with no open ends.",
+        "minSolveSec": 4,
+        "levels": [
+          { "size": 5, "timeLimitSec": 240 },
+          { "size": 6, "timeLimitSec": 270 },
+          { "size": 6, "timeLimitSec": 210 },
+          { "size": 7, "timeLimitSec": 270 },
+          { "size": 7, "timeLimitSec": 220 }
+        ]
+      }
+    }
   }
 }

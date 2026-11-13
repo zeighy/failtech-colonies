@@ -13,7 +13,8 @@
     "playtest:orbit": "node scripts/playtest-orbit.js",
     "bots": "node bots/runner.js",
     "botplay": "node scripts/botplay.js",
-    "bots:report": "node scripts/bots-report.js"
+    "bots:report": "node scripts/bots-report.js",
+    "minigames:report": "node scripts/minigame-report.js"
   },
   "repository": {
     "type": "git",
