@@ -266,8 +266,9 @@ function recipeAdjacency(config, recipeId, neighbourRecipes, def) {
   return m;
 }
 // Ticks a shipment takes between two districts (the Core is at distance 0; travel goes via the Core).
+// Each end is a district type, or { type, extraDistance } for a district that lies further out than its type.
 const shipDistance = (config, a, b) => {
-  const d = (t) => (t === 'core' ? 0 : config.districtTypes[t].distance);
+  const d = (x) => { const t = typeof x === 'string' ? x : x.type; return t === 'core' ? 0 : config.districtTypes[t].distance + ((typeof x === 'object' && x.extraDistance) || 0); };
   return Math.max(1, a === b ? 0 : d(a) + d(b));
 };
 
@@ -469,7 +470,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
 
   return {
     inventory: inv, flows, buildings: bstate,
-    cap: (d.capOverride !== undefined ? d.capOverride : lvl.maxStorage) + storageBonus, defense, progressGain, launchGain,
+    cap: (d.capOverride !== undefined ? d.capOverride : lvl.maxStorage) + storageBonus, capHigh: d.capHigh, defense, progressGain, launchGain,
     energy: { supply, demand, satisfaction: sat, buffered },
     hub: { eff: hubEff, limiting: hubMat.limiting, power: hubPower },
     baseHousing: lvl.baseHousing || 0, housingBuilt, comfortWeighted,
@@ -491,6 +492,8 @@ function storageCap(config, d) {
 // no trucks, no delay. It never takes the source below `reserve` and never overfills the destination.
 // bags: Map districtId -> { inv, cap } (mutated). Returns [{ route, qty, limit }] where limit says what held it
 // back: null (full rate), 'stock' (source at its reserve) or 'room' (destination full).
+// A stockpile's cap for one resource: its usual cap, or more where a high-capacity slot holds that resource (`capHigh`).
+const capOf = (bag, res) => (bag.capHigh && bag.capHigh[res]) || bag.cap;
 function applyRoutes(config, routes, bags) {
   const out = [];
   for (const route of routes) {
@@ -498,14 +501,15 @@ function applyRoutes(config, routes, bags) {
     if (!a || !b) continue;
     const avail = Math.max(0, Math.floor((a.inv[route.resource] || 0) - route.reserve));
     // the destination takes goods up to its storage, or up to the route's target if it has one
-    const ceiling = route.target > 0 ? Math.min(b.cap, route.target) : b.cap;
+    const bcap = capOf(b, route.resource);
+    const ceiling = route.target > 0 ? Math.min(bcap, route.target) : bcap;
     const room = Math.max(0, Math.floor(ceiling - (b.inv[route.resource] || 0)));
     const qty = Math.min(route.rate, avail, room);
     if (qty > 0) {
       a.inv[route.resource] -= qty;
       b.inv[route.resource] = (b.inv[route.resource] || 0) + qty;
     }
-    out.push({ route, qty, limit: qty >= route.rate ? null : avail <= room ? 'stock' : route.target > 0 && ceiling < b.cap ? 'target' : 'room' });
+    out.push({ route, qty, limit: qty >= route.rate ? null : avail <= room ? 'stock' : route.target > 0 && ceiling < bcap ? 'target' : 'room' });
   }
   return out;
 }
@@ -589,7 +593,7 @@ function stepColony(config, colony, districts, opts = {}) {
     mealCoverage = need > 0 ? take / need : 0;
   }
   for (const r of results) {
-    for (const res of Object.keys(r.inventory)) r.inventory[res] = Math.min(r.cap, Math.max(0, r.inventory[res]));
+    for (const res of Object.keys(r.inventory)) r.inventory[res] = Math.min(capOf(r, res), Math.max(0, r.inventory[res]));
   }
 
   // Housing and comfort come from every district; the hub's own quarters count at neutral comfort,
@@ -606,7 +610,7 @@ function stepColony(config, colony, districts, opts = {}) {
   const routeNet = {};
   if (opts.routes && opts.routes.length) {
     const coreId = districts[coreIdx].id;
-    const bags = new Map(results.map((r, i) => [districts[i].id, { inv: { ...r.inventory }, cap: r.cap }]));
+    const bags = new Map(results.map((r, i) => [districts[i].id, { inv: { ...r.inventory }, cap: r.cap, capHigh: r.capHigh }]));
     for (const f of applyRoutes(config, opts.routes, bags)) {
       if (f.qty <= 0) continue;
       if (f.route.toDistrict === coreId) routeNet[f.route.resource] = (routeNet[f.route.resource] || 0) + f.qty;
@@ -771,6 +775,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, canFeed, alternativeOf, altUnlocked, recipeBook, territoryDef, districtFoundable, expansionCost, expansionMax, expansionTop, rates, recipeAdjacency, recipeResetFee, storageCap, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, canFeed, alternativeOf, altUnlocked, recipeBook, territoryDef, districtFoundable, expansionCost, expansionMax, expansionTop, rates, recipeAdjacency, recipeResetFee, storageCap, capOf, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

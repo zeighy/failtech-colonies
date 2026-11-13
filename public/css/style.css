@@ -798,3 +798,23 @@ button.mg-c:hover:not(:disabled) { background: #2f3b47; }
 .mg-t circle, .mg-t rect { fill: #4a5560; }
 .mg-t.on path { stroke: var(--cyan); } .mg-t.on circle { fill: var(--cyan); }
 .mg-t.core rect { fill: var(--amber); } .mg-t.core path { stroke: var(--amber); }
+
+/* Headquarters (game.js hqTab) and what its unlocks add to orbit */
+.hqbadge { margin-left: auto; padding: 2px 8px; border: 1px solid var(--amber-d); border-radius: 99px; color: var(--amber); font-size: 11px; white-space: nowrap; }
+.hqneed .top b { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.hqneed .dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.hqrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 11px; }
+.hqrow .btn { padding: 4px 10px; font-size: 11px; }
+.hqcat { border: 1px solid var(--line); background: var(--panel2); border-radius: var(--radius); padding: 10px; margin: 8px 0; }
+.hqcat > .top b { font-size: 13px; }
+.hqcat > .io { margin-bottom: 4px; }
+.hqopt { border-top: 1px solid var(--line); padding: 8px 0 2px; margin-top: 8px; }
+.hqopt .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; font-size: 12px; }
+.hqopt .top .btn { padding: 4px 10px; font-size: 11px; flex: none; }
+.hqopt.on { border-top-color: var(--amber-d); }
+.hqopt.blocked > .dim { opacity: .6; }
+.hqopt .actions + .dim { margin-top: 6px; }
+.hqopt .field select { width: 100%; margin-top: 6px; background: var(--bg2); color: var(--text); border: 1px solid var(--line2); border-radius: var(--radius); padding: 7px; font: inherit; font-size: 12px; }
+.oslot.hc { border-left: 3px solid var(--amber-d); }
+.terr.stabilized { border-left-color: var(--good); }
+.terr.private { border-left-color: var(--amber); }

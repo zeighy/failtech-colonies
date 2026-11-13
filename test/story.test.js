@@ -312,14 +312,14 @@ test('Recontinuation: 13 campaign dialogues, 22 campaign mails and the open beat
   const open = s.beats.filter((b) => b.phase === 'open');
   assert.equal(campaign.filter((b) => b.delivery === 'dialogue').length, 13);
   assert.equal(campaign.filter((b) => b.delivery === 'mail').length, 22);
-  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 18, 'six faction scenes, five for orbit, one for the first data fragment, one each for requisitions and the second crew, and four for the settlements');
+  assert.equal(open.filter((b) => b.delivery === 'dialogue').length, 20, 'six faction scenes, five for orbit, one for the first data fragment, one each for requisitions and the second crew, four for the settlements, and two for Headquarters');
   assert.equal(open.filter((b) => b.delivery === 'mail').length, 44, 'six faction mails, eight for orbit, and thirty for the early colony, requisitions, crews, recipes, settlements and the place filling up');
   // Run the real evaluator over this script with every condition satisfied and the clock moving.
   const all = objectives.DIRECTIVE_IDS;
   const view = fakeView({
     colony: { hubLevel: 5, hazardsSurvived: 8, population: 300, won: true, progress: 25, morale: 90, starving: [] }, requisitions: { filled: 25 },
     districts: [{ type: 'pits', slots: 3 }, { type: 'greenbelt', slots: 1 }], missions: { standing: { cinder: 40, verdant: 40, meridian: 40 }, filled: 12 },
-    orbital: { unlocked: true, site: { staging: true, catapult: true, command: true }, flags: Object.fromEntries(['cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted', 'dataFragment'].map((f) => [f, 1])) },
+    orbital: { unlocked: true, site: { staging: true, catapult: true, command: true }, flags: Object.fromEntries(['cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted', 'dataFragment', 'hqOpened', 'chartered'].map((f) => [f, 1])) },
   });
   const delivered = new Map();
   for (const b of s.beats) if (b.phase === 'campaign') delivered.set(b.id, null);

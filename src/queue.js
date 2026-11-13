@@ -18,7 +18,10 @@ const { db, config } = store;
 
 const Q = { maxPerPlace: 8, replaceTimeMult: 1.5, slotTiers: [], ...(config.global.buildQueue || {}) };
 const defAt = (d, type) => sim.territoryDef(config.buildings[type], d.type);
-const placeName = (d) => (d.type !== 'core' && (config.districtTypes || {})[d.type] ? config.districtTypes[d.type].name : d.name);
+// (a districts row, or a district as loadDistricts names it; a discovered one has its own name)
+const placeName = (d) => (d.discoveryId ? d.name : d.discovery_id ? store.nameOfRow(d) : d.type !== 'core' && (config.districtTypes || {})[d.type] ? config.districtTypes[d.type].name : d.name);
+// What a founding order founds: a district type, or a district Headquarters discovered.
+const foundName = (data) => (data.discovery ? require('./hq').discoveryName(data.discovery) : config.districtTypes[data.type].name);
 const where = (d) => (d.type === 'core' ? '' : ` in ${placeName(d)}`);
 
 // What an order costs when it starts.
@@ -60,7 +63,7 @@ function label(d, o) {
   if (o.action_type === 'build') return b(o.data.type);
   if (o.action_type === 'replace') return `Replacing ${b(o.data.from)} with ${b(o.data.type)}`;
   if (o.action_type === 'expand') return `Expanding ${b(o.data.type)} to level ${o.data.level}`;
-  if (o.action_type === 'found') return `Founding ${config.districtTypes[o.data.type].name}`;
+  if (o.action_type === 'found') return `Founding ${foundName(o.data)}`;
   return `The level ${o.data.level} upgrade`;
 }
 
@@ -108,7 +111,12 @@ function check(c, d, level, o, tick) {
     return null;
   }
   if (o.action_type === 'upgrade') return level === o.data.level - 1 ? null : { drop: 'the level has changed' };
-  if (o.action_type === 'found') return db.prepare('SELECT 1 FROM districts WHERE colony_id = ? AND type = ?').get(c.id, type) ? { drop: 'it is already founded' } : null;
+  if (o.action_type === 'found') {
+    const there = o.data.discovery
+      ? db.prepare('SELECT 1 FROM districts WHERE colony_id = ? AND discovery_id = ?').get(c.id, o.data.discovery)
+      : db.prepare('SELECT 1 FROM districts WHERE colony_id = ? AND type = ? AND discovery_id IS NULL').get(c.id, type);
+    return there ? { drop: 'it is already founded' } : null;
+  }
   return { drop: 'unknown order' };
 }
 

@@ -14,7 +14,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 22;
+const SCHEMA_VERSION = 23;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -531,6 +531,39 @@ db.exec(`
     PRIMARY KEY (colony_id, kind)
   );
 `);
+// v23 (additive): Headquarters (see hq.js). One row per colony once it opens; districts it discovers are listed apart until
+// founded (a founded one keeps its discovery id, its name prefix and its extra distance). Orbital slots come in two kinds,
+// a dropship can carry a stabilizer and extra link kits, and a territory can be stabilised (shared, long) or private (stable).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS colony_hq (
+    colony_id INTEGER PRIMARY KEY REFERENCES colonies(id) ON DELETE CASCADE,
+    stage TEXT NOT NULL DEFAULT 'activation',  -- activation | rebuilding | chartered
+    got TEXT NOT NULL DEFAULT '{}',            -- what has been delivered toward the activation bill
+    ready_tick INTEGER NOT NULL DEFAULT 0,     -- when the rebuild finishes (stage rebuilding)
+    unlocks INTEGER NOT NULL DEFAULT 0,        -- paid unlocks completed: the one counter behind every bill and timer
+    free INTEGER NOT NULL DEFAULT 0,           -- free unlocks in hand (from the charter)
+    perks TEXT NOT NULL DEFAULT '{}',          -- everything unlocked so far
+    cur TEXT,                                  -- the unlock under way: {cat, opt, ship?, need, got, state, readyTick, n}
+    opened_tick INTEGER NOT NULL DEFAULT 0,
+    chartered_tick INTEGER
+  );
+  CREATE TABLE IF NOT EXISTS hq_discoveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colony_id INTEGER NOT NULL REFERENCES colonies(id) ON DELETE CASCADE,
+    seq INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    prefix TEXT NOT NULL,
+    extra_distance INTEGER NOT NULL DEFAULT 0,
+    angle REAL NOT NULL DEFAULT 0,
+    district_id INTEGER,
+    created_tick INTEGER NOT NULL DEFAULT 0
+  );
+`);
+for (const [table, col, ddl] of [['districts', 'discovery_id', 'INTEGER'], ['districts', 'extra_distance', 'INTEGER NOT NULL DEFAULT 0'],
+  ['orbital_slots', 'kind', "TEXT NOT NULL DEFAULT 'normal'"], ['dropships', 'stabilizer', 'INTEGER NOT NULL DEFAULT 0'], ['dropships', 'extra_links', 'INTEGER NOT NULL DEFAULT 0'],
+  ['territories', 'stabilized', 'INTEGER NOT NULL DEFAULT 0'], ['territories', 'owner_colony', 'INTEGER']]) {
+  if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+}
 db.pragma(`user_version = ${SCHEMA_VERSION}`);
 
 // ---- meta -----------------------------------------------------------------
@@ -604,10 +637,25 @@ function coreId(colonyId) {
   const r = db.prepare("SELECT id FROM districts WHERE colony_id = ? AND type = 'core'").get(colonyId);
   return r ? r.id : null;
 }
+// A district's name is wording, so it always comes from the active theme (not from what was stored when it was founded).
+// One that Headquarters discovered is a copy of its type with a prefix of its own ("Far Pits").
+function districtName(type, storedName, prefix) {
+  const t = type !== 'core' && config.districtTypes[type];
+  if (!t) return storedName;
+  return prefix ? `${prefix} ${t.name.replace(/^The /, '')}` : t.name;
+}
+// Ticks from the Core: the type's distance, plus a little for each discovery further out.
+const districtDistance = (type, extra = 0) => (type === 'core' || !config.districtTypes[type] ? 0 : config.districtTypes[type].distance + (extra || 0));
 function loadDistricts(colonyId) {
-  // A district's name is wording, so it always comes from the active theme (not from what was stored when it was founded).
-  return db.prepare('SELECT id, type, level, name, link_level AS linkLevel, build_slots AS buildSlots, created_tick AS createdTick FROM districts WHERE colony_id = ? ORDER BY id').all(colonyId)
-    .map((d) => ({ ...d, name: d.type !== 'core' && config.districtTypes[d.type] ? config.districtTypes[d.type].name : d.name }));
+  return db.prepare(`SELECT d.id, d.type, d.level, d.name, d.link_level AS linkLevel, d.build_slots AS buildSlots, d.created_tick AS createdTick,
+      d.discovery_id AS discoveryId, d.extra_distance AS extraDistance, h.prefix FROM districts d LEFT JOIN hq_discoveries h ON h.id = d.discovery_id WHERE d.colony_id = ? ORDER BY d.id`).all(colonyId)
+    .map(({ prefix, ...d }) => ({ ...d, name: districtName(d.type, d.name, prefix), distance: districtDistance(d.type, d.extraDistance) }));
+}
+// The display name of one districts row (as read straight from the table).
+function nameOfRow(d) {
+  if (!d || !d.discovery_id) return d ? districtName(d.type, d.name, null) : null;
+  const h = db.prepare('SELECT prefix FROM hq_discoveries WHERE id = ?').get(d.discovery_id);
+  return districtName(d.type, d.name, h && h.prefix);
 }
 
 function loadInventory(colonyId, districtId = coreId(colonyId)) {
@@ -675,5 +723,5 @@ function loadContracts(colonyId) {
 module.exports = {
   db, config, dbPath, purgeSessions, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
-  coreId, hasBeacon, loadDistricts, loadInventory, saveInventory, loadBuildings, loadOrders, loadSlotLocks, loadShipments, loadRoutes, loadContracts, loadHazard, loadExpress,
+  coreId, hasBeacon, loadDistricts, districtName, districtDistance, nameOfRow, loadInventory, saveInventory, loadBuildings, loadOrders, loadSlotLocks, loadShipments, loadRoutes, loadContracts, loadHazard, loadExpress,
 };

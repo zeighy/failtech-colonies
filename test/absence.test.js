@@ -149,3 +149,46 @@ test('only real interaction counts: polling the state does not keep a colony sim
   assert.equal(st.absence.notice.kind, 'stewarded');
   assert.equal((await call('POST', '/api/away-ack', {})).body.state.absence, null);
 });
+
+// Abandoning from the menu (the reset action): a healthy colony is handed on for a bot to claim, anything else is erased.
+// A colony with nobody eating has no collapse countdown, which stands in for one with its water and food covered.
+const calm = (uid) => db.prepare('UPDATE colonies SET population = 0 WHERE user_id = ?').run(uid);
+test('abandoning a healthy colony parks it under a generated account and starts the player over', () => {
+  const u = newUser('quitter_ok');
+  calm(u);
+  db.prepare('UPDATE colonies SET credits = 123456 WHERE user_id = ?').run(u);
+  const old = col(u);
+  assert.equal(viewFor(u).doom, null);
+  const r = actions.reset(u, {});
+  assert.equal(r.ok, true);
+  assert.equal(r.parked, true);
+  const kept = db.prepare('SELECT * FROM colonies WHERE id = ?').get(old.id);
+  assert.ok(kept, 'not erased');
+  assert.ok(kept.parked_at);
+  assert.equal(kept.credits, 123456, 'it waits exactly as it was');
+  assert.equal(db.prepare('SELECT generated FROM users WHERE id = ?').get(kept.user_id).generated, 1);
+  assert.ok(absence.listParked(200).some((p) => p.id === old.id), 'listed for the bot runner');
+  const fresh = col(u);
+  assert.notEqual(fresh.id, old.id);
+  assert.equal(fresh.credits, store.config.global.startingState.credits);
+  assert.equal(absence.phase(fresh), 'live');
+});
+
+test('abandoning a colony with a collapse countdown, shut down or collapsed erases it', () => {
+  const ticking = newUser('quitter_dry');
+  assert.ok(viewFor(ticking).doom, 'a new colony drains water until it can make its own');
+  const shut = newUser('quitter_shut');
+  calm(shut);
+  db.prepare('UPDATE colonies SET shutdown_tick = 1 WHERE user_id = ?').run(shut);
+  const failed = newUser('quitter_failed');
+  calm(failed);
+  db.prepare("UPDATE colonies SET status = 'failed' WHERE user_id = ?").run(failed);
+  for (const u of [ticking, shut, failed]) {
+    const old = col(u).id;
+    const r = actions.reset(u, {});
+    assert.equal(r.ok, true);
+    assert.equal(r.parked, false);
+    assert.equal(db.prepare('SELECT 1 FROM colonies WHERE id = ?').get(old), undefined, 'erased');
+    assert.equal(col(u).status, 'active');
+  }
+});

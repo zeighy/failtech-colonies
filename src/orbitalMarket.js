@@ -139,15 +139,20 @@ function cancel(c, { orderId }) {
 }
 
 function view(c, tick) {
+  // a station whose colony holds its independent charter (Headquarters) shows the charter's badge after its name
+  const H = config.hq;
+  const charteredNames = new Set(H ? db.prepare("SELECT s.name FROM stations s JOIN colony_hq h ON h.colony_id = s.colony_id WHERE h.stage = 'chartered'").all().map((x) => x.name) : []);
+  const badged = (name) => (charteredNames.has(name) ? `${name} ${H.charter.badge}` : name);
   const book = (res, side) => db.prepare(`SELECT id, colony_id, station_name AS station, price, remaining AS qty FROM orbital_orders WHERE resource_id = ? AND side = ? AND status = 'open' ORDER BY price ${side === 'buy' ? 'DESC' : 'ASC'}, id ASC LIMIT 6`).all(res, side)
-    .map((o) => ({ id: o.id, station: o.station, price: o.price, qty: o.qty, mine: o.colony_id === c.id, maker: !o.colony_id }));
+    .map((o) => ({ id: o.id, station: o.colony_id ? badged(o.station) : o.station, price: o.price, qty: o.qty, mine: o.colony_id === c.id, maker: !o.colony_id }));
   return {
     feeRate: M.feeRate, ttlOptions: M.ttlOptions, maxOpenOrders: M.maxOpenOrders, maxQty: M.maxQty, refreshTicks: M.makerRefreshTicks,
     nextRefresh: M.makerRefreshTicks - (tick % M.makerRefreshTicks),
     goods: goods().map((res) => ({ resource: res, reference: reference(res, tick), band: band(res, tick), bids: book(res, 'buy'), asks: book(res, 'sell'), orbitalOnly: !!config.resources[res].orbitalTrade })),
     orders: db.prepare("SELECT id, resource_id AS resource, side, price, qty, remaining, expires_tick FROM orbital_orders WHERE colony_id = ? AND status = 'open' ORDER BY id DESC").all(c.id)
       .map((o) => ({ ...o, ticksLeft: Math.max(0, o.expires_tick - tick) })),
-    trades: db.prepare('SELECT tick, resource_id AS resource, price, qty, buyer, seller FROM orbital_trades ORDER BY id DESC LIMIT 20').all(),
+    trades: db.prepare('SELECT tick, resource_id AS resource, price, qty, buyer, seller FROM orbital_trades ORDER BY id DESC LIMIT 20').all()
+      .map((t) => ({ ...t, buyer: badged(t.buyer), seller: badged(t.seller) })),
   };
 }
 

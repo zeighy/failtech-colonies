@@ -370,9 +370,9 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 | Sirius Cell (phase_cells) | 2 Icarus Compound, 1 Orphic Silt, 2 Klein Cells, 55 power | 0.25 Sirius Cell |
 | Phononic Amplifier (resonators) | 1 Windsor Crystal, 1 Phononic Substrate, 1 Hard-Spec Instruments, 35 power | 0.25 Phononic Amplifier |
 | Stabilized Alloy (still_frames) | 1 Graviton Metaloid, 1 Orphic Silt, 2 Spine Frames, 50 power | 0.25 Stabilized Alloy |
-**Orbital storage** is slot-limited: one resource per slot (level 1: 6 slots of 2,000; level 2: 9 slots of 4,000 for 250000 credits, 200 Spine Frames, 120 Dampener Fittings; level 3: 12 slots of 8,000 for 600000 credits, 300 Spine Frames, 200 Dampener Fittings, 30 Stabilized Alloy). The largest stocks claim slots first; anything without a slot is lost. Jettisoning empties a slot, which then costs 20 Spine Frames, 10 Dampener Fittings to rebuild.
+**Orbital storage** is slot-limited: one resource per slot (level 1: 6 slots of 2,000; level 2: 9 slots of 4,000 for 250000 credits, 200 Spine Frames, 120 Dampener Fittings; level 3: 12 slots of 8,000 for 600000 credits, 300 Spine Frames, 200 Dampener Fittings, 30 Stabilized Alloy). The largest stocks claim slots first; anything without a slot is lost. Jettisoning empties a slot, which then costs 20 Spine Frames, 10 Dampener Fittings to rebuild. Headquarters can add high-capacity slots and links on top of these (section 16c).
 **Orbital links** run between the Core and the station, both ways (level 1: 4 links at 25/tick; level 2: 6 links at 40/tick for 150000 credits, 200 Dampener Fittings, 100 Donstand-Pattern Modules; level 3: 8 links at 60/tick for 400000 credits, 300 Dampener Fittings, 30 Sirius Cell). Rare resources never travel by link. **Express launch:** up to 400 of one resource from the Core, 150 + 0.5/unit Refined Fuel, arriving in 12 ticks, once every 480 ticks. **Express drop:** the other way, from orbital storage to the Core, for a capsule of 10 Dampener Fittings from orbital storage, landing in 12 ticks; it shares the cooldown.
-**Dropships** (up to 3; build 300000 credits, 600 Spine Frames, 400 Dampener Fittings, 300 Donstand-Pattern Modules, 200 Klein Cells, 120 ticks): level 1 power 50, hold 600, links 15/tick; level 2 power 80, hold 1000, links 25/tick (250000 credits, 200 Spine Frames, 150 Dampener Fittings, 80 Klein Cells); level 3 power 120, hold 1600, links 40/tick (600000 credits, 350 Spine Frames, 250 Dampener Fittings, 120 Donstand-Pattern Modules). Landing takes 15 ticks with a kit of 140 Hard-Spec Parts, 110 Print Stock, 10 Spine Alloy; the hold can be preloaded. A ship on a territory gets up to 2 links to the station. Recalling brings back what the plan says (rare first) up to the hold, in 150 ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at 10% with the cargo gone; the second loses the ship.
+**Dropships** (up to 3, plus any Headquarters bays; build 300000 credits, 600 Spine Frames, 400 Dampener Fittings, 300 Donstand-Pattern Modules, 200 Klein Cells, 120 ticks): level 1 power 50, hold 600, links 15/tick; level 2 power 80, hold 1000, links 25/tick (250000 credits, 200 Spine Frames, 150 Dampener Fittings, 80 Klein Cells); level 3 power 120, hold 1600, links 40/tick (600000 credits, 350 Spine Frames, 250 Dampener Fittings, 120 Donstand-Pattern Modules); level 4 power 240, hold 3600, links 60/tick (Headquarters refit only; never destroyed). Landing takes 15 ticks with a kit of 140 Hard-Spec Parts, 110 Print Stock, 10 Spine Alloy; the hold can be preloaded. A ship on a territory gets up to 2 links to the station. Recalling brings back what the plan says (rare first) up to the hold, in 150 ticks. Damage costs integrity; repairs cost the ship's value × damage. The first loss is saved at 10% with the cargo gone; the second loses the ship.
 **Anomalous territories** are shared by every station: at least 7 are open, a taken one is replaced in 10-30 ticks. Each has two common resources (Reclaim, Aquifer Draw, Raw Ink), one district resource (Raw Ore, Crude) and one rare (Anfang Glass, Icarus Compound, Mobiulic Ore, Windsor Crystal, Mycolian Spores, Orphic Silt, Phononic Substrate, Graviton Metaloid). Rings 1: 3 × Small, 2: 5 × Medium, 3: 7 × Large, storage = the hold, power = the ship's. Leaving early keeps only 35% of its remaining time for the next visitor; still being there when it closes forces a late recall with damage.
 | Anomaly | Weight | Lasts (ticks) | Late damage | Integrity lost / tick | Rare × | Ship power × |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -428,6 +428,43 @@ Hidden until the colony's standing with all factions adds up to **500** (the Bri
 | Mycelium Commons | 40 Cliffside Rejuvenator, 30 Stabilized Alloy | Kitchens and pharma labs +15% |
 | Gravity Well | 40 Dense Metal, 30 Sirius Core | Fabrication lines +10% |
 
+## **16c. Headquarters (after the story)**
+Opens once the colony has read part 1 of any data packet (a screen beside Data). **Activation** is one bill, paid from the Core (credits from the treasury) in any instalments: 500 Sirius Core, 500 Dense Metal, 500 Sirius Cell, 10000 Spine Frames, 10000 Dampener Fittings, 10000 Donstand-Pattern Modules, 10000 Tool Steel, 10000 Cast Plastics, 100000 Hard-Spec Parts, 100000 Print Stock, 100000 Spine Alloy, 100000 Ingots, 100000 Polymer Stock. After the last delivery the rebuild takes 4320 ticks (18 h). Then the **charter**: 2,000,000 credits, a ◆ after the station's name on the orbital market, and 1 free unlock.
+**Unlocks.** One at a time. The player sees which goods an option takes, but not how many until they commit to it. The bill is the category's base × 1.25^n and the work takes 1440 × 1.1^n ticks, where n counts every paid unlock so far (one counter for every category). Committing (or switching) takes 1 data fragment. Abandoning refunds nothing; switching carries 25% of what was delivered across, for the goods both bills share. Free unlocks skip the bill and the wait and do not move the counter. No caps.
+| Category | Base bill | Options |
+| --- | --- | --- |
+| Discover New District | 400000 credits, 15000 Print Stock, 8000 Spine Alloy, 3000 Tool Steel, 800 Hard-Spec Instruments, 150 Phononic Amplifier | Chart a new district |
+| Station Expansion | 400000 credits, 800 Klein Cells, 2500 Phononic Circuits, 1000 Dampener Fittings, 500 Donstand-Pattern Modules, 150 Stabilized Alloy | Orbital link; High-capacity storage slot; Dropship bay; Level 4 dropship refit |
+| Surface Colony Expansion | 400000 credits, 15000 Print Stock, 20000 Hard-Spec Parts, 1500 Spine Frames, 3000 Cast Plastics, 150 Sirius Core | Standing route slot; District link capacity |
+| Territory Deployment Support | 400000 credits, 15000 Refined Fuel, 8000 Polymer Stock, 1500 Apex Field Kits, 300 Heritage Masterworks, 150 Sirius Cell | Territory stabilizer; Stable territory finder; Extra territory link |
+| Option | Effect |
+| --- | --- |
+| Chart a new district | A new district of an existing type, ready to found. The first is a Free Port. |
+| Orbital link | +1 Core link. |
+| High-capacity storage slot | A storage slot with 10× capacity. Never jettisoned. |
+| Dropship bay | +1 dropship. |
+| Level 4 dropship refit | A level-3 dropship becomes level 4 and indestructible. |
+| Standing route slot | +1 standing route. |
+| District link capacity | +50/t on every district link. |
+| Territory stabilizer | Take it on a deployment: the territory lasts 100× longer, loses its harm and opens to every station. Reusable. |
+| Stable territory finder | A private, long-lived territory whose rare can always be tapped. |
+| Extra territory link | Reusable kit: +1 link for a deployed ship. |
+Discovered districts lie 2 ticks further out per discovery (one-off shipments take that much longer). A stabilizer multiplies the territory's remaining time by 100 when it lands and cools down for 40320 ticks (168 h) from deployment. A stable territory lasts 500 × the average territory lifetime.
+**How the bill grows.** Every amount in a category's base bill is multiplied by the factor below (rounded), and so is the work time.
+| Paid unlocks so far (n) | Bill × | Work time |
+| --- | --- | --- |
+| 0 | 1 | 1440 ticks (6 h) |
+| 1 | 1.25 | 1584 ticks (6.6 h) |
+| 2 | 1.56 | 1742 ticks (7.3 h) |
+| 3 | 1.95 | 1917 ticks (8 h) |
+| 4 | 2.44 | 2108 ticks (8.8 h) |
+| 5 | 3.05 | 2319 ticks (9.7 h) |
+| 10 | 9.31 | 3735 ticks (15.6 h) |
+| 15 | 28.42 | 6015 ticks (25.1 h) |
+| 20 | 86.74 | 9688 ticks (40.4 h) |
+**Details.** A discovery is never founded for you; after the first (a Free Port) its type is random and never the same twice in a row. A stabilised territory keeps its bonuses (rare yield and ship power never fall below ×1, and it does no damage). A stable territory's commons and district resource are chosen so its random rare can be tapped; it has no data site and no anomaly effects. A high-capacity slot holds 10 × the storage level's slot cap. A resource that needs a slot takes an ordinary one first, the player moves goods between the two kinds, and an empty high-capacity slot is freed rather than jettisoned. The level 4 refit can only be chosen while a dropship is at level 3; if that ship is no longer at level 3 when the work finishes, the refit is banked and applied later from the ship card. Level 4 cannot be bought the ordinary way. Several territory link kits can go out with one ship; they are free again once it flies home or is lost. A stabilised territory takes one ship from each station, and a private stable territory takes one ship at a time from the station that found it, as often as it likes. Neither is ever destabilised, and neither counts toward the shared territories kept open.
+**Story.** Opening Headquarters plays a call from Seven: the colony is qualified to run independently, but the headquarters is down. The charter plays a second: the commander is now an **Independent Colony Commander**, with the crew still there in support. Headquarters is per player; bots ignore it.
+
 ## **16b. Time away and parked colonies**
 Only colonies whose commander is around are simulated. "Around" means a real interaction: signing in, opening the game, any action, or any click or key in the game (the page reports input at most every 5 minutes). The live stream and state polls an idle open tab keeps making do not count. A new hazard is only started while the player is active (any request in the last 120 seconds, an open tab included).
 | Time since the last interaction | What happens |
@@ -435,7 +472,8 @@ Only colonies whose commander is around are simulated. "Around" means a real int
 | up to **96 hours** | Simulated as normal. |
 | 96 hours to **30 days** | Not simulated: the colony waits exactly as it was (nothing is taken). The next interaction resumes it, with a one-time notice that it was held. Timers on the shared clock (shipments, express trips, offers) keep running and settle on its first tick back. |
 | over 30 days | Parked. On return the commander chooses: **retake** it (it resumes where it stopped), **start a new colony**, or log out. Every action is refused until they choose. |
-Starting a new colony does not delete the parked one: it moves, still parked, to a generated account (a random callsign nobody can sign in to) and its station is renamed at random. A parked colony can be handed to another account (`absence.claim`); a commander whose colony was claimed can only start over. Neither can be undone. Open market orders stay open while a colony is frozen or parked and expire as usual. Both limits are `global.absence`.
+Starting a new colony does not delete the parked one: it moves, still parked, to a generated account (a random callsign nobody can sign in to) and its station is renamed at random. A parked colony can be handed to another account (`absence.claim`): the bot runner (`npm run bots`, with `BOT_API_KEY`) claims stable parked colonies for bots on small worlds, and gives back any that fail. A commander whose colony was claimed can only start over. Neither can be undone. Open market orders stay open while a colony is frozen or parked and expire as usual. Both limits are `global.absence`.
+**Abandon colony** (in the menu) does the same for a healthy colony, one with no collapse countdown that is not shut down or collapsed: it is parked under a generated account for a bot to claim, and the player starts again from the beginning. A colony that is not healthy is erased instead. A brand-new colony counts down until it makes its own water and food, so abandoning one in its first minutes erases it.
 
 ## **17. Operations: backups**
 The server backs the database up automatically (`BACKUP_INTERVAL_HOURS`, default 6, 0 = off; `BACKUP_KEEP`, default 28; `BACKUP_DIR`). To restore: stop the server, copy a backup over the database file (delete its `-wal` and `-shm` files), start the server.

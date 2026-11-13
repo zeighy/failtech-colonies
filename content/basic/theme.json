@@ -21,7 +21,8 @@
       "exchange": "Exchange",
       "missions": "Missions",
       "comms": "Comms",
-      "log": "Log"
+      "log": "Log",
+      "hq": "Headquarters"
     },
     "labels": {
       "credits": "Credits",
@@ -762,6 +763,10 @@
     "gloam": {
       "name": "Gloam",
       "desc": "A long, dim opening. The ship's power runs thin, but nothing here is in a hurry."
+    },
+    "stable": {
+      "name": "Stable",
+      "desc": "Nothing anomalous at all. The ground keeps still and gives up what it holds."
     }
   },
   "projects": {

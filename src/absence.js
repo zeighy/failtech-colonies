@@ -117,13 +117,18 @@ function moveColony(colonyId, toUserId) {
   }
 }
 
+// Park a colony under a generated account, where it waits to be claimed (by a bot, through src/botApi.js).
+function handOver(colonyId, now = Date.now()) {
+  park(colonyId, now);
+  moveColony(colonyId, generatedAccount());
+}
+
 // Start a new colony. A parked colony is not lost: it moves to a generated account and waits there to be claimed.
 const startOver = db.transaction((userId, now = Date.now()) => {
   const c = colonyOf(userId);
   if (c) {
     if (phase(c, now) !== 'parked') return fail('The colony is still yours to run.');
-    park(c.id, now);
-    moveColony(c.id, generatedAccount());
+    handOver(c.id, now);
   }
   db.prepare('UPDATE users SET notice = NULL WHERE id = ?').run(userId);
   store.foundColony(userId);
@@ -158,4 +163,4 @@ function listParked(limit = 50, skip = [], since = 0) {
     WHERE c.parked_at IS NOT NULL AND c.parked_at >= ? AND (c.id || ':' || c.parked_at) NOT IN (SELECT value FROM json_each(?)) ORDER BY c.parked_at LIMIT ?`).all(since, JSON.stringify(skip.map(String)), limit);
 }
 
-module.exports = { phase, simulatedSince, sweep, markActive, view, lostView, dismiss, retake, startOver, claim, release, listParked, generatedAccount };
+module.exports = { phase, simulatedSince, sweep, markActive, view, lostView, dismiss, retake, startOver, handOver, claim, release, listParked, generatedAccount };

@@ -14,6 +14,7 @@
 const store = require('./db');
 const ms = require('./marketsim');
 const orbital = require('./orbital');
+const perks = require('./perks');
 const { own, toInt, toNum, isPlain } = require('./validate');
 const { db, config } = store;
 const O = config.orbital;
@@ -61,16 +62,18 @@ function spawn(tick, seq) {
   db.prepare('INSERT INTO territories (name, anomaly, resources, opens_tick, closes_tick, data_site) VALUES (?, ?, ?, ?, ?, ?)').run(name, anomaly, JSON.stringify(resources), tick, tick + dur, dataSite);
 }
 
-const openTerritories = (tick) => db.prepare('SELECT * FROM territories WHERE closes_tick > ? AND taken_by IS NULL ORDER BY closes_tick').all(tick);
+// The shared pool that keeps itself topped up: open, untaken, and neither stabilised (those stay open for a very long time
+// and are counted apart) nor private to one station (from the stable territory finder).
+const openTerritories = (tick) => db.prepare('SELECT * FROM territories WHERE closes_tick > ? AND taken_by IS NULL AND stabilized = 0 AND owner_colony IS NULL ORDER BY closes_tick').all(tick);
 
 // Once per tick, before any colony: close expired territories (sending their ships home late), spawn replacements.
 function advanceWorld(tick) {
-  for (const t of db.prepare('SELECT * FROM territories WHERE closes_tick <= ? AND taken_by IS NOT NULL').all(tick)) {
-    const ship = db.prepare("SELECT * FROM dropships WHERE territory_id = ? AND state IN ('deploying', 'deployed')").get(t.id);
-    const c = ship && db.prepare('SELECT * FROM colonies WHERE id = ?').get(ship.colony_id);
-    if (ship && c) recall(c, ship, tick, { late: true });
-    db.prepare('UPDATE territories SET taken_by = NULL, taken_name = NULL WHERE id = ?').run(t.id);
+  // (a stabilised territory can have ships from several stations on it)
+  for (const ship of db.prepare("SELECT s.* FROM dropships s JOIN territories t ON t.id = s.territory_id WHERE s.state IN ('deploying', 'deployed') AND t.closes_tick <= ?").all(tick)) {
+    const c = db.prepare('SELECT * FROM colonies WHERE id = ?').get(ship.colony_id);
+    if (c) recall(c, ship, tick, { late: true });
   }
+  db.prepare('UPDATE territories SET taken_by = NULL, taken_name = NULL WHERE closes_tick <= ? AND taken_by IS NOT NULL').run(tick);
   // keep old closed territories out of the way
   if (tick % 100 === 0) db.prepare('DELETE FROM territories WHERE closes_tick <= ? AND taken_by IS NULL').run(tick - 2000);
   const due = parse(store.getMeta('territory_respawn', '[]'), []);
@@ -85,7 +88,8 @@ function advanceWorld(tick) {
 const shipsOf = (colonyId) => db.prepare('SELECT * FROM dropships WHERE colony_id = ? ORDER BY num').all(colonyId);
 const shipOf = (c, id) => db.prepare('SELECT * FROM dropships WHERE id = ? AND colony_id = ?').get(toInt(id), c.id);
 
-function deploy(c, { ship, territory, preload }, tick) {
+// `stabilize`: take a ready stabilizer along (Headquarters). `links`: how many extra link kits go with the ship.
+function deploy(c, { ship, territory, preload, stabilize, links }, tick) {
   const st = orbital.stationOf(c.id);
   if (!st) return fail('There is no station.');
   const s = shipOf(c, ship);
@@ -93,9 +97,20 @@ function deploy(c, { ship, territory, preload }, tick) {
   if (s.state !== 'docked') return fail('That dropship is not docked at the station.');
   if (s.integrity <= 0) return fail('That dropship needs repairs first.');
   const t = db.prepare('SELECT * FROM territories WHERE id = ?').get(toInt(territory));
-  if (!t || t.closes_tick <= tick) return fail('That territory has closed.');
-  if (t.taken_by) return fail(`${t.taken_name || 'Another station'} is already down there.`);
+  if (!t || t.closes_tick <= tick || (t.owner_colony && t.owner_colony !== c.id)) return fail('That territory has closed.');
+  // a stabilised territory takes any number of stations, one ship each; a private one is its finder's alone
+  if (db.prepare("SELECT 1 FROM dropships WHERE colony_id = ? AND territory_id = ? AND state IN ('deploying', 'deployed')").get(c.id, t.id)) return fail('One of your dropships is already down there.');
+  if (t.taken_by && !t.stabilized && !t.owner_colony) return fail(`${t.taken_name || 'Another station'} is already down there.`);
   if (t.closes_tick <= tick + D.deployTicks) return fail('It will close before the ship could land.');
+  const kits = links === undefined || links === null || links === '' ? 0 : toInt(links);
+  if (!Number.isInteger(kits) || kits < 0) return fail('Bad number of link kits.');
+  if (kits > perks.freeLinkKits(c.id)) return fail('Not that many territory link kits are free.');
+  if (stabilize === true) {
+    if (t.stabilized) return fail('That territory is already stabilised.');
+    if (t.owner_colony) return fail('A stable territory needs no stabilizer.');
+    if (!perks.stabilizers(c.id).length) return fail('You have no territory stabilizer.');
+    if (!perks.stabilizerReady(c.id, tick)) return fail('Your territory stabilizers are still cooling down.');
+  }
   const load = {};
   if (preload !== undefined && !isPlain(preload)) return fail('Bad preload.');
   for (const [r, q0] of Object.entries(preload || {})) {
@@ -109,8 +124,12 @@ function deploy(c, { ship, territory, preload }, tick) {
   for (const [r, q] of Object.entries(load)) if ((inv[r] || 0) < q) return fail(`Not enough ${config.resources[r].name} in orbital storage.`);
   for (const [r, q] of Object.entries(load)) inv[r] -= q;
   store.saveInventory(c.id, inv, st.district_id);
-  db.prepare("UPDATE dropships SET state = 'deploying', territory_id = ?, until_tick = ?, cargo = ?, plan = NULL, late = 0 WHERE id = ?").run(t.id, tick + D.deployTicks, JSON.stringify(load), s.id);
-  db.prepare('UPDATE territories SET taken_by = ?, taken_name = ? WHERE id = ?').run(c.id, st.name, t.id);
+  if (stabilize === true) perks.useStabilizer(c.id, tick); // it goes with the ship, and its cooldown starts now
+  db.prepare("UPDATE dropships SET state = 'deploying', territory_id = ?, until_tick = ?, cargo = ?, plan = NULL, late = 0, stabilizer = ?, extra_links = ? WHERE id = ?")
+    .run(t.id, tick + D.deployTicks, JSON.stringify(load), stabilize === true ? 1 : 0, kits, s.id);
+  const wasOpen = !t.taken_by && !t.stabilized && !t.owner_colony;
+  if (!t.taken_by) db.prepare('UPDATE territories SET taken_by = ?, taken_name = ? WHERE id = ?').run(c.id, st.name, t.id);
+  if (!wasOpen) return OK;
   // another territory opens a little later, so a busy server never runs dry
   const r = ms.rng(ms.hash(`respawn:${t.id}:${tick}`));
   const due = parse(store.getMeta('territory_respawn', '[]'), []);
@@ -136,7 +155,7 @@ function setPlan(c, { ship, plan }) {
 function recall(c, s, tick, { late = false } = {}) {
   const t = db.prepare('SELECT * FROM territories WHERE id = ?').get(s.territory_id);
   const res = t ? JSON.parse(t.resources) : {};
-  const an = t ? T.anomalies[t.anomaly] : null;
+  const an = t ? orbital.anomalyOf(t) : null;
   let cargo = {};
   if (s.state === 'deployed' && s.district_id) {
     const inv = store.loadInventory(c.id, s.district_id);
@@ -155,7 +174,11 @@ function recall(c, s, tick, { late = false } = {}) {
   let integrity = s.integrity - (late && an ? an.lateDamage : 0);
   let note = late ? `The territory closed with the dropship still down there. It took ${an ? an.lateDamage : 0}% damage leaving.` : 'The dropship is on its way back to the station.';
   if (integrity <= 0) {
-    if (!s.saved_once) {
+    if (level(s).unbreakable) { // a Headquarters refit: it always makes it home, without its cargo
+      integrity = D.savedIntegrity;
+      cargo = {};
+      note = 'The dropship barely made it off the ground and its cargo is gone, but its refit frame held. It is on its way home.';
+    } else if (!s.saved_once) {
       integrity = D.savedIntegrity;
       cargo = {};
       db.prepare('UPDATE dropships SET saved_once = 1 WHERE id = ?').run(s.id);
@@ -165,18 +188,26 @@ function recall(c, s, tick, { late = false } = {}) {
       db.prepare('DELETE FROM dropships WHERE id = ?').run(s.id);
       orbital.setFlag(c.id, 'shipLost', tick);
       store.addEvent(c.id, tick, 'bad', 'A dropship broke up leaving the territory. It is lost, with everything it carried.');
-      if (t) releaseTerritory(t, tick, late);
+      if (t) releaseTerritory(t, tick, late, c.id);
       return;
     }
   }
-  db.prepare("UPDATE dropships SET state = 'returning', until_tick = ?, cargo = ?, district_id = NULL, territory_id = NULL, integrity = ?, late = ? WHERE id = ?")
+  // (link kits come home with the ship: they are free again from now)
+  db.prepare("UPDATE dropships SET state = 'returning', until_tick = ?, cargo = ?, district_id = NULL, territory_id = NULL, integrity = ?, late = ?, stabilizer = 0, extra_links = 0 WHERE id = ?")
     .run(tick + D.returnTicks, JSON.stringify(cargo), integrity, late ? 1 : 0, s.id);
   store.addEvent(c.id, tick, late ? 'warn' : 'info', note);
-  if (t) releaseTerritory(t, tick, late);
+  if (t) releaseTerritory(t, tick, late, c.id);
 }
 
 // A territory a ship has left is open to others again, but the departure destabilises it: it closes much sooner.
-function releaseTerritory(t, tick, late) {
+// A stabilised territory never destabilises (and keeps whoever else is down there), and nor does a private stable one.
+function releaseTerritory(t, tick, late, colonyId) {
+  if (t.stabilized || t.owner_colony) {
+    const other = db.prepare("SELECT s.colony_id FROM dropships s WHERE s.territory_id = ? AND s.state IN ('deploying', 'deployed') AND s.colony_id != ? LIMIT 1").get(t.id, colonyId);
+    const st = other && orbital.stationOf(other.colony_id);
+    db.prepare('UPDATE territories SET taken_by = ?, taken_name = ? WHERE id = ?').run(other ? other.colony_id : null, st ? st.name : null, t.id);
+    return;
+  }
   if (late || t.closes_tick <= tick) { db.prepare('UPDATE territories SET taken_by = NULL, taken_name = NULL WHERE id = ?').run(t.id); return; }
   const left = t.closes_tick - tick;
   db.prepare('UPDATE territories SET taken_by = NULL, taken_name = NULL, closes_tick = ?, destabilized = 1 WHERE id = ?').run(tick + Math.max(1, Math.floor(left * T.destabilize)), t.id);
@@ -206,9 +237,10 @@ function advanceColony(c, stationInv, tick) {
       db.prepare("UPDATE dropships SET state = 'deployed', district_id = ?, cargo = '{}' WHERE id = ?").run(did, s.id);
       orbital.setFlag(c.id, 'deployed', tick);
       store.addEvent(c.id, tick, 'good', `The dropship has landed in ${t.name}.`);
+      if (s.stabilizer && !t.stabilized) stabilizeTerritory(c, t, tick);
     } else if (s.state === 'deployed') {
       const t = db.prepare('SELECT * FROM territories WHERE id = ?').get(s.territory_id);
-      const an = t && T.anomalies[t.anomaly];
+      const an = t && orbital.anomalyOf(t);
       if (an && an.damagePerTick > 0) {
         const integrity = s.integrity - an.damagePerTick;
         db.prepare('UPDATE dropships SET integrity = ? WHERE id = ?').run(integrity, s.id);
@@ -229,15 +261,60 @@ function advanceColony(c, stationInv, tick) {
   }
 }
 
+// A stabilizer lands: the territory's remaining time is multiplied, its harm stops (orbital.anomalyOf), and from now on any
+// station may land there, and leaving never destabilises it.
+function stabilizeTerritory(c, t, tick) {
+  const mult = ((((config.hq || {}).categories || {}).territory || {}).options || {}).stabilizer;
+  const left = Math.max(1, t.closes_tick - tick);
+  db.prepare('UPDATE territories SET stabilized = 1, destabilized = 0, closes_tick = ? WHERE id = ?').run(tick + left * ((mult && mult.durationMult) || 100), t.id);
+  store.addEvent(c.id, tick, 'good', `The stabilizer is running in ${t.name}. It will stay open far longer, its anomaly has stopped doing harm, and other stations can land there too.`);
+}
+
+// ---- stable territories (the stable territory finder) ----------------------------------------
+// Which rares can the anomaly tap extract on ground holding these resources? The field buildings make what they can from
+// what the territory holds (and from what they make), and a tap recipe works when both its inputs can be had.
+function extractable(held) {
+  const fits = Object.values(config.buildings).filter((b) => b.territory && b.territory.needs).map((b) => ({ ...b, ...b.territory }));
+  const have = new Set(held);
+  for (let again = true; again;) {
+    again = false;
+    for (const b of fits) {
+      if (!held.includes(b.needs)) continue;
+      if (!Object.keys(b.inputsPerTick).filter((r) => r !== 'energy').every((r) => have.has(r))) continue;
+      for (const r of Object.keys(b.outputsPerTick)) if (!have.has(r)) { have.add(r); again = true; }
+    }
+  }
+  return T.rare.filter((rare) => Object.values(config.tapRecipes).some((r) => r.rare === rare && Object.keys(r.inputsPerTick).filter((k) => k !== 'energy').every((k) => have.has(k))));
+}
+// The average lifetime of a territory, over every anomaly by how often it comes up.
+function meanLifetime() {
+  let w = 0; let sum = 0;
+  for (const a of Object.values(T.anomalies)) { if (!a.weight) continue; w += a.weight; sum += a.weight * (a.durationTicks[0] + a.durationTicks[1]) / 2; }
+  return w ? sum / w : 0;
+}
+// A territory only this colony can see and land on: a random rare, on ground that can extract it, open for a very long time.
+function spawnPrivate(c, tick, durationMult) {
+  const r = ms.rng(ms.hash(`stable:${c.id}:${tick}:${db.prepare('SELECT COUNT(*) AS n FROM territories').get().n}`));
+  const rare = pick(r, T.rare);
+  const grounds = [[0, 1], [0, 2], [1, 2]].flatMap(([a, b]) => T.district.map((d) => [T.common[a], T.common[b], d])).filter((g) => extractable(g).includes(rare));
+  const [common1, common2, district] = grounds.length ? pick(r, grounds) : [T.common[0], T.common[1], T.district[0]];
+  const n = db.prepare('SELECT COUNT(*) AS n FROM territories').get().n;
+  const name = `${pick(r, T.names)} ${n + 1}`;
+  const id = Number(db.prepare("INSERT INTO territories (name, anomaly, resources, opens_tick, closes_tick, data_site, owner_colony) VALUES (?, 'stable', ?, ?, ?, 0, ?)")
+    .run(name, JSON.stringify({ common1, common2, district, rare }), tick, tick + Math.round(meanLifetime() * durationMult), c.id).lastInsertRowid);
+  return { id, name, rare };
+}
+
 // ---- building, upgrading, repairing ----------------------------------------------------------
+const maxShips = (colonyId) => D.max + perks.count(colonyId, 'dropships');
 function buildShip(c, tick) {
   const st = orbital.stationOf(c.id);
   if (!st) return fail('There is no station.');
   const ships = shipsOf(c.id);
-  if (ships.length >= D.max) return fail(`A station supports at most ${D.max} dropships.`);
+  if (ships.length >= maxShips(c.id)) return fail(`A station supports at most ${maxShips(c.id)} dropships.`);
   const bad = orbital.payFromStation(c, st, D.buildCost);
   if (bad) return fail(bad);
-  const num = [1, 2, 3, 4, 5, 6].find((n) => !ships.some((s) => s.num === n));
+  let num = 1; while (ships.some((s) => s.num === num)) num++;
   db.prepare("INSERT INTO dropships (colony_id, num, level, integrity, state, until_tick, invested) VALUES (?, ?, 1, 100, 'building', ?, ?)").run(c.id, num, tick + D.buildTicks, JSON.stringify(Object.fromEntries(Object.entries(D.buildCost).filter(([r]) => r !== 'credits'))));
   return OK;
 }
@@ -248,7 +325,7 @@ function upgradeShip(c, { ship }) {
   if (!st || !s) return fail('No such dropship.');
   if (s.state !== 'docked') return fail('A dropship can only be upgraded while docked at the station.');
   const next = D.levels[s.level + 1];
-  if (!next) return fail('That dropship is fully upgraded.');
+  if (!next || next.hqOnly) return fail('That dropship is fully upgraded.');
   const bad = orbital.payFromStation(c, st, next.cost);
   if (bad) return fail(bad);
   const inv = parse(s.invested, {});
@@ -311,7 +388,8 @@ function checkTerritoryRoute(c, a, b, resource, rate, existingId) {
   if (!ship) return 'There is no dropship in that territory.';
   if (rate > level(ship).linkRate) return `This dropship's links carry at most ${level(ship).linkRate} per tick.`;
   const links = store.loadRoutes(c.id).filter((r) => (r.fromDistrict === terr.id || r.toDistrict === terr.id) && r.id !== existingId);
-  if (!links.some((r) => r.fromDistrict === a.id && r.toDistrict === b.id && r.resource === resource) && links.length >= D.maxLinks) return `A territory has ${D.maxLinks} links and they are both in use.`;
+  const most = D.maxLinks + (ship.extra_links || 0);
+  if (!links.some((r) => r.fromDistrict === a.id && r.toDistrict === b.id && r.resource === resource) && links.length >= most) return `This territory has ${most} links and they are all in use.`;
   if (other.type === 'station' && b.type === 'station' && !orbital.hasRoomFor(c.id, resource)) return 'Orbital storage has no slot for that. Jettison a slot first.';
   return null;
 }
@@ -319,22 +397,30 @@ function checkTerritoryRoute(c, a, b, resource, rate, existingId) {
 // ---- the view ------------------------------------------------------------------------------
 function view(c, tick) {
   const st = orbital.stationOf(c.id);
-  const anomaly = (k) => ({ key: k, ...T.anomalies[k] });
-  const list = db.prepare('SELECT * FROM territories WHERE closes_tick > ? ORDER BY closes_tick').all(tick).map((t) => ({
-    id: t.id, name: t.name, anomaly: anomaly(t.anomaly), resources: JSON.parse(t.resources), ticksLeft: t.closes_tick - tick,
-    taken: t.taken_by ? { mine: t.taken_by === c.id, station: t.taken_name } : null, destabilized: !!t.destabilized, dataSite: !!t.data_site,
+  const mineThere = new Set(db.prepare("SELECT territory_id FROM dropships WHERE colony_id = ? AND state IN ('deploying', 'deployed')").all(c.id).map((x) => x.territory_id));
+  // (another station's private territory is never shown; a stabilised one shows its anomaly as it now behaves there)
+  const list = db.prepare('SELECT * FROM territories WHERE closes_tick > ? AND (owner_colony IS NULL OR owner_colony = ?) ORDER BY closes_tick').all(tick, c.id).map((t) => ({
+    id: t.id, name: t.name, anomaly: { key: t.anomaly, ...orbital.anomalyOf(t) }, resources: JSON.parse(t.resources), ticksLeft: t.closes_tick - tick,
+    taken: t.taken_by || mineThere.has(t.id) ? { mine: mineThere.has(t.id), station: t.taken_name } : null, destabilized: !!t.destabilized, dataSite: !!t.data_site,
+    stabilized: !!t.stabilized, private: !!t.owner_colony,
+    // can one of this station's ships land there now? (an untaken one, a stabilised one, or its own private one)
+    open: !mineThere.has(t.id) && (!t.taken_by || !!t.stabilized || !!t.owner_colony),
   }));
+  const stab = perks.stabilizers(c.id);
   return {
-    max: D.max, buildCost: D.buildCost, buildTicks: D.buildTicks, levels: D.levels, deployTicks: D.deployTicks, returnTicks: D.returnTicks,
+    max: maxShips(c.id), buildCost: D.buildCost, buildTicks: D.buildTicks, levels: D.levels, deployTicks: D.deployTicks, returnTicks: D.returnTicks,
     contributeTicks: D.contributeTicks, maxLinks: D.maxLinks, starterKit: D.starterKit,
+    // Headquarters equipment: stabilizers (and when each is ready again) and territory link kits
+    stabilizers: stab.map((t) => Math.max(0, t - tick)), stabilizerCooldown: ((((config.hq || {}).categories || {}).territory || {}).options || {}).stabilizer ? config.hq.categories.territory.options.stabilizer.cooldownTicks : 0, linkKits: perks.count(c.id, 'extraLinks'), linkKitsFree: perks.freeLinkKits(c.id), l4Banked: perks.count(c.id, 'l4'),
     ships: st ? shipsOf(c.id).map((s) => {
       const t = s.territory_id ? list.find((x) => x.id === s.territory_id) || null : null;
       return {
         id: s.id, num: s.num, level: s.level, integrity: Math.max(0, Math.round(s.integrity * 10) / 10), state: s.state,
         ticksLeft: s.until_tick ? Math.max(0, s.until_tick - tick) : 0, districtId: s.district_id, territory: t,
         cargo: parse(s.cargo, {}), plan: parse(s.plan, null) || (t ? defaultPlan(t.resources) : null),
-        hold: level(s).hold, power: level(s).power, linkRate: level(s).linkRate, savedOnce: !!s.saved_once,
-        repairCost: s.integrity < 100 ? repairCost(s) : null, next: D.levels[s.level + 1] || null,
+        hold: level(s).hold, power: level(s).power, linkRate: level(s).linkRate, savedOnce: !!s.saved_once, unbreakable: !!level(s).unbreakable,
+        maxLinks: D.maxLinks + (s.extra_links || 0), extraLinks: s.extra_links || 0, stabilizer: !!s.stabilizer,
+        repairCost: s.integrity < 100 ? repairCost(s) : null, next: D.levels[s.level + 1] && !D.levels[s.level + 1].hqOnly ? D.levels[s.level + 1] : null,
       };
     }) : [],
     territories: list,
@@ -427,4 +513,4 @@ function unlockPacket(c, { packet }) {
   return OK;
 }
 
-module.exports = { advanceWorld, advanceColony, advanceData, addDataSuccess, dataView, unlockPacket, spawn, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, checkBuild, checkRecipe, view, shipsOf };
+module.exports = { advanceWorld, advanceColony, advanceData, addDataSuccess, dataView, unlockPacket, spawn, spawnPrivate, extractable, meanLifetime, deploy, setPlan, returnShip, recall, buildShip, upgradeShip, repairShip, repairCost, checkTerritoryRoute, checkBuild, checkRecipe, view, shipsOf, maxShips };

@@ -368,6 +368,53 @@
      "next": null
     }
    }
+  },
+  "hq01_found": {
+   "title": "Headquarters",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "The packet you read held a location: the company's headquarters. It is down. Nobody has been there to answer anything for a long time.",
+      "Your record speaks for itself. Power, people, a Beacon that was heard, districts, a station in orbit. You are qualified to run this colony on your own. Only the headquarters can make it official, and it cannot do anything until it is rebuilt."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "steward",
+     "text": [
+      "The bill is heavy: orbital goods, trade goods and a great deal of ordinary stock, delivered to the Core in any instalments. A Headquarters screen has opened beside the Data screen. Rebuild it, and the colony gets its independent charter."
+     ]
+    }
+   }
+  },
+  "hq02_charter": {
+   "title": "Charter",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "steward",
+     "text": [
+      "The headquarters is standing again, and it has issued the colony's independent charter. You are its Independent Colony Commander now.",
+      "The charter grant is in the treasury, and your station carries the charter mark in orbit."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "steward",
+     "text": [
+      "Nothing here changes overnight, and nobody is going anywhere: we are still here to help. But from now on you decide what comes next. The headquarters will build new districts, station expansions, wider roads and territory equipment, each dearer than the last. The first one is free."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "who": "signal",
+     "text": [
+      "Yours now. Go on."
+     ]
+    }
+   }
   }
  },
  "beats": [
@@ -825,6 +872,26 @@
    },
    "delivery": "dialogue",
    "scene": "x15_fragment"
+  },
+  {
+   "id": "hq01_found",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "hqOpened"
+   },
+   "delivery": "dialogue",
+   "scene": "hq01_found"
+  },
+  {
+   "id": "hq02_charter",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "chartered"
+   },
+   "delivery": "dialogue",
+   "scene": "hq02_charter"
   }
  ]
 }

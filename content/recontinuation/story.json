@@ -2522,6 +2522,164 @@
      ]
     }
    }
+  },
+  "hq01_found": {
+   "title": "The Office",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "seven",
+     "mood": "surprised",
+     "text": [
+      "Commander. You read a packet. This node read it over your shoulder, which the Office permits in an emergency and this node has decided is one. Between the survey notes there is a grid reference. It belongs to the Continuity Office's own headquarters."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "seven",
+     "mood": "thoughtful",
+     "text": [
+      "That explains the Charter Office. This node has forwarded your application to it more times than it will admit. Nobody answered because nobody is there. The headquarters is down. Roof, records, relay mast. Down."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "who": "seven",
+     "mood": "serious",
+     "text": [
+      "There is a second item. Your file has been reviewed, by this node, which is all the review there is. Power, water and people. A Beacon that was heard. Districts, a station in orbit, expeditions into ground nobody can map.",
+      "Under the Centennial Decree those are the conditions for independent operation. You meet every one of them. You have met them for some time. There was nobody left to say so."
+     ],
+     "prompt": "What do you say?",
+     "choices": [
+      {
+       "label": "So I'm independent now?",
+       "next": "d1"
+      },
+      {
+       "label": "What does the Office need?",
+       "next": "e"
+      }
+     ]
+    },
+    "d1": {
+     "who": "seven",
+     "text": [
+      "Qualified. Not chartered. A charter has to be issued by the Office, and the Office issues nothing from a filing cabinet. This node checked. Twice."
+     ],
+     "next": "e"
+    },
+    "e": {
+     "who": "seven",
+     "mood": "serious",
+     "text": [
+      "The headquarters needs rebuilding, and this colony is the only operation left with the means to do it. The bill is large. This node will not pretend otherwise. Orbital goods, trade goods, and intermediate stock in quantities that will make Vane sit down."
+     ],
+     "next": "f"
+    },
+    "f": {
+     "who": "vane",
+     "mood": "afraid",
+     "text": [
+      "I am already sitting down, Commander. I sat down at the word 'quantities'."
+     ],
+     "next": "g"
+    },
+    "g": {
+     "who": "seven",
+     "text": [
+      "Deliveries are taken at the Core, in whatever instalments you can spare. The Headquarters screen is open beside the Data screen. When the last crate arrives the rebuild begins. When the rebuild is finished, the Office can do the one thing it has wanted to do for you since you arrived."
+     ],
+     "next": "h"
+    },
+    "h": {
+     "who": "seven",
+     "mood": "happy",
+     "text": [
+      "Issue your charter. This node has already drafted it. The kettle remains non-operational. It is now the second item on the list."
+     ]
+    }
+   }
+  },
+  "hq02_charter": {
+   "title": "Charter",
+   "background": "command_hub.jpg",
+   "start": "a",
+   "nodes": {
+    "a": {
+     "who": "seven",
+     "mood": "happy",
+     "text": [
+      "Commander. The headquarters is standing. The relay mast is up, the records are back in their drawers, and this node is speaking to you, for the first time in its service life, from inside a building."
+     ],
+     "next": "b"
+    },
+    "b": {
+     "who": "seven",
+     "mood": "serious",
+     "text": [
+      "By the authority of the Continuity Office, under the Centennial Decree, Recontinuation Site 7 is chartered as an independent colony. You are no longer the Territory Commander of an unchartered colony.",
+      "You are its Independent Colony Commander. You have proven that the colony can hold itself, and that you can hold it. The Charter Office has replied. It has replied to all of your applications at once. You will find the stamps quite uniform."
+     ],
+     "next": "c"
+    },
+    "c": {
+     "who": "seven",
+     "text": [
+      "The Office's grant has been paid into your treasury. Your station carries the charter mark now, and anyone trading with it in orbit will see it beside its name. A diamond. The Office considered a seal. A seal did not fit on the market board."
+     ],
+     "prompt": "What do you ask?",
+     "choices": [
+      {
+       "label": "What changes now?",
+       "next": "d1"
+      },
+      {
+       "label": "Does this mean you're leaving?",
+       "next": "d2"
+      }
+     ]
+    },
+    "d1": {
+     "who": "seven",
+     "mood": "thoughtful",
+     "text": [
+      "Very little, today. The colony still eats and drinks and still needs power. What changes is who decides. The Office will no longer tell you what comes next."
+     ],
+     "next": "e"
+    },
+    "d2": {
+     "who": "seven",
+     "mood": "happy",
+     "text": [
+      "No. This node is not going anywhere, and neither is anyone else. Mags still has the yards, Raf still has the roads, Pell still has the fragments, and Vane still has the ledger. We are all here to support you. We are simply no longer here to supervise you."
+     ],
+     "next": "e"
+    },
+    "e": {
+     "who": "seven",
+     "text": [
+      "The headquarters will build what you ask of it: new ground to settle, room at the station, wider roads, equipment for the territories. Each piece of work costs more than the last, whatever it is. Choose carefully. Or at least choose."
+     ],
+     "next": "f"
+    },
+    "f": {
+     "who": "mags",
+     "mood": "happy",
+     "text": [
+      "Independent. Huh. Same yards, same dust, honey. I'll admit it sounds better."
+     ],
+     "next": "g"
+    },
+    "g": {
+     "who": "seven",
+     "mood": "happy",
+     "text": [
+      "The first piece of work is on the house. The Office insists. Chart your own path, Commander. It is yours now."
+     ]
+    }
+   }
   }
  },
  "beats": [
@@ -3910,6 +4068,26 @@
    },
    "delivery": "dialogue",
    "scene": "x15_fragment"
+  },
+  {
+   "id": "hq01_found",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "hqOpened"
+   },
+   "delivery": "dialogue",
+   "scene": "hq01_found"
+  },
+  {
+   "id": "hq02_charter",
+   "phase": "open",
+   "trigger": {
+    "type": "orbital",
+    "flag": "chartered"
+   },
+   "delivery": "dialogue",
+   "scene": "hq02_charter"
   },
   {
    "id": "p01_one_hundred",

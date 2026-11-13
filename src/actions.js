@@ -13,6 +13,9 @@ const queue = require('./queue');
 const requisitions = require('./requisitions');
 const settlements = require('./settlements');
 const minigames = require('./minigames');
+const hq = require('./hq');
+const absence = require('./absence');
+const perks = require('./perks');
 const { own, isPlain, toInt, toNum, body } = require('./validate');
 const store = require('./db');
 const { db, config } = store;
@@ -38,7 +41,7 @@ function districtFor(c, id, orbitalOk = false) {
     ? db.prepare("SELECT * FROM districts WHERE colony_id = ? AND type = 'core'").get(c.id)
     : Number.isNaN(n) ? null : db.prepare('SELECT * FROM districts WHERE id = ? AND colony_id = ?').get(n, c.id);
   if (d && !orbitalOk && (config.orbitalTypes || {})[d.type]) return null;
-  return d ? { ...d, level: d.type === 'core' ? c.hub_level : d.level, name: d.type !== 'core' && (config.districtTypes || {})[d.type] ? config.districtTypes[d.type].name : d.name } : null;
+  return d ? { ...d, level: d.type === 'core' ? c.hub_level : d.level, name: store.nameOfRow(d) } : null;
 }
 const NO_DISTRICT = 'Unknown district.';
 const NEIGHBOURS = {};
@@ -301,15 +304,16 @@ const upgradeHub = guarded((c, { district } = {}) => {
 });
 
 // Found a satellite district: an order in the Core's queue, paid from the Core stockpile when it starts.
-const foundDistrict = guarded((c, { type }) => {
+const foundDistrict = guarded((c, { type, discovery }) => {
+  if (discovery !== undefined && discovery !== null) return hq.found(c, { discovery }, (d) => order(c, districtFor(c, null), 'found', d));
   const t = own(config.districtTypes, type);
   if (!t) return fail('Unknown district type.');
   if (!sim.districtsUnlocked(config, { coreLevel: c.hub_level })) {
     return fail(`Districts open at hub level ${config.districtProgression.unlockCoreLevel}.`);
   }
   if (!sim.districtFoundable(config, type, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) })) return fail(`${t.name} opens once the Beacon is built.`);
-  if (store.loadDistricts(c.id).some((d) => d.type === type)
-    || store.loadOrders(c.id).some((o) => o.action_type === 'found' && o.data.type === type)) return fail(`${t.name} is already founded.`);
+  if (store.loadDistricts(c.id).some((d) => d.type === type && !d.discoveryId)
+    || store.loadOrders(c.id).some((o) => o.action_type === 'found' && o.data.type === type && !o.data.discovery)) return fail(`${t.name} is already founded.`);
   return order(c, districtFor(c, null), 'found', { type });
 });
 
@@ -326,7 +330,7 @@ const shipment = guarded((c, { from, to, resource, qty }) => {
   if (store.loadShipments(c.id).filter((x) => !x.routeId).length >= L.maxInFlight) return fail(`Only ${L.maxInFlight} shipments can be on the road at once.`);
   if ((store.loadInventory(c.id, a.id)[resource] || 0) < qty) return fail(`Not enough ${config.resources[resource].name} in ${a.name}.`);
   const tick = Number(store.getMeta('global_tick', 0));
-  const trip = sim.shipDistance(config, a.type, b.type);
+  const trip = sim.shipDistance(config, { type: a.type, extraDistance: a.extra_distance }, { type: b.type, extraDistance: b.extra_distance });
   pay(a.id, { [resource]: qty });
   db.prepare('INSERT INTO colony_shipments (colony_id, from_district, to_district, resource_id, qty, dispatched_tick, arrives_tick) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(c.id, a.id, b.id, resource, qty, tick, tick + trip);
@@ -414,7 +418,7 @@ const marketCancel = guarded((c, { orderId }) => market.cancel(c, toInt(orderId)
 // A route moves up to `rate` units per tick from one district to another, never taking the source below
 // `reserve`. Every satellite has a link to the Core with a capacity; a route counts against the link of each
 // satellite it touches (a route to or from the Core touches one).
-const linkCapacity = (config_, d) => Math.floor(config_.logistics.link.levels[d.link_level || d.linkLevel || 1].capacity * settlements.linkMult(d.colony_id)); // d is a districts row
+const linkCapacity = (config_, d) => Math.floor(config_.logistics.link.levels[d.link_level || d.linkLevel || 1].capacity * settlements.linkMult(d.colony_id)) + perks.linkBonus(d.colony_id); // d is a districts row
 function linkLoad(c, districtId, ignoreRouteId) {
   return store.loadRoutes(c.id)
     .filter((r) => r.id !== ignoreRouteId && (r.fromDistrict === districtId || r.toDistrict === districtId))
@@ -448,7 +452,7 @@ const setRoute = guarded((c, { from, to, resource, rate, reserve, target }) => {
     return OK;
   }
   if (!sim.districtsUnlocked(config, { coreLevel: c.hub_level })) return fail('Districts are not open yet.');
-  if (!existing && store.loadRoutes(c.id).length >= config.logistics.maxRoutes) return fail(`At most ${config.logistics.maxRoutes} routes.`);
+  if (!existing && store.loadRoutes(c.id).length >= perks.maxRoutes(c.id)) return fail(`At most ${perks.maxRoutes(c.id)} routes.`);
   for (const d of [a, b]) {
     if (d.type === 'core') continue;
     const cap = linkCapacity(config, d);
@@ -554,6 +558,14 @@ const minigameStart = guarded((c, args) => minigames.start(c, args, Date.now(), 
 const minigameMove = guarded((c, args) => minigames.move(c, args, Date.now(), tickNow()));
 const minigameQuit = guarded((c, args) => minigames.quit(c, args, Date.now(), tickNow()));
 const shipUpgrade = guarded((c, args) => territories.upgradeShip(c, args));
+const slotMove = guarded((c, args) => orbital.moveSlot(c, args || {}));
+const slotRelease = guarded((c, args) => orbital.releaseSlot(c, args || {}));
+// Headquarters (hq.js): deliver toward its bill, commit to (or switch to, or spend a free unlock on) an option, give one up,
+// and use a banked level-4 refit.
+const hqGive = guarded((c, args) => hq.give(c, args || {}, tickNow()));
+const hqStart = guarded((c, args) => hq.start(c, args || {}, tickNow()));
+const hqAbort = guarded((c, args) => hq.abort(c, args || {}, tickNow()));
+const hqRefit = guarded((c, args) => hq.refit(c, args || {}, tickNow()));
 const shipRepair = guarded((c, args) => territories.repairShip(c, args));
 const projectContribute = guarded((c, args) => projects.contribute(c, args, tickNow()));
 const orbitPost = guarded((c, args) => orbitalMarket.post(c, args, tickNow()));
@@ -570,10 +582,22 @@ const ack = guarded((c) => {
 }, { allowFailed: true });
 
 // Full wipe back to the starting state (manual reset).
+// Abandon the colony and start over. A healthy colony (no collapse countdown, not shut down, not collapsed) is not
+// erased: it is parked under a generated account, where a bot can claim it and play it on. Anything else is wiped.
+const healthy = (c) => {
+  if (c.status !== 'active' || (c.shutdown_tick !== null && c.shutdown_tick !== undefined)) return false;
+  const v = require('./state').viewFor(c.user_id); // required here: state.js needs much of what this file does
+  return !!v && !v.lost && !v.doom;
+};
 const reset = guarded((c) => {
+  if (healthy(c)) {
+    absence.handOver(c.id);
+    store.foundColony(c.user_id, { failures: c.failures });
+    return { ok: true, parked: true };
+  }
   const old = store.wipeColony(c.id);
   store.foundColony(old.user_id, { failures: old.failures });
-  return OK;
+  return { ok: true, parked: false };
 }, { allowFailed: true });
 
 // After a collapse: lose everything but keep part of the credits.
@@ -592,4 +616,4 @@ const storySeen = guarded((c, { beat, all }) => {
   return story.markSeen(c.id, beat, false) ? OK : fail('Unknown message.');
 }, { allowFailed: true });
 
-module.exports = { minigameStart, minigameMove, minigameQuit, settlementSponsor, settlementCommit, settlementGive, settlementAnswer, settlementDrop, settlementReserve, buildSlot, requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };
+module.exports = { hqGive, hqStart, hqAbort, hqRefit, slotMove, slotRelease, minigameStart, minigameMove, minigameQuit, settlementSponsor, settlementCommit, settlementGive, settlementAnswer, settlementDrop, settlementReserve, buildSlot, requisitionFill, replace, queueMove, rushOrder, dataUnlock, shipDeploy, shipPlan, shipReturn, shipBuild, shipUpgrade, shipRepair, projectContribute, orbitPost, orbitCancel, launchCycle, launch, expressLaunch, orbitalStorageUpgrade, orbitalLinksUpgrade, jettison, rebuildSlot, resumeOps, storySeen, build, demolish, toggle, setBoost, cancelOrder, upgradeHub, foundDistrict, expand, setRecipe, shieldHazard, missionFill, shipment, marketPost, marketCancel, setRoute, upgradeLink, setContract, expressTrip, reset, restart, ack, colonyOf };

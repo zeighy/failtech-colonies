@@ -33,7 +33,8 @@
 //   { type: 'settlement', flag, kind?, min? } settlements: sponsored (ever), stage (one has reached min), answered (appeals),
 //                                            partner (set on their own feet); kind limits it to one kind of settlement
 //   { type: 'orbital', flag }                an orbit milestone (unlocked, staging, catapult, command, cycleDone, launched,
-//                                            ring2, ring3, deployed, rareReturned, shipSaved, shipLost, contributed, projectCompleted, dataFragment)
+//                                            ring2, ring3, deployed, rareReturned, shipSaved, shipLost, contributed, projectCompleted, dataFragment,
+//                                            hqOpened, chartered)
 const store = require('./db');
 const theme = require('./theme');
 const fs = require('fs');
@@ -56,7 +57,8 @@ const bgOk = (v) => (typeof v === 'string' || (Array.isArray(v) && v.length > 0)
 const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
 
 // Orbit milestones a beat can wait for (see src/orbital.js setFlag, and the launch site).
-const ORBITAL_FLAGS = ['unlocked', 'staging', 'catapult', 'command', 'cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted', 'dataFragment'];
+// hqOpened and chartered come from Headquarters (src/hq.js): it was found (a data packet was read), and its rebuild finished.
+const ORBITAL_FLAGS = ['unlocked', 'staging', 'catapult', 'command', 'cycleDone', 'launched', 'ring2', 'ring3', 'deployed', 'rareReturned', 'shipSaved', 'shipLost', 'contributed', 'projectCompleted', 'dataFragment', 'hqOpened', 'chartered'];
 const TRIGGERS = {
   start: () => [],
   directive: (t) => (DIRECTIVE_IDS.includes(t.id) ? [] : [`unknown directive "${t.id}"`]),

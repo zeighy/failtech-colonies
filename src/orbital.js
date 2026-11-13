@@ -11,8 +11,10 @@
 // but it then has to be rebuilt before it can hold anything again.
 const store = require('./db');
 const { own, toInt, toNum } = require('./validate');
+const perks = require('./perks');
 const { db, config } = store;
 const O = config.orbital;
+const HC_BASE = 100; // high-capacity slots are numbered from here, apart from the ordinary ones
 
 const fail = (error) => ({ ok: false, error });
 const OK = { ok: true };
@@ -50,13 +52,25 @@ function checkUnlock(c, tick) {
 }
 
 // ---- storage slots --------------------------------------------------------------------
+// Two kinds: the ordinary slots the storage level gives, and high-capacity slots from Headquarters ('hc'), which hold
+// perks.hcMult() times as much, are never jettisoned, and take any resource again once empty.
 function slots(colonyId) {
-  return db.prepare('SELECT idx, resource_id AS resource, state FROM orbital_slots WHERE colony_id = ? ORDER BY idx').all(colonyId);
+  return db.prepare('SELECT idx, resource_id AS resource, state, kind FROM orbital_slots WHERE colony_id = ? ORDER BY idx').all(colonyId);
 }
 function ensureSlots(colonyId, count) {
-  const have = slots(colonyId).length;
-  const ins = db.prepare("INSERT OR IGNORE INTO orbital_slots (colony_id, idx, resource_id, state) VALUES (?, ?, NULL, 'open')");
+  const have = slots(colonyId).filter((s) => s.kind !== 'hc').length;
+  const ins = db.prepare("INSERT OR IGNORE INTO orbital_slots (colony_id, idx, resource_id, state, kind) VALUES (?, ?, NULL, 'open', 'normal')");
   for (let i = have; i < count; i++) ins.run(colonyId, i);
+  const hc = perks.count(colonyId, 'hcSlots');
+  const insHc = db.prepare("INSERT OR IGNORE INTO orbital_slots (colony_id, idx, resource_id, state, kind) VALUES (?, ?, NULL, 'open', 'hc')");
+  for (let i = 0; i < hc; i++) insHc.run(colonyId, HC_BASE + i);
+}
+const hcCap = (cap) => cap * perks.hcMult();
+// The resources held in high-capacity slots, with the cap each may fill to (for the simulation's `capHigh`).
+function capHigh(colonyId, cap) {
+  const out = {};
+  for (const s of slots(colonyId)) if (s.kind === 'hc' && s.resource) out[s.resource] = hcCap(cap);
+  return out;
 }
 
 // Bring a station stockpile in line with its slots: a resource with no slot takes a free one if there is one, otherwise it
@@ -68,7 +82,8 @@ function enforceSlots(colonyId, inv, cap) {
   if (st) ensureSlots(colonyId, storageLevel(st).slots);
   const all = slots(colonyId);
   const held = new Map(all.filter((s) => s.resource).map((s) => [s.resource, s]));
-  const free = all.filter((s) => !s.resource && s.state === 'open');
+  // a resource without a slot takes an ordinary one first, and a high-capacity one only when no ordinary one is free
+  const free = all.filter((s) => !s.resource && s.state === 'open').sort((a, b) => (a.kind === 'hc') - (b.kind === 'hc') || a.idx - b.idx);
   const claim = db.prepare('UPDATE orbital_slots SET resource_id = ? WHERE colony_id = ? AND idx = ?');
   const lost = [];
   // when slots are contested, the biggest stocks keep theirs (a trickle of new output never pushes out a real stockpile)
@@ -76,10 +91,12 @@ function enforceSlots(colonyId, inv, cap) {
     const amt = inv[res] || 0;
     if (amt <= 1e-6) { inv[res] = 0; continue; }
     if (!held.has(res)) {
+      // the biggest stock that has to find a slot takes the high-capacity one if that is all there is, so it is never wasted on a trickle
       const s = free.shift();
       if (s) { claim.run(res, colonyId, s.idx); held.set(res, s); } else { lost.push({ resource: res, qty: amt }); inv[res] = 0; continue; }
     }
-    if (amt > cap) { lost.push({ resource: res, qty: amt - cap, full: true }); inv[res] = cap; }
+    const top = held.get(res).kind === 'hc' ? hcCap(cap) : cap;
+    if (amt > top) { lost.push({ resource: res, qty: amt - top, full: true }); inv[res] = top; }
   }
   return lost;
 }
@@ -90,13 +107,21 @@ function hasRoomFor(colonyId, res) {
   return all.some((s) => s.resource === res) || all.some((s) => !s.resource && s.state === 'open');
 }
 
+// What a territory's anomaly does there. A stabilised territory keeps the anomaly's bonuses and loses its harm; a private
+// stable one (from the stable territory finder) has the 'stable' anomaly, which does nothing either way.
+function anomalyOf(t) {
+  const an = O.territories.anomalies[t.anomaly];
+  if (!an || !t.stabilized) return an || null;
+  return { ...an, rareMult: Math.max(1, an.rareMult), powerMult: Math.max(1, an.powerMult || 1), lateDamage: 0, damagePerTick: 0 };
+}
+
 // ---- districts: what the simulation needs to know about orbital places ----------------
 // The station's storage cap comes from its storage level, not its ring level. A territory gets its power and hold from the
 // dropship sitting on it, its resources from the territory, and the anomaly's bonus on the rare-resource tap.
 function districtExtras(c, d) {
   if (d.type === 'station') {
     const st = stationOf(c.id);
-    if (st) return { capOverride: storageLevel(st).cap };
+    if (st) return { capOverride: storageLevel(st).cap, capHigh: capHigh(c.id, storageLevel(st).cap) };
   }
   if (d.type === 'territory') {
     const row = db.prepare('SELECT territory_id FROM districts WHERE id = ?').get(d.id);
@@ -106,7 +131,7 @@ function districtExtras(c, d) {
     const out = { capOverride: lv.hold, baseEnergy: lv.power };
     if (t) {
       out.territory = JSON.parse(t.resources);
-      const an = O.territories.anomalies[t.anomaly];
+      const an = anomalyOf(t);
       if (an) { out.outputMult = { t_tap: an.rareMult }; out.baseEnergy = Math.round(lv.power * (an.powerMult || 1)); } // some anomalies thin the ship's power
     }
     return out;
@@ -323,6 +348,7 @@ function jettison(c, { slot }) {
   const idx = toInt(slot);
   const s = slots(c.id).find((x) => x.idx === idx);
   if (!s) return fail('No such storage slot.');
+  if (s.kind === 'hc') return fail('A high-capacity slot is never jettisoned. Empty it, and it takes any resource again.');
   if (s.state !== 'open') return fail('That slot is already gone.');
   if (s.resource) {
     const inv = store.loadInventory(c.id, st.district_id);
@@ -332,6 +358,39 @@ function jettison(c, { slot }) {
     db.prepare('DELETE FROM colony_routes WHERE colony_id = ? AND resource_id = ? AND (from_district = ? OR to_district = ?)').run(c.id, s.resource, st.district_id, st.district_id);
   }
   db.prepare("UPDATE orbital_slots SET resource_id = NULL, state = 'jettisoned' WHERE colony_id = ? AND idx = ?").run(c.id, idx);
+  return OK;
+}
+
+// Move a resource between an ordinary slot and a high-capacity one (`to`: 'hc' or 'normal'). It needs an empty open slot
+// of the other kind, and moving out of a high-capacity slot needs the stock to fit an ordinary one. The slot it leaves is free.
+function moveSlot(c, { resource, to }) {
+  const st = stationOf(c.id);
+  if (!st) return fail('There is no station.');
+  if (to !== 'hc' && to !== 'normal') return fail('Move it to a high-capacity slot or an ordinary one.');
+  const all = slots(c.id);
+  const from = all.find((s) => s.resource === resource);
+  if (!from) return fail('Nothing of that is in storage.');
+  if ((from.kind === 'hc') === (to === 'hc')) return fail(to === 'hc' ? 'That is already in a high-capacity slot.' : 'That is already in an ordinary slot.');
+  const dest = all.find((s) => !s.resource && s.state === 'open' && (s.kind === 'hc') === (to === 'hc'));
+  if (!dest) return fail(to === 'hc' ? 'No high-capacity slot is free.' : 'No ordinary slot is free.');
+  const cap = storageLevel(st).cap;
+  const have = Math.floor(store.loadInventory(c.id, st.district_id)[resource] || 0);
+  if (to === 'normal' && have > cap) return fail(`An ordinary slot holds ${cap}, and there are ${have}. Use some first.`);
+  const set = db.prepare('UPDATE orbital_slots SET resource_id = ? WHERE colony_id = ? AND idx = ?');
+  set.run(null, c.id, from.idx);
+  set.run(resource, c.id, dest.idx);
+  return OK;
+}
+// An empty high-capacity slot lets go of its resource, ready for another.
+function releaseSlot(c, { slot }) {
+  const st = stationOf(c.id);
+  if (!st) return fail('There is no station.');
+  const s = slots(c.id).find((x) => x.idx === toInt(slot));
+  if (!s || s.kind !== 'hc') return fail('No such high-capacity slot.');
+  if (!s.resource) return OK;
+  if ((store.loadInventory(c.id, st.district_id)[s.resource] || 0) >= 1) return fail('Empty the slot first.');
+  db.prepare('UPDATE orbital_slots SET resource_id = NULL WHERE colony_id = ? AND idx = ?').run(c.id, s.idx);
+  const inv = store.loadInventory(c.id, st.district_id); inv[s.resource] = 0; store.saveInventory(c.id, inv, st.district_id);
   return OK;
 }
 
@@ -356,6 +415,9 @@ function coreLinks(colonyId, st, exceptId) {
     && ((r.fromDistrict === st.district_id && core.has(r.toDistrict)) || (r.toDistrict === st.district_id && core.has(r.fromDistrict))));
 }
 
+// How many Core links the station has: its link level's, plus any Headquarters added.
+const linkCount = (colonyId, st) => linksLevel(st).count + perks.count(colonyId, 'orbitalLinks');
+
 // Checked by actions.setRoute when either end is the station. Returns an error message or null.
 function checkStationRoute(c, a, b, resource, rate, existingId) {
   const st = stationOf(c.id);
@@ -367,7 +429,8 @@ function checkStationRoute(c, a, b, resource, rate, existingId) {
   if (rate > lv.rate) return `An orbital link carries at most ${lv.rate} per tick.`;
   const links = coreLinks(c.id, st, existingId);
   const sameEnds = (r) => (r.fromDistrict === a.id && r.toDistrict === b.id && r.resource === resource);
-  if (!links.some(sameEnds) && links.length >= lv.count) return `The station has ${lv.count} orbital links and they are all in use.`;
+  const count = linkCount(c.id, st);
+  if (!links.some(sameEnds) && links.length >= count) return `The station has ${count} orbital links and they are all in use.`;
   if (a.type === 'core' && !hasRoomFor(c.id, resource)) return 'Orbital storage has no slot for that. Jettison a slot first.';
   return null;
 }
@@ -397,12 +460,13 @@ function view(c, tick, opts = {}) {
   const inv = store.loadInventory(c.id, st.district_id);
   out.station = {
     name: st.name, districtId: st.district_id, level: district.level, launchedTick: st.launched_tick,
+    badge: config.hq && db.prepare("SELECT 1 FROM colony_hq WHERE colony_id = ? AND stage = 'chartered'").get(c.id) ? config.hq.charter.badge : null,
     storage: {
-      level: st.storage_level, cap: sl.cap, next: O.storage.levels[st.storage_level + 1] || null,
+      level: st.storage_level, cap: sl.cap, hcCap: hcCap(sl.cap), next: O.storage.levels[st.storage_level + 1] || null,
       slots: slots(c.id).map((s) => ({ ...s, amount: s.resource ? Math.floor(inv[s.resource] || 0) : 0 })),
     },
     links: {
-      level: st.links_level, count: ll.count, rate: ll.rate, next: O.links.levels[st.links_level + 1] || null,
+      level: st.links_level, count: linkCount(c.id, st), bonus: perks.count(c.id, 'orbitalLinks'), rate: ll.rate, next: O.links.levels[st.links_level + 1] || null,
       list: coreLinks(c.id, st)
         .map((r) => ({ id: r.id, resource: r.resource, rate: r.rate, reserve: r.reserve, dir: r.toDistrict === st.district_id ? 'up' : 'down', flow: (opts.flows || {})[r.id] || 0 })),
     },
@@ -419,5 +483,5 @@ function view(c, tick, opts = {}) {
 module.exports = {
   stationOf, standingTotal, setFlag, flagsOf, checkUnlock, slots, ensureSlots, enforceSlots, hasRoomFor, districtExtras,
   nextCycle, launchSite, advanceLaunch, loadCycle, checkName, launch, expressLaunch, expressCost, arrivals,
-  upgradeStorage, upgradeLinks, jettison, rebuildSlot, checkStationRoute, payFromStation, isRare, view,
+  upgradeStorage, upgradeLinks, jettison, rebuildSlot, moveSlot, releaseSlot, checkStationRoute, payFromStation, isRare, view, anomalyOf, linkCount, capHigh,
 };

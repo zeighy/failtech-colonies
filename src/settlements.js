@@ -100,8 +100,9 @@ const vital = (r) => !!config.global.populationConsumptionPerTick[r.resource] ||
 function throttle(colonyId, routes, districts, tick) {
   if (!S || !routes.length) return routes;
   const mult = linkMult(colonyId, tick);
+  const bonus = require('./perks').linkBonus(colonyId); // Headquarters' boost on every link
   const cap = {};
-  for (const d of districts) if (d.type !== 'core' && (config.districtTypes || {})[d.type]) cap[d.id] = Math.floor(config.logistics.link.levels[d.linkLevel || 1].capacity * mult);
+  for (const d of districts) if (d.type !== 'core' && (config.districtTypes || {})[d.type]) cap[d.id] = Math.floor(config.logistics.link.levels[d.linkLevel || 1].capacity * mult) + bonus;
   const first = {}; const rest = {};
   for (const r of routes) for (const end of [r.fromDistrict, r.toDistrict]) if (cap[end] !== undefined) { const bag = vital(r) ? first : rest; bag[end] = (bag[end] || 0) + r.rate; }
   const factor = (id, isVital) => {

@@ -15,6 +15,7 @@ const hazards = require('./hazards');
 const market = require('./market');
 const missions = require('./missions');
 const absence = require('./absence');
+const hq = require('./hq');
 const { db, config } = store;
 
 const neighborMap = sim.buildNeighborMap(config);
@@ -110,12 +111,14 @@ function tickColony(c, globalTick, tickTime) {
     }
     if (o.action_type === 'found') {
       const t = config.districtTypes[o.data.type];
-      const nid = db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, ?, 1, ?, ?)")
-        .run(c.id, o.data.type, t.name, globalTick).lastInsertRowid;
+      const found = o.data.discovery ? hq.discoveryRow(c.id, o.data.discovery) : null; // a district Headquarters discovered
+      const nid = db.prepare('INSERT INTO districts (colony_id, type, level, name, created_tick, discovery_id, extra_distance) VALUES (?, ?, 1, ?, ?, ?, ?)')
+        .run(c.id, o.data.type, t.name, globalTick, found ? found.id : null, found ? found.extra_distance : 0).lastInsertRowid;
+      if (found) db.prepare('UPDATE hq_discoveries SET district_id = ? WHERE id = ?').run(nid, found.id);
       const stock = {};
       for (const r of Object.keys(config.resources)) stock[r] = (t.startingStock || {})[r] || 0;
       store.saveInventory(c.id, stock, nid);
-      ev('good', `${t.name} founded. A new district is online.`);
+      ev('good', `${found ? hq.discoveryName(found.id) : t.name} founded. A new district is online.`);
     }
     db.prepare('DELETE FROM colony_work_orders WHERE id = ?').run(o.id);
   }
@@ -143,7 +146,7 @@ function tickColony(c, globalTick, tickTime) {
   }
 
   // Standing routes: direct per-tick flows between stockpiles (see sim.applyRoutes).
-  const bags = new Map(full.districts.map((r) => [r.id, { inv: r.id === core.id ? inventory : r.inventory, cap: r.cap }]));
+  const bags = new Map(full.districts.map((r) => [r.id, { inv: r.id === core.id ? inventory : r.inventory, cap: r.cap, capHigh: r.capHigh }]));
   sim.applyRoutes(config, routes, bags);
 
   // Settlements the colony sponsors draw their baskets from the Core, down to the reserve.
@@ -226,6 +229,10 @@ function tickColony(c, globalTick, tickTime) {
       else if (globalTick % 20 === 0) ev('warn', `No storage slot in orbit for ${config.resources[l.resource].name}: what is being made is lost as it is made.`);
     }
   }
+
+  // Headquarters: the rebuild and any unlock under way finish on their own timers.
+  const paid = hq.advance(c, globalTick);
+  if (paid) credits += paid;
 
   store.saveInventory(c.id, inventory, core.id);
   for (const r of full.districts) if (r.id !== core.id) store.saveInventory(c.id, r.inventory, r.id);

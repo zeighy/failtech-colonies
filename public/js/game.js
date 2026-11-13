@@ -70,13 +70,15 @@
     { id: 'colony', name: 'Colony', tabs: [['brief', 'Brief', 'check', 'b'], ['people', 'People', 'users', 'p'], ['hub', 'Hub', 'hub', 'h'], ['districts', 'Districts', 'map', 'd'], ['settle', 'Settlements', 'camp', 'g']] },
     { id: 'economy', name: 'Economy', tabs: [['stockpile', 'Stockpile', 'box', 's'], ['logistics', 'Logistics', 'route', 'l'], ['convoy', 'Convoy', 'truck', 'c'], ['exchange', 'Exchange', 'scale', 'x'], ['missions', 'Missions', 'flag', 'n']] },
     { id: 'orbit', name: 'Orbit', tabs: [['ostore', 'Storage', 'box', 'o'], ['omarket', 'Market', 'scale'], ['oterr', 'Expeditions', 'ship', 'e'], ['oproject', 'Project', 'globe']] },
-    { id: 'data', name: 'Archive', tabs: [['data', 'Data', 't_data']] }
+    { id: 'data', name: 'Archive', tabs: [['data', 'Data', 't_data'], ['hq', 'Headquarters', 'hub']] }
   ];
   var MTABS = [['map', 'Map', 'radar'], ['brief', 'Brief', 'check'], ['stockpile', 'Stock', 'box'], ['convoy', 'Trade', 'truck']]; // the phone's bottom bar, before More
   var ORBIT_WS = { ostore: 1, omarket: 1, oterr: 1, oproject: 1 };
   // Orbit stays out of sight until there is a station, and the Data screen until the first fragment has been recovered.
+  // Headquarters sits beside the Data screen and opens once a data packet has been read.
   function navGroups() {
-    return NAV.filter(function (g) { return g.id === 'orbit' ? stationId() !== null : g.id === 'data' ? !!(S && S.data && S.data.unlocked) : true; });
+    return NAV.filter(function (g) { return g.id === 'orbit' ? stationId() !== null : g.id === 'data' ? !!(S && ((S.data && S.data.unlocked) || (S.hq && S.hq.unlocked))) : true; })
+      .map(function (g) { return g.id === 'data' && !(S && S.hq && S.hq.unlocked) ? { id: g.id, name: g.name, tabs: g.tabs.filter(function (t) { return t[0] !== 'hq'; }) } : g; });
   }
   function tabOf(id) { var t = null; NAV.forEach(function (g) { g.tabs.forEach(function (x) { if (x[0] === id) t = x; }); }); return t; }
   function groupOf(id) { return navGroups().filter(function (g) { return g.tabs.some(function (t) { return t[0] === id; }); })[0] || null; }
@@ -98,7 +100,7 @@
     if (t === 'site' || t === 'map') { ws = null; document.body.classList.remove('panel-full'); renderAll(); return; }
     if (!tabOf(t) || !groupOf(t)) { renderAll(); return; }
     if (ORBIT_WS[t]) { if (!inOrbit()) look(stationId()); }
-    else if (t !== 'data' && inOrbit()) look(groundD().id);
+    else if (t !== 'data' && t !== 'hq' && inOrbit()) look(groundD().id);
     ws = t; renderAll();
     var b = $('sheet-body'); if (b) b.scrollTop = 0;
   }
@@ -694,13 +696,13 @@
     var D = S.data;
     return '<div class="label sec">Recovery</div><dl class="kv"><dt>This attempt</dt><dd>' + Math.floor(b.dataProgress || 0) + ' / ' + D.attemptTicks + ' ticks</dd>' +
       '<dt>Toward a fragment</dt><dd>' + D.successes + ' / ' + D.perFragment + ' successful attempts</dd></dl>' +
-      '<div class="dim" style="font-size:11px">Low power slows an attempt. About ' + Math.round(D.successChance * 100) + '% of attempts find something.</div>';
+      '<div class="dim" style="font-size:11px">~' + Math.round(D.successChance * 100) + '% success · low power slows it</div>';
   }
   function dataTab() {
     var D = S.data, rigs = rigsList();
     var h = '<div class="p-title"><h3>Data</h3><span class="dim" style="margin-left:auto">' + D.total + ' fragment' + (D.total === 1 ? '' : 's') + ' recovered in all</span></div>' +
       '<div class="data-bal"><div><span class="label">Fragments</span><b class="num">' + D.fragments + '</b></div><div class="grow"><span class="label">Next fragment</span><div class="meter wide"><i style="width:' + (D.successes / D.perFragment * 100).toFixed(0) + '%;background:var(--cyan)"></i></div>' +
-      '<small class="dim">' + D.successes + ' of ' + D.perFragment + ' successful attempts. An attempt takes ' + D.attemptTicks + ' ticks and about ' + Math.round(D.successChance * 100) + '% of them find something.</small></div></div>';
+      '<small class="dim">' + D.successes + ' of ' + D.perFragment + ' successes · ' + D.attemptTicks + ' t per attempt</small></div></div>';
     if (window.Mini) h += window.Mini.section();
     h += '<div class="sheet-h">Recovery rigs</div>';
     h += rigs.length ? rigs.map(function (x) {
@@ -711,7 +713,6 @@
     var biggest = Math.max.apply(null, D.packets.map(function (p) { return p.level ? 0 : p.next.fragments; }).concat([1]));
     var st = RAW.orbital && RAW.orbital.station, sv = st && S.views[st.districtId];
     var stock = function (r) { return { amount: sv && sv.resources[r] ? sv.resources[r].amount : 0 }; };
-    h += '<div class="dim" style="font-size:12px;margin:-2px 0 6px">Sealed packets show only what they cost. Some hold more than one part: reading on takes more fragments and a few orbital goods from the station.</div>';
     h += D.packets.map(function (p) {
       var n = p.next, can = !!n && D.fragments >= n.fragments && Object.keys(n.goods || {}).every(function (r) { return stock(r).amount >= n.goods[r]; });
       var cost = n ? '<span class="num">' + n.fragments + ' fragment' + (n.fragments === 1 ? '' : 's') + '</span>' + (n.goods ? '<span class="io" style="display:inline-flex;margin-left:6px">' + Object.keys(n.goods).map(function (r) { return pill(r, n.goods[r], stock(r).amount < n.goods[r] ? 'no' : ''); }).join('') + '</span>' : '') : '';
@@ -723,6 +724,103 @@
           (p.scenes[i] ? '<button class="btn primary" data-story="scene" data-beat="' + esc(p.scenes[i]) + '" style="margin-top:6px">' + icon('play', 12) + ' Play</button>' : '') + '</div>'; }).join('') +
         (n ? '<div class="pmore"><div class="grow"><b>More inside</b> <span class="dim">Part ' + n.part + ' of ' + p.of + '</span><div style="margin-top:4px">' + cost + '</div></div>' + btn + '</div>' : (p.of > 1 ? '<div class="good" style="font-size:12px;margin-top:6px">Complete</div>' : '')) + '</div>';
     }).join('');
+    return h;
+  }
+  // ---- headquarters: the long sink after the story (src/hq.js)
+  var hqPick = null; // { category, option, ship }: an option looked at but not committed to
+  // A long wait in words: days, hours and minutes of real time.
+  function longTime(ticks) {
+    var m = Math.round(ticks * S.tickMs / 60000), d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60), mm = m % 60;
+    return d ? d + ' d' + (hh ? ' ' + hh + ' h' : '') : hh ? hh + ' h' + (mm ? ' ' + mm + ' min' : '') : Math.max(1, mm) + ' min';
+  }
+  function hqHave(r) { return r === 'credits' ? S.colony.credits : Math.floor(S.coreRes[r] ? S.coreRes[r].amount : 0); }
+  function hqName(r) { return r === 'credits' ? 'Credits' : (CFG.resources[r] || { name: r }).name; }
+  function hqColor(r) { return r === 'credits' ? 'var(--amber)' : (CFG.resources[r] || {}).color; }
+  // A good named without an amount (before an unlock is committed, the bill's sizes stay hidden).
+  function hqGood(r) { return '<span class="pill" style="--c:' + hqColor(r) + '"><i></i>' + esc(hqName(r)) + '</span>'; }
+  // The bill, one row per good: delivered of needed, what the Core holds, and a button to send it.
+  function hqBill(need, got) {
+    var total = 0, have = 0;
+    Object.keys(need).forEach(function (r) { total += need[r]; have += Math.min(need[r], got[r] || 0); });
+    var h = '<div class="meter wide" style="margin:6px 0 10px"><i style="width:' + clamp(have / total * 100, 0, 100).toFixed(1) + '%;background:var(--amber)"></i></div>';
+    var any = false;
+    h += Object.keys(need).map(function (r) {
+      var g = got[r] || 0, left = Math.max(0, need[r] - g), core = hqHave(r), can = left > 0 && core >= 1;
+      if (can && r !== 'credits') any = true;
+      return '<div class="need hqneed" style="--c:' + hqColor(r) + '"><div class="top"><b><i class="dot" style="background:' + hqColor(r) + '"></i>' + esc(hqName(r)) + '</b><span class="num">' + fmt(g) + ' / ' + fmt(need[r]) + '</span></div>' +
+        '<div class="meter wide"><i style="width:' + clamp(g / need[r] * 100, 0, 100).toFixed(1) + '%;background:' + hqColor(r) + '"></i></div>' +
+        '<div class="hqrow"><span class="dim">' + (left ? (r === 'credits' ? 'Treasury: ' : 'In the Core: ') + fmt(core) : '<span class="good">Delivered</span>') + '</span>' +
+        (left ? '<button class="btn" data-act="hqgive" data-res="' + r + '"' + (can ? '' : ' disabled') + '>Send ' + fmt(Math.min(left, core)) + '</button>' : '') + '</div></div>';
+    }).join('');
+    return { html: h, any: any, pct: total ? have / total : 0 };
+  }
+  function hqTab() {
+    var Q = S.hq;
+    if (!Q || !Q.unlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>Nothing is known about this yet.</div></div>';
+    var title = '<div class="p-title">' + icon('hub', 22) + '<h3>' + esc(tabLabel(['hq', 'Headquarters'])) + '</h3>' + (Q.stage === 'chartered' ? '<span class="hqbadge" title="Independent charter">' + esc(Q.charter.badge) + ' Chartered</span>' : '') + '</div>';
+    if (Q.stage === 'activation') {
+      var b = hqBill(Q.activation.need, Q.activation.got);
+      return title + '<p class="p-desc">Deliver from the <b>Core</b>, in any instalments. Rebuild: ' + longTime(Q.activation.ticks) + '.</p>' +
+        '<div class="label sec">Activation · ' + Math.floor(b.pct * 100) + '% delivered</div>' + b.html +
+        '<div class="actions"><button class="btn primary" data-act="hqgive"' + (b.any ? '' : ' disabled') + '>Send all from the Core</button></div>' +
+        '<div class="note">Charter: ' + fmt(Q.charter.credits) + ' credits, ' + esc(Q.charter.badge) + ' on your station, ' + Q.charter.freeUnlocks + ' free unlock' + (Q.charter.freeUnlocks === 1 ? '' : 's') + '.</div>';
+    }
+    if (Q.stage === 'rebuilding') {
+      var left = Q.activation.readyIn, all = Q.activation.ticks;
+      return title + '<div class="label sec">Rebuilding · ' + longTime(left) + ' left</div><div class="meter wide"><i style="width:' + clamp((all - left) / all * 100, 0, 100).toFixed(1) + '%;background:var(--good)"></i></div>';
+    }
+    var h = title + '<p class="p-desc">One unlock at a time. Each paid unlock raises the cost and time of the next.</p>';
+    if (Q.free > 0) h += '<div class="note good">' + icon('check', 13) + ' ' + Q.free + ' free unlock' + (Q.free === 1 ? '' : 's') + ' available.</div>';
+    var cur = Q.cur;
+    if (cur) {
+      h += '<div class="label sec">Under way</div><div class="optcard on"><div class="top"><b>' + esc(cur.name) + '</b><span class="dim">' + esc(Q.categories.filter(function (k) { return k.key === cur.category; })[0].name) + '</span></div>';
+      if (cur.state === 'building') {
+        h += '<div class="dim" style="font-size:12px;margin-bottom:6px">Ready in ' + longTime(cur.readyIn) + '</div><div class="meter wide"><i style="width:' + clamp((cur.ticks - cur.readyIn) / cur.ticks * 100, 0, 100).toFixed(1) + '%;background:var(--good)"></i></div>';
+      } else {
+        var bb = hqBill(cur.need, cur.got);
+        h += '<div class="dim" style="font-size:12px">' + Math.floor(bb.pct * 100) + '% delivered · then ' + longTime(cur.ticks) + '</div>' + bb.html +
+          '<div class="actions"><button class="btn primary" data-act="hqgive"' + (bb.any ? '' : ' disabled') + '>Send all from the Core</button>' +
+          '<button class="btn danger" data-act="hqabort" data-key="hqabort">' + (confirmKey === 'hqabort' ? 'Confirm: no refund' : 'Abandon') + '</button></div>';
+      }
+      h += '</div>';
+    }
+    h += '<div class="label sec">Unlocks · ' + Q.unlocks + ' paid' + (Q.fragmentCost ? ' · ' + Q.fragments + ' fragment' + (Q.fragments === 1 ? '' : 's') : '') + '</div>';
+    Q.categories.forEach(function (k) {
+      h += '<div class="hqcat"><div class="top"><b>' + esc(k.name) + '</b></div>' +
+        '<div class="io">' + k.goods.map(hqGood).join('') + '</div>' +
+        k.options.map(function (o) {
+          var on = hqPick && hqPick.category === k.key && hqPick.option === o.key, isCur = cur && cur.category === k.key && cur.option === o.key;
+          var r = '<div class="hqopt' + (on ? ' on' : '') + (o.blocked ? ' blocked' : '') + '"><div class="top"><b>' + esc(o.name) + '</b>' + (isCur ? '<span class="good">under way</span>' : o.blocked ? '<span class="warn">' + esc(o.blocked) + '</span>' : on ? '' : '<button class="btn" data-act="hqpick" data-cat="' + k.key + '" data-opt="' + o.key + '">Choose</button>') + '</div>' +
+            '<div class="dim" style="font-size:12px">' + esc(o.desc) + '</div>';
+          if (on && !o.blocked) {
+            if (o.needsShip) {
+              if (!Q.ships.some(function (x) { return x.id === hqPick.ship; })) hqPick.ship = Q.ships.length ? Q.ships[0].id : null;
+              r += '<label class="field" style="margin-top:8px"><span class="label">Dropship to refit</span><select data-sel="hq:ship">' + Q.ships.map(function (x) { return '<option value="' + x.id + '"' + (x.id === hqPick.ship ? ' selected' : '') + '>Dropship ' + x.num + ' (' + x.state + ')</option>'; }).join('') + '</select></label>';
+            }
+            var building = cur && cur.state === 'building', fr = Q.fragmentCost, frOk = Q.fragments >= fr;
+            var frTxt = fr ? ' (' + fr + ' fragment' + (fr === 1 ? '' : 's') + ')' : '';
+            r += '<div class="actions">' +
+              (Q.free > 0 ? '<button class="btn primary" data-act="hqstart" data-free="1">Take it free</button>' : '') +
+              (building ? '' : '<button class="btn' + (Q.free > 0 || !frOk ? '' : ' primary') + '" data-act="hqstart"' + (frOk ? '' : ' disabled') + '>' + (cur ? 'Switch' : 'Commit') + frTxt + '</button>') +
+              '<button class="btn" data-act="hqpick">Cancel</button></div>' +
+              (building && !(Q.free > 0) ? '<div class="dim" style="font-size:11px">' + esc(cur.name) + ' is being built.</div>' : '') +
+              (!building && (cur || !frOk) ? '<div class="dim" style="font-size:11px">' + (cur ? 'Drops ' + esc(cur.name) + ', keeps ' + Math.round(Q.switchCarry * 100) + '% of shared goods. ' : '') + (frOk ? '' : '<span class="warn">Not enough fragments.</span>') + '</div>' : '');
+          }
+          return r + '</div>';
+        }).join('') + '</div>';
+    });
+    var P = Q.perks, have = [];
+    if (P.discoveries) have.push(P.discoveries + ' district' + (P.discoveries === 1 ? '' : 's') + ' discovered');
+    if (P.orbitalLinks) have.push('+' + P.orbitalLinks + ' orbital link' + (P.orbitalLinks === 1 ? '' : 's'));
+    if (P.hcSlots) have.push(P.hcSlots + ' high-capacity slot' + (P.hcSlots === 1 ? '' : 's'));
+    if (P.dropships) have.push('+' + P.dropships + ' dropship bay' + (P.dropships === 1 ? '' : 's'));
+    if (P.l4) have.push(P.l4 + ' level-4 refit' + (P.l4 === 1 ? '' : 's') + ' waiting');
+    if (P.routes) have.push('+' + P.routes + ' standing route' + (P.routes === 1 ? '' : 's'));
+    if (P.linkBoost) have.push('+' + P.linkBoost + '/t on every district link');
+    if (P.stabilizers) have.push(P.stabilizers + ' territory stabilizer' + (P.stabilizers === 1 ? '' : 's'));
+    if (P.finders) have.push(P.finders + ' stable territor' + (P.finders === 1 ? 'y' : 'ies') + ' found');
+    if (P.extraLinks) have.push(P.extraLinks + ' territory link kit' + (P.extraLinks === 1 ? '' : 's'));
+    if (have.length) h += '<div class="label sec">Unlocked so far</div><div class="io">' + have.map(function (x) { return '<span class="pill out"><i style="background:var(--good)"></i>' + esc(x) + '</span>'; }).join('') + '</div>';
     return h;
   }
   // construction/stock numbers interpolate between ticks
@@ -748,8 +846,8 @@
     var next = dlevel(GEO().levels[activeD().level + 1]);
     var up = !!(next && next.upgradeCost && !S.hub.upgrading && canAfford(next.upgradeCost) && (activeD().core || activeD().level + 1 <= S.districtLevelCap));
     var found = !!(S.districtsUnlocked && Object.keys(CFG.districtTypes).some(function (k) {
-      return S.foundable[k] && !S.districts.some(function (d) { return d.type === k; }) && !S.founding.some(function (f) { return f.type === k; }) && canAffordCore(CFG.districtTypes[k].foundCost);
-    }));
+      return S.foundable[k] && !districtOf(k) && !S.founding.some(function (f) { return f.type === k && !f.discovery; }) && canAffordCore(CFG.districtTypes[k].foundCost);
+    })) || (S.discoveries || []).some(function (x) { return !x.districtId && !x.founding && S.foundable[x.type] && canAffordCore(CFG.districtTypes[x.type].foundCost); });
     return { up: up, found: found };
   }
   // What the Brief has to say that cannot wait: a shutdown, a clock running down, a hazard on its way or in effect.
@@ -769,6 +867,7 @@
     if (t === 'hub' && f.up) return '<span class="dotb good" title="An upgrade is affordable"></span>';
     if (t === 'districts' && f.found) return '<span class="dotb good" title="A district can be founded"></span>';
     if (t === 'settle' && settleNews().length) return '<span class="dotb good" title="' + esc(settleNews()[0]) + '"></span>';
+    if (t === 'hq' && S.hq && S.hq.unlocked && (S.hq.free > 0 || (S.hq.stage === 'chartered' && !S.hq.cur))) return '<span class="dotb good" title="' + (S.hq.free > 0 ? 'A free piece of work is waiting' : 'Nothing is under way') + '"></span>';
     return '';
   }
   // The screens. Desk: one fixed list down the left edge, every screen one click away and always in the same place.
@@ -818,7 +917,7 @@
         h += '<button class="dr-place' + (p.on ? ' on' : '') + (p.cls || '') + '" ' + p.act + ' style="--c:' + p.color + '"><i></i><span class="grow"><b>' + esc(p.name) + '</b>' + (p.note ? '<small>' + esc(p.note) + '</small>' : '') + '</span>' +
           (p.tag ? '<em>' + p.tag + '</em>' : '') + (p.small ? '<small class="num">' + p.small + '</small>' : '') + '</button>';
       });
-      if (!S.districtsUnlocked) h += '<div class="note" style="margin-top:12px">Only the Core for now. Other places to hold open at hub level ' + CFG.districtProgression.unlockCoreLevel + '.</div>';
+      if (!S.districtsUnlocked) h += '<div class="note" style="margin-top:12px">Only the Core until hub level ' + CFG.districtProgression.unlockCoreLevel + '.</div>';
     } else {
       navGroups().forEach(function (g) { h += '<div class="nv-sec">' + esc(g.name) + '</div><div class="dr-grid">' + g.tabs.map(function (t) { return navBtn(t, ' tile'); }).join('') + '</div>'; });
       var cnt = window.Story.counts();
@@ -842,7 +941,7 @@
   function wsHtml(t) {
     if (window.Orbit.panes[t]) return window.Orbit.panes[t]();
     return t === 'hub' ? (activeD().core ? hubTab() : districtHubTab()) : t === 'people' ? peopleTab() : t === 'districts' ? districtsTab() : t === 'settle' ? settleTab() : t === 'logistics' ? logisticsPage() :
-      t === 'convoy' ? convoyTab() : t === 'exchange' ? exchangeTab() : t === 'missions' ? missionsTab() : t === 'stockpile' ? stockpileTab() : t === 'data' ? dataTab() : briefTab();
+      t === 'convoy' ? convoyTab() : t === 'exchange' ? exchangeTab() : t === 'missions' ? missionsTab() : t === 'stockpile' ? stockpileTab() : t === 'data' ? dataTab() : t === 'hq' ? hqTab() : briefTab();
   }
   var lastSheetTabs = '', lastSheet = '';
   function renderSheet() {
@@ -948,8 +1047,7 @@
     if (!sel || sel.hub) {
       var n = S.buildings.length;
       return '<div class="empty-state">' + icon('site', 36) + '<div>Select a slot on the radar.</div>' +
-        '<div class="dim" style="margin-top:8px;font-size:12px">' + n + ' structure' + (n === 1 ? '' : 's') + ' online · ' + S.orders.length + ' under construction</div></div>' +
-        '<div class="note">Place producers next to the buildings they pair with. Neighbours in the same ring and touching slots in adjacent rings count for adjacency bonuses.</div>';
+        '<div class="dim" style="margin-top:8px;font-size:12px">' + n + ' structure' + (n === 1 ? '' : 's') + ' online · ' + S.orders.length + ' under construction</div></div>';
     }
     var r = sel.ring, s = sel.slot, head = 'Ring ' + r + ' &middot; Slot ' + (s + 1) + ' &middot; ' + plotName(r) + ' plot';
     if (!slotUnlocked(r, s)) {
@@ -960,7 +1058,7 @@
     if (qd) {
       var qdef = CFG.buildings[qd.body.type];
       return '<div class="p-title" style="--c:' + qdef.color + '">' + icon(qd.body.type, 22) + '<h3>' + esc(qdef.name) + '</h3></div><div class="label">' + head + ' · queued while offline</div>' +
-        '<div class="note warn">This order has not reached the server. It will be sent when you reconnect, and may be rejected if things have changed.</div>' +
+        '<div class="note warn">Not sent yet: waiting for the connection.</div>' +
         '<div class="actions"><button class="btn danger" data-act="pcancel" data-id="' + qd.id + '">Discard queued order</button></div>';
     }
     if (o && !b) return orderPanel(o, head);
@@ -982,7 +1080,7 @@
   }
   function orderName(o) {
     return o.kind === 'build' ? 'Build ' + CFG.buildings[o.data.type].name : o.kind === 'replace' ? 'Replace ' + CFG.buildings[o.data.from].name + ' with ' + CFG.buildings[o.data.type].name
-      : o.kind === 'found' ? 'Found ' + CFG.districtTypes[o.data.type].name : o.kind === 'expand' ? 'Expand ' + CFG.buildings[o.data.type].name + ' → ' + o.data.level : 'Upgrade → L' + o.data.level;
+      : o.kind === 'found' ? 'Found ' + (o.data.discovery ? ((S.discoveries || []).filter(function (x) { return x.id === o.data.discovery; })[0] || { name: CFG.districtTypes[o.data.type].name }).name : CFG.districtTypes[o.data.type].name) : o.kind === 'expand' ? 'Expand ' + CFG.buildings[o.data.type].name + ' → ' + o.data.level : 'Upgrade → L' + o.data.level;
   }
   // The buttons a waiting order gets: to the front, and off the queue.
   function queueBtns(o) {
@@ -1000,9 +1098,9 @@
         '<div class="actions">' + queueBtns(o) + '</div>';
     }
     return h + '<div class="label">' + head + ' · ' + (swap ? 'being converted from ' + esc(CFG.buildings[o.data.from].name) : 'under construction') + '</div>' +
-      '<p class="p-desc">' + o.remaining + ' tick' + (o.remaining === 1 ? '' : 's') + ' remaining.' + (swap ? ' The plot makes nothing until it is done.' : '') + '</p>' +
+      '<p class="p-desc">' + o.remaining + ' tick' + (o.remaining === 1 ? '' : 's') + ' remaining.</p>' +
       '<div class="actions">' + rushBtn(o) + '<button class="btn danger" data-act="cancel" data-id="' + o.id + '">Cancel &amp; refund</button></div>' +
-      (swap ? '<div class="dim" style="font-size:11px;margin-top:8px">Cancelling refunds the new building. The one it replaced is already gone.</div>' : '');
+      (swap ? '<div class="dim" style="font-size:11px;margin-top:8px">Cancel refunds the new building only.</div>' : '');
   }
   // What happens if this is ordered now: it starts, or it joins the queue, and what the place is short of.
   function queueNote(cost, back) {
@@ -1055,7 +1153,7 @@
       (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult) + ' storage each') + '</div>' : '') +
       (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult).toFixed(1) + '</span></div>' : '') +
       (d.transmit && !(d.afterTransmit && S.colony.won) ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:#fff"></i>Signal ' + (b.eff * b.mult).toFixed(2) + ' / tick</span></div>' : '') +
-      (d.afterTransmit && S.colony.won ? '<div class="note good" style="margin-top:8px">The transmission is complete. The Beacon only has to be kept powered now.</div>' : '');
+      (d.afterTransmit && S.colony.won ? '<div class="note good" style="margin-top:8px">Transmission complete.</div>' : '');
     if (d.buffer) h += bufferCard(b, d);
     if (d.alternatives && !activeD().orbital) h += processCard(b, d);
     if (d.expand) h += expansionCard(b, d);
@@ -1107,7 +1205,7 @@
     var cur = d.alternatives[b.recipe] || null, T = (CFG.production || {}).switchTicks || 0;
     var h = '<div class="label sec">Recipe</div><div class="optcard on"><div class="top"><b>' + esc(cur ? cur.name : 'Standard') + '</b><span class="dim">' + (cur ? 'alternative' : 'as built') + '</span></div>' +
       (cur && cur.desc ? '<div class="dim" style="font-size:12px;margin-bottom:6px">' + esc(cur.desc) + '</div>' : '') + ioLines(ioOf(b, d)) + '</div>';
-    if (b.resetting) return h + '<div class="note warn">Retooling the line: idle for ' + b.resetting + ' more tick' + (b.resetting === 1 ? '' : 's') + '.</div>';
+    if (b.resetting) return h + '<div class="note warn">Retooling: idle ' + b.resetting + ' more tick' + (b.resetting === 1 ? '' : 's') + '.</div>';
     h += '<div class="dim" style="font-size:11px;margin:8px 0 4px">Other ways to run it · free to switch, idle ' + T + ' ticks</div>';
     var list = [];
     if (cur) list.push(['', { name: 'Standard', desc: 'The recipe it was built with.', inputsPerTick: d.inputsPerTick, outputsPerTick: d.outputsPerTick }]);
@@ -1125,7 +1223,7 @@
     var cap = d.buffer.power * b.plot * (b.xscale || 1), now = cap * (b.paused ? 0 : b.eff);
     var burn = Object.keys(d.buffer.perTick).map(function (r) { return pill(r, d.buffer.perTick[r] * (b.xscale || 1), 'in'); }).join('');
     return '<div class="label sec">Standby power</div><div class="optcard' + (now > 0.5 ? ' on' : '') + '"><div class="top"><b>' + (now > 0.5 ? 'Discharging ' + Math.round(now) + ' power' : 'Standing by') + '</b><span class="dim">up to ' + Math.round(cap) + '</span></div>' +
-      '<div class="dim" style="font-size:12px;margin-bottom:6px">Covers a shortfall on this place\'s grid, burning from this place\'s stockpile only while it is discharging. At full output:</div><div class="io">' + burn + '<span class="pill out"><i style="background:var(--energy)"></i>' + Math.round(cap) + ' Power</span></div></div>';
+      '<div class="dim" style="font-size:12px;margin-bottom:6px">Covers grid shortfalls. At full output:</div><div class="io">' + burn + '<span class="pill out"><i style="background:var(--energy)"></i>' + Math.round(cap) + ' Power</span></div></div>';
   }
 
   // ---- Trade Workshop: the recipe is chosen once, and costs credits to change --------------
@@ -1143,12 +1241,12 @@
     if (rec) {
       var adjn = Object.keys(rec.adjacent || {}).map(function (r) { return BOOK[r] ? esc(BOOK[r].name) + ' ×' + rec.adjacent[r] : ''; }).filter(Boolean);
       h += '<div class="optcard on"><div class="top"><b>' + esc(rec.name) + '</b><span class="dim">Tier ' + rec.tier + '</span></div>' + recipeLines(rec, b).html +
-        '<div class="dim" style="font-size:11px;margin-top:6px">Batch ×' + batch + ' on a ' + plotName(b.ring) + ' plot: more goes in and more comes out, at the same ratio. Crew and power scale with it.</div>' +
+        '<div class="dim" style="font-size:11px;margin-top:6px">Batch ×' + batch + ' on a ' + plotName(b.ring) + ' plot</div>' +
         (adjn.length ? '<div class="dim" style="font-size:11px;margin-top:4px">Runs better beside: ' + adjn.join(', ') + '</div>' : '') + '</div>';
       if (b.resetting) h += '<div class="note warn">Resetting: idle for ' + b.resetting + ' more ticks.</div>';
     } else h += CFG.buildings[b.type].freeReset
-      ? '<div class="note warn">No recipe chosen. Try one: changing it later costs no credits, only a short idle spell.</div>'
-      : '<div class="note warn">No recipe chosen. The first choice is free, but it locks in: changing it later costs credits and idles the workshop.</div>';
+      ? '<div class="note warn">No recipe chosen · switching is free</div>'
+      : '<div class="note warn">No recipe chosen · first pick free, changes cost credits</div>';
     var changing = !!rec;
     if (!b.resetting) {
       h += '<div class="dim" style="font-size:11px;margin:8px 0 4px">' + (changing ? 'Change recipe · costs <b>' + fmt(b.resetFee) + ' cr</b> and ' + CFG.tradeWorks.reset.delayTicks + ' idle ticks' : 'Choose a recipe') + '</div>' +
@@ -1168,7 +1266,7 @@
     return '<div class="label sec">Optional input</div><div class="optcard' + (working ? ' on' : '') + '"><div class="top"><b>' + esc(o.label) + '</b><span class="' + (working ? 'good' : on ? 'warn' : 'dim') + '">' + (working ? 'Active' : on ? 'Waiting for stock' : 'Off') + '</span></div>' +
       '<div class="dim" style="font-size:12px;margin-bottom:6px">' + esc(o.desc) + '</div>' +
       '<div class="io">' + ioPills({ inputsPerTick: o.inputsPerTick, outputsPerTick: {} }, 1, 1) + '<span class="pill out"><i style="background:var(--good)"></i>' + esc(effect) + '</span></div>' +
-      (on && !working ? '<div class="note warn" style="margin:8px 0 0">' + (short.length ? 'Not enough ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ' in this district\'s stockpile. Route or ship some in.' : 'Waiting for the building to run.') + '</div>' : '') +
+      (on && !working ? '<div class="note warn" style="margin:8px 0 0">' + (short.length ? 'Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ' here.' : 'Waiting for the building to run.') + '</div>' : '') +
       '<div class="actions"><button class="btn' + (on ? '' : ' primary') + '" data-act="boost" data-ring="' + b.ring + '" data-slot="' + b.slot + '">' + (on ? 'Switch off' : 'Switch on') + '</button></div></div>';
   }
   function nbComfort(r, s) {
@@ -1221,10 +1319,10 @@
     var cat = buildCat !== 'all' && have[buildCat] ? buildCat : 'all';
     var h = old
       ? '<div class="label">' + head + '</div><h3 style="margin:4px 0 8px;font-size:15px">Replace ' + esc(oldDef.name) + ' with…</h3>' +
-        '<div class="note" style="margin:0 0 10px">The order joins the work queue and ' + esc(oldDef.name) + ' keeps working until its turn. Then it is scrapped for ' + Math.round(CFG.demolishRefund * 100) + '% of its cost, and the plot makes nothing while the new building goes up, which takes <b>×' + CFG.buildQueue.replaceTimeMult + '</b> the usual time. Expansion levels are not carried over.</div>' +
+        '<div class="note" style="margin:0 0 10px">' + esc(oldDef.name) + ' runs until its turn, then is scrapped (' + Math.round(CFG.demolishRefund * 100) + '% refund). Build time ×' + CFG.buildQueue.replaceTimeMult + ' · expansions lost.</div>' +
         '<button class="btn block" style="margin-bottom:10px" data-act="replacemode">' + icon('back', 12) + ' Keep ' + esc(oldDef.name) + '</button>'
       : '<div class="label">' + head + ' · empty</div><h3 style="margin:4px 0 10px;font-size:15px">Construct</h3>';
-    if (full) h += '<div class="note warn" style="margin:0 0 10px">The work queue here is full (' + S.orders.length + ' orders). Cancel one, or wait for one to finish.</div>';
+    if (full) h += '<div class="note warn" style="margin:0 0 10px">Work queue full (' + S.orders.length + ').</div>';
     if (Object.keys(have).length > 1 && keys.length > 5) h += '<div class="cats" role="tablist" aria-label="Kind of building">' + CATS.filter(function (c) { return c[0] === 'all' || have[c[0]]; }).map(function (c) {
       return '<button role="tab" data-act="cat" data-cat="' + c[0] + '" aria-selected="' + (cat === c[0]) + '">' + c[1] + '<small>' + (c[0] === 'all' ? keys.length : have[c[0]]) + '</small></button>';
     }).join('') + '</div>';
@@ -1285,9 +1383,8 @@
     if (d && d.phase === 'shutdown') {
       var pk = S.colony.parked;
       return '<div class="doom warn"><div class="label">Shutdown</div><div class="big warn">COLONY SHUT DOWN</div>' +
-        '<div>' + (pk ? pk + ' building' + (pk === 1 ? ' is' : 's are') + ' parked. Only the essentials are running.' : 'Everything is running again, but the colony is still recovering.') + ' Fix what ran short, then bring the rest back when you are ready.</div>' +
-        (pk ? '<div class="actions" style="margin-top:10px"><button class="btn primary" data-act="resumeOps">Restart parked buildings (' + pk + ')</button></div>' : '') +
-        '<div class="dim" style="margin-top:8px;font-size:11px">Rather start over? Abandon colony is in the command menu.</div></div>';
+        '<div>' + (pk ? pk + ' building' + (pk === 1 ? ' is' : 's are') + ' parked. Only the essentials are running.' : 'Everything is running again, but the colony is still recovering.') + '</div>' +
+        (pk ? '<div class="actions" style="margin-top:10px"><button class="btn primary" data-act="resumeOps">Restart parked buildings (' + pk + ')</button></div>' : '') + '</div>';
     }
     if (!d) {
       return '<div class="doom ok"><div class="label">Collapse clock</div><div class="big good">STABLE</div>' +
@@ -1363,7 +1460,7 @@
 
   function briefTab() {
     var ds = S.brief.directives, done = ds.filter(function (d) { return d.done; }).length;
-    if (!S.brief.remaining) return threatCard() + doomCard() + '<div class="note good" style="margin-top:16px">All ' + ds.length + ' directives complete. Nothing left to hint at: the rest is yours.</div>';
+    if (!S.brief.remaining) return threatCard() + doomCard() + '<div class="note good" style="margin-top:16px">All ' + ds.length + ' directives complete.</div>';
     var h = threatCard() + doomCard() + '<div class="p-title" style="margin-top:16px"><h3>Directives</h3><span class="dim num" style="margin-left:auto">' + done + ' / ' + ds.length + '</span></div>' +
       '<div class="meter" style="margin:4px 0 10px"><i style="width:' + (done / ds.length * 100).toFixed(0) + '%;background:var(--amber)"></i></div>';
     // Finished directives fold away under one line; only the current one carries its hint, the rest show a title and progress.
@@ -1414,7 +1511,7 @@
       (confirmKey === 'bslot' ? 'Confirm: add build slot ' + n.slots : 'Add build slot ' + n.slots) + '</button></div>';
   }
   function upgradeNote(up) {
-    if (up.state === 'queued') return '<div class="note">The upgrade is in the work queue (number ' + up.pos + '). It is paid for when it starts.' + waitingLine(up) + '<div class="actions" style="margin-top:8px">' + queueBtns(up) + '</div></div>';
+    if (up.state === 'queued') return '<div class="note">Queued #' + up.pos + '.' + waitingLine(up) + '<div class="actions" style="margin-top:8px">' + queueBtns(up) + '</div></div>';
     return '<div class="note">Upgrade in progress: ' + up.remaining + ' ticks remaining. <a href="#" data-act="cancel" data-id="' + up.id + '" style="color:var(--amber)">Cancel</a></div>';
   }
   function upkeepPills(up) {
@@ -1440,10 +1537,10 @@
       '<dt>Fed meals</dt><dd>' + pct(mi.mealCoverage) + ' of people</dd>' +
       '<dt>Output effect</dt><dd class="' + (mi.productivity < 0.999 ? 'bad' : mi.productivity > 1.001 ? 'good' : 'dim') + '">×' + mi.productivity.toFixed(2) + '</dd></dl>' +
       (st.ratio < 0.999 ? '<div class="note warn">Short of hands: staffed buildings run slower.</div>' : '') +
-      (c.population >= ho.cap - 1 ? '<div class="note">The colony has filled its housing. It cannot grow further without more homes.</div>' : '');
+      (c.population >= ho.cap - 1 ? '<div class="note">Housing full.</div>' : '');
     if (lv.upkeepPerTick) {
       h += '<div class="label sec">Hub upkeep per tick</div><div class="io">' + upkeepPills(lv.upkeepPerTick) + '</div>' +
-        (S.hub.eff < 0.999 ? '<div class="note bad">Upkeep unmet: the hub is running at ' + pct(S.hub.eff) + ' and its power output is cut. Short of ' + esc(CFG.resources[S.hub.limiting].name) + '.</div>'
+        (S.hub.eff < 0.999 ? '<div class="note bad">Upkeep unmet: hub at ' + pct(S.hub.eff) + ', power cut. Short of ' + esc(CFG.resources[S.hub.limiting].name) + '.</div>'
           : '');
     }
     h += '<div class="label sec">Hub upgrade</div>';
@@ -1474,9 +1571,18 @@
   }
   // Routes, shipments, the exchange and missions only deal with surface districts; the station and territories have their own links.
   function groundDs() { return S.districts.filter(function (d) { return !d.orbital; }); }
-  function districtOf(type) { return S.districts.filter(function (d) { return d.type === type; })[0]; }
+  // Which goods the shipment and route forms offer: whatever the source holds, everything the colony has reached, the Free
+  // Port's trade goods once it stands, and the orbital goods once there is a station (they come down to the Core by link or
+  // express drop and go on from there, for the expansions past level 5).
+  function logisticsGood(r, held) {
+    var def = CFG.resources[r];
+    if (held || !def.showFromHub || def.showFromHub <= S.colony.hubLevel + 1) return true;
+    return !!((def.trade && S.freeport) || (def.orbitalTrade && stationId() !== null));
+  }
+  // (the district of a type: the original one, never a copy Headquarters discovered)
+  function districtOf(type) { return S.districts.filter(function (d) { return d.type === type && !d.discovery; })[0]; }
   function shipTime(a, b) {
-    var d = function (x) { return x.core ? 0 : CFG.districtTypes[x.type].distance; };
+    var d = function (x) { return x.core ? 0 : x.distance; };
     return Math.max(1, d(a) + d(b));
   }
   // Where the view can go: the surface districts, then the station and any territory a dropship is in. Shown as tabs over
@@ -1564,13 +1670,18 @@
   });
   window.addEventListener('resize', function () { if (S && !MOBILE) placeArrows(); });
   function districtMap() {
-    var h = '<svg class="dmap" viewBox="-110 -90 220 180" role="img" aria-label="District map">';
+    var h = '<svg class="dmap" viewBox="' + ((S.discoveries || []).length ? '-160 -140 320 290' : '-110 -90 220 180') + '" role="img" aria-label="District map">';
     var nodes = [{ id: S.districts[0].id, core: true, x: 0, y: 0, color: '#ff9f1c', name: 'Core', level: S.colony.hubLevel, on: true }];
     Object.keys(CFG.districtTypes).forEach(function (k) {
       if (!districtOf(k) && !S.foundable[k]) return; // districts that cannot be founded yet stay off the map
       var t = CFG.districtTypes[k], d = districtOf(k), a = t.angle * Math.PI / 180, r = t.radius * 80;
-      var f = S.founding.filter(function (x) { return x.type === k; })[0];
+      var f = S.founding.filter(function (x) { return x.type === k && !x.discovery; })[0];
       nodes.push({ id: d ? d.id : null, type: k, x: r * Math.cos(a), y: r * Math.sin(a), color: t.color, name: t.name.replace(/^The /, ''), level: d ? d.level : 0, on: !!d, building: !!f });
+    });
+    // districts Headquarters discovered sit further out, on a ring of their own
+    (S.discoveries || []).forEach(function (x) {
+      var t = CFG.districtTypes[x.type], a = x.angle * Math.PI / 180, r = 1.3 * 80, d = x.districtId ? S.districts.filter(function (y) { return y.id === x.districtId; })[0] : null;
+      nodes.push({ id: d ? d.id : null, type: x.type, x: r * Math.cos(a), y: r * Math.sin(a), color: t.color, name: x.name.replace(/^The /, ''), level: d ? d.level : 0, on: !!d, building: !!x.founding });
     });
     nodes.slice(1).forEach(function (n) { h += '<line x1="0" y1="0" x2="' + n.x.toFixed(1) + '" y2="' + n.y.toFixed(1) + '" class="dlink' + (n.on ? ' on' : '') + '"/>'; });
     nodes.forEach(function (n) {
@@ -1583,25 +1694,38 @@
   function districtsTab() {
     if (!S.districtsUnlocked) {
       return '<div class="empty-state">' + icon('lock', 36) + '<div>Districts open at hub level ' + CFG.districtProgression.unlockCoreLevel + '.</div></div>' +
-        '<div class="note">Out past the rings there is ground worth holding: satellite bases with their own stockpile and power grid, producing what the Core cannot. Grow the hub first.</div>';
+        '<div class="note">Out past the rings there is ground worth holding: satellite bases with their own stockpile and power grid, producing what the Core cannot.</div>';
     }
     var h = districtMap() + howTo('districts', 'Each district has its <b>own stockpile and power grid</b>. People, crew and morale are shared. Founding is paid from the Core; upgrades are paid from the district itself, so goods have to be shipped in.');
     Object.keys(CFG.districtTypes).forEach(function (k) {
-      var t = CFG.districtTypes[k], d = districtOf(k), f = S.founding.filter(function (x) { return x.type === k; })[0];
+      var t = CFG.districtTypes[k], d = districtOf(k), f = S.founding.filter(function (x) { return x.type === k && !x.discovery; })[0];
       h += '<div class="dcard" style="--c:' + t.color + '"><div class="top"><b>' + esc(t.name) + '</b>' + (d ? '<small>Level ' + d.level + ' · ' + d.buildings + ' structure' + (d.buildings === 1 ? '' : 's') + '</small>' : '') + '</div>' +
         '<div class="dim" style="font-size:12px;margin-bottom:8px">' + esc(t.desc) + '</div>';
       if (d) {
         h += '<div class="dim" style="font-size:11px;margin-bottom:6px">Link ' + d.link.load + ' / ' + d.link.capacity + ' per tick · ' + t.distance + ' ticks from the Core</div><div class="actions"><button class="btn' + (d.id === activeId ? '' : ' primary') + '" data-act="enter" data-id="' + d.id + '"' + (d.id === activeId ? ' disabled' : '') + '>' + (d.id === activeId ? 'Viewing' : 'Enter district') + '</button></div>';
       } else if (f) {
-        h += '<div class="note">' + (f.queued ? 'In the Core\'s work queue: founding starts when its turn comes and the Core can pay for it.' : 'Being founded: ' + f.remaining + ' tick' + (f.remaining === 1 ? '' : 's') + ' remaining.') + ' <a href="#" data-act="cancel" data-id="' + f.id + '" style="color:var(--amber)">Cancel</a></div>';
+        h += '<div class="note">' + (f.queued ? 'Queued in the Core.' : 'Founding: ' + f.remaining + ' t left.') + ' <a href="#" data-act="cancel" data-id="' + f.id + '" style="color:var(--amber)">Cancel</a></div>';
       } else {
         if (!S.foundable[k]) { h += '<div class="note">' + (t.requires && t.requires.beaconBuilt ? 'Opens once the Beacon is built.' : 'Not available yet.') + '</div></div>'; return; }
         h += '<div class="label">Founding cost (from the Core) · ' + t.foundTicks + ' ticks</div><div class="io">' + costPills(t.foundCost, S.coreRes) + '</div>' +
           '<div class="actions"><button class="btn primary" data-act="found" data-type="' + k + '">' + (canAffordCore(t.foundCost) ? 'Found ' : 'Queue founding ') + esc(t.name) + '</button></div>' +
-          (canAffordCore(t.foundCost) ? '' : '<div class="dim" style="font-size:11px;margin-top:6px">The Core is short for now: the order waits in its work queue, and everything queued behind it waits too.</div>');
+          (canAffordCore(t.foundCost) ? '' : '<div class="dim" style="font-size:11px;margin-top:6px">The Core is short: it will wait in the queue.</div>');
       }
       h += '</div>';
     });
+    if ((S.discoveries || []).length) {
+      h += '<div class="label sec">Discovered by Headquarters</div>';
+      S.discoveries.forEach(function (x) {
+        var t = CFG.districtTypes[x.type], d = x.districtId ? S.districts.filter(function (y) { return y.id === x.districtId; })[0] : null, f = x.founding;
+        h += '<div class="dcard" style="--c:' + t.color + '"><div class="top"><b>' + esc(x.name) + '</b><small>' + (d ? 'Level ' + d.level + ' · ' : '') + 'a ' + esc(t.name.replace(/^The /, '')) + ' · ' + x.distance + ' ticks from the Core</small></div>';
+        if (d) h += '<div class="actions"><button class="btn' + (d.id === activeId ? '' : ' primary') + '" data-act="enter" data-id="' + d.id + '"' + (d.id === activeId ? ' disabled' : '') + '>' + (d.id === activeId ? 'Viewing' : 'Enter district') + '</button></div>';
+        else if (f) h += '<div class="note">' + (f.queued ? 'Queued in the Core.' : 'Founding: ' + f.remaining + ' t left.') + ' <a href="#" data-act="cancel" data-id="' + f.id + '" style="color:var(--amber)">Cancel</a></div>';
+        else if (!S.foundable[x.type]) h += '<div class="note">' + (t.requires && t.requires.beaconBuilt ? 'Opens once the Beacon is built.' : 'Not available yet.') + '</div>';
+        else h += '<div class="label">Founding cost (from the Core) · ' + t.foundTicks + ' ticks</div><div class="io">' + costPills(t.foundCost, S.coreRes) + '</div>' +
+          '<div class="actions"><button class="btn primary" data-act="found" data-discovery="' + x.id + '">' + (canAffordCore(t.foundCost) ? 'Found ' : 'Queue founding ') + esc(x.name) + '</button></div>';
+        h += '</div>';
+      });
+    }
     return h;
   }
   function shipmentsBlock() {
@@ -1619,7 +1743,7 @@
         '<label>From<select data-sel="from">' + opt(ship.from) + '</select></label><label>To<select data-sel="to">' + opt(ship.to) + '</select></label>' +
         '<label class="wide">Goods<select data-sel="res">' + Object.keys(CFG.resources).map(function (r) {
           var amt = Math.floor(from.resources[r].amount);
-          if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1 && amt < 1 && !(CFG.resources[r].trade && S.freeport)) return '';
+          if (!logisticsGood(r, amt >= 1)) return '';
           return '<option value="' + r + '"' + (r === ship.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + ' (' + amt + ')</option>';
         }).join('') + '</select></label></div>' +
         '<div class="stepper" style="margin-top:8px"><span class="lab">Qty</span><button data-act="sstep" data-delta="-' + st + '" aria-label="Less">−</button>' + numIn('ship', ship.qty, '') + '<button data-act="sstep" data-delta="' + st + '" aria-label="More">+</button><button data-act="sstep" data-delta="max" style="width:auto;padding:0 8px;font-size:10px">MAX</button></div>' +
@@ -1652,7 +1776,7 @@
   // Logistics has its own tab: links, standing routes and one-off shipments.
   function logisticsPage() {
     if (!S.districtsUnlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>Logistics opens with districts, at hub level ' + CFG.districtProgression.unlockCoreLevel + '.</div></div>';
-    if (groundDs().length < 2) return '<div class="empty-state">' + icon('route', 36) + '<div>No districts to connect yet.</div></div><div class="note">Found a district in the Districts tab. Then this is where you set up the routes and links between them, and send one-off shipments.</div><div class="actions"><button class="btn primary" data-act="tab" data-tab="districts">Go to Districts</button></div>';
+    if (groundDs().length < 2) return '<div class="empty-state">' + icon('route', 36) + '<div>No districts to connect yet.</div></div><div class="actions"><button class="btn primary" data-act="tab" data-tab="districts">Go to Districts</button></div>';
     return logisticsTab();
   }
   function logisticsTab() {
@@ -1661,25 +1785,25 @@
       (S.districts.some(function (d) { return d.link && d.link.next && d.link.next.upgradeCost.frames; }) ? '<div class="dim" style="font-size:11px;margin:-4px 0 8px">Links past 140/t need Free Port frames and fittings in the Core.</div>' : '');
     ds.filter(function (d) { return !d.core; }).forEach(function (d) {
       var k = d.link, can = k.next && canAffordCore(k.next.upgradeCost);
-      h += '<div class="dcard" style="--c:' + CFG.districtTypes[d.type].color + '"><div class="top"><b>' + esc(d.name) + '</b><small class="' + (k.load >= k.capacity ? 'warn' : '') + '">' + k.load + ' / ' + k.capacity + ' per tick · ' + CFG.districtTypes[d.type].distance + ' ticks away</small></div>' +
+      h += '<div class="dcard" style="--c:' + CFG.districtTypes[d.type].color + '"><div class="top"><b>' + esc(d.name) + '</b><small class="' + (k.load >= k.capacity ? 'warn' : '') + '">' + k.load + ' / ' + k.capacity + ' per tick · ' + d.distance + ' ticks away</small></div>' +
         '<div class="meter"><i style="width:' + Math.min(100, k.load / k.capacity * 100).toFixed(0) + '%;background:' + (k.load >= k.capacity ? 'var(--warn)' : 'var(--good)') + '"></i></div>' +
          (k.next ? '<div class="label" style="margin-top:8px">Widen the link (from the Core)</div><div class="io">' + costPills(k.next.upgradeCost, S.coreRes) + '<span class="pill out"><i style="background:var(--good)"></i>to ' + k.next.capacity + '/t</span></div><div class="actions"><button class="btn" data-act="linkup" data-id="' + d.id + '"' + (can ? '' : ' disabled') + '>Upgrade link</button></div>' : '<div class="dim" style="font-size:11px;margin-top:6px">Fully upgraded.</div>') + '</div>';
     });
-    h += '<div class="label sec">Standing routes · ' + S.routes.filter(function (r) { return ds.some(function (d) { return d.id === r.fromDistrict; }); }).length + ' / ' + L.maxRoutes + '</div>' + routeRows();
+    h += '<div class="label sec">Standing routes · ' + S.routes.filter(function (r) { return ds.some(function (d) { return d.id === r.fromDistrict; }); }).length + ' / ' + (S.maxRoutes || L.maxRoutes) + '</div>' + routeRows();
     if (!ds.some(function (d) { return d.id === route.from; })) route.from = ds[0].id;
     if (!ds.some(function (d) { return d.id === route.to; }) || route.to === route.from) route.to = ds.filter(function (d) { return d.id !== route.from; })[0].id;
     var opt = function (cur) { return ds.map(function (d) { return '<option value="' + d.id + '"' + (d.id === cur ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join(''); };
     var rst = 5;
     h += '<div class="label sec">New route</div><div class="shipform"><label>From<select data-sel="r:from">' + opt(route.from) + '</select></label><label>To<select data-sel="r:to">' + opt(route.to) + '</select></label>' +
       '<label class="wide">Goods<select data-sel="r:res">' + Object.keys(CFG.resources).map(function (r) {
-        var rfrom = ds.filter(function (d) { return d.id === route.from; })[0], held = rfrom && rfrom.resources && rfrom.resources[r] && rfrom.resources[r].amount >= 1;
-        if (CFG.resources[r].showFromHub && CFG.resources[r].showFromHub > S.colony.hubLevel + 1 && !held && r !== route.res && !(CFG.resources[r].trade && S.freeport)) return '';
+        var rv = S.views[route.from], held = !!(rv && rv.resources[r] && rv.resources[r].amount >= 1); // (stock lives in the district's view)
+        if (r !== route.res && !logisticsGood(r, held)) return '';
         return '<option value="' + r + '"' + (r === route.res ? ' selected' : '') + '>' + esc(CFG.resources[r].name) + '</option>';
       }).join('') + '</select></label></div>' +
       '<div class="stepper" style="margin-top:8px"><span class="lab">Rate</span><button data-act="rdraft" data-f="rate" data-delta="-' + rst + '">−</button>' + numIn('rdraft', route.rate, 'data-f="rate"') + '<span class="unit">/t</span><button data-act="rdraft" data-f="rate" data-delta="' + rst + '">+</button></div>' +
       '<div class="stepper" style="margin-top:6px"><span class="lab">Keep</span><button data-act="rdraft" data-f="reserve" data-delta="-' + (STEP[route.res] || 10) + '">−</button>' + numIn('rdraft', route.reserve, 'data-f="reserve"') + '<button data-act="rdraft" data-f="reserve" data-delta="' + (STEP[route.res] || 10) + '">+</button></div>' +
       '<div class="stepper" style="margin-top:6px"><span class="lab">Fill to</span><button data-act="rdraft" data-f="target" data-delta="-' + (STEP[route.res] || 10) + '">−</button>' + numIn('rdraft', route.target, 'data-f="target"') + '<button data-act="rdraft" data-f="target" data-delta="' + (STEP[route.res] || 10) + '">+</button></div>' +
-      '<div class="dim" style="font-size:11px;margin:8px 0">Sends up to the rate each tick. Keeps: the source never drops below it. Fill to: stops there (0 = no limit).</div>' +
+      '<div class="dim" style="font-size:11px;margin:8px 0">Keep: floor at the source · Fill to: cap at the target (0 = none)</div>' +
       '<div class="actions"><button class="btn primary" data-act="rsave">Set route</button></div>';
     return h + shipmentsBlock();
   }
@@ -1691,7 +1815,7 @@
       '<dt>District power</dt><dd>' + S.hub.power.toFixed(0) + ' base</dd>' +
       '<dt>Rings online</dt><dd>' + Object.keys(lv.ringCapacities).length + ' (' + slots(lv) + ' slots)</dd>' +
       '<dt>Defence</dt><dd>' + S.defense.toFixed(1) + '</dd></dl>' +
-      '<div class="note">This district has its own stockpile and power grid. Crew, homes and morale are shared with the whole colony.</div><div class="label sec">District upgrade</div>';
+      '<div class="label sec">District upgrade</div>';
     if (!next) return h + '<div class="note good">Fully upgraded.</div>' + slotsCard();
     var nl = d.level + 1, up = S.orders.filter(function (o) { return o.kind === 'upgrade'; })[0], gated = nl > S.districtLevelCap;
     var short = Object.keys(next.upgradeCost).filter(function (r) { return S.resources[r].amount < next.upgradeCost[r]; });
@@ -1700,7 +1824,7 @@
     if (up) h += upgradeNote(up);
     else if (gated) h += '<div class="note warn">Level ' + nl + ' unlocks when ' + esc(S.districtNeeds[nl]) + '.</div>';
     else {
-      if (short.length) h += '<div class="note">Upgrades are paid from <b>this</b> district\'s stockpile. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': ship it here from another district, or from the Core.</div>';
+      if (short.length) h += '<div class="note">Paid from <b>this</b> district. Short of ' + short.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + ': ship it here from another district, or from the Core.</div>';
       h += '<div class="actions"><button class="btn primary" data-act="upgrade">' + upgradeLabel(next.upgradeCost) + '</button>' +
         (short.length ? '<button class="btn" data-act="tab" data-tab="logistics">' + icon('truck', 12) + ' Ship goods</button>' : '') + '</div>' + queueNote(next.upgradeCost);
     }
@@ -1742,10 +1866,9 @@
       '<dt>Commuters</dt><dd class="' + (e.hands ? 'good' : 'dim') + '">' + e.hands + ' hands</dd>' +
       '<dt>Link and convoy room</dt><dd class="' + (e.logistics ? 'good' : 'dim') + '">+' + (e.logistics * 100).toFixed(1).replace(/\.0$/, '') + '%</dd>' +
       '<dt>Trade partners</dt><dd class="' + (V.partners ? 'good' : 'dim') + '">' + V.partners + (V.partners ? ' · convoy +' + (e.partner * 100).toFixed(1).replace(/\.0$/, '') + '%' : '') + '</dd></dl>' +
-      (V.partners ? '<div class="dim" style="font-size:11px;margin:-2px 0 8px">The figures above include what your trade partners go on giving unasked.</div>' : '') +
-      '<div class="label sec">The Core keeps back</div><div class="seg" style="grid-template-columns:repeat(4,1fr);margin-bottom:6px">' +
-      [0, 0.1, 0.25, 0.5].map(function (v) { return '<button data-act="sreserve" data-v="' + v + '" aria-selected="' + (Math.abs(V.reserve - v) < 0.001) + '">' + Math.round(v * 100) + '%</button>'; }).join('') + '</div>' +
-      '<div class="dim" style="font-size:11px;margin-bottom:6px">of its storage in every good. Settlements never draw below it.</div>';
+      (V.partners ? '<div class="dim" style="font-size:11px;margin:-2px 0 8px">Includes trade partners.</div>' : '') +
+      '<div class="label sec" title="Settlements never draw a good below this share of Core storage">Core holdback</div><div class="seg" style="grid-template-columns:repeat(4,1fr);margin-bottom:6px">' +
+      [0, 0.1, 0.25, 0.5].map(function (v) { return '<button data-act="sreserve" data-v="' + v + '" aria-selected="' + (Math.abs(V.reserve - v) < 0.001) + '">' + Math.round(v * 100) + '%</button>'; }).join('') + '</div>';
     V.active.forEach(function (a) {
       var t = C.types[a.type], tr = C.traits[a.trait] || { name: a.trait, desc: '' }, f = CFG.missions.factions[a.faction], frac = [0, 0.5, 1][a.commitment];
       var need = a.drive.need, got = a.drive.got, total = 0, have = 0, can = false;
@@ -1758,11 +1881,11 @@
         '<div class="label">Steady support · supplied ' + Math.round(a.level * 100) + '%</div><div class="meter" style="margin:4px 0 6px"><i style="width:' + clamp(a.level * 100, 0, 100).toFixed(0) + '%;background:' + (a.level > 0.9 ? 'var(--good)' : 'var(--warn)') + '"></i></div>' +
         '<div class="seg" style="grid-template-columns:repeat(3,1fr);margin-bottom:6px">' + ['Off', 'Half', 'Full'].map(function (l, i) { return '<button data-act="scommit" data-id="' + a.id + '" data-l="' + i + '" aria-selected="' + (a.commitment === i) + '">' + l + '</button>'; }).join('') + '</div>' +
         '<div class="io">' + (frac ? settleBasket(a.basket, frac) : '<span class="dim">Nothing is being sent.</span>') + '</div>' +
-        (frac ? (function () { var held = Object.keys(a.basket).filter(function (r) { return S.coreRes[r].aid < a.basket[r] * frac - 0.01; }); return '<div class="dim" style="font-size:11px;margin-top:4px">per tick from the Core' + (held.length ? ' · <span class="warn">held back by the reserve or short: ' + held.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + '</span>' : '') + '</div>'; })() : '') +
+        (frac ? (function () { var held = Object.keys(a.basket).filter(function (r) { return S.coreRes[r].aid < a.basket[r] * frac - 0.01; }); return '<div class="dim" style="font-size:11px;margin-top:4px">per tick from the Core' + (held.length ? ' · <span class="warn">held back: ' + held.map(function (r) { return esc(CFG.resources[r].name); }).join(', ') + '</span>' : '') + '</div>'; })() : '') +
         '<div class="label sec">' + (a.last ? 'The last drive: it stands on its own' : 'Drive to stage ' + (a.stage + 1)) + ' · ' + Math.floor(have / total * 100) + '%</div>' +
         '<div class="meter" style="margin:4px 0 6px"><i style="width:' + clamp(have / total * 100, 0, 100).toFixed(0) + '%;background:var(--amber)"></i></div>' +
         '<div class="io">' + Object.keys(need).map(function (r) { var left = need[r] - (got[r] || 0); return left > 0 ? pill(r, fmt(left) + ' more', '') : pill(r, 'all the', 'dim'); }).join('') + '</div>' +
-        '<div class="dim" style="font-size:11px;margin:4px 0 6px">' + (a.last ? 'Frees the slot. ' + esc(a.name) + ' then gives ' + esc(settleGives(a.kind, a.keeps)) + ' for good, at no cost.' : 'Send any amount, any time. Next stage gives more; double for ' + C.boonTicks + ' ticks.') + '</div>' +
+        '<div class="dim" style="font-size:11px;margin:4px 0 6px">' + (a.last ? 'Frees the slot · then ' + esc(settleGives(a.kind, a.keeps)) + ' for good' : 'Next stage: more, doubled for ' + C.boonTicks + ' t') + '</div>' +
         '<div class="actions"><button class="btn' + (can ? ' primary' : '') + '" data-act="sgive" data-id="' + a.id + '"' + (can ? '' : ' disabled') + '>Send what the Core can spare</button></div>';
       if (a.appeal) {
         var g = CFG.resources[a.appeal.good], stock = Math.floor(S.coreRes[a.appeal.good].amount), ok = stock >= a.appeal.qty;
@@ -1772,7 +1895,7 @@
       }
       h += '<div style="margin-top:8px;text-align:right"><button class="linkbtn" data-act="sdrop" data-id="' + a.id + '" data-key="sdrop' + a.id + '">' + (confirmKey === 'sdrop' + a.id ? 'Confirm: stop sponsoring (its progress is lost)' : 'Stop sponsoring') + '</button></div></div>';
     });
-    h += '<div class="label sec">Camps asking for help</div>' + (free > 0 ? '' : '<div class="note">Every slot is taken' + (V.slots < V.slotNeeds.length ? (V.slots === 1 ? '. Another opens with the Free Port' : orbitKnown() ? '. Another opens with the station' : '. Another may open later (conditions unknown)') : '') + '. Finishing a camp\'s last drive frees its slot.</div>');
+    h += '<div class="label sec">Camps asking for help</div>' + (free > 0 ? '' : '<div class="note">All slots taken' + (V.slots < V.slotNeeds.length ? (V.slots === 1 ? '. Another opens with the Free Port' : orbitKnown() ? '. Another opens with the station' : '. Another may open later (conditions unknown)') : '') + '.</div>');
     V.offers.forEach(function (o) {
       var t = C.types[o.type], tr = C.traits[o.trait] || { name: o.trait, desc: '' };
       h += '<div class="opt" style="cursor:default;margin-bottom:8px"><div class="top"><b>' + esc(o.name) + '</b><small>asking for ' + o.ticksLeft + 't more</small></div>' +
@@ -1807,11 +1930,11 @@
     var pctUsed = Math.min(100, b.spent / b.allowance * 100);
     if (b.rate > 0) return '<div class="note warn">Daily allowance used: ' + fmt(b.spent) + ' / ' + fmt(b.allowance) + ' cr. Buys cost +' + Math.round(b.rate * 100) + '% until it eases.</div>';
     if (pctUsed < 50) return '';
-    return '<div class="note">Buying today: ' + fmt(b.spent) + ' of ' + fmt(b.allowance) + ' cr. Past that, purchases carry a brokerage surcharge.</div>';
+    return '<div class="note">Bought today: ' + fmt(b.spent) + ' / ' + fmt(b.allowance) + ' cr before surcharge.</div>';
   }
   function exchangeTab() {
     var E = S.exchange, X = CFG.exchange;
-    if (!E.unlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>The exchange opens at hub level ' + X.unlockCoreLevel + '.</div></div><div class="note">A place to name your own price: post buy and sell orders against traders, and against anyone else who turns up. Grow the hub first.</div>';
+    if (!E.unlocked) return '<div class="empty-state">' + icon('lock', 36) + '<div>The exchange opens at hub level ' + X.unlockCoreLevel + '.</div></div>';
     var x = E.resources[mk.res], r = CFG.resources[mk.res], ds = groundDs();
     if (!ds.some(function (d) { return d.id === mk.district; })) mk.district = ds[0].id;
     if (mk.price === null) mk.price = mk.side === 'buy' ? (x.ask || x.ref) : (x.bid || x.ref);
@@ -1892,7 +2015,7 @@
   }
   function missionsTab() {
     var req = requisitionsBlock();
-    if (!S.freeport) return req + '<div class="sheet-h">Missions</div><div class="note">' + icon('lock', 12) + ' Missions come from the Free Port. Once the Beacon is built and the Free Port founded, factions start posting requests for trade goods. Filling them pays above market and builds your standing.</div>';
+    if (!S.freeport) return req + '<div class="sheet-h">Missions</div><div class="note">' + icon('lock', 12) + ' Missions open with the Free Port.</div>';
     return req + '<div class="sheet-h">Missions</div>' + factionMissions();
   }
   function factionMissions() {
@@ -1974,8 +2097,8 @@
     // away safety
     var tls = ['rations', 'clean_water'].map(function (k) { return R[k].ticksLeft; }).filter(function (v) { return v !== null; });
     h += '<div class="label sec">If you leave now</div>' + (tls.length
-      ? '<div class="note warn">First shortage in <b>' + span(Math.ceil(Math.min.apply(null, tls))) + '</b>. Then people leave and morale falls. Add food and water, or stop growing.</div>'
-      : '<div class="note good">Food and water are in surplus. Nothing runs out while you are away. Each new person uses ' + pf(P.perPerson.rations + P.perPerson.clean_water) + ' more per tick.</div>');
+      ? '<div class="note warn">First shortage in <b>' + span(Math.ceil(Math.min.apply(null, tls))) + '</b>, then people leave.</div>'
+      : '<div class="note good">Food and water in surplus · each new person +' + pf(P.perPerson.rations + P.perPerson.clean_water) + '/t.</div>');
     // morale
     var sg = function (v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1); };
     h += '<div class="label sec">Morale</div><dl class="kv"><dt>Now</dt><dd>' + Math.round(c.morale) + ' <span class="dim">→ target ' + Math.round(mi.target) + '</span></dd>' +
@@ -1986,7 +2109,7 @@
     h += '<div class="label sec">Crew &amp; housing</div><dl class="kv"><dt>Crew</dt><dd class="' + (st.ratio < 0.999 ? 'warn' : '') + '">' + Math.floor(st.workforce) + ' hands for ' + Math.ceil(st.posts) + ' posts' + (st.commuters ? ' · ' + st.commuters + ' commute in from settlements' : '') + (st.ratio < 0.999 ? ' · output ×' + st.ratio.toFixed(2) : '') + '</dd>' +
       '<dt>Homes</dt><dd>quarters ' + ho.base + (ho.built ? ' + built ' + Math.floor(ho.built) : '') + ' = ' + ho.cap + '</dd>' +
       '<dt>Minimum</dt><dd class="dim">people never leave below ' + P.minPopulation + '</dd></dl>' +
-      (st.ratio < 0.999 ? '<div class="note warn">Short of hands: staffed buildings run slower. Build or expand homes for more people.</div>' : '');
+      (st.ratio < 0.999 ? '<div class="note warn">Short of hands: staffed buildings run slower.</div>' : '');
     return h;
   }
 
@@ -1996,7 +2119,7 @@
     return ' <span class="' + (good ? 'good' : 'bad') + '">' + (up ? '▲' : '▼') + Math.abs(Math.round(tr * 100)) + '%</span>';
   }
   function scheduledTab() {
-    var h = (activeD().core ? '' : '<div class="note">Convoys and express trips deal with the <b>Core</b> stockpile. Ship goods there from this district in the Districts tab.</div>') +
+    var h = (activeD().core ? '' : '<div class="note">Convoys use the <b>Core</b> stockpile.</div>') +
       '<div class="convoy-head"><div class="label">Next convoy in</div><div class="big num" data-f="convoy">–</div><div class="dim" style="font-size:11px" data-f="convoyTicks"></div></div>' +
       (S.requisitions && S.requisitions.boons && S.requisitions.boons.convoy > 0 ? '<div class="note good">' + esc(CFG.requisitions.boons.convoy.name) + ': ' + esc(CFG.requisitions.boons.convoy.desc) + ' ' + S.requisitions.boons.convoy + ' ticks left.</div>' : '') +
       '<p class="p-desc">Standing orders repeat every convoy. Prices are for the <b>next</b> convoy; arrows show the change. Trade limit ×' + (CFG.hubLevels[S.colony.hubLevel].convoyCapMult || 1) + ' (grows with hub level).</p>';
@@ -2021,7 +2144,7 @@
 
   function expressTab() {
     var x = S.express, c = S.colony;
-    var h = brokerNote() + '<p class="p-desc">A special trip you dispatch yourself. It arrives in ' + x.travelTicks + ' ticks (' + clock(x.travelTicks * S.tickMs) + '), but costs a fee, pays ×' + x.sellMult + ' when buying your goods, charges ×' + x.buyMult + ' when selling to you, and carries less than the scheduled convoy. Goods and credits are held until it arrives.</p>';
+    var h = brokerNote() + '<p class="p-desc">' + x.travelTicks + ' t (' + clock(x.travelTicks * S.tickMs) + ') · fee · sells ×' + x.sellMult + ' · buys ×' + x.buyMult + ' · smaller than the convoy</p>';
     if (x.active) {
       var line = function (o, verb) {
         return Object.keys(o).map(function (r) { return verb + ' ' + o[r].qty + ' ' + esc(CFG.resources[r].name); }).join(', ');
@@ -2133,7 +2256,7 @@
     }).join('');
     if (bare) return (chips ? '<div class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Not sent yet' : 'Offline · waiting to send') + '</div>' + chips : '') + h;
     var crews = S.requisitions && S.requisitions.boons && S.requisitions.boons.crews > 0 ? '<span class="q-boon" title="' + esc(CFG.requisitions.boons.crews.desc) + '">' + esc(CFG.requisitions.boons.crews.name) + ' · ' + S.requisitions.boons.crews + 't</span>' : '';
-    h = '<span class="label">Work queue</span>' + crews + (S.allOrders.length ? h : '<span class="queue-empty">Nothing queued. Click a free plot to build; each place works through its own queue.</span>');
+    h = '<span class="label">Work queue</span>' + crews + (S.allOrders.length ? h : '<span class="queue-empty">Nothing queued.</span>');
     if (chips) h = '<span class="label" style="color:var(--warn)">' + (flushing ? 'Sending…' : connected ? 'Not sent yet' : 'Offline · waiting to send') + '</span>' + chips + '<span class="queue-sep"></span>' + h;
     return h;
   }
@@ -2190,7 +2313,7 @@
     var cnt = window.Story.counts(), hist = msgTab === 'history';
     var navH = '<h3>Messages</h3>' + [['mail', 'Mail', 'mail', cnt.mail], ['calls', 'Calls', 'play', cnt.calls], ['history', 'History', 'list', 0]].map(function (t) {
       return '<button class="ni' + (msgTab === t[0] ? ' on' : '') + '" data-act="mtab" data-t="' + t[0] + '">' + icon(t[2], 16) + t[1] + (t[3] ? '<em>' + t[3] + '</em>' : '') + '</button>';
-    }).join('') + '<div style="flex:1"></div><div class="dim" style="font-size:12px;padding:0 8px;line-height:1.5">Mail and calls arrive from the people the colony talks to. History is the colony\'s own log.</div>';
+    }).join('') + '<div style="flex:1"></div>';
     var lh, list, rd = '';
     if (hist) { lh = 'History · ' + S.events.length + ' events'; list = S.events.length ? '<ul class="log" style="padding:12px 16px">' + S.events.map(function (e) { return '<li class="' + e.kind + '">' + esc(e.message) + '<small>tick #' + e.tick + '</small></li>'; }).join('') + '</ul>' : '<div class="empty-state">No events yet.</div>'; }
     else {
@@ -2258,13 +2381,20 @@
       '<div class="label sec">Keys</div><div class="keys">' + keys.map(function (k) { return '<span><kbd>' + k[0] + '</kbd>' + esc(k[1]) + '</span>'; }).join('') +
       '<span><kbd>Esc</kbd>Back</span><span><kbd>+</kbd><kbd>−</kbd><kbd>0</kbd>Zoom, fit</span></div>');
   }
+  // A healthy colony (no collapse countdown, not shut down or collapsed) is handed on rather than erased: the server
+  // parks it under another commander's name, where it may be picked up and run on. The server makes the same check.
+  function healthyColony() { return S.colony.status === 'active' && !S.doom; }
   MODALS.confirmReset = function () {
-    modal('<h2>Abandon this colony?</h2><p>All structures, stockpiles and credits are lost, and your progress resets to the very beginning. Story messages you have received start over too.</p>' +
+    var text = healthyColony()
+      ? 'The colony is stable, so it passes to another commander instead of being erased. You start over from the beginning, story included.'
+      : 'All structures, stockpiles and credits are lost, and your progress resets to the very beginning. Story messages you have received start over too.';
+    modal('<h2>Abandon this colony?</h2><p>' + text + '</p>' +
       '<div class="actions"><button class="btn" data-m="close">Keep playing</button><button class="btn danger" data-m="confirmReset2">Continue</button></div>');
   };
   MODALS.confirmReset2 = function () {
-    modal('<h2>Are you sure?</h2><p><b>This erases everything and cannot be undone.</b> There is no way to get this colony back. If it is only struggling, you can keep playing and rebuild instead.</p>' +
-      '<div class="actions"><button class="btn primary" data-m="close">Keep playing</button><button class="btn danger" data-m="reset">Yes, erase it and start over</button></div>');
+    var ok = healthyColony();
+    modal('<h2>Are you sure?</h2><p>' + (ok ? '<b>You can\'t take it back.</b> If you only want a break, it waits for you while you\'re away.' : '<b>This erases everything and cannot be undone.</b> There is no way to get this colony back. If it is only struggling, you can keep playing and rebuild instead.') + '</p>' +
+      '<div class="actions"><button class="btn primary" data-m="close">Keep playing</button><button class="btn danger" data-m="reset">' + (ok ? 'Yes, give it up and start over' : 'Yes, erase it and start over') + '</button></div>');
   };
   // ---- absence (see src/absence.js): the notice after a long time away, a parked colony, and one claimed by someone else
   var awayBusy = false, lostView = null;
@@ -2377,6 +2507,15 @@
     else if (a === 'desel') { sel = null; replaceAt = null; document.body.classList.remove('panel-full'); renderAll(); }
     else if (a === 'pin') togglePin(el.dataset.res)
     else if (a === 'dataunlock') act('data-unlock', { packet: el.dataset.packet }, 'Data packet unlocked.')
+    else if (a === 'hqgive') act('hq-give', el.dataset.res ? { resource: el.dataset.res } : {}).then(function (d) { if (d && d.ok) toast(d.completed ? 'Delivered in full. The work is under way.' : 'Delivered to Headquarters.', true); });
+    else if (a === 'hqpick') { hqPick = el.dataset.cat ? { category: el.dataset.cat, option: el.dataset.opt, ship: null } : null; renderPanel(); }
+    else if (a === 'hqstart') {
+      var free = el.dataset.free === '1', pk = hqPick;
+      act('hq-start', { category: pk.category, option: pk.option, ship: pk.ship, free: free }, free ? 'Done: it applies at once.' : 'Committed. The bill is shown.').then(function (d) { if (d && d.ok) { hqPick = null; renderPanel(); } });
+    } else if (a === 'hqabort') {
+      if (confirmKey === el.dataset.key) { if (Date.now() - confirmAt < CONFIRM_DELAY) return; confirmKey = null; act('hq-abort', {}); }
+      else { confirmKey = el.dataset.key; confirmAt = Date.now(); clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmKey = null; renderPanel(); }, 3000); renderPanel(); }
+    }
     else if (a === 'msel') { msgSel[msgTab] = el.dataset.id; renderMessages(); }
     else if (a === 'wsclose') { ws = null; renderAll(); }
     else if (a === 'msgs') { closePop(); drawer = null; renderNav(); renderDrawer(); messages(el.dataset.t || 'mail'); }
@@ -2427,7 +2566,7 @@
     else if (a === 'enter') { e.preventDefault(); enter(+el.dataset.id); }
     else if (a === 'sdist') { var sid = +el.dataset.id; if (RAW.views[sid] && sid !== activeId) { activeId = sid; sel = null; confirmKey = null; S = merge(RAW); renderAll(); } }
     else if (a === 'orbit') { e.preventDefault(); enterOrbit(); }
-    else if (a === 'found') act('found', { type: el.dataset.type }).then(function (d) { if (d && d.ok) toast(d.queued ? 'Founding added to the Core\'s work queue.' : 'Founding started.', d.queued ? 'info' : true); });
+    else if (a === 'found') act('found', el.dataset.discovery ? { discovery: +el.dataset.discovery } : { type: el.dataset.type }).then(function (d) { if (d && d.ok) toast(d.queued ? 'Founding added to the Core\'s work queue.' : 'Founding started.', d.queued ? 'info' : true); });
     else if (a === 'sstep') {
       var have = Math.floor(S.views[ship.from].resources[ship.res].amount), cap = Math.max(1, Math.min(CFG.logistics.shipmentMax, have));
       ship.qty = clamp(el.dataset.delta === 'max' ? cap : ship.qty + (+el.dataset.delta * sh), 1, cap); renderPanel();
@@ -2539,6 +2678,7 @@
     if (!el) return;
     var k = el.dataset.sel;
     if (k.indexOf('s:') === 0) { msrc = +el.value; renderPanel(); return; }
+    if (k === 'hq:ship') { if (hqPick) hqPick.ship = +el.value; return; }
     if (k.indexOf('m:') === 0) { var mkk = k.slice(2); if (mkk === 'res') { mk.res = el.value; mk.price = null; mk.qty = 50; } else mk[mkk] = mkk === 'ttl' || mkk === 'district' ? +el.value : el.value; if (mkk === 'district') mk.qty = Math.max(1, mk.qty); renderPanel(); return; }
     if (k.indexOf('r:') === 0) { var rk = k.slice(2); if (rk === 'res') route.res = el.value; else route[rk] = +el.value; }
     else if (k === 'res') ship.res = el.value; else ship[k] = +el.value;
