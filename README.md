@@ -94,6 +94,34 @@ The multiplayer endgame, hidden until the colony's standing with all factions ad
 - **Orbital market:** trade goods only, traded from orbital storage. Every order shows the station that posted it, and thin market makers set the band.
 - **Global projects:** one at a time for the whole server, sized by the number of active stations. Players contribute by dropship. A completed project gives everyone standing and a temporary bonus (faster production lines, or a trickle of a rare resource).
 
+### Headquarters
+
+The post-game sink, for a colony that has done everything else. It opens once the colony has read part 1 of any data packet, as a Headquarters screen beside Data. It adds no new systems: every unlock makes something the colony already has a little bigger. Full design in [`docs/headquarters.md`](docs/headquarters.md), numbers in section 16c of [`prod_guide.md`](prod_guide.md).
+
+- **Rebuild:** one heavy bill (three orbital goods, five trade goods and five intermediates, in the hundreds, tens of thousands and hundreds of thousands), paid from the **Core** in any instalments, like a settlement drive. Goods held elsewhere have to be shipped or routed to the Core first. After the last delivery the rebuild takes 18 hours.
+- **Charter:** when the rebuild finishes, Seven names you **Independent Colony Commander**. The charter pays 2,000,000 credits, puts a **◆** after your station's name (on the station screen and on the orbital market) and gives one free unlock.
+- **Unlocks:** one piece of work at a time, with no caps.
+  - Before committing, you see which goods an option needs but not how many.
+  - Committing takes **1 data fragment**, which keeps data sites and trace recovery worth doing after every packet has been read. It locks in the bill, which you then deliver like the rebuild's.
+  - Each paid unlock makes the next one cost ×1.25 and take ×1.1 as long (from 6 hours). There is one counter across all categories, and every category's bill includes an orbital good and two trade goods.
+  - Abandoning a piece of work refunds nothing. Switching to another option before work starts carries 25% of what you delivered across, for the goods both bills share, and also takes a fragment.
+  - The charter's free unlock applies at once, with no bill, no wait and no fragment.
+- **Discover New District:** charts a copy of an existing district type with its own name (the first is always a Free Port, then a random type, never the same twice running). It is listed for founding at the type's usual cost. Each discovery lies 2 ticks further from the Core.
+- **Station Expansion:**
+  - **Orbital link:** one more link between the Core and the station.
+  - **High-capacity storage slot:** a slot of its own that holds 10× the level cap. Goods move between it and the ordinary slots, and it is never jettisoned, only freed once it is empty.
+  - **Dropship bay:** one more dropship.
+  - **Level 4 refit:** one level-3 ship becomes level 4 (240 power, 3,600 hold, 60/tick links). A level-4 ship is never destroyed: at worst it comes home at 10% with its cargo lost.
+- **Surface Colony Expansion:**
+  - **Standing route slot:** one more standing route between districts.
+  - **District link capacity:** +50/tick on every district link, whatever its level.
+- **Territory Deployment Support:**
+  - **Stabilizer:** chosen at deploy time and never used up; it cools down for 7 days. On landing it multiplies the territory's remaining time by 100 and stops its harm while keeping its bonuses. Leaving never destabilises the territory, and every station can land a ship there.
+  - **Stable territory finder:** a private territory only you see, lasting about a year and a half. Its rare resource is always extractable, it has no anomaly effects and no data site, and you can go back as often as you like.
+  - **Extra territory link:** a reusable kit; several can go out with one ship, and they come back with it.
+
+Headquarters is per player, and bots ignore it.
+
 ### Hazards
 
 - A new hazard only starts while you are **active** (recently connected). Come back later and you won't find a surprise already waiting.
@@ -129,7 +157,9 @@ src/hazards.js     Hazard forecast / strike / preparedness / shields / away repo
 src/market.js      Order-book exchange (lazy NPC rungs, matching, escrow, fees)    src/marketsim.js  Seeded price walk, events, price links
 src/missions.js    Free Port missions, factions and standing      src/requisitions.js  Requisitions and the boons they lend
 src/settlements.js Settlements after the Beacon: camps on offer, steady support, drives, appeals and what they give back
-src/orbital.js     Orbit: unlock, launch chain, station, slot storage, links, express launch
+src/orbital.js     Orbit: unlock, launch chain, station, slot storage (high-capacity slots too), links, express launch
+src/hq.js          Headquarters: rebuild, charter, unlock bills and timers, start/switch/abandon, discovered districts
+src/perks.js       What a colony has unlocked at Headquarters, read by the code each unlock changes
 src/territories.js Shared anomalous territories and dropships   src/orbitalMarket.js  Orbital order book   src/projects.js  Global projects
 src/objectives.js  Onboarding directives and the collapse clock
 src/shutdown.js    Shutdown: parking and restarting buildings
@@ -137,14 +167,14 @@ src/story.js       Story beats, triggers, delivery pacing and validation
 src/theme.js       Loads content/<theme>/theme.json onto the config
 src/backup.js      Scheduled SQLite backups
 src/security.js    Headers, same-origin check, rate limits, login throttle      src/validate.js  Input validation helpers
-src/db.js          Schema (v18) and migrations, session store, colony helpers
+src/db.js          Schema (v23) and migrations, session store, colony helpers
 game_config.json   All balance data (no wording that a theme replaces matters here; ids are stable)
 content/           One folder per theme: theme.json (wording), story.json (narrative), assets/ (portraits, backgrounds)
 scripts/           check-content.js (validate a theme), gen-prod-guide.js (regenerates prod_guide.md), playtest.js and playtest-orbit.js (scripted players for tuning, see below), botplay.js (the bots in-process), bots-report.js (sums up the bot runner's telemetry log)
 bots/              the bot runner: runner.js (claims and schedules), client.js, assess.js (takeover check), profiles.js, brain/ (ground, endgame, orbit, trade, reorg)
 public/            index.html (login), game.html (desk layout), mobile.html (phone layout), css/ (style.css, mobile.css), js/ (game.js, orbit.js for the Orbital Command view)
-docs/              districts.md (district system, exchange, Free Port, roadmap), orbital.md (orbit endgame), story.md (theme and story format), security.md, content-needs.md
-test/              node:test suites: simulation, balance guard, hazards, express convoy, districts and migration, exchange, Free Port, orbit, expansion and growth, shutdown, backups, story and themes, security, HTTP API
+docs/              districts.md (district system, exchange, Free Port, roadmap), orbital.md (orbit endgame), headquarters.md (post-game Headquarters), story.md (theme and story format), security.md, content-needs.md
+test/              node:test suites: simulation, balance guard, hazards, express convoy, districts and migration, exchange, Free Port, orbit, expansion and growth, shutdown, backups, story and themes, security, Headquarters, HTTP API
 ```
 
 The client is purely presentational. It sends intents (`POST /api/build`, ...) and the server validates ownership, slots, plot, limits and resources before accepting them.
@@ -252,7 +282,7 @@ The server is the only authority: the client sends intents and every rule is enf
 
 ## Where it is going
 
-Built so far: the Core and three founding districts (each with its own rings, stockpile and grid), shipments and standing routes over upgradable links, the exchange, the endgame Free Port (trade goods, shields, missions, factions, rank), building expansions, optional inputs, the People tab, shutdown instead of collapse, backups, themes, the story with calls, mail, branching scenes, moods and portraits, and the orbit endgame (launch chain, station, slot storage and links, dropships on shared anomalous territories, the orbital market and global projects, with a second chapter of directives and story), the work queue and build slots, requisitions, alternative recipes, settlements, and time away (colonies stop being simulated when their commander is gone, and park after 30 days). The design history and decisions are in [`docs/districts.md`](docs/districts.md).
+Built so far: the Core and three founding districts (each with its own rings, stockpile and grid), shipments and standing routes over upgradable links, the exchange, the endgame Free Port (trade goods, shields, missions, factions, rank), building expansions, optional inputs, the People tab, shutdown instead of collapse, backups, themes, the story with calls, mail, branching scenes, moods and portraits, and the orbit endgame (launch chain, station, slot storage and links, dropships on shared anomalous territories, the orbital market and global projects, with a second chapter of directives and story), the work queue and build slots, requisitions, alternative recipes, settlements, Headquarters (the post-game rebuild, charter and permanent unlocks), and time away (colonies stop being simulated when their commander is gone, and park after 30 days). The design history and decisions are in [`docs/districts.md`](docs/districts.md).
 
 Not built yet (noted for later):
 
