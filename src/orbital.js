@@ -349,6 +349,13 @@ function rebuildSlot(c, { slot }) {
 }
 
 // ---- links between the Core and the station ---------------------------------------------
+// Only links to the Core count against the station's link limit; links to territories are separate, dedicated ones.
+function coreLinks(colonyId, st, exceptId) {
+  const core = new Set(db.prepare("SELECT id FROM districts WHERE colony_id = ? AND type = 'core'").all(colonyId).map((d) => d.id));
+  return store.loadRoutes(colonyId).filter((r) => r.id !== exceptId
+    && ((r.fromDistrict === st.district_id && core.has(r.toDistrict)) || (r.toDistrict === st.district_id && core.has(r.fromDistrict))));
+}
+
 // Checked by actions.setRoute when either end is the station. Returns an error message or null.
 function checkStationRoute(c, a, b, resource, rate, existingId) {
   const st = stationOf(c.id);
@@ -358,7 +365,7 @@ function checkStationRoute(c, a, b, resource, rate, existingId) {
   if (isRare(resource)) return 'Rare resources cannot travel on links. They come up by dropship.';
   const lv = linksLevel(st);
   if (rate > lv.rate) return `An orbital link carries at most ${lv.rate} per tick.`;
-  const links = store.loadRoutes(c.id).filter((r) => (r.fromDistrict === st.district_id || r.toDistrict === st.district_id) && r.id !== existingId);
+  const links = coreLinks(c.id, st, existingId);
   const sameEnds = (r) => (r.fromDistrict === a.id && r.toDistrict === b.id && r.resource === resource);
   if (!links.some(sameEnds) && links.length >= lv.count) return `The station has ${lv.count} orbital links and they are all in use.`;
   if (a.type === 'core' && !hasRoomFor(c.id, resource)) return 'Orbital storage has no slot for that. Jettison a slot first.';
@@ -396,7 +403,7 @@ function view(c, tick, opts = {}) {
     },
     links: {
       level: st.links_level, count: ll.count, rate: ll.rate, next: O.links.levels[st.links_level + 1] || null,
-      list: store.loadRoutes(c.id).filter((r) => r.fromDistrict === st.district_id || r.toDistrict === st.district_id)
+      list: coreLinks(c.id, st)
         .map((r) => ({ id: r.id, resource: r.resource, rate: r.rate, reserve: r.reserve, dir: r.toDistrict === st.district_id ? 'up' : 'down', flow: (opts.flows || {})[r.id] || 0 })),
     },
     express: {
