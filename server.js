@@ -49,10 +49,10 @@ app.set('trust proxy', trustProxy());
 app.use(security.headers);
 app.use('/api', security.sameOrigin((process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)));
 app.use('/api', security.jsonOnly);
-app.use(express.json({ limit: '10kb', strict: true }));
 // The bot runner's API (off unless BOT_API_KEY is set). Ahead of the session and the player rate limits: bots authenticate
-// with the key, not a cookie, and have a limiter of their own.
+// with the key, not a cookie, and have a limiter of their own; it parses its own bodies, after the key is checked.
 app.use('/api/bot', botApi.router());
+app.use(express.json({ limit: '10kb', strict: true }));
 app.use(session({
   name: 'failtech.sid',
   secret: sessionSecret(),

@@ -191,6 +191,54 @@ test('the runner claims stable parked colonies up to its limit, one profile each
   assert.ok(JSON.parse(fs.readFileSync(stateFile, 'utf8')).bots);
 });
 
+test('a colony a bot gave up is looked at once more after the wait, then blacklisted until it parks again', async () => {
+  for (const uid of (await bots.colonies()).map((x) => x.userId)) await bots.release(uid);
+  for (const p of await bots.parked()) db.prepare('UPDATE colonies SET parked_at = NULL, last_active_at = ? WHERE id = ?').run(Date.now(), p.colonyId);
+  const c = park(player(1));
+  const stateFile = path.join(dir, 'bots-blacklist.json');
+  const r = new Runner({ server: base, key: KEY, limit: 1, profiles: ['steward'], claim: 'all', turnTicks: 4, pollMs: 1e9, recheckMs: 1e9, stateFile, log: 'quiet' }, bots);
+  r.config = config;
+  await r.poll();
+  const [b] = [...r.bots.values()];
+  assert.equal(b.colonyId, c.id);
+  // the colony fails under the bot: it is given back and left alone for the wait
+  db.prepare("UPDATE colonies SET status = 'failed' WHERE id = ?").run(c.id);
+  await r.turn(b);
+  assert.equal(r.bots.size, 0);
+  assert.ok(r.rejected[c.id] && r.rejected[c.id].abandoned, JSON.stringify(r.rejected));
+  const looks = [];
+  const view = bots.parkedView.bind(bots);
+  bots.parkedView = (id) => { looks.push(id); return view(id); };
+  try {
+    await r.poll();
+    assert.deepEqual(looks, [], 'not looked at during the wait');
+    // the wait is over: one more look, still unfit, so it is blacklisted
+    r.s.recheckMs = 0;
+    await r.poll();
+    assert.deepEqual(looks, [c.id]);
+    assert.ok(r.blocked[c.id] && !r.rejected[c.id], JSON.stringify({ blocked: r.blocked, rejected: r.rejected }));
+    // never looked at again, and not even listed
+    await r.poll();
+    await r.poll();
+    assert.deepEqual(looks, [c.id]);
+    const key = `${c.id}:${r.blocked[c.id].parkedAt}`;
+    assert.ok(!(await bots.parked([key])).some((p) => p.colonyId === c.id));
+    assert.ok((await bots.parked()).some((p) => p.colonyId === c.id), 'the plain listing still has it');
+    // the blacklist survives a restart
+    r.save();
+    const again = new Runner({ ...r.s }, bots);
+    assert.ok(again.blocked[c.id]);
+    // taken up and parked again later: a new candidate, judged afresh (and an ordinary rejection this time)
+    db.prepare('UPDATE colonies SET parked_at = parked_at + 5000 WHERE id = ?').run(c.id);
+    again.config = config;
+    await again.poll();
+    assert.deepEqual(looks, [c.id, c.id]);
+    assert.ok(!again.blocked[c.id]);
+    assert.equal(again.rejected[c.id].verdict, 'collapsing');
+    assert.ok(!again.rejected[c.id].abandoned);
+  } finally { bots.parkedView = view; }
+});
+
 test('every profile sells something in orbit and has its own temper', () => {
   for (const id of profiles.ORDER) {
     const p = profiles.get(id);

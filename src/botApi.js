@@ -85,7 +85,8 @@ const release = db.transaction((userId, now = Date.now()) => {
 function router() {
   const r = express.Router();
   const limit = security.limiter({ windowMs: 10000, max: Number(process.env.BOT_API_RATE_LIMIT) || 1500, key: () => 'bot' });
-  r.use(auth, limit);
+  // bodies are small, but the listing's blacklist can run to a few thousand keys
+  r.use(auth, limit, express.json({ limit: '256kb', strict: true }));
   let cfgJson = null;
 
   r.get('/info', (req, res) => {
@@ -94,13 +95,19 @@ function router() {
   });
   r.get('/config', (req, res) => res.type('json').send(cfgJson || (cfgJson = JSON.stringify(config))));
 
-  r.get('/parked', (req, res) => {
-    const list = absence.listParked(Math.min(200, toInt(req.query.limit) || 100)).map((p) => {
+  // The listing; POST { skip: ["12:1731400000000", ...] } leaves out colonies the runner has blacklisted (the colony id and
+  // when it was parked, so one parked again later by someone else shows up again).
+  const parked = (req, res) => {
+    const b = req.method === 'POST' ? plainBody(req.body) : {};
+    const skip = (Array.isArray(b.skip) ? b.skip : []).map(String).filter((k) => /^\d+:\d+$/.test(k)).slice(0, 5000);
+    const list = absence.listParked(Math.min(200, toInt(req.query.limit) || 100), skip).map((p) => {
       const c = db.prepare('SELECT hub_level, population, status, won FROM colonies WHERE id = ?').get(p.id);
       return { colonyId: p.id, holder: p.username, generated: !!p.generated, bot: false, parkedAt: p.parkedAt, lastActive: p.lastActive, hubLevel: c.hub_level, population: c.population, status: c.status, won: !!c.won };
     });
     res.json({ ok: true, parked: list });
-  });
+  };
+  r.get('/parked', parked);
+  r.post('/parked', parked);
   r.get('/parked/:colonyId', (req, res) => {
     const c = db.prepare('SELECT * FROM colonies WHERE id = ?').get(toInt(req.params.colonyId));
     if (!c || absence.phase(c) !== 'parked') return res.status(404).json({ ok: false, error: 'No such parked colony.' });

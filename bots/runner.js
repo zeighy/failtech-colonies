@@ -7,7 +7,9 @@
 // Every few minutes it asks for parked colonies; while it runs fewer bots than its limit it looks at each candidate (see
 // assess.js), claims the stable ones and gives each a profile (profiles.js), choosing the profile fewest bots are playing.
 // Each bot then takes a turn every few ticks (brain/). A colony that fails, or stays shut down for long, is given back:
-// it parks again for someone else.
+// it parks again for someone else. After BOT_RECHECK_HOURS the runner looks at a given-back colony once more; if it still
+// isn't fit to take over it goes on the blacklist and is never looked at again, unless someone else takes it up and it
+// parks again later (it is then a new candidate). The blacklist is kept in the state file; delete an entry to undo it.
 //
 // Settings (environment):
 //   BOT_SERVER          the game server's address                          default http://127.0.0.1:3000
@@ -17,7 +19,7 @@
 //   BOT_CLAIM           'all' parked colonies, or only 'given_up' ones (whose commander chose to start over)   default all
 //   BOT_TURN_TICKS      game ticks between a bot's turns                    default 4 (a minute at 15 s a tick)
 //   BOT_POLL_SECONDS    seconds between looks for parked colonies           default 300
-//   BOT_RECHECK_HOURS   how long a colony judged unsafe is left alone       default 24
+//   BOT_RECHECK_HOURS   how long a colony judged unsafe, or given back, is left alone   default 24
 //   BOT_STATE_FILE      where the bots' memory is kept between restarts    default ./bots-state.json
 //   BOT_STATUS_PORT     if set, GET /status on this port (bound to 127.0.0.1) shows what every bot is doing
 //   BOT_LOG             'quiet' for errors only, 'verbose' for every event  default normal
@@ -54,7 +56,8 @@ class Runner {
     this.s = s;
     this.client = client || new BotClient(s.server, s.key);
     this.bots = new Map(); // userId -> { userId, username, profile, colonyId, mem, last, errors }
-    this.rejected = {}; // colonyId -> { at, verdict, reasons }
+    this.rejected = {}; // colonyId -> { at, verdict, reasons, abandoned?, due? }, looked at again after recheckMs
+    this.blocked = {}; // colonyId -> { at, parkedAt, verdict, reasons }: given back by a bot and still unfit; never looked at again
     this.config = null;
     this.tickMs = 15000;
     this.stopped = false;
@@ -74,6 +77,7 @@ class Runner {
       const j = JSON.parse(fs.readFileSync(this.s.stateFile, 'utf8'));
       this.saved = j.bots || {};
       this.rejected = j.rejected || {};
+      this.blocked = j.blocked || {};
     } catch (e) { this.saved = {}; }
   }
   save() {
@@ -81,7 +85,7 @@ class Runner {
     for (const [id, b] of this.bots) bots[id] = { mem: b.mem, claimedAt: b.claimedAt };
     const tmp = `${this.s.stateFile}.tmp`;
     try {
-      fs.writeFileSync(tmp, JSON.stringify({ savedAt: Date.now(), bots, rejected: this.rejected }), { mode: 0o600 });
+      fs.writeFileSync(tmp, JSON.stringify({ savedAt: Date.now(), bots, rejected: this.rejected, blocked: this.blocked }), { mode: 0o600 });
       fs.renameSync(tmp, this.s.stateFile);
     } catch (e) { this.say('error', `could not save ${this.s.stateFile}: ${e.message}`); }
   }
@@ -121,22 +125,32 @@ class Runner {
     }
     if (this.bots.size >= this.s.limit) return;
     const now = Date.now();
-    for (const [id, r] of Object.entries(this.rejected)) if (now - r.at > this.s.recheckMs) delete this.rejected[id];
-    let parked = await this.client.parked();
+    // a colony a bot gave up stays marked when its wait is over: one more look decides whether it is blacklisted
+    for (const [id, r] of Object.entries(this.rejected)) if (now - r.at > this.s.recheckMs) { if (r.abandoned) r.due = true; else delete this.rejected[id]; }
+    let parked = await this.client.parked(Object.entries(this.blocked).map(([id, x]) => `${id}:${x.parkedAt}`));
     if (this.s.claim === 'given_up') parked = parked.filter((p) => p.generated);
     // colonies nobody will come back for first, then the furthest along (more to sell, sooner)
     parked.sort((a, b) => (b.generated - a.generated) || (b.hubLevel - a.hubLevel) || (a.parkedAt - b.parkedAt));
     for (const p of parked) {
       if (this.bots.size >= this.s.limit) break;
-      if (this.rejected[p.colonyId]) continue;
+      if (this.blocked[p.colonyId]) delete this.blocked[p.colonyId]; // parked again since (the listing skips the blacklisted park)
+      const prior = this.rejected[p.colonyId];
+      if (prior && !prior.due) continue;
       let view;
       try { view = await this.client.parkedView(p.colonyId); } catch (e) { continue; }
       const a = assess(view, this.config);
+      if (a.verdict !== 'stable' && prior && prior.abandoned) {
+        delete this.rejected[p.colonyId];
+        this.blocked[p.colonyId] = { at: now, parkedAt: p.parkedAt, verdict: a.verdict, reasons: a.reasons };
+        this.say('info', `blacklisted colony ${p.colonyId} (${p.holder}, hub ${p.hubLevel}): a bot gave it up and it is still ${a.verdict}${a.reasons.length ? ` - ${a.reasons.join('; ')}` : ''}`);
+        continue;
+      }
       if (a.verdict !== 'stable') {
         this.rejected[p.colonyId] = { at: now, verdict: a.verdict, reasons: a.reasons };
         this.say('info', `left colony ${p.colonyId} (${p.holder}, hub ${p.hubLevel}) alone: ${a.verdict}${a.reasons.length ? ` - ${a.reasons.join('; ')}` : ''}`);
         continue;
       }
+      delete this.rejected[p.colonyId];
       const profile = this.pickProfile();
       const r = await this.client.claim(p.colonyId, profile);
       if (!r || !r.ok) { this.say('info', `could not claim colony ${p.colonyId}: ${(r && r.error) || 'refused'}`); continue; }
@@ -146,10 +160,11 @@ class Runner {
     this.save();
   }
 
-  async release(b, why) {
+  // abandoned: the bot gave the colony up (it failed or stayed shut down), rather than being over the limit
+  async release(b, why, abandoned = false) {
     try { await this.client.release(b.userId); } catch (e) { this.say('error', `release of ${b.username} failed: ${e.message}`); return; }
     this.bots.delete(b.userId);
-    this.rejected[b.colonyId] = { at: Date.now(), verdict: 'released', reasons: [why] };
+    this.rejected[b.colonyId] = { at: Date.now(), verdict: 'released', reasons: [why], ...(abandoned ? { abandoned: true } : {}) };
     this.say('info', `${b.username} gave colony ${b.colonyId} back (${why})`);
   }
 
@@ -160,7 +175,7 @@ class Runner {
       const out = await takeTurn({ config: this.config, api: this.client.forBot(b.userId), profile: P, mem: b.mem });
       b.errors = 0;
       b.last = { at: Date.now(), ...out.summary, actions: out.actions, verdict: out.verdict };
-      if (out.verdict === 'give_up') return this.release(b, 'the colony failed or stayed shut down');
+      if (out.verdict === 'give_up') return this.release(b, 'the colony failed or stayed shut down', true);
       if (out.verdict === 'gone') { this.bots.delete(b.userId); return null; }
       for (const e of out.events) this.say('debug', `${b.username}: ${e}`);
       if (out.events.length && this.s.log !== 'verbose') this.say('info', `${b.username} (${b.profile}): ${out.events.slice(0, 4).join('; ')}${out.events.length > 4 ? '...' : ''}`);
@@ -195,6 +210,7 @@ class Runner {
       limit: this.s.limit, profiles: this.s.profiles, lastPoll: this.lastPoll,
       bots: [...this.bots.values()].map((b) => ({ user: b.username, profile: b.profile, colony: b.colonyId, claimedAt: b.claimedAt, errors: b.errors, last: b.last, trade: b.mem.trade || null })),
       rejected: this.rejected,
+      blocked: this.blocked,
     };
   }
 }
