@@ -2,7 +2,8 @@
 // Server-wide switches the admin panel flips, kept in the meta table so they survive a restart:
 //   maintenance   players cannot sign in or act (the message is shown on the sign-in page); the clock keeps running unless paused
 //   notice        a banner every player sees in the game
-//   clock         paused: no ticks run, and none are caught up when it resumes
+//   clock         paused: no ticks run, none are caught up when it resumes, and players' actions are refused meanwhile
+//                 (the engine also holds the world by itself when no player is active: see engine.js checkHold)
 // and the hooks server.js registers so the panel can restart the process and see who is connected.
 const store = require('./db');
 
@@ -24,6 +25,8 @@ function setNotice(text, { level = 'info', until = null } = {}) {
 }
 
 const clockPaused = () => store.getMeta('clock_paused') === '1';
+// What holds the simulation now, as the engine last judged it: { reason: 'admin' | 'idle', since } or null (src/engine.js).
+const pauseState = () => parse(store.getMeta('sim_hold'), null);
 
 // ---- hooks --------------------------------------------------------------------------------------------------------------
 // The exit code a restart uses: non-zero, so a supervisor restarts it whether it is set to restart always or on failure.
@@ -45,4 +48,4 @@ const stats = () => statsHook();
 const kick = (userId) => kickHook(userId); // close a player's live connections
 
 const started = Date.now();
-module.exports = { maintenance, setMaintenance, notice, setNotice, clockPaused, onShutdown, onStats, onKick, restart, stats, kick, supervised, started, RESTART_CODE };
+module.exports = { maintenance, setMaintenance, notice, setNotice, clockPaused, pauseState, onShutdown, onStats, onKick, restart, stats, kick, supervised, started, RESTART_CODE };

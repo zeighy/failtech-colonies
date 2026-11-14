@@ -44,7 +44,7 @@ module.exports = (r, h) => {
     let dbSize = 0;
     for (const f of [store.dbPath, `${store.dbPath}-wal`]) { try { dbSize += fs.statSync(f).size; } catch (e) { /* none */ } }
     ok(res, {
-      server: { tick: t.globalTick, tickMs: t.tickMs, lastTickAt: t.lastTickAt, clockPaused: lifecycle.clockPaused(), uptime: now - lifecycle.started, maintenance: lifecycle.maintenance(), notice: lifecycle.notice(), dbSize, node: process.version, pid: process.pid, ...lifecycle.stats() },
+      server: { tick: t.globalTick, tickMs: t.tickMs, lastTickAt: t.lastTickAt, clockPaused: lifecycle.clockPaused(), hold: lifecycle.pauseState(), idlePause: process.env.IDLE_PAUSE !== 'off', uptime: now - lifecycle.started, maintenance: lifecycle.maintenance(), notice: lifecycle.notice(), dbSize, node: process.version, pid: process.pid, ...lifecycle.stats() },
       players: {
         total: count(`SELECT COUNT(*) AS n FROM users WHERE ${players}`),
         verified: count(`SELECT COUNT(*) AS n FROM users WHERE ${players} AND email_verified = 1`),
@@ -168,6 +168,7 @@ module.exports = (r, h) => {
     const paused = !!body(req.body).paused;
     store.setMeta('clock_paused', paused ? '1' : '0');
     if (!paused) store.setMeta('last_tick_at', Date.now()); // the paused time is not caught up
+    engine.checkHold(); // players' tabs and the bots hear of it at once
     audit(req, paused ? 'clock.pause' : 'clock.resume');
     serverlog.warn('maintenance', `Game clock ${paused ? 'paused' : 'resumed'} by ${req.admin.username}`);
     ok(res);

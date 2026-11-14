@@ -376,3 +376,47 @@ test('backups: list, keep an automatic one, look inside, delete with confirmatio
   assert.equal(k.prepare("SELECT value FROM meta WHERE key = 'who'").get().value, 'now', 'the replaced database is kept');
   k.close();
 });
+
+test('an admin pause: players see it in their view and every action is refused; the bots pause with it', async () => {
+  const p = await player('pause_watcher');
+  await a.post('/api/clock', { paused: true });
+  try {
+    const st = await p.c.get('/api/state');
+    assert.equal(st.body.paused.reason, 'admin');
+    const r = await p.c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' });
+    assert.equal(r.status, 409);
+    assert.equal(r.body.paused, true);
+    assert.equal((await p.c.post('/api/start-over')).status, 409);
+    const key = fs.readFileSync(process.env.BOT_API_KEY_FILE, 'utf8').trim();
+    const ctl = (await bot('GET', '/control', undefined, key)).body.control;
+    assert.deepEqual([ctl.paused, ctl.why], [true, 'simulation-paused']);
+  } finally { await a.post('/api/clock', { paused: false }); }
+  assert.equal((await p.c.get('/api/state')).body.paused, null);
+  assert.equal((await p.c.post('/api/build', { ring: 1, slot: 0, type: 'solar_array' })).status, 200);
+});
+
+test('with no player active the world holds by itself (bots too), catches nothing up, and the first player back wakes it', async () => {
+  const key = fs.readFileSync(process.env.BOT_API_KEY_FILE, 'utf8').trim();
+  const p = await player('comes_back');
+  const away = Date.now() - (store.config.global.absence.simulateHours + 1) * 3600000;
+  db.prepare('UPDATE colonies SET last_active_at = ?').run(away); // every commander (and every bot) long gone
+  const t0 = Number(store.getMeta('global_tick', 0));
+  store.setMeta('last_tick_at', Date.now() - engine.TICK_MS * 4);
+  assert.equal(engine.runDueTicks(), 0);
+  assert.equal(Number(store.getMeta('global_tick', 0)), t0, 'no ticks while nobody is around');
+  assert.equal(require('../src/lifecycle').pauseState().reason, 'idle');
+  const ctl = (await bot('GET', '/control', undefined, key)).body.control;
+  assert.deepEqual([ctl.paused, ctl.why], [true, 'no-active-players']);
+  assert.equal((await p.c.get('/api/state')).body.paused, null, 'players are not shown an idle hold (they end it)');
+
+  // a bot colony being played does not count as anyone around
+  const botColony = db.prepare("SELECT c.id FROM colonies c JOIN users u ON u.id = c.user_id WHERE u.generated = 1 LIMIT 1").get();
+  if (botColony) db.prepare('UPDATE colonies SET last_active_at = ? WHERE id = ?').run(Date.now(), botColony.id);
+  assert.equal(engine.checkHold(), 'idle');
+
+  await p.c.post('/api/here');
+  assert.equal(require('../src/lifecycle').pauseState(), null, 'awake');
+  assert.equal((await bot('GET', '/control', undefined, key)).body.control.paused, false);
+  store.setMeta('last_tick_at', Date.now() - engine.TICK_MS * 2 - 10);
+  assert.equal(engine.runDueTicks(), 2);
+});

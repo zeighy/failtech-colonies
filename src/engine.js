@@ -261,14 +261,39 @@ const processTickTx = db.transaction((tickTime) => {
 // BEGIN IMMEDIATE: the tick takes the write lock before it reads anything.
 const processTick = (tickTime = Date.now()) => processTickTx.immediate(tickTime);
 
+// ---- holding the simulation ------------------------------------------------------------------------------------------
+// The world stands still (no ticks, nothing caught up afterwards) when:
+//   admin  an admin paused the clock (players' actions are refused meanwhile; see server.js)
+//   idle   no player's colony is being simulated: every commander has been away longer than absence.simulateHours (or there
+//          are none). Colonies run by bots do not count, so bots never keep an empty world running; they pause too
+//          (src/botApi.js). The first player back wakes it. IDLE_PAUSE=off turns this off.
+// The current hold is kept in meta `sim_hold` ({ reason, since }), and the `hold` event fires when it changes.
+const idlePauseOn = () => process.env.IDLE_PAUSE !== 'off';
+function playersLive(at) {
+  return !!db.prepare(`SELECT 1 FROM colonies c JOIN users u ON u.id = c.user_id WHERE u.generated = 0 AND u.bot_profile IS NULL
+    AND c.status = 'active' AND c.parked_at IS NULL AND c.last_active_at >= ? LIMIT 1`).get(absence.simulatedSince(at));
+}
+// What holds the world at `at` (null: nothing). Records a change and announces it.
+function checkHold(at = Date.now()) {
+  const reason = lifecycle.clockPaused() ? 'admin' : idlePauseOn() && !playersLive(at) ? 'idle' : null;
+  const cur = lifecycle.pauseState();
+  if ((cur ? cur.reason : null) !== reason) {
+    store.setMeta('sim_hold', reason ? JSON.stringify({ reason, since: Date.now() }) : '');
+    try { require('./serverlog').info('server', reason ? `Simulation held: ${reason === 'admin' ? 'paused by an admin' : 'no player is active'}` : 'Simulation running again'); } catch (e) { /* best effort */ }
+    events.emit('hold', reason);
+  }
+  return reason;
+}
+
 // Runs every tick that has come due, including those missed while the server was down.
 function runDueTicks(now = Date.now()) {
   let last = Number(store.getMeta('last_tick_at', 0));
   if (!last) { last = now; store.setMeta('last_tick_at', last); }
   let due = Math.floor((now - last) / TICK_MS);
   if (due <= 0) return 0;
-  // The clock is paused from the admin panel: time passes without ticks, and nothing is caught up when it resumes.
-  if (lifecycle.clockPaused()) { store.setMeta('last_tick_at', last + due * TICK_MS); return 0; }
+  // Held (see above): time passes without ticks, and nothing is caught up when it resumes. Judged at the first due tick,
+  // so ticks missed while the server was down still run for players who were around then.
+  if (checkHold(last + TICK_MS)) { store.setMeta('last_tick_at', last + due * TICK_MS); events.emit('held'); return 0; }
   if (due > config.global.maxOfflineTicks) {
     last = now - config.global.maxOfflineTicks * TICK_MS;
     due = config.global.maxOfflineTicks;
@@ -292,4 +317,4 @@ function start() {
 
 function stop() { clearInterval(timer); timer = null; }
 
-module.exports = { events, start, stop, processTick, runDueTicks, timing, neighborMap, neighborMaps, TICK_MS };
+module.exports = { events, start, stop, processTick, runDueTicks, checkHold, playersLive, timing, neighborMap, neighborMaps, TICK_MS };

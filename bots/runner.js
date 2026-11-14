@@ -259,7 +259,8 @@ class Runner {
     const list = Array.isArray(c.profiles) ? c.profiles.filter((p) => profiles.get(p)) : [];
     this.s.profiles = list.length ? list : this.env.profiles;
     this.s.claim = c.claim === 'all' || c.claim === 'given_up' ? c.claim : this.env.claim;
-    if (c.paused !== was) { this.say('info', c.paused ? 'paused from the admin panel' : 'resumed from the admin panel'); this.tel.write(c.paused ? 'paused' : 'resumed', {}); }
+    const WHY = { bots: 'from the admin panel', 'simulation-paused': 'the simulation is paused', 'no-active-players': 'no player is active' };
+    if (c.paused !== was) { this.say('info', c.paused ? `paused: ${WHY[c.why] || 'by the server'}` : 'resumed'); this.tel.write(c.paused ? 'paused' : 'resumed', { why: c.why || null }); }
   }
 
   // Tell the game server how things stand, hand over new telemetry, and take its control in return.

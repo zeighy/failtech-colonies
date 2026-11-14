@@ -123,6 +123,12 @@ function enterGame(userId) {
   if (accounts.gate(userId)) return;
   if (!absence.lostView(userId)) store.ensureColony(userId);
   absence.markActive(userId);
+  wake();
+}
+// The first player back wakes a world that was held for want of anyone to simulate (engine.js checkHold).
+function wake() {
+  const h = lifecycle.pauseState();
+  if (h && h.reason === 'idle') engine.checkHold();
 }
 
 const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(8).toString('hex'), BCRYPT_ROUNDS); // same cost as real hashes, for timing
@@ -356,11 +362,21 @@ lifecycle.onStats(() => ({ streams: streamCount, playersConnected: streams.size 
 lifecycle.onKick((userId) => { const set = streams.get(userId); if (!set) return 0; const n = set.size; for (const r of [...set]) r.end(); return n; });
 // A colony that is not being simulated does not change from tick to tick, so its open tabs are not sent a view each tick.
 const simulated = (uid) => { const c = db.prepare('SELECT last_active_at, parked_at FROM colonies WHERE user_id = ?').get(uid); return !!c && absence.phase(c) === 'live'; };
+// The world was held or let go (an admin paused the clock, or nobody is around): every open tab gets a fresh view, which
+// says so. While it is held, each tick that does not happen still reaches the tabs, so their watchdog keeps the stream.
+engine.events.on('hold', () => { for (const uid of [...streams.keys()]) { try { push(uid); } catch (e) { console.error('push failed', e); } } });
+engine.events.on('held', () => { for (const set of streams.values()) for (const r of set) r.write('event: idle\ndata: {}\n\n'); });
 engine.events.on('tick', () => { for (const uid of [...streams.keys()]) { if (!simulated(uid)) { for (const r of streams.get(uid)) r.write('event: idle\ndata: {}\n\n'); continue; } try { push(uid); } catch (e) { console.error('push failed', e); } } });
 
 // Real interactions (unlike the live stream and state polls an idle open tab keeps making) keep a colony simulated.
-function here(userId) { if (absence.markActive(userId)) push(userId); }
+function here(userId) { if (absence.markActive(userId)) push(userId); wake(); }
+// While an admin has the clock paused nothing a player does is taken: orders placed then could not move, and anything that
+// spends or trades could be played against a world that is not ticking.
+// (Marking a story call or a notice as seen changes nothing in the world, so those still go through.)
+const PAUSED = { ok: false, error: 'The simulation is paused.', paused: true };
+const WHILE_PAUSED = new Set(['storySeen', 'ack']);
 const act = (name) => (req, res) => {
+  if (lifecycle.clockPaused() && !WHILE_PAUSED.has(name)) return res.status(409).json(PAUSED);
   here(req.session.userId);
   const result = actions[name](req.session.userId, plainBody(req.body));
   if (result.ok) push(req.session.userId);
@@ -372,6 +388,7 @@ for (const [route, name] of ACTION_ROUTES) app.post(`/api/${route}`, requireAuth
 app.post('/api/here', requireAuth, (req, res) => { here(req.session.userId); res.json({ ok: true }); });
 // Absence: dismiss the notice after a long time away; or, for a parked colony, retake it or start a new one.
 const absenceAct = (fn) => (req, res) => {
+  if (lifecycle.clockPaused()) return res.status(409).json(PAUSED);
   const result = fn(req.session.userId);
   if (result.ok) push(req.session.userId);
   res.status(result.ok ? 200 : 400).json({ ...result, state: result.ok ? viewFor(req.session.userId) : undefined });

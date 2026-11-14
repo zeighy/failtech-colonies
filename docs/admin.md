@@ -62,7 +62,8 @@ prices far from the reference.
 
 **Bots.** What the runner last reported (it reports every loop): when, from where, its settings, bots running against its
 limit and how many slots wait for a colony, parked candidates, colonies it turned down or blacklisted. Controls:
-- **pause** the bots (the runner takes no turns and claims nothing; the server also refuses bot claims and actions);
+- **pause** the bots (the runner takes no turns and claims nothing; the server also refuses bot claims and actions). They are
+  also paused whenever the simulation is paused or idle; the page says which;
 - switch the **bot API** off or on;
 - **override** the runner's limit, profiles and claim rule (blank: the runner's own environment);
 - issue a **new key** (shown once). With `BOT_API_KEY_FILE` set on both the server and the runner (same machine), the key is
@@ -88,7 +89,14 @@ paged, exported as CSV or JSON lines. Kept `SERVER_LOG_DAYS` (default 90). The *
 **Maintenance.**
 - **Maintenance mode**: players cannot sign in or act; the sign-in page shows the message. Optionally signs everyone out.
 - **Banner**: a line every player sees in the game, for some hours or until cleared.
-- **Clock**: pause the game; nothing is caught up when it resumes.
+- **Simulation**: pause the game. No ticks run, and nothing is caught up when it resumes. Players see "Simulation paused",
+  their countdowns stop, and their actions are refused (apart from marking a call or a notice as seen) so nothing can be
+  queued or traded against a world that is not moving. The bots pause too.
+- **Idle hold** (automatic): when no player's colony is being simulated (every commander has been away longer than
+  `absence.simulateHours`, 96 hours, or there are no players yet), the server stops ticking by itself and the bots pause,
+  because there is nobody for them to play alongside. Colonies run by bots do not count. The first player to sign in or act
+  wakes it at once; nothing is caught up. Ticks missed while the *server* was down are still caught up for players who were
+  around at the time. The Overview and Maintenance pages show when the world is idle. `IDLE_PAUSE=off` turns this off.
 - Sign every player out; restart the server; database integrity check and compaction; a test email; the sign-up settings,
   table sizes and the environment (secrets shown only as "set").
 - **Updates** (below).

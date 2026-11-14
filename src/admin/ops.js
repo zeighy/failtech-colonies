@@ -16,7 +16,7 @@ const updater = require('./updater');
 const { db } = store;
 
 // Environment settings worth seeing, with secrets hidden.
-const SHOWN = ['PORT', 'TICK_MS', 'THEME', 'DB_PATH', 'TRUST_PROXY', 'ALLOWED_ORIGINS', 'PUBLIC_URL', 'EMAIL_VERIFICATION', 'MAIL_TRANSPORT', 'MAIL_FROM', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER',
+const SHOWN = ['PORT', 'TICK_MS', 'IDLE_PAUSE', 'THEME', 'DB_PATH', 'TRUST_PROXY', 'ALLOWED_ORIGINS', 'PUBLIC_URL', 'EMAIL_VERIFICATION', 'MAIL_TRANSPORT', 'MAIL_FROM', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER',
   'TURNSTILE_SITE_KEY', 'BACKUP_INTERVAL_HOURS', 'BACKUP_KEEP', 'BACKUP_DIR', 'ADMIN_HOST', 'ADMIN_PORT', 'ADMIN_ALLOW', 'BOT_API_KEY_FILE', 'SERVER_LOG_DAYS', 'BOT_TELEMETRY_DAYS', 'RESTART_EXIT_CODE'];
 const SECRET = ['SESSION_SECRET', 'SMTP_PASS', 'RESEND_API_KEY', 'POSTMARK_TOKEN', 'TURNSTILE_SECRET_KEY', 'BOT_API_KEY'];
 
@@ -113,7 +113,7 @@ module.exports = (r, h) => {
       for (const k of SECRET) if (process.env[k]) env[k] = '(set)';
       ok(res, {
         code: await updater.info(), update: await updater.settings(), supervised: lifecycle.supervised(), restartCode: lifecycle.RESTART_CODE,
-        maintenance: lifecycle.maintenance(), notice: lifecycle.notice(), clockPaused: lifecycle.clockPaused(),
+        maintenance: lifecycle.maintenance(), notice: lifecycle.notice(), clockPaused: lifecycle.clockPaused(), hold: lifecycle.pauseState(), idlePause: process.env.IDLE_PAUSE !== 'off',
         mail: mail.status(), turnstile: turnstile.enabled(), emailVerification: accounts.verificationRequired(),
         counts, env, dbPath: store.dbPath, dbBytes: (() => { try { return fs.statSync(store.dbPath).size; } catch (e) { return 0; } })(),
       });

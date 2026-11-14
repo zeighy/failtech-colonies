@@ -14,6 +14,7 @@ npm start                 # http://localhost:3000
 | `PORT` | `3000` | HTTP port |
 | `TICK_MS` | `15000` (from config) | Milliseconds per game tick. `npm run dev` uses 1000 for fast testing. |
 | `HAZARDS` | on | Set `off` to disable hazards (used by most tests). |
+| `IDLE_PAUSE` | on | With no player active (all away longer than `absence.simulateHours`), the world stops ticking and the bots pause until a player returns. `off` keeps it ticking. |
 | `SESSION_SECRET` | generated, stored in the DB | Session signing key |
 | `DB_PATH` | `./failtech.db` | SQLite file |
 | `AUTH_RATE_LIMIT` | `20` | Login/register attempts per IP per minute |
@@ -107,6 +108,10 @@ Every profile's main objective is to **sell on the orbital market**. They differ
 - every **give-up**: the reason (`status_failed`, `shutdown_too_long`...), the takeover check run on the colony at that moment, the issues still open, what it was saving for and selling, its last 40 events and refusals, its last snapshot, and how long it played.
 
 `npm run bots:report` sums the log up per bot and across bots: most frequent issues, refusals that kept repeating, why colonies were turned down. Add `-- --days 7` for the last week, `-- --bot <name>` for one bot's entries, or `-- --ev give_up` for one kind of entry as JSON lines.
+
+Bots only play while at least one player's colony is being simulated: in a world where every commander has been away
+longer than `absence.simulateHours` the server stops ticking and tells the runner to wait (see `IDLE_PAUSE`), and the first
+player back starts both again. An admin pausing the simulation pauses them too.
 
 A bot's colony is only tended while the runner runs. If the game server keeps going while the runner is down, bot colonies play on unattended, so keep the runner up alongside the server.
 

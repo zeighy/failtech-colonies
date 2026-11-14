@@ -114,7 +114,7 @@
       var s = d.server, p = d.players, c = d.colonies, b = d.bots, m = d.market, bk = d.backups;
       var banners = '';
       if (s.maintenance) banners += '<div class="banner">Maintenance mode is on' + (s.maintenance.message ? ': ' + esc(s.maintenance.message) : '') + '.</div>';
-      if (s.clockPaused) banners += '<div class="banner">The game clock is paused.</div>';
+      if (s.hold) banners += '<div class="banner">' + (s.hold.reason === 'admin' ? 'The simulation is paused by an admin; players cannot act.' : 'The simulation is idle: no player is active, so nothing ticks and the bots wait.') + ' Since ' + date(s.hold.since) + '.</div>';
       if (bk.pendingRestore) banners += '<div class="banner bad">A full restore is waiting for the next start: ' + esc(bk.pendingRestore.from) + '</div>';
       if (m.frozen.ground || m.frozen.orbit) banners += '<div class="banner">Frozen: ' + [m.frozen.ground ? 'exchange' : '', m.frozen.orbit ? 'orbital market' : ''].filter(Boolean).join(', ') + '.</div>';
       var maxS = Math.max.apply(null, [1].concat(d.signups.map(function (x) { return x.n; })));
@@ -354,7 +354,7 @@
       var fresh = r && Date.now() - r.at < 10 * 60000;
       main('<h1>Bots</h1>' +
         (!b.api.enabled ? '<div class="banner">The bot API is off' + (b.api.key ? ' (switched off here).' : ': no key is set (BOT_API_KEY, or issue one below).') + '</div>' : '') +
-        (ctl.paused ? '<div class="banner">Bots are paused.</div>' : '') +
+        (ctl.paused ? '<div class="banner">Bots are paused' + ({ bots: '.', 'simulation-paused': ': the simulation is paused.', 'no-active-players': ': no player is active.' }[ctl.why] || '.') + '</div>' : '') +
         '<div class="grid">' +
         stat('Runner', r ? (fresh ? '<span class="good">up</span>' : '<span class="warn">quiet</span>') : '<span class="faint">never seen</span>', r ? 'seen ' + ago(r.at) + (r.ip ? ' from ' + esc(r.ip) : '') : '') +
         stat('Running', b.bots.length + (r && r.limit !== undefined ? ' / ' + r.limit : ''), r ? (r.waiting || 0) + ' slot(s) waiting for a colony' : '') +
@@ -363,7 +363,7 @@
         stat('Key', esc(b.api.key || 'none'), b.api.keyFile ? 'file ' + esc(b.api.keyFile) : 'no key file') +
         '</div>' +
         '<div class="cols"><div class="card"><h2>Control</h2><div class="row">' +
-        '<button class="btn' + (ctl.paused ? ' primary' : '') + '" data-act="bpause" data-on="' + (ctl.paused ? '0' : '1') + '"' + dis() + '>' + (ctl.paused ? 'Resume bots' : 'Pause bots') + '</button>' +
+        '<button class="btn' + (ctl.why === 'bots' ? ' primary' : '') + '" data-act="bpause" data-on="' + (ctl.why === 'bots' ? '0' : '1') + '"' + dis() + '>' + (ctl.why === 'bots' ? 'Resume bots' : 'Pause bots') + '</button>' +
         '<button class="btn" data-act="bapi" data-on="' + (b.api.off ? '1' : '0') + '"' + dis() + '>' + (b.api.off ? 'Bot API on' : 'Bot API off') + '</button>' +
         '<button class="btn danger" data-act="bkey"' + dis() + '>New key</button></div><div id="newkey"></div>' +
         '<h3>Overrides</h3><form data-form="boverride"><div class="row" style="margin-bottom:10px"><label>Limit <input name="limit" type="number" min="0" max="200" style="width:80px" value="' + (ctl.limit === null ? '' : ctl.limit) + '" placeholder="' + (r && r.settings && r.settings.limit !== undefined ? r.settings.limit : 'runner') + '"></label>' +
@@ -498,7 +498,7 @@
         '<div class="card"><h2>Players</h2>' +
         '<form data-form="mmode"><label class="field"><span>Maintenance mode</span><input name="message" placeholder="Message on the sign-in page" value="' + esc(d.maintenance ? d.maintenance.message : '') + '"></label><div class="row"><label><input type="checkbox" name="on"' + (d.maintenance ? ' checked' : '') + '> on</label><label><input type="checkbox" name="signOut"> sign everyone out</label><button class="btn"' + dis() + '>Apply</button></div></form>' +
         '<form data-form="mnotice" style="margin-top:16px"><label class="field"><span>Banner in the game</span><input name="text" value="' + esc(d.notice ? d.notice.text : '') + '" placeholder="(none)"></label><div class="row"><select name="level">' + ['info', 'warn', 'bad'].map(function (l) { return '<option' + (d.notice && d.notice.level === l ? ' selected' : '') + '>' + l + '</option>'; }).join('') + '</select><input name="hours" type="number" min="0" placeholder="hours (blank: until cleared)" style="width:200px"><button class="btn"' + dis() + '>Set</button></div></form>' +
-        '<h3>Clock</h3><div class="row">' + (d.clockPaused ? pill('paused', 'warn') + '<button class="btn" data-act="mclock" data-p="0"' + dis() + '>Resume</button>' : pill('running', 'good') + '<button class="btn" data-act="mclock" data-p="1"' + dis() + '>Pause</button>') + '</div>' +
+        '<h3>Simulation</h3><div class="row">' + (d.clockPaused ? pill('paused', 'warn') + '<button class="btn" data-act="mclock" data-p="0"' + dis() + '>Resume</button>' : (d.hold && d.hold.reason === 'idle' ? pill('idle: no active players', 'accent') : pill('running', 'good')) + '<button class="btn" data-act="mclock" data-p="1"' + dis() + '>Pause</button>') + (d.idlePause ? '' : ' <span class="faint small">idle pause off</span>') + '</div>' +
         '<h3>Server</h3><div class="row"><button class="btn" data-act="msessions"' + dis() + '>Sign out every player</button><button class="btn danger" data-act="mrestart"' + dis() + '>Restart server</button></div></div></div>' +
         '<div class="cols"><div class="card"><h2>Sign-up and email</h2><div class="kv"><div>email verification</div><div>' + (d.emailVerification ? 'required' : 'off') + '</div><div>mail transport</div><div>' + esc(d.mail.transport) + (d.mail.transport === 'log' ? ' <span class="warn">(nothing is sent)</span>' : '') + '</div><div>from</div><div>' + esc(d.mail.from) + '</div><div>links to</div><div>' + esc(d.mail.publicUrl || '(PUBLIC_URL not set: codes only)') + '</div><div>Turnstile</div><div>' + (d.turnstile ? 'on' : '<span class="warn">off</span>') + '</div></div>' +
         '<form class="row" data-form="mtest" style="margin-top:12px"><input class="grow" name="to" placeholder="address for a test email"><button class="btn"' + dis() + '>Send test</button></form></div>' +

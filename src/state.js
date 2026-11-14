@@ -275,6 +275,7 @@ function viewFor(userId, now = Date.now()) {
   const view = {
     user: user.username,
     notice: lifecycle.notice(), // a banner from the admin panel, for everyone
+    paused: lifecycle.clockPaused() ? lifecycle.pauseState() || { reason: 'admin', since: now } : null, // an admin paused the simulation
     tick: t.globalTick, tickMs: t.tickMs, nextTickAt, serverNow: now,
     districtsUnlocked: sim.districtsUnlocked(config, { coreLevel: c.hub_level }),
     districtLevelCap: sim.districtLevelCap(config, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) }),

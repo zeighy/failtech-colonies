@@ -43,7 +43,11 @@ const envKey = () => process.env.BOT_API_KEY || '';
 const keyHash = () => store.getMeta('bot_key_sha256') || (envKey().length >= 16 ? sha(envKey()) : '');
 const keySource = () => (store.getMeta('bot_key_sha256') ? 'panel' : envKey().length >= 16 ? 'env' : null);
 const enabled = () => !!keyHash() && store.getMeta('bot_api_off') !== '1';
-const paused = () => store.getMeta('bots_paused') === '1';
+// Paused from the panel, or the whole simulation is held (an admin paused it, or no player is active: there is nobody
+// for the bots to play alongside, and their turns would keep nothing worth keeping moving).
+const pausedByAdmin = () => store.getMeta('bots_paused') === '1';
+const hold = () => { const h = require('./lifecycle').pauseState(); return h ? h.reason : null; };
+const paused = () => pausedByAdmin() || !!hold();
 
 function auth(req, res, next) {
   if (!enabled()) return res.status(404).json({ ok: false, error: 'Not found.' });
@@ -74,7 +78,7 @@ function setOverrides(o) {
   store.setMeta('bot_control', JSON.stringify({ limit: next.limit, profiles: next.profiles, claim: next.claim }));
   return overrides();
 }
-const control = () => ({ paused: paused(), ...overrides() });
+const control = () => ({ paused: paused(), why: pausedByAdmin() ? 'bots' : hold() === 'admin' ? 'simulation-paused' : hold() === 'idle' ? 'no-active-players' : null, ...overrides() });
 
 // What the runner last said about itself (kept in memory: it reports every loop).
 let runner = null;
@@ -211,4 +215,4 @@ function router() {
   return r;
 }
 
-module.exports = { router, enabled, paused, keySource, resetKey, overrides, setOverrides, control, runnerStatus, storeTelemetry, claim, release, botAccount, PROFILE };
+module.exports = { router, enabled, paused, pausedByAdmin, keySource, resetKey, overrides, setOverrides, control, runnerStatus, storeTelemetry, claim, release, botAccount, PROFILE };
