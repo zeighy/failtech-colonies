@@ -24,6 +24,31 @@ function setNotice(text, { level = 'info', until = null } = {}) {
   store.setMeta('notice', text ? JSON.stringify({ text: String(text).slice(0, 300), level: ['info', 'warn', 'bad'].includes(level) ? level : 'info', until: until || null, at: Date.now() }) : '');
 }
 
+// The support link on the sign-in page: set in the admin panel (meta `support_url`), else the web page of the code repository
+// the server updates from (update_repo, else package.json's repository), else none.
+function repoPage(repo) {
+  const r = String(repo || '').trim().replace(/^git\+/, '').replace(/\.git$/, '');
+  let m = /^git@([A-Za-z0-9.-]+):(.+)$/.exec(r);
+  if (m) return `https://${m[1]}/${m[2]}`;
+  m = /^ssh:\/\/(?:[^@/]+@)?([A-Za-z0-9.-]+)(?::\d+)?\/(.+)$/.exec(r);
+  if (m) return `https://${m[1]}/${m[2]}`;
+  return /^https:\/\//.test(r) ? r : null;
+}
+function supportUrl() {
+  const set = store.getMeta('support_url');
+  if (set) return set;
+  let pkg = '';
+  try { pkg = (require('../package.json').repository || {}).url || ''; } catch (e) { pkg = ''; }
+  return repoPage(store.getMeta('update_repo') || pkg);
+}
+// '' or null goes back to the default. Only http(s) addresses.
+function setSupportUrl(url) {
+  const u = String(url || '').trim();
+  if (u && (!/^https?:\/\/[^\s"'<>]+$/.test(u) || u.length > 300)) return false;
+  store.setMeta('support_url', u);
+  return true;
+}
+
 const clockPaused = () => store.getMeta('clock_paused') === '1';
 // What holds the simulation now, as the engine last judged it: { reason: 'admin' | 'idle', since } or null (src/engine.js).
 const pauseState = () => parse(store.getMeta('sim_hold'), null);
@@ -48,4 +73,4 @@ const stats = () => statsHook();
 const kick = (userId) => kickHook(userId); // close a player's live connections
 
 const started = Date.now();
-module.exports = { maintenance, setMaintenance, notice, setNotice, clockPaused, pauseState, onShutdown, onStats, onKick, restart, stats, kick, supervised, started, RESTART_CODE };
+module.exports = { supportUrl, setSupportUrl, repoPage, maintenance, setMaintenance, notice, setNotice, clockPaused, pauseState, onShutdown, onStats, onKick, restart, stats, kick, supervised, started, RESTART_CODE };

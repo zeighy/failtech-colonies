@@ -10,6 +10,7 @@
   var link = { verify: params.get('verify'), reset: params.get('reset') };
   var sentTo = '';
   var tsToken = '', tsWidget = null;
+  var support = null; // the support page (set in the admin panel; by default the code repository)
 
   var BUTTON = { login: function () { return L.enter; }, register: function () { return L.found; }, verify: function () { return 'Confirm'; }, email: function () { return 'Send code'; }, change: function () { return 'Send code'; },
     forgot: function () { return 'Send reset code'; }, reset: function () { return 'Set passcode'; }, linkverify: function () { return 'Confirm email'; }, totp: function () { return 'Sign in'; } };
@@ -46,7 +47,8 @@
     if (mode === 'email' || mode === 'change') h.push(['logout', 'Sign out']);
     if (mode === 'forgot') h.push(['havecode', 'I have a code']);
     if (mode === 'forgot' || mode === 'reset' || mode === 'linkverify' || mode === 'totp') h.push(['back', 'Back to sign in']);
-    $('links').innerHTML = h.map(function (x) { return '<button type="button" class="linkbtn" data-l="' + x[0] + '">' + x[1] + '</button>'; }).join('');
+    $('links').innerHTML = h.map(function (x) { return '<button type="button" class="linkbtn" data-l="' + x[0] + '">' + x[1] + '</button>'; }).join('') +
+      (support ? '<a class="linkbtn" target="_blank" rel="noopener noreferrer" href="' + support.replace(/"/g, '%22') + '">Support</a>' : '');
   }
   var say = function (msg, ok) { $(ok ? 'info' : 'error').textContent = msg || ''; if (ok) $('error').textContent = ''; else $('info').textContent = ''; };
 
@@ -122,6 +124,7 @@
   fetch('/api/theme').then(function (r) { return r.json(); }).then(function (d) {
     var ui = d.ui || {};
     auth = d.auth || auth;
+    support = typeof d.support === 'string' && /^https?:\/\//.test(d.support) ? d.support : null;
     if (ui.brand) document.querySelector('.brand').textContent = ui.brand;
     if (ui.subtitle) document.querySelector('.brand-sub').textContent = ui.subtitle;
     if (ui.loginNote) document.querySelector('.login-foot').textContent = ui.loginNote;

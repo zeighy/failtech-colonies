@@ -392,7 +392,7 @@ app.get('/api/config', requireAuth, (req, res) => res.type('json').send(cfgJson)
 // Public: just the wording the login page needs. Nothing about any colony.
 app.get('/api/theme', (req, res) => {
   const m = lifecycle.maintenance();
-  res.json({ ok: true, id: config.theme.id, ui: config.theme.ui, auth: { turnstile: turnstile.enabled() ? turnstile.siteKey() : null, email: accounts.verificationRequired(), maintenance: m ? m.message || 'Down for maintenance.' : null } });
+  res.json({ ok: true, id: config.theme.id, ui: config.theme.ui, auth: { turnstile: turnstile.enabled() ? turnstile.siteKey() : null, email: accounts.verificationRequired(), maintenance: m ? m.message || 'Down for maintenance.' : null }, support: lifecycle.supportUrl() });
 });
 // The text of every message this colony has been sent so far (never the rest of the script).
 app.get('/api/story', requireAuth, (req, res) => {

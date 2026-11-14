@@ -294,3 +294,13 @@ test('an authenticator code: opt in from the game, then sign-in asks for it (onc
   assert.equal((await d.post('/api/account/totp/disable', { password: 'charlie-new-1', code: totp.code(setup.body.secret, step()) })).status, 200);
   assert.equal((await client().post('/api/login', { login: 'charlie', password: 'charlie-new-1', turnstile: 'pass' })).body.next, 'game');
 });
+
+test('the sign-in page has a support link: the code repository until an admin sets one', async () => {
+  assert.equal((await client().get('/api/theme')).body.support, 'https://github.com/zeighy/failtech-colonies');
+  assert.equal(lifecycle.repoPage('git@gitlab.com:me/fork.git'), 'https://gitlab.com/me/fork');
+  assert.equal(lifecycle.setSupportUrl('javascript:alert(1)'), false);
+  assert.equal(lifecycle.setSupportUrl('https://help.example.com/'), true);
+  assert.equal((await client().get('/api/theme')).body.support, 'https://help.example.com/');
+  lifecycle.setSupportUrl('');
+  assert.match((await client().get('/api/theme')).body.support, /github\.com/);
+});

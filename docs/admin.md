@@ -89,6 +89,7 @@ paged, exported as CSV or JSON lines. Kept `SERVER_LOG_DAYS` (default 90). The *
 **Maintenance.**
 - **Maintenance mode**: players cannot sign in or act; the sign-in page shows the message. Optionally signs everyone out.
 - **Banner**: a line every player sees in the game, for some hours or until cleared.
+- **Support link** on the sign-in page (Maintenance → Sign-up and email): any http(s) address; blank uses the code repository being followed.
 - **Simulation**: pause the game. No ticks run, and nothing is caught up when it resumes. Players see "Simulation paused",
   their countdowns stop, and their actions are refused (apart from marking a call or a notice as seen) so nothing can be
   queued or traded against a world that is not moving. The bots pause too.

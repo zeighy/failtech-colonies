@@ -114,7 +114,7 @@ module.exports = (r, h) => {
       ok(res, {
         code: await updater.info(), update: await updater.settings(), supervised: lifecycle.supervised(), restartCode: lifecycle.RESTART_CODE,
         maintenance: lifecycle.maintenance(), notice: lifecycle.notice(), clockPaused: lifecycle.clockPaused(), hold: lifecycle.pauseState(), idlePause: process.env.IDLE_PAUSE !== 'off',
-        mail: mail.status(), turnstile: turnstile.enabled(), emailVerification: accounts.verificationRequired(),
+        support: { url: lifecycle.supportUrl(), custom: !!store.getMeta('support_url') }, mail: mail.status(), turnstile: turnstile.enabled(), emailVerification: accounts.verificationRequired(),
         counts, env, dbPath: store.dbPath, dbBytes: (() => { try { return fs.statSync(store.dbPath).size; } catch (e) { return 0; } })(),
       });
     } catch (e) { next(e); }
@@ -127,6 +127,12 @@ module.exports = (r, h) => {
     audit(req, b.on ? 'maintenance.on' : 'maintenance.off', null, { message: b.message || null, signOut: !!b.signOut });
     serverlog.warn('maintenance', `Maintenance mode ${b.on ? 'on' : 'off'} (${req.admin.username})`);
     ok(res, { sessionsEnded: ended });
+  });
+  r.post('/maintenance/support', need, (req, res) => {
+    const url = body(req.body).url;
+    if (!lifecycle.setSupportUrl(url)) return bad(res, 'An http:// or https:// address.');
+    audit(req, 'support.url', null, { url: url || '(default)' });
+    ok(res, { support: lifecycle.supportUrl() });
   });
   r.post('/maintenance/notice', need, (req, res) => {
     const b = body(req.body);
