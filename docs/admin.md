@@ -95,8 +95,8 @@ paged, exported as CSV or JSON lines. Kept `SERVER_LOG_DAYS` (default 90). The *
 - **Idle hold** (automatic): when no player's colony is being simulated (every commander has been away longer than
   `absence.simulateHours`, 96 hours, or there are no players yet), the server stops ticking by itself and the bots pause,
   because there is nobody for them to play alongside. Colonies run by bots do not count. The first player to sign in or act
-  wakes it at once; nothing is caught up. Ticks missed while the *server* was down are still caught up for players who were
-  around at the time. The Overview and Maintenance pages show when the world is idle. `IDLE_PAUSE=off` turns this off.
+  wakes it at once; the idle time is skipped, nothing is caught up. The Overview and Maintenance pages show when the world is
+  idle. `IDLE_PAUSE=off` turns this off.
 - Sign every player out; restart the server; database integrity check and compaction; a test email; the sign-up settings,
   table sizes and the environment (secrets shown only as "set").
 - **Updates** (below).

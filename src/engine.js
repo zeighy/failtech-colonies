@@ -291,8 +291,8 @@ function runDueTicks(now = Date.now()) {
   if (!last) { last = now; store.setMeta('last_tick_at', last); }
   let due = Math.floor((now - last) / TICK_MS);
   if (due <= 0) return 0;
-  // Held (see above): time passes without ticks, and nothing is caught up when it resumes. Judged at the first due tick,
-  // so ticks missed while the server was down still run for players who were around then.
+  // Held (see above): time passes without ticks, and nothing is caught up when it resumes. (The hold is judged at the time of
+  // the first due tick rather than now: that only matters when the server process itself was stopped, a separate case.)
   if (checkHold(last + TICK_MS)) { store.setMeta('last_tick_at', last + due * TICK_MS); events.emit('held'); return 0; }
   if (due > config.global.maxOfflineTicks) {
     last = now - config.global.maxOfflineTicks * TICK_MS;
