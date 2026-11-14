@@ -16,6 +16,7 @@ const market = require('./market');
 const missions = require('./missions');
 const absence = require('./absence');
 const hq = require('./hq');
+const lifecycle = require('./lifecycle');
 const { db, config } = store;
 
 const neighborMap = sim.buildNeighborMap(config);
@@ -266,6 +267,8 @@ function runDueTicks(now = Date.now()) {
   if (!last) { last = now; store.setMeta('last_tick_at', last); }
   let due = Math.floor((now - last) / TICK_MS);
   if (due <= 0) return 0;
+  // The clock is paused from the admin panel: time passes without ticks, and nothing is caught up when it resumes.
+  if (lifecycle.clockPaused()) { store.setMeta('last_tick_at', last + due * TICK_MS); return 0; }
   if (due > config.global.maxOfflineTicks) {
     last = now - config.global.maxOfflineTicks * TICK_MS;
     due = config.global.maxOfflineTicks;

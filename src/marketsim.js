@@ -62,7 +62,10 @@ function makerOf(config, res) {
   }
   return makers.get(config)[res];
 }
-function refPrice(config, res, tick) {
+// An admin's adjustment of a good's price (src/marketControl.js), 1 when there is none.
+const adminMult = (config, res) => (config.exchange.adminMult && config.exchange.adminMult[res]) || 1;
+function refPrice(config, res, tick) { return baseRef(config, res, tick) * adminMult(config, res); }
+function baseRef(config, res, tick) {
   const ev = event(config, res, tick);
   const mult = ev ? config.exchange.events[ev.kind].price : 1;
   // Some goods follow another good's price, so a conversion between them can never be a money machine

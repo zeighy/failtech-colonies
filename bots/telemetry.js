@@ -24,7 +24,9 @@ const fs = require('fs');
 const path = require('path');
 
 class Telemetry {
-  constructor({ file, level = 'normal', maxBytes = 20 * 1048576, keep = 10, onError = () => {} } = {}) {
+  // sink(entry): every entry is also handed to it (the runner sends them on to the game server for the admin panel)
+  constructor({ file, level = 'normal', maxBytes = 20 * 1048576, keep = 10, onError = () => {}, sink = null } = {}) {
+    this.sink = sink;
     this.file = file && file !== 'off' ? path.resolve(file) : null;
     this.level = level;
     this.maxBytes = maxBytes;
@@ -39,8 +41,11 @@ class Telemetry {
   get verbose() { return this.level === 'verbose'; }
 
   write(ev, data = {}) {
+    if (!this.file && !this.sink) return;
+    const entry = { at: new Date().toISOString(), ev, ...data };
+    if (this.sink) { try { this.sink(entry); } catch (e) { /* the sink is best effort */ } }
     if (!this.file) return;
-    const line = `${JSON.stringify({ at: new Date().toISOString(), ev, ...data })}\n`;
+    const line = `${JSON.stringify(entry)}\n`;
     try {
       if (this.size + line.length > this.maxBytes && this.size > 0) this.rotate();
       fs.appendFileSync(this.file, line, { mode: 0o600 });

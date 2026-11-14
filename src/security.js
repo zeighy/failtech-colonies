@@ -3,12 +3,21 @@
 // No dependencies. Limiters are per process, which is right for the single-instance design.
 
 const SELF = "'self'";
-const CSP = [
-  `default-src ${SELF}`, `script-src ${SELF}`, `style-src ${SELF} 'unsafe-inline'`, `img-src ${SELF} data:`, `connect-src ${SELF}`,
-  "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
-].join('; ');
+// With Cloudflare Turnstile on (src/turnstile.js), its script and its frame come from challenges.cloudflare.com.
+function buildCsp({ turnstile = false } = {}) {
+  const cf = turnstile ? ' https://challenges.cloudflare.com' : '';
+  return [
+    `default-src ${SELF}`, `script-src ${SELF}${cf}`, `style-src ${SELF} 'unsafe-inline'`, `img-src ${SELF} data:`, `connect-src ${SELF}`,
+    ...(turnstile ? [`frame-src${cf}`] : []),
+    "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
+  ].join('; ');
+}
+const CSP = buildCsp();
+let activeCsp = null;
+const currentCsp = () => activeCsp || (activeCsp = buildCsp({ turnstile: require('./turnstile').enabled() }));
 
 function headers(req, res, next) {
+  const CSP = currentCsp();
   res.set({
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
@@ -81,4 +90,4 @@ function failureTracker({ windowMs, max }) {
   };
 }
 
-module.exports = { headers, sameOrigin, jsonOnly, limiter, failureTracker, CSP };
+module.exports = { headers, sameOrigin, jsonOnly, limiter, failureTracker, CSP, buildCsp };

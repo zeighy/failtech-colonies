@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "TICK_MS=1000 node server.js",
-    "test": "THEME=basic node --test \"test/*.test.js\"",
+    "test": "THEME=basic EMAIL_VERIFICATION=off node --test \"test/*.test.js\"",
     "check-content": "node scripts/check-content.js",
     "guide": "node scripts/gen-prod-guide.js",
     "playtest": "node scripts/playtest.js",
@@ -14,7 +14,8 @@
     "bots": "node bots/runner.js",
     "botplay": "node scripts/botplay.js",
     "bots:report": "node scripts/bots-report.js",
-    "minigames:report": "node scripts/minigame-report.js"
+    "minigames:report": "node scripts/minigame-report.js",
+    "admin": "node scripts/admin.js"
   },
   "repository": {
     "type": "git",
@@ -31,6 +32,7 @@
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.11.1",
     "express": "^5.2.1",
-    "express-session": "^1.19.0"
+    "express-session": "^1.19.0",
+    "nodemailer": "~10.2.1"
   }
 }

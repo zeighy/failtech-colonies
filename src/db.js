@@ -7,6 +7,44 @@ const session = require('express-session');
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'game_config.json'), 'utf8'));
 require('./theme').load(config); // names and wording come from content/<theme>/theme.json
 const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'failtech.db');
+
+// A full restore asked for from the admin panel (src/admin/ops.js) is done here, at start-up, before the database is open:
+// the panel writes `<db>.restore` naming the backup and restarts the server. The database as it stood is kept beside the
+// backups (pre-restore-*.db) first, so a restore can itself be undone. A restore puts the game back; it does not put back
+// who runs the server: the admin accounts, the audit and server logs, the bot telemetry and the panel's own settings
+// (CARRY_META) are carried over from the database being replaced.
+const CARRY_TABLES = ['admins', 'admin_audit', 'server_log', 'bot_telemetry'];
+const CARRY_META = ['bot_key_sha256', 'bot_api_off', 'bots_paused', 'bot_control', 'update_repo', 'update_branch', 'admin_session_secret'];
+function applyPendingRestore() {
+  const marker = `${dbPath}.restore`;
+  if (!fs.existsSync(marker)) return null;
+  let job;
+  try { job = JSON.parse(fs.readFileSync(marker, 'utf8')); } catch (e) { job = null; }
+  fs.rmSync(marker, { force: true });
+  if (!job || typeof job.from !== 'string' || !fs.existsSync(job.from)) { console.error('Pending restore ignored: the backup is missing.'); return null; }
+  let carry = null;
+  if (fs.existsSync(dbPath)) {
+    const old = new Database(dbPath);
+    try {
+      old.pragma('wal_checkpoint(TRUNCATE)');
+      const has = (t) => !!old.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(t);
+      carry = { tables: {}, meta: {} };
+      for (const t of CARRY_TABLES) if (has(t)) carry.tables[t] = old.prepare(`SELECT * FROM ${t}`).all();
+      if (has('meta')) for (const r of old.prepare(`SELECT key, value FROM meta WHERE key IN (${CARRY_META.map(() => '?').join(',')})`).all(...CARRY_META)) carry.meta[r.key] = r.value;
+    } finally { old.close(); }
+    if (job.keep) {
+      fs.mkdirSync(path.dirname(job.keep), { recursive: true, mode: 0o700 });
+      fs.copyFileSync(dbPath, job.keep);
+      try { fs.chmodSync(job.keep, 0o600); } catch (e) { /* not ours */ }
+    }
+  }
+  for (const f of [`${dbPath}-wal`, `${dbPath}-shm`]) fs.rmSync(f, { force: true });
+  fs.copyFileSync(job.from, dbPath);
+  console.log(`Database restored from ${job.from}${job.keep ? ` (the previous one is kept as ${job.keep})` : ''}.`);
+  return carry;
+}
+const carried = applyPendingRestore();
+
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -14,7 +52,7 @@ db.pragma('busy_timeout = 5000'); // wait for a competing writer instead of fail
 // The database holds password hashes and every colony: keep it readable by the owner only.
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) { try { fs.chmodSync(f, 0o600); } catch (e) { /* not created yet */ } }
 
-const SCHEMA_VERSION = 23;
+const SCHEMA_VERSION = 24;
 
 function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -564,7 +602,98 @@ for (const [table, col, ddl] of [['districts', 'discovery_id', 'INTEGER'], ['dis
   ['territories', 'stabilized', 'INTEGER NOT NULL DEFAULT 0'], ['territories', 'owner_colony', 'INTEGER']]) {
   if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
 }
+// v24 (additive): accounts and administration. Players have an email address that is verified with a code or a link
+// (src/accounts.js), can be banned, and leave a trail in the server log. Admins are separate accounts that sign in to the
+// admin panel (src/admin/), which keeps its own sessions and an audit log. A colony can be kept away from the bots, and the
+// bot runner's telemetry is stored here so it can be read back from the panel.
+for (const [table, col, ddl] of [
+  ['users', 'email', 'TEXT'], ['users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0'], ['users', 'created_at', 'INTEGER NOT NULL DEFAULT 0'],
+  ['users', 'created_ip', 'TEXT'], ['users', 'last_login_at', 'INTEGER'], ['users', 'last_ip', 'TEXT'],
+  ['users', 'banned_at', 'INTEGER'], ['users', 'ban_until', 'INTEGER'], ['users', 'ban_reason', 'TEXT'], ['users', 'admin_note', 'TEXT'],
+  ['colonies', 'no_bots', 'INTEGER NOT NULL DEFAULT 0'],
+]) {
+  if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+}
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS users_email_nocase ON users (email COLLATE NOCASE) WHERE email IS NOT NULL;
+  CREATE TABLE IF NOT EXISTS email_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    purpose TEXT NOT NULL,                     -- verify | reset
+    email TEXT NOT NULL,                       -- the address it was sent to (verifying it sets it on the account)
+    code_hash TEXT NOT NULL,
+    link_hash TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used_at INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS email_tokens_user ON email_tokens (user_id, purpose, created_at);
+  CREATE INDEX IF NOT EXISTS email_tokens_link ON email_tokens (link_hash);
+  CREATE TABLE IF NOT EXISTS server_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at INTEGER NOT NULL,
+    level TEXT NOT NULL,                       -- info | warn | error
+    category TEXT NOT NULL,                    -- auth | account | admin | backup | market | bots | maintenance | server
+    message TEXT NOT NULL,
+    user_id INTEGER,
+    ip TEXT,
+    data TEXT
+  );
+  CREATE INDEX IF NOT EXISTS server_log_at ON server_log (at);
+  CREATE INDEX IF NOT EXISTS server_log_user ON server_log (user_id, at);
+  CREATE TABLE IF NOT EXISTS admins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'admin',        -- admin | viewer (read-only)
+    totp_secret TEXT,
+    totp_on INTEGER NOT NULL DEFAULT 0,
+    disabled INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    last_login_at INTEGER
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS admins_username_nocase ON admins (username COLLATE NOCASE);
+  CREATE TABLE IF NOT EXISTS admin_sessions (sid TEXT PRIMARY KEY, sess TEXT NOT NULL, expires INTEGER NOT NULL);
+  CREATE TABLE IF NOT EXISTS admin_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at INTEGER NOT NULL,
+    admin TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target TEXT,
+    detail TEXT,
+    ip TEXT
+  );
+  CREATE INDEX IF NOT EXISTS admin_audit_at ON admin_audit (at);
+  CREATE TABLE IF NOT EXISTS bot_telemetry (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at INTEGER NOT NULL,
+    ev TEXT NOT NULL,
+    bot TEXT,
+    profile TEXT,
+    colony INTEGER,
+    data TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS bot_telemetry_at ON bot_telemetry (at);
+`);
 db.pragma(`user_version = ${SCHEMA_VERSION}`);
+
+// After a full restore (above): what is carried over replaces the backup's copy, once the schema is up to date.
+if (carried) {
+  db.transaction(() => {
+    for (const [t, rows] of Object.entries(carried.tables)) {
+      const live = new Set(db.prepare('SELECT name FROM pragma_table_info(?)').all(t).map((r) => r.name));
+      db.prepare(`DELETE FROM ${t}`).run();
+      for (const row of rows) {
+        const cols = Object.keys(row).filter((c) => live.has(c));
+        db.prepare(`INSERT INTO ${t} (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).run(...cols.map((c) => row[c]));
+      }
+    }
+    for (const k of CARRY_META) db.prepare('DELETE FROM meta WHERE key = ?').run(k);
+    for (const [k, v] of Object.entries(carried.meta)) db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run(k, v);
+    db.prepare('DELETE FROM admin_sessions').run(); // admins sign in again after a restore
+  })();
+}
 
 // ---- meta -----------------------------------------------------------------
 const getMeta = (k, fallback = null) => {
@@ -575,28 +704,40 @@ const setMeta = (k, v) =>
   db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(k, String(v));
 
 // ---- sessions ---------------------------------------------------------------
+// Players' sessions live in `sessions`; the admin panel keeps its own in `admin_sessions` (a constant, never user input).
+const SESSION_TABLES = new Set(['sessions', 'admin_sessions']);
 class SqliteStore extends session.Store {
+  constructor(table = 'sessions') {
+    super();
+    if (!SESSION_TABLES.has(table)) throw new Error(`Unknown session table ${table}`);
+    this.table = table;
+  }
   get(sid, cb) {
     try {
-      const row = db.prepare('SELECT sess FROM sessions WHERE sid = ? AND expires > ?').get(sid, Date.now());
+      const row = db.prepare(`SELECT sess FROM ${this.table} WHERE sid = ? AND expires > ?`).get(sid, Date.now());
       cb(null, row ? JSON.parse(row.sess) : null);
     } catch (e) { cb(e); }
   }
   set(sid, sess, cb) {
     try {
       const exp = sess.cookie && sess.cookie.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 86400000;
-      db.prepare('INSERT INTO sessions (sid, sess, expires) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expires = excluded.expires')
+      db.prepare(`INSERT INTO ${this.table} (sid, sess, expires) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expires = excluded.expires`)
         .run(sid, JSON.stringify(sess), exp);
       cb && cb(null);
     } catch (e) { cb && cb(e); }
   }
   destroy(sid, cb) {
-    try { db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid); cb && cb(null); } catch (e) { cb && cb(e); }
+    try { db.prepare(`DELETE FROM ${this.table} WHERE sid = ?`).run(sid); cb && cb(null); } catch (e) { cb && cb(e); }
   }
 }
 
 function purgeSessions() {
   db.prepare('DELETE FROM sessions WHERE expires <= ?').run(Date.now());
+  db.prepare('DELETE FROM admin_sessions WHERE expires <= ?').run(Date.now());
+}
+// Sign a player out everywhere (a ban, a passcode change).
+function endSessions(userId) {
+  return db.prepare("DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?").run(userId).changes;
 }
 
 // ---- colonies ---------------------------------------------------------------
@@ -721,7 +862,7 @@ function loadContracts(colonyId) {
 }
 
 module.exports = {
-  db, config, dbPath, purgeSessions, SqliteStore, getMeta, setMeta,
+  db, config, dbPath, purgeSessions, endSessions, SqliteStore, getMeta, setMeta,
   foundColony, ensureColony, wipeColony, addEvent,
   coreId, hasBeacon, loadDistricts, districtName, districtDistance, nameOfRow, loadInventory, saveInventory, loadBuildings, loadOrders, loadSlotLocks, loadShipments, loadRoutes, loadContracts, loadHazard, loadExpress,
 };

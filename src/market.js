@@ -7,6 +7,7 @@ const sim = require('./sim');
 const ms = require('./marketsim');
 const store = require('./db');
 const credits = require('./credits');
+const control = require('./marketControl');
 const { own, toInt, toNum } = require('./validate');
 const { db, config } = store;
 
@@ -137,7 +138,7 @@ function expire(tick) {
 // ---- the tick ---------------------------------------------------------------------------------
 function advance(tick) {
   ensureNpc(tick);
-  matchAll(tick);
+  if (!control.frozen('ground')) matchAll(tick);
   expire(tick);
   if (tick % 50 === 0) prune();
 }
@@ -150,6 +151,7 @@ const openCount = (colonyId) => db.prepare("SELECT COUNT(*) AS n FROM market_ord
 function post(c, d, { side, resource, price, qty, ttl }, tick) {
   const fail = (error) => ({ ok: false, error });
   if (c.hub_level < X.unlockCoreLevel) return fail(`The exchange opens at hub level ${X.unlockCoreLevel}.`);
+  if (control.frozen('ground')) return fail('The exchange is closed for now.');
   if (side !== 'buy' && side !== 'sell') return fail('Bad order side.');
   if (!own(config.resources, resource) || config.resources[resource].orbitalOnly) return fail('Unknown resource.');
   qty = Math.floor(toNum(qty)); price = Math.round(toNum(price) * 100) / 100; ttl = toInt(ttl);
@@ -188,4 +190,4 @@ function cancel(c, orderId, tick) {
   return { ok: true };
 }
 
-module.exports = { projectedNpc, advance, ensureNpc, requote, match, matchAll, post, cancel, expire, roomIn, openCount };
+module.exports = { projectedNpc, advance, ensureNpc, requote, match, matchAll, post, cancel, close, expire, roomIn, openCount };

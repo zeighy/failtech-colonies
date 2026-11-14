@@ -28,8 +28,31 @@ npm start                 # http://localhost:3000
 | `BACKUP_DIR` | `backups/` beside the database | Where backups go (owner-only) |
 | `BOT_API_KEY` | none (bot API off) | Shared key for the bot runner (at least 16 characters). Unset, `/api/bot` answers 404. |
 | `BOT_API_RATE_LIMIT` | `1500` | Bot API requests per 10 seconds, all bots together |
+| `BOT_API_KEY_FILE` | none | A file the admin panel writes a new bot key to (the runner reads it from there too) |
+| `BOT_TELEMETRY_DAYS` | `90` | How long the bot telemetry the runner reports is kept |
+| `PUBLIC_URL` | none | The game's public address (`https://play.example.com`), for the links in emails. Without it emails carry only a code. |
+| `EMAIL_VERIFICATION` | `required` | New commanders confirm an email address before their colony is founded; older accounts add one at next sign-in. `off` makes the address optional. |
+| `EMAIL_CODE_MINUTES` | `30` | How long a code or link from an email works |
+| `MAIL_TRANSPORT` | first configured | `smtp`, `resend`, `postmark` or `log` (nothing sent; written to the console) |
+| `MAIL_FROM` | `FAILTECH <noreply@localhost>` | The sender |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` | port 587 | SMTP (any provider) |
+| `RESEND_API_KEY` | none | Resend's HTTP API |
+| `POSTMARK_TOKEN`, `POSTMARK_STREAM` | stream `outbound` | Postmark's HTTP API |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | none (off) | Cloudflare Turnstile on sign-in, sign-up and passcode reset requests |
+| `SERVER_LOG_DAYS` | `90` | How long the server log is kept |
+| `ADMIN_HOST`, `ADMIN_PORT`, `ADMIN_ALLOW` | `127.0.0.1`, `3001`, none | The admin panel (see [admin.md](admin.md)) |
+| `RESTART_EXIT_CODE` | `75` | Exit code when the admin panel restarts the server (run it under a supervisor) |
 
-**Backups.** The server copies the database every few hours (a consistent snapshot taken while the game runs) into `backups/`, keeping the newest 28. To restore: stop the server, copy a backup over the database file, delete its `-wal` and `-shm` files, start the server. Backups contain password hashes, so the folder is owner-only like the database.
+**Accounts and email.** New commanders give an email address and confirm it with a 6-digit code or the link in the email;
+their colony is founded once it is confirmed. Sign-in takes the callsign or the address, and a forgotten passcode is reset by
+email. Set up a mail transport and `PUBLIC_URL` before opening the server: with neither, codes are only written to the server's
+console (fine for development). The server warns at start-up about what is missing.
+
+**The admin panel** manages players, colonies, markets, bots, backups, logs and updates, on its own internal port. Make the
+first admin with `npm run admin -- create <name>`. See [admin.md](admin.md), which also has a systemd unit: run the server under
+a supervisor so restarts from the panel (updates, full restores) bring it back.
+
+**Backups.** The server copies the database every few hours (a consistent snapshot taken while the game runs) into `backups/`, keeping the newest 28. To restore: stop the server, copy a backup over the database file, delete its `-wal` and `-shm` files, start the server (or use **Restore all** in the admin panel, which does this at a restart and keeps the replaced database). Backups contain password hashes, so the folder is owner-only like the database.
 
 **Upgrading:** schema v4 changed ring sizes and the economy, so existing colonies are dropped on first start (accounts are kept and colonies are re-founded at next login).
 

@@ -117,7 +117,8 @@
       headers: { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body || {})
     }).then(function (r) {
-      if (r.status === 401) { location.href = '/'; return new Promise(function () {}); }
+      // signed out, or something to settle first (an email to confirm, a suspension, maintenance): the sign-in page says which
+      if (r.status === 401 || (r.status === 403 && path !== 'logout') || r.status === 503) { location.href = '/'; return new Promise(function () {}); }
       return r.json();
     });
   }
@@ -838,6 +839,7 @@
     var h = '';
     if (!connected) h = '<div class="alert warn">' + icon('warn', 14) + (pending.length ? 'Offline: ' + pending.length + ' action' + (pending.length === 1 ? '' : 's') + ' waiting to be sent' : 'Connection lost. Retrying…') + '</div>';
     else if (flushing) h = '<div class="alert warn">' + icon('truck', 14) + 'Reconnected: sending ' + pending.length + ' queued action' + (pending.length === 1 ? '' : 's') + '…</div>';
+    if (S && S.notice && S.notice.text) h += '<div class="alert ' + (S.notice.level === 'info' ? 'info' : S.notice.level === 'warn' ? 'warn' : '') + '">' + icon('bell', 14) + esc(S.notice.text) + '</div>';
     if ($('net').dataset.h !== h) { $('net').innerHTML = h; $('net').dataset.h = h; }
   }
   function renderAlerts() { renderNet(); }

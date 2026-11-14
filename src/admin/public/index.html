@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>FAILTECH Admin</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect x=%274%27 y=%274%27 width=%2724%27 height=%2724%27 rx=%275%27 fill=%27%23071a22%27 stroke=%27%234cc9f0%27 stroke-width=%273%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%274%27 fill=%27%234cc9f0%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <form class="card login-card" id="login-form" autocomplete="on">
+    <div class="brand">FAILTECH <span>ADMIN</span></div>
+    <label class="field"><span>Name</span><input name="username" autocomplete="username" required autofocus></label>
+    <label class="field"><span>Passcode</span><input name="password" type="password" autocomplete="current-password" required></label>
+    <label class="field" id="totp-field" hidden><span>Authenticator code</span><input name="totp" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label>
+    <div class="err" id="login-err" role="alert"></div>
+    <button class="btn primary block" type="submit">Sign in</button>
+  </form>
+</div>
+<div id="app" class="shell" hidden>
+  <nav class="side" id="nav">
+    <div class="brand">FAILTECH <span>ADMIN</span></div>
+    <a href="#/overview" data-r="overview">Overview</a>
+    <a href="#/users" data-r="users">Users</a>
+    <a href="#/colonies" data-r="colonies">Colonies</a>
+    <a href="#/market" data-r="market">Market</a>
+    <a href="#/bots" data-r="bots">Bots</a>
+    <a href="#/backups" data-r="backups">Backups</a>
+    <a href="#/logs" data-r="logs">Logs</a>
+    <a href="#/maintenance" data-r="maintenance">Maintenance</a>
+    <a href="#/admins" data-r="admins">Admins</a>
+    <a href="#/account" data-r="account">Account</a>
+    <div class="me" id="me"></div>
+  </nav>
+  <main id="main" class="main"></main>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="/admin.js"></script>
+</body>
+</html>

@@ -21,6 +21,7 @@ const orbitalMarket = require('./orbitalMarket');
 const absence = require('./absence');
 const perks = require('./perks');
 const hq = require('./hq');
+const lifecycle = require('./lifecycle');
 const { db, config } = store;
 
 // Static data the client needs once: building defs, resource meta, slot geometry.
@@ -273,6 +274,7 @@ function viewFor(userId, now = Date.now()) {
 
   const view = {
     user: user.username,
+    notice: lifecycle.notice(), // a banner from the admin panel, for everyone
     tick: t.globalTick, tickMs: t.tickMs, nextTickAt, serverNow: now,
     districtsUnlocked: sim.districtsUnlocked(config, { coreLevel: c.hub_level }),
     districtLevelCap: sim.districtLevelCap(config, { coreLevel: c.hub_level, beaconBuilt: store.hasBeacon(c.id) }),
