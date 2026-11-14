@@ -828,3 +828,17 @@ button.mg-c:hover:not(:disabled) { background: #2f3b47; }
 .oslot.hc { border-left: 3px solid var(--amber-d); }
 .terr.stabilized { border-left-color: var(--good); }
 .terr.private { border-left-color: var(--amber); }
+
+/* ---------- account (game menu) ---------- */
+.modal.account { max-width: 420px; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.modal.account form { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.modal.account .label.sec { margin-bottom: 8px; }
+.acc-row { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 4px 0; word-break: break-all; }
+.acc-row .label { min-width: 80px; }
+.acc-f { display: block; margin-bottom: 8px; }
+.acc-f input { width: 100%; margin-top: 4px; background: var(--bg2); border: 1px solid var(--line2); border-radius: var(--radius); color: var(--text); padding: 8px 10px; font: inherit; }
+.acc-f input:focus { outline: none; border-color: var(--amber); }
+.acc-msg { min-height: 16px; font-size: 12px; margin: 2px 0 8px; }
+.acc-key { font-size: 15px; letter-spacing: .08em; border: 1px dashed var(--amber); border-radius: var(--radius); padding: 8px 10px; margin-bottom: 6px; user-select: all; word-break: break-all; }
+.acc-uri { font-size: 10px; color: var(--faint); word-break: break-all; margin-bottom: 8px; user-select: all; }
+.modal.account [hidden] { display: none !important; }

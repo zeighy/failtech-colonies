@@ -148,6 +148,10 @@ test('users: list, detail, edit, verify, suspend and lift, set a passcode, sign 
   const c2 = client(gameBase);
   assert.equal((await c2.post('/api/login', { login: 'pilot@example.com', password: 'set-by-admin' })).status, 200);
   assert.equal((await a.post(`/api/users/${p.id}/logout`)).body.sessionsEnded, 1);
+  db.prepare("UPDATE users SET totp_on = 1, totp_secret = 'AAAA' WHERE id = ?").run(p.id);
+  assert.equal((await a.get(`/api/users/${p.id}`)).body.user.totp, true);
+  assert.equal((await a.post(`/api/users/${p.id}/totp-off`)).status, 200);
+  assert.equal(accounts.byId(p.id).totp_on, 0);
 
   const colony = db.prepare('SELECT id FROM colonies WHERE user_id = ?').get(p.id).id;
   assert.equal((await a.post(`/api/users/${p.id}/delete`, { confirm: 'nope', colony: 'park' })).status, 400);

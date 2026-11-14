@@ -61,6 +61,9 @@ transaction. The simulation is server-authoritative, so there is nothing for a m
 - Cloudflare Turnstile (`TURNSTILE_*`) guards sign-in, sign-up and reset requests; a token is checked server-side and the check fails closed. The CSP admits
   `challenges.cloudflare.com` only when Turnstile is on.
 - A suspended account is refused at sign-in and on every request; its sessions and live connections end at once.
+- Players can change their passcode (current one required; other sessions end) and their address (passcode required; the new one must be confirmed) from the game's
+  menu, and opt into an authenticator code (TOTP). With it on, sign-in is two steps: the passcode (with the challenge), then the code within five minutes; a code is
+  accepted once, wrong codes count toward the per-account throttle, and an email link never signs such an account in. An admin can turn it off for a lost device.
 
 ## The admin panel
 - Its own port, bound to `127.0.0.1` by default (`ADMIN_HOST`), optionally limited to addresses (`ADMIN_ALLOW`); the game's port never serves it.

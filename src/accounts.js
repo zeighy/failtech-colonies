@@ -179,7 +179,16 @@ function noteLogin(userId, ip, now = Date.now()) {
 function accountView(userId) {
   const u = byId(userId);
   if (!u) return null;
-  return { username: u.username, email: mask(u.email), verified: !!u.email_verified, next: gate(userId) || 'game' };
+  return { username: u.username, email: mask(u.email), verified: !!u.email_verified, totp: !!u.totp_on, next: gate(userId) || 'game' };
+}
+
+// A player's authenticator code (optional, see server.js). A code is accepted once: the step it matched is kept.
+function checkTotp(u, code) {
+  if (!u || !u.totp_on || !u.totp_secret) return false;
+  const step = require('./totp').check(u.totp_secret, code);
+  if (step === null || step <= (u.totp_step || 0)) return false;
+  db.prepare('UPDATE users SET totp_step = ? WHERE id = ?').run(step, u.id);
+  return true;
 }
 
 function pruneTokens(now = Date.now()) {
@@ -188,5 +197,5 @@ function pruneTokens(now = Date.now()) {
 
 module.exports = {
   CALLSIGN, MAX_PASS_BYTES, verificationRequired, normEmail, checkPassword, hashPassword, mask, byId, byLogin, emailTaken,
-  banned, ban, unban, banMessage, gate, issue, sendVerification, sendReset, byCode, byLink, applyVerify, setPassword, noteLogin, accountView, pruneTokens,
+  banned, ban, unban, banMessage, gate, checkTotp, issue, sendVerification, sendReset, byCode, byLink, applyVerify, setPassword, noteLogin, accountView, pruneTokens,
 };

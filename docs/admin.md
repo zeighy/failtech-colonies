@@ -43,7 +43,7 @@ database size, recent server errors.
 - edit the callsign, the email (taken as verified unless unticked) and a private admin note;
 - mark the email verified;
 - suspend, with a reason the player sees, for some hours or until lifted (sessions end and live connections close at once), or lift it;
-- set a passcode, or email a reset link (verified addresses only); sign out everywhere;
+- set a passcode, or email a reset link (verified addresses only); sign out everywhere; turn off a player's authenticator code (lost device);
 - delete the account, with its colony **parked** for someone else (bots may take it up) or **wiped**;
 - give or take credits (a line goes into the colony log), set a stock in any district;
 - **roll the colony back** to any backup that holds it (below);

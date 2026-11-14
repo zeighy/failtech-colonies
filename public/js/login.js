@@ -12,9 +12,9 @@
   var tsToken = '', tsWidget = null;
 
   var BUTTON = { login: function () { return L.enter; }, register: function () { return L.found; }, verify: function () { return 'Confirm'; }, email: function () { return 'Send code'; }, change: function () { return 'Send code'; },
-    forgot: function () { return 'Send reset code'; }, reset: function () { return 'Set passcode'; }, linkverify: function () { return 'Confirm email'; } };
+    forgot: function () { return 'Send reset code'; }, reset: function () { return 'Set passcode'; }, linkverify: function () { return 'Confirm email'; }, totp: function () { return 'Sign in'; } };
   var STEP = { verify: function () { return 'Confirm email' + (sentTo ? ' · code sent to ' + sentTo : ''); }, email: function () { return 'Email address required'; }, change: function () { return 'Change email'; },
-    forgot: function () { return 'Passcode reset'; }, reset: function () { return link.reset ? 'New passcode' : 'Code and new passcode'; }, linkverify: function () { return 'Confirm email'; } };
+    forgot: function () { return 'Passcode reset'; }, reset: function () { return link.reset ? 'New passcode' : 'Code and new passcode'; }, linkverify: function () { return 'Confirm email'; }, totp: function () { return 'Authenticator code'; } };
 
   function setMode(m) {
     mode = m;
@@ -45,7 +45,7 @@
     if (mode === 'verify') { h.push(['resend', 'Send again']); h.push(['change', 'Different address']); h.push(['logout', 'Sign out']); }
     if (mode === 'email' || mode === 'change') h.push(['logout', 'Sign out']);
     if (mode === 'forgot') h.push(['havecode', 'I have a code']);
-    if (mode === 'forgot' || mode === 'reset' || mode === 'linkverify') h.push(['back', 'Back to sign in']);
+    if (mode === 'forgot' || mode === 'reset' || mode === 'linkverify' || mode === 'totp') h.push(['back', 'Back to sign in']);
     $('links').innerHTML = h.map(function (x) { return '<button type="button" class="linkbtn" data-l="' + x[0] + '">' + x[1] + '</button>'; }).join('');
   }
   var say = function (msg, ok) { $(ok ? 'info' : 'error').textContent = msg || ''; if (ok) $('error').textContent = ''; else $('info').textContent = ''; };
@@ -75,6 +75,8 @@
   }
   function next(d) {
     if (d.next === 'game' || !d.next) { location.href = '/game'; return; }
+    if (d.next === 'totp') { $('code').value = ''; setMode('totp'); $('code').focus(); return; }
+    if (d.next === 'login') { setMode('login'); say('Email confirmed. Sign in.', true); return; }
     if (d.sentTo) sentTo = d.sentTo;
     setMode(d.next === 'email' ? 'email' : 'verify');
     if (d.mailError) say(d.mailError);
@@ -92,6 +94,7 @@
       var body = link.reset ? { token: link.reset, password: v('password') } : { login: v('username').trim(), code: v('code').trim(), password: v('password') };
       return send('password-reset', body).then(function (d) { if (!d.ok) return say(d.error); link.reset = null; history.replaceState(null, '', '/'); setMode('login'); say('Passcode changed. Sign in.', true); });
     },
+    totp: function () { return send('login/totp', { code: v('code').trim() }).then(function (d) { if (d.ok) return next(d); if (d.restart) setMode('login'); say(d.error); }); },
     linkverify: function () { return send('verify', { token: link.verify }).then(function (d) { if (d.ok) { history.replaceState(null, '', '/'); return next(d); } say(d.error); }); },
   };
   $('form').addEventListener('submit', function (e) {

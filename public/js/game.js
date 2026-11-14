@@ -931,6 +931,7 @@
       }).join('') + '</div>';
       h += '<div class="nv-sec">Command</div><div class="dim" style="font-size:12px;margin:0 2px 8px">Signed in as <b>' + esc(S.user) + '</b></div><div class="stack">' +
         '<button class="btn block" data-act="layout" data-ui="desktop">' + icon('screen', 14) + ' Use the desktop layout</button>' +
+        '<button class="btn block" data-act="menu" data-m="account">' + icon('lock', 14) + ' Account</button>' +
         '<button class="btn block" data-act="menu" data-m="logout">Sign out</button>' +
         '<button class="btn block danger" data-act="menu" data-m="confirmReset">Abandon colony &amp; start over</button></div>';
     }
@@ -2374,6 +2375,7 @@
     startOver2: function () { awayCall('start-over'); },
     parkedAgain: function () { if (lostView) showLost(lostView); else checkModals(); },
     mobileLayout: function () { setLayout('mobile'); },
+    account: function () { if (window.Account) window.Account.open(); },
     close: function () {}
   };
   function menu() {
@@ -2381,6 +2383,7 @@
     navGroups().forEach(function (g) { g.tabs.forEach(function (t) { if (t[3]) keys.push([t[3].toUpperCase(), tabLabel(t)]); }); });
     modal('<h2>Command menu</h2><p>Signed in as <b>' + esc(S.user) + '</b>.</p><div class="stack">' +
       '<button class="btn block" data-m="mobileLayout">' + icon('phone', 14) + ' Use the phone layout</button>' +
+      '<button class="btn block" data-m="account">' + icon('lock', 14) + ' Account</button>' +
       '<button class="btn block" data-m="logout">Sign out</button>' +
       '<button class="btn block danger" data-m="confirmReset">Abandon colony &amp; start over</button><button class="btn block" data-m="close">Close</button></div>' +
       '<div class="label sec">Keys</div><div class="keys">' + keys.map(function (k) { return '<span><kbd>' + k[0] + '</kbd>' + esc(k[1]) + '</span>'; }).join('') +

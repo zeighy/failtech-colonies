@@ -166,7 +166,7 @@ test('an older account without an address is asked for one, and keeps its colony
 test('a verified account changing its address gives its passcode, and keeps the old one until the new is confirmed', async () => {
   const c = client();
   await c.post('/api/login', { login: 'bravo', password: 'hunter22', turnstile: 'pass' });
-  assert.equal((await c.post('/api/account/email', { email: 'bravo2@example.com' })).status, 401);
+  assert.equal((await c.post('/api/account/email', { email: 'bravo2@example.com' })).status, 400, 'a passcode is required');
   assert.equal((await c.post('/api/account/email', { email: 'bravo2@example.com', password: 'hunter22' })).status, 200);
   assert.equal(accounts.byId(idOf('bravo')).email, 'bravo@example.com');
   await c.post('/api/verify', { code: codeOf(lastMail('bravo2@example.com')) });
@@ -237,4 +237,59 @@ test('the banner from the admin panel is in every player view', async () => {
 test('the account routes take no name a game action uses', () => {
   const actions = new Set(require('../src/routes').map(([r]) => r));
   for (const r of ['register', 'login', 'logout', 'account', 'account/email', 'verify', 'verify/resend', 'password-reset', 'password-reset/request']) assert.ok(!actions.has(r), r);
+});
+
+test('the commander changes their passcode from the game: the current one is required, other sessions end, this one stays', async () => {
+  const here = client(); const elsewhere = client();
+  await here.post('/api/login', { login: 'charlie', password: 'hunter22', turnstile: 'pass' });
+  await accounts.setPassword(idOf('charlie'), 'hunter22'); // (charlie never confirmed an address: confirm it so the game is open)
+  db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(idOf('charlie'));
+  await here.post('/api/login', { login: 'charlie', password: 'hunter22', turnstile: 'pass' });
+  await elsewhere.post('/api/login', { login: 'charlie', password: 'hunter22', turnstile: 'pass' });
+  assert.equal((await here.post('/api/account/password', { password: 'wrong-one', newPassword: 'charlie-new-1' })).status, 400);
+  assert.equal((await here.post('/api/account/password', { password: 'hunter22', newPassword: 'short' })).status, 400);
+  assert.equal((await here.post('/api/account/password', { password: 'hunter22', newPassword: 'charlie-new-1' })).status, 200);
+  assert.equal((await here.get('/api/state')).status, 200, 'still signed in here');
+  assert.equal((await elsewhere.get('/api/state')).status, 401, 'signed out elsewhere');
+  assert.equal((await client().post('/api/login', { login: 'charlie', password: 'charlie-new-1', turnstile: 'pass' })).status, 200);
+});
+
+test('an authenticator code: opt in from the game, then sign-in asks for it (once per code), links do not stand in for it, and it can be turned off', async () => {
+  const totp = require('../src/totp');
+  const step = () => Math.floor(Date.now() / 30000);
+  const c = client();
+  await c.post('/api/login', { login: 'charlie', password: 'charlie-new-1', turnstile: 'pass' });
+  assert.equal((await c.post('/api/account/totp/setup', { password: 'nope-nope' })).status, 400);
+  const setup = await c.post('/api/account/totp/setup', { password: 'charlie-new-1' });
+  assert.match(setup.body.uri, /^otpauth:/);
+  assert.equal((await c.post('/api/account/totp/enable', { code: '000000' === totp.code(setup.body.secret, step()) ? '111111' : '000000' })).status, 400);
+  assert.equal((await c.post('/api/account/totp/enable', { code: totp.code(setup.body.secret, step()) })).status, 200);
+  assert.equal((await c.get('/api/account')).body.totp, true);
+
+  const d = client();
+  const first = await d.post('/api/login', { login: 'charlie', password: 'charlie-new-1', turnstile: 'pass' });
+  assert.equal(first.body.next, 'totp');
+  assert.equal((await d.get('/api/state')).status, 401, 'not signed in on the passcode alone');
+  const used = totp.code(setup.body.secret, step());
+  assert.equal((await d.post('/api/login/totp', { code: used })).status, 400, 'the code used to turn it on is spent');
+  // the next step's code
+  const next = totp.code(setup.body.secret, step() + 1);
+  const ok = await d.post('/api/login/totp', { code: next });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal((await d.get('/api/state')).status, 200);
+  const e = client();
+  await e.post('/api/login', { login: 'charlie', password: 'charlie-new-1', turnstile: 'pass' });
+  assert.equal((await e.post('/api/login/totp', { code: next })).status, 400, 'no replay');
+
+  // an email link confirms the address but does not sign a stranger's browser in
+  const u = accounts.byId(idOf('charlie'));
+  db.prepare('DELETE FROM email_tokens WHERE user_id = ?').run(u.id); // (clear of the hourly sending limit)
+  const t = accounts.issue(u.id, 'verify', 'charlie@example.com', Date.now());
+  const r = await client().post('/api/verify', { token: t.link });
+  assert.equal(r.body.next, 'login');
+
+  assert.equal((await d.post('/api/account/totp/disable', { password: 'charlie-new-1', code: '123456' })).status, 400);
+  db.prepare('UPDATE users SET totp_step = 0 WHERE id = ?').run(u.id);
+  assert.equal((await d.post('/api/account/totp/disable', { password: 'charlie-new-1', code: totp.code(setup.body.secret, step()) })).status, 200);
+  assert.equal((await client().post('/api/login', { login: 'charlie', password: 'charlie-new-1', turnstile: 'pass' })).body.next, 'game');
 });

@@ -25,7 +25,7 @@ function userRow(u) {
   return {
     id: u.id, username: u.username, email: u.email, verified: !!u.email_verified, createdAt: u.created_at || null, createdIp: u.created_ip,
     lastLoginAt: u.last_login_at, lastIp: u.last_ip, banned: !!u.banned_at && (!u.ban_until || u.ban_until > Date.now()), bannedAt: u.banned_at, banUntil: u.ban_until, banReason: u.ban_reason,
-    note: u.admin_note, kind: u.bot_profile ? 'bot' : u.generated ? 'generated' : 'player', profile: u.bot_profile,
+    note: u.admin_note, totp: !!u.totp_on, kind: u.bot_profile ? 'bot' : u.generated ? 'generated' : 'player', profile: u.bot_profile,
   };
 }
 
@@ -181,6 +181,15 @@ module.exports = (r, h) => {
       serverlog.info('account', `Passcode set by admin ${req.admin.username}`, { userId: u.id });
       ok(res, { sessionsEnded: ended });
     } catch (e) { next(e); }
+  });
+  // A player who lost their authenticator: the code is turned off (they can set it up again from the game's menu).
+  r.post('/users/:id/totp-off', need, (req, res) => {
+    const u = userOr404(req, res);
+    if (!u) return;
+    db.prepare('UPDATE users SET totp_secret = NULL, totp_on = 0, totp_step = 0 WHERE id = ?').run(u.id);
+    audit(req, 'user.totp-off', `${u.username} #${u.id}`);
+    serverlog.warn('account', `Authenticator code turned off by admin ${req.admin.username}`, { userId: u.id });
+    ok(res);
   });
   r.post('/users/:id/logout', need, (req, res) => {
     const u = userOr404(req, res);

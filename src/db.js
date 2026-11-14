@@ -610,6 +610,7 @@ for (const [table, col, ddl] of [
   ['users', 'email', 'TEXT'], ['users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0'], ['users', 'created_at', 'INTEGER NOT NULL DEFAULT 0'],
   ['users', 'created_ip', 'TEXT'], ['users', 'last_login_at', 'INTEGER'], ['users', 'last_ip', 'TEXT'],
   ['users', 'banned_at', 'INTEGER'], ['users', 'ban_until', 'INTEGER'], ['users', 'ban_reason', 'TEXT'], ['users', 'admin_note', 'TEXT'],
+  ['users', 'totp_secret', 'TEXT'], ['users', 'totp_on', 'INTEGER NOT NULL DEFAULT 0'], ['users', 'totp_step', 'INTEGER NOT NULL DEFAULT 0'],
   ['colonies', 'no_bots', 'INTEGER NOT NULL DEFAULT 0'],
 ]) {
   if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);

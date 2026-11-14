@@ -202,8 +202,32 @@ app.post('/api/login', authLimit, async (req, res, next) => {
       serverlog.warn('auth', `Suspended account ${user.username} tried to sign in`, { userId: user.id, ip: req.ip });
       return res.status(403).json({ ok: false, error: accounts.banMessage(user), banned: true });
     }
+    // With an authenticator code on, the passcode alone does not sign in: the code is asked for next (POST /api/login/totp),
+    // within five minutes, without a second challenge.
+    if (user.totp_on) {
+      req.session.totpLogin = { id: user.id, at: Date.now(), key };
+      return req.session.save((e) => (e ? next(e) : res.json({ ok: true, next: 'totp' })));
+    }
     accounts.noteLogin(user.id, req.ip);
     serverlog.info('auth', `Signed in ${user.username}`, { userId: user.id, ip: req.ip });
+    await signIn(req, user.id);
+    res.json({ ok: true, next: accounts.gate(user.id) || 'game' });
+  } catch (e) { next(e); }
+});
+app.post('/api/login/totp', authLimit, async (req, res, next) => {
+  try {
+    const p = req.session.totpLogin;
+    if (!p || Date.now() - p.at > 5 * 60000) { delete req.session.totpLogin; return res.status(400).json({ ok: false, error: 'Sign in again.', restart: true }); }
+    if (loginFails.blocked(p.key)) { delete req.session.totpLogin; return res.status(429).json({ ok: false, error: 'Too many failed attempts for that account. Try again later.', restart: true }); }
+    const user = accounts.byId(p.id);
+    if (!user || !accounts.checkTotp(user, plainBody(req.body).code)) {
+      loginFails.fail(p.key);
+      serverlog.warn('auth', 'Wrong authenticator code at sign-in', { userId: p.id, ip: req.ip });
+      return res.status(400).json({ ok: false, error: 'That code is not right.' });
+    }
+    loginFails.clear(p.key);
+    accounts.noteLogin(user.id, req.ip);
+    serverlog.info('auth', `Signed in ${user.username} (with authenticator code)`, { userId: user.id, ip: req.ip });
     await signIn(req, user.id);
     res.json({ ok: true, next: accounts.gate(user.id) || 'game' });
   } catch (e) { next(e); }
@@ -231,12 +255,69 @@ app.post('/api/account/email', authLimit, async (req, res, next) => {
     if (!email) return res.status(400).json({ ok: false, error: 'A valid email address is required.' });
     if (accounts.emailTaken(email, u.id)) return res.status(409).json({ ok: false, error: 'That email address is already in use.' });
     if (u.email_verified) {
-      if (typeof b.password !== 'string' || !(await bcrypt.compare(b.password, u.password))) return res.status(401).json({ ok: false, error: 'Wrong passcode.' });
+      if (typeof b.password !== 'string' || !(await bcrypt.compare(b.password, u.password))) return res.status(400).json({ ok: false, error: 'Wrong passcode.' });
     } else {
       try { db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, u.id); } catch (e) { return res.status(409).json({ ok: false, error: 'That email address is already in use.' }); }
     }
     const sent = await accounts.sendVerification(accounts.byId(u.id), email, req.ip);
     res.status(sent.ok ? 200 : 429).json(sent);
+  } catch (e) { next(e); }
+});
+// The signed-in commander's own account (the game's menu): passcode, and an authenticator code they can opt into.
+// A wrong passcode is a 400, not a 401 (which the game takes to mean signed out).
+async function ownAccount(req, res, { password = true } = {}) {
+  const u = req.session.userId ? accounts.byId(req.session.userId) : null;
+  if (!u) { res.status(401).json({ ok: false, error: 'Not signed in.' }); return null; }
+  if (accounts.banned(u)) { res.status(403).json({ ok: false, error: accounts.banMessage(u), banned: true }); return null; }
+  const b = plainBody(req.body);
+  if (password && (typeof b.password !== 'string' || !(await bcrypt.compare(b.password, u.password)))) { res.status(400).json({ ok: false, error: 'Wrong passcode.' }); return null; }
+  return u;
+}
+app.post('/api/account/password', authLimit, async (req, res, next) => {
+  try {
+    const b = plainBody(req.body);
+    const bad = accounts.checkPassword(b.newPassword);
+    if (bad) return res.status(400).json({ ok: false, error: bad });
+    const u = await ownAccount(req, res);
+    if (!u) return;
+    await accounts.setPassword(u.id, b.newPassword); // every session ends...
+    await signIn(req, u.id); // ...except this one, which starts afresh
+    serverlog.info('account', 'Passcode changed', { userId: u.id, ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+app.post('/api/account/totp/setup', authLimit, async (req, res, next) => {
+  try {
+    const u = await ownAccount(req, res);
+    if (!u) return;
+    const totp = require('./src/totp');
+    const secret = totp.newSecret();
+    req.session.totpPending = secret;
+    res.json({ ok: true, secret, uri: totp.uri(secret, u.username, (config.theme.ui && config.theme.ui.brand) || 'FAILTECH') });
+  } catch (e) { next(e); }
+});
+app.post('/api/account/totp/enable', authLimit, async (req, res, next) => {
+  try {
+    const u = await ownAccount(req, res, { password: false });
+    if (!u) return;
+    const secret = req.session.totpPending;
+    if (!secret) return res.status(400).json({ ok: false, error: 'Start the setup again.' });
+    const step = require('./src/totp').check(secret, plainBody(req.body).code);
+    if (step === null) return res.status(400).json({ ok: false, error: 'That code is not right.' });
+    db.prepare('UPDATE users SET totp_secret = ?, totp_on = 1, totp_step = ? WHERE id = ?').run(secret, step, u.id);
+    delete req.session.totpPending;
+    serverlog.info('account', 'Authenticator code turned on', { userId: u.id, ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+app.post('/api/account/totp/disable', authLimit, async (req, res, next) => {
+  try {
+    const u = await ownAccount(req, res);
+    if (!u) return;
+    if (u.totp_on && !accounts.checkTotp(u, plainBody(req.body).code)) return res.status(400).json({ ok: false, error: 'That code is not right.' });
+    db.prepare('UPDATE users SET totp_secret = NULL, totp_on = 0, totp_step = 0 WHERE id = ?').run(u.id);
+    serverlog.info('account', 'Authenticator code turned off', { userId: u.id, ip: req.ip });
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 app.post('/api/verify/resend', authLimit, async (req, res, next) => {
@@ -265,6 +346,7 @@ app.post('/api/verify', authLimit, async (req, res, next) => {
     serverlog.info('account', `Email verified for ${u.username}`, { userId: u.id, ip: req.ip });
     if (accounts.banned(u)) return res.status(403).json({ ok: false, error: accounts.banMessage(u), banned: true });
     if (req.session.userId === u.id) enterGame(u.id);
+    else if (u.totp_on) return res.json({ ok: true, next: 'login' }); // a link never stands in for the authenticator code
     else await signIn(req, u.id);
     res.json({ ok: true, next: accounts.gate(u.id) || 'game' });
   } catch (e) { next(e); }

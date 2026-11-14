@@ -143,6 +143,7 @@
     if (u.kind !== 'player') f.push(pill(u.kind === 'bot' ? 'bot · ' + u.profile : 'generated', 'accent'));
     if (u.banned) f.push(pill('suspended', 'bad'));
     if (u.kind === 'player' && !u.verified) f.push(pill(u.email ? 'unverified' : 'no email', 'warn'));
+    if (u.totp) f.push(pill('2FA', 'good'));
     return f.join(' ');
   }
   function colonyCell(c) { return c ? 'hub ' + c.hub + ' · pop ' + c.population + ' · ' + pill(c.phase, c.phase === 'live' ? 'good' : c.phase === 'parked' ? 'warn' : '') + (c.shutdown ? ' ' + pill('shut down', 'bad') : '') : '<span class="faint">none</span>'; }
@@ -183,6 +184,7 @@
         (u.banned ? '<button class="btn" data-act="uunban">Lift suspension</button>' : '') +
         '<button class="btn" data-act="ulogout">Sign out everywhere</button>' +
         (u.email && u.verified ? '<button class="btn" data-act="ureset">Email a reset</button>' : '') +
+        (u.totp ? '<button class="btn" data-act="utotpoff">Turn off 2FA</button>' : '') +
         '<button class="btn danger" data-act="udelete">Delete account</button></div>' : '';
       var html = '<h1><a href="#/users">Users</a> / ' + esc(u.username) + ' ' + userFlags(u) + '</h1>' +
         (u.banned ? '<div class="banner bad">Suspended ' + date(u.bannedAt) + (u.banUntil ? ' until ' + date(u.banUntil) : ', no end date') + (u.banReason ? ': ' + esc(u.banReason) : '') + '</div>' : '') +
@@ -221,6 +223,7 @@
     });
   };
   ACT.uverify = function () { return post('/users/' + uid() + '/verify').then(function () { toast('Verified.'); reload(); }); };
+  ACT.utotpoff = function () { if (!confirm('Turn off this player\'s authenticator code?')) return; return post('/users/' + uid() + '/totp-off').then(function () { toast('2FA off.'); reload(); }); };
   ACT.uunban = function () { return post('/users/' + uid() + '/unban').then(function () { toast('Suspension lifted.'); reload(); }); };
   ACT.ulogout = function () { return post('/users/' + uid() + '/logout').then(function (r) { toast(r.sessionsEnded + ' session(s) ended.'); }); };
   ACT.ureset = function () { return post('/users/' + uid() + '/password', { sendReset: true }).then(function (r) { toast('Reset sent to ' + r.sentTo + '.'); }); };
