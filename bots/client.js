@@ -1,14 +1,33 @@
 'use strict';
 // The bot runner's side of the bot API (src/botApi.js): plain HTTP with the shared key as a bearer token.
+// keyFile: where the key is read from when it is kept in a file (BOT_API_KEY_FILE); the admin panel can rotate it there, so a
+// refused key is read again once before giving up.
 class BotClient {
-  constructor(base, key, { timeoutMs = 20000 } = {}) {
+  constructor(base, key, { timeoutMs = 20000, keyFile = null } = {}) {
     this.base = String(base).replace(/\/+$/, '');
     this.key = key;
+    this.keyFile = keyFile;
     this.timeoutMs = timeoutMs;
   }
 
-  // A refused game action or claim (400 or 409 with { ok: false }) is an answer, not an error; anything else that is not a success throws.
+  reloadKey() {
+    if (!this.keyFile) return false;
+    let k = '';
+    try { k = require('fs').readFileSync(this.keyFile, 'utf8').trim(); } catch (e) { return false; }
+    if (!k || k === this.key) return false;
+    this.key = k;
+    return true;
+  }
+
   async req(method, path, body) {
+    try { return await this.once(method, path, body); } catch (e) {
+      if (e.status === 401 && this.reloadKey()) return this.once(method, path, body);
+      throw e;
+    }
+  }
+
+  // A refused game action or claim (400 or 409 with { ok: false }) is an answer, not an error; anything else that is not a success throws.
+  async once(method, path, body) {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), this.timeoutMs);
     let res;
@@ -41,6 +60,10 @@ class BotClient {
   async state(userId) { return (await this.req('GET', `/colonies/${userId}/state`)).state; }
   act(userId, route, body = {}) { return this.req('POST', `/colonies/${userId}/act/${route}`, body); }
   release(userId) { return this.req('POST', `/colonies/${userId}/release`, {}); }
+  // the admin panel's pause and overrides
+  async control() { return (await this.req('GET', '/control')).control; }
+  // report the runner's status and new telemetry; the answer carries the control
+  heartbeat(status, telemetry = []) { return this.req('POST', '/heartbeat', { status, telemetry }); }
 
   // What the brain plays through: one bot's state and actions.
   forBot(userId) { return { state: () => this.state(userId), act: (route, body) => this.act(userId, route, body) }; }

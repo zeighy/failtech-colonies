@@ -15,6 +15,8 @@
 //   GET  /api/bot/colonies/:userId/state       one bot's view (what a player's client gets)
 //   POST /api/bot/colonies/:userId/act/:route  one game action, as POST /api/<route> for a player
 //   POST /api/bot/colonies/:userId/release     give the colony up: it parks again, under a generated account
+//   GET  /api/bot/control                      the admin panel's pause and overrides
+//   POST /api/bot/heartbeat {status, telemetry}  the runner's report (and new telemetry lines); answers with the control
 const crypto = require('crypto');
 const express = require('express');
 const store = require('./db');
@@ -33,21 +35,70 @@ const ACTIONS = new Map(ACTION_ROUTES);
 const REFUSED = new Set(['reset', 'restart', 'minigame-start', 'minigame-move', 'minigame-quit']);
 const PROFILE = /^[a-z][a-z0-9_]{1,23}$/;
 
-const key = () => process.env.BOT_API_KEY || '';
-const enabled = () => key().length >= 16;
-
-function sameSecret(a, b) {
-  const x = crypto.createHash('sha256').update(String(a)).digest();
-  const y = crypto.createHash('sha256').update(String(b)).digest();
-  return crypto.timingSafeEqual(x, y);
-}
+// The key: BOT_API_KEY, unless the admin panel has issued a new one (only its hash is kept, in meta `bot_key_sha256`). The
+// panel can also switch the API off altogether (`bot_api_off`), and pause the bots (`bots_paused`): the runner then takes no
+// turns and claims nothing, and the server refuses claims and actions until they are resumed.
+const sha = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
+const envKey = () => process.env.BOT_API_KEY || '';
+const keyHash = () => store.getMeta('bot_key_sha256') || (envKey().length >= 16 ? sha(envKey()) : '');
+const keySource = () => (store.getMeta('bot_key_sha256') ? 'panel' : envKey().length >= 16 ? 'env' : null);
+const enabled = () => !!keyHash() && store.getMeta('bot_api_off') !== '1';
+// Paused from the panel, or the whole simulation is held (an admin paused it, or no player is active: there is nobody
+// for the bots to play alongside, and their turns would keep nothing worth keeping moving).
+const pausedByAdmin = () => store.getMeta('bots_paused') === '1';
+const hold = () => { const h = require('./lifecycle').pauseState(); return h ? h.reason : null; };
+const paused = () => pausedByAdmin() || !!hold();
 
 function auth(req, res, next) {
   if (!enabled()) return res.status(404).json({ ok: false, error: 'Not found.' });
   const m = /^Bearer (.+)$/.exec(req.get('authorization') || '');
-  if (!m || !sameSecret(m[1], key())) return res.status(401).json({ ok: false, error: 'Bad bot key.' });
+  if (!m || !crypto.timingSafeEqual(Buffer.from(sha(m[1])), Buffer.from(keyHash()))) return res.status(401).json({ ok: false, error: 'Bad bot key.' });
   next();
 }
+
+// A new key, shown once. With BOT_API_KEY_FILE set (the runner on the same machine reads its key from that file), it is
+// written there too, so the runner picks it up without a restart.
+function resetKey() {
+  const k = crypto.randomBytes(24).toString('base64url');
+  store.setMeta('bot_key_sha256', sha(k));
+  const file = process.env.BOT_API_KEY_FILE;
+  let wrote = false;
+  if (file) {
+    try { require('fs').writeFileSync(file, `${k}\n`, { mode: 0o600 }); wrote = true; } catch (e) { wrote = false; }
+  }
+  return { key: k, file: file || null, wrote };
+}
+
+// The runner's settings that the panel overrides (each null: the runner's own environment decides).
+const parse = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (e) { return d; } };
+const overrides = () => ({ limit: null, profiles: null, claim: null, ...parse(store.getMeta('bot_control'), {}) });
+function setOverrides(o) {
+  const cur = overrides();
+  const next = { ...cur, ...o };
+  store.setMeta('bot_control', JSON.stringify({ limit: next.limit, profiles: next.profiles, claim: next.claim }));
+  return overrides();
+}
+const control = () => ({ paused: paused(), why: pausedByAdmin() ? 'bots' : hold() === 'admin' ? 'simulation-paused' : hold() === 'idle' ? 'no-active-players' : null, ...overrides() });
+
+// What the runner last said about itself (kept in memory: it reports every loop).
+let runner = null;
+const runnerStatus = () => runner;
+
+// The runner's telemetry, kept here so the panel can read and export it; older than BOT_TELEMETRY_DAYS (default 90) is pruned.
+const telemetryDays = () => Math.max(1, Number(process.env.BOT_TELEMETRY_DAYS) || 90);
+let telemetryWrites = 0;
+const storeTelemetry = db.transaction((lines) => {
+  const ins = db.prepare('INSERT INTO bot_telemetry (at, ev, bot, profile, colony, data) VALUES (?, ?, ?, ?, ?, ?)');
+  let n = 0;
+  for (const l of lines) {
+    if (!l || typeof l !== 'object' || typeof l.ev !== 'string') continue;
+    const at = Date.parse(l.at) || Date.now();
+    ins.run(at, l.ev.slice(0, 32), typeof l.bot === 'string' ? l.bot.slice(0, 40) : null, typeof l.profile === 'string' ? l.profile.slice(0, 24) : null, Number.isInteger(l.colony) ? l.colony : null, JSON.stringify(l).slice(0, 64000));
+    n++;
+  }
+  if ((telemetryWrites += n) > 2000) { telemetryWrites = 0; db.prepare('DELETE FROM bot_telemetry WHERE at < ?').run(Date.now() - telemetryDays() * 86400000); }
+  return n;
+});
 
 const botUser = (userId) => db.prepare('SELECT id, username, bot_profile AS profile FROM users WHERE id = ? AND bot_profile IS NOT NULL').get(userId);
 
@@ -92,13 +143,24 @@ function router() {
 
   r.get('/info', (req, res) => {
     const t = engine.timing();
-    res.json({ ok: true, tick: t.globalTick, tickMs: t.tickMs, nextTickAt: t.lastTickAt + t.tickMs, absence: config.global.absence });
+    res.json({ ok: true, tick: t.globalTick, tickMs: t.tickMs, nextTickAt: t.lastTickAt + t.tickMs, absence: config.global.absence, control: control() });
+  });
+  // What the admin panel wants of the runner (pause, overrides). The runner asks every loop.
+  r.get('/control', (req, res) => res.json({ ok: true, control: control() }));
+  // The runner's report: its status and the telemetry written since its last report. The answer carries the control.
+  r.post('/heartbeat', (req, res) => {
+    const b = plainBody(req.body);
+    const st = b.status && typeof b.status === 'object' && !Array.isArray(b.status) ? b.status : {};
+    runner = { at: Date.now(), ip: req.ip, status: st };
+    const n = Array.isArray(b.telemetry) ? storeTelemetry(b.telemetry.slice(0, 2000)) : 0;
+    res.json({ ok: true, stored: n, control: control() });
   });
   r.get('/config', (req, res) => res.type('json').send(cfgJson || (cfgJson = JSON.stringify(config))));
 
   // The listing; POST { skip: ["12:1731400000000", ...] } leaves out colonies the runner has blacklisted (the colony id and
   // when it was parked, so one parked again later by someone else shows up again); ?since=<ms> only those parked since then.
   const parked = (req, res) => {
+    if (paused()) return res.json({ ok: true, parked: [], paused: true });
     const b = req.method === 'POST' ? plainBody(req.body) : {};
     const skip = (Array.isArray(b.skip) ? b.skip : []).map(String).filter((k) => /^\d+:\d+$/.test(k)).slice(0, 5000);
     const since = Math.max(0, toInt(req.query.since) || 0);
@@ -108,6 +170,8 @@ function router() {
     });
     res.json({ ok: true, parked: list });
   };
+  // paused: nothing to claim
+  const notPaused = (req, res, next) => (paused() ? res.status(503).json({ ok: false, error: 'Bots are paused.', paused: true }) : next());
   r.get('/parked', parked);
   r.post('/parked', parked);
   r.get('/parked/:colonyId', (req, res) => {
@@ -115,7 +179,7 @@ function router() {
     if (!c || absence.phase(c) !== 'parked') return res.status(404).json({ ok: false, error: 'No such parked colony.' });
     res.json({ ok: true, state: viewFor(c.user_id) });
   });
-  r.post('/claim', (req, res) => {
+  r.post('/claim', notPaused, (req, res) => {
     const b = plainBody(req.body);
     const colonyId = toInt(b.colonyId);
     if (Number.isNaN(colonyId)) return res.status(400).json({ ok: false, error: 'Bad colony.' });
@@ -139,7 +203,7 @@ function router() {
     present(req.bot.id);
     res.json({ ok: true, state: viewFor(req.bot.id) });
   });
-  r.post('/colonies/:userId/act/:route', forBot, (req, res) => {
+  r.post('/colonies/:userId/act/:route', notPaused, forBot, (req, res) => {
     const name = ACTIONS.get(req.params.route);
     if (!name || REFUSED.has(req.params.route)) return res.status(404).json({ ok: false, error: 'No such action.' });
     present(req.bot.id);
@@ -151,4 +215,4 @@ function router() {
   return r;
 }
 
-module.exports = { router, enabled, claim, release, botAccount };
+module.exports = { router, enabled, paused, pausedByAdmin, keySource, resetKey, overrides, setOverrides, control, runnerStatus, storeTelemetry, claim, release, botAccount, PROFILE };

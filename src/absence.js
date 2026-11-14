@@ -155,12 +155,12 @@ const release = db.transaction((colonyId, now = Date.now()) => {
   return OK;
 });
 
-// Parked colonies waiting to be claimed, oldest first. `skip` lists "colonyId:parkedAt" keys to leave out (a bot runner's
+// Parked colonies waiting to be claimed, oldest first (not those an admin keeps away from the bots, colonies.no_bots). `skip` lists "colonyId:parkedAt" keys to leave out (a bot runner's
 // blacklist): a colony that is taken up and parked again later has a new key, so it shows up again. `since` leaves out
 // colonies parked before that time (ms).
 function listParked(limit = 50, skip = [], since = 0) {
   return db.prepare(`SELECT c.id, c.user_id AS userId, u.username, u.generated, c.parked_at AS parkedAt, c.last_active_at AS lastActive FROM colonies c JOIN users u ON u.id = c.user_id
-    WHERE c.parked_at IS NOT NULL AND c.parked_at >= ? AND (c.id || ':' || c.parked_at) NOT IN (SELECT value FROM json_each(?)) ORDER BY c.parked_at LIMIT ?`).all(since, JSON.stringify(skip.map(String)), limit);
+    WHERE c.parked_at IS NOT NULL AND c.no_bots = 0 AND c.parked_at >= ? AND (c.id || ':' || c.parked_at) NOT IN (SELECT value FROM json_each(?)) ORDER BY c.parked_at LIMIT ?`).all(since, JSON.stringify(skip.map(String)), limit);
 }
 
 module.exports = { phase, simulatedSince, sweep, markActive, view, lostView, dismiss, retake, startOver, handOver, claim, release, listParked, generatedAccount };

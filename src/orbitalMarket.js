@@ -10,6 +10,7 @@ const store = require('./db');
 const credits = require('./credits');
 const ms = require('./marketsim');
 const orbital = require('./orbital');
+const control = require('./marketControl');
 const { own, toInt, toNum } = require('./validate');
 const { db, config } = store;
 const M = config.orbital.market;
@@ -91,7 +92,7 @@ function advance(tick) {
       const qty = M.makerQtyByTier[config.resources[res].tier] || 4;
       ins.run(MAKER, res, 'buy', money(ref * (1 - M.makerSpread)), qty, qty, tick, tick + M.makerRefreshTicks);
       ins.run(MAKER, res, 'sell', money(ref * (1 + M.makerSpread)), qty, qty, tick, tick + M.makerRefreshTicks);
-      match(res, tick);
+      if (!control.frozen('orbit')) match(res, tick);
     }
   }
   if (tick % 100 === 0) {
@@ -103,6 +104,7 @@ function advance(tick) {
 function post(c, { resource, side, price, qty, ttl }, tick) {
   const st = orbital.stationOf(c.id);
   if (!st) return fail('There is no station.');
+  if (control.frozen('orbit')) return fail('The orbital market is closed for now.');
   if (!own(config.resources, resource) || !tradeable(resource)) return fail('Only trade goods are traded in orbit.');
   if (side !== 'buy' && side !== 'sell') return fail('Bad side.');
   price = money(toNum(price)); qty = toInt(qty); ttl = toInt(ttl);
@@ -156,4 +158,4 @@ function view(c, tick) {
   };
 }
 
-module.exports = { advance, post, cancel, match, view, tradeable, goods, reference, band, MAKER };
+module.exports = { advance, post, cancel, release, match, view, tradeable, goods, reference, band, MAKER };

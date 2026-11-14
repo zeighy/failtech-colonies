@@ -14,6 +14,7 @@
 // Settings (environment):
 //   BOT_SERVER          the game server's address                          default http://127.0.0.1:3000
 //   BOT_API_KEY         the key the game server was started with (required, at least 16 characters)
+//   BOT_API_KEY_FILE    or: a file holding the key; read again when the key is refused (the admin panel can rotate it there)
 //   BOT_LIMIT           how many colonies bots may run at once              default 5
 //   BOT_PROFILES        which profiles to use, comma-separated              default all of them
 //   BOT_CLAIM           'all' parked colonies, or only 'given_up' ones (whose commander chose to start over)   default all
@@ -58,13 +59,15 @@ function milestones(prev, now) {
 }
 
 const env = (k, d) => (process.env[k] === undefined || process.env[k] === '' ? d : process.env[k]);
+const readKeyFile = (f) => { if (!f) return ''; try { return fs.readFileSync(f, 'utf8').trim(); } catch (e) { return ''; } };
 
 function settings() {
   const list = env('BOT_PROFILES', profiles.ORDER.join(',')).split(',').map((s) => s.trim()).filter(Boolean);
   for (const p of list) if (!profiles.get(p)) throw new Error(`Unknown bot profile "${p}". Known: ${profiles.ORDER.join(', ')}.`);
   return {
     server: env('BOT_SERVER', 'http://127.0.0.1:3000'),
-    key: env('BOT_API_KEY', ''),
+    keyFile: env('BOT_API_KEY_FILE', null),
+    key: env('BOT_API_KEY', '') || readKeyFile(env('BOT_API_KEY_FILE', null)),
     limit: Math.max(0, Number(env('BOT_LIMIT', 5))),
     profiles: list,
     claim: env('BOT_CLAIM', 'all'),
@@ -86,7 +89,7 @@ function settings() {
 class Runner {
   constructor(s, client) {
     this.s = s;
-    this.client = client || new BotClient(s.server, s.key);
+    this.client = client || new BotClient(s.server, s.key, { keyFile: s.keyFile });
     this.bots = new Map(); // userId -> { userId, username, profile, colonyId, mem, last, errors }
     this.rejected = {}; // colonyId -> { at, verdict, reasons, abandoned?, due? }, looked at again after recheckMs
     this.blocked = {}; // colonyId -> { at, parkedAt, verdict, reasons }: given back by a bot and still unfit; never looked at again
@@ -94,7 +97,12 @@ class Runner {
     this.tickMs = 15000;
     this.stopped = false;
     this.lastPoll = 0;
-    this.tel = new Telemetry({ file: s.telemetry || 'off', level: s.telemetryLevel, maxBytes: s.telemetryMaxBytes, keep: s.telemetryKeep, onError: (msg) => this.say('error', msg) });
+    // telemetry also goes to the game server with each heartbeat (the admin panel reads it there); kept here until sent
+    this.outbox = [];
+    this.tel = new Telemetry({ file: s.telemetry || 'off', level: s.telemetryLevel, maxBytes: s.telemetryMaxBytes, keep: s.telemetryKeep, onError: (msg) => this.say('error', msg),
+      sink: s.uploadTelemetry === false ? null : (entry) => { this.outbox.push(entry); if (this.outbox.length > 5000) this.outbox.splice(0, this.outbox.length - 5000); } });
+    this.env = { limit: s.limit, profiles: s.profiles, claim: s.claim }; // the runner's own settings, before the panel's overrides
+    this.control = { paused: false };
     this.load();
   }
 
@@ -133,6 +141,12 @@ class Runner {
     for (const row of list) {
       seen.add(row.userId);
       if (!row.colonyId) { await this.client.release(row.userId); continue; } // an account with nothing left to run
+      const known = this.bots.get(row.userId);
+      if (known && row.profile && row.profile !== known.profile && profiles.get(row.profile)) { // changed from the admin panel
+        this.say('info', `${known.username} now plays ${row.profile} (was ${known.profile})`);
+        this.log('profile', known, { from: known.profile, to: row.profile });
+        known.profile = row.profile;
+      }
       if (!this.bots.has(row.userId)) {
         const prev = this.saved[row.userId] || {};
         this.bots.set(row.userId, { userId: row.userId, username: row.username, profile: profiles.get(row.profile) ? row.profile : this.s.profiles[0], colonyId: row.colonyId, mem: prev.mem || { seed: row.userId }, claimedAt: prev.claimedAt || Date.now(), errors: 0, last: null });
@@ -236,15 +250,52 @@ class Runner {
     return null;
   }
 
+  // The admin panel's say (src/botApi.js control): paused or not, and overrides of the limit, the profiles and what to claim.
+  applyControl(c) {
+    if (!c) return;
+    const was = this.control.paused;
+    this.control = c;
+    this.s.limit = Number.isInteger(c.limit) && c.limit >= 0 ? c.limit : this.env.limit;
+    const list = Array.isArray(c.profiles) ? c.profiles.filter((p) => profiles.get(p)) : [];
+    this.s.profiles = list.length ? list : this.env.profiles;
+    this.s.claim = c.claim === 'all' || c.claim === 'given_up' ? c.claim : this.env.claim;
+    const WHY = { bots: 'from the admin panel', 'simulation-paused': 'the simulation is paused', 'no-active-players': 'no player is active' };
+    if (c.paused !== was) { this.say('info', c.paused ? `paused: ${WHY[c.why] || 'by the server'}` : 'resumed'); this.tel.write(c.paused ? 'paused' : 'resumed', { why: c.why || null }); }
+  }
+
+  // Tell the game server how things stand, hand over new telemetry, and take its control in return.
+  async heartbeat(again = true) {
+    if (!this.client.heartbeat) return;
+    const before = JSON.stringify(this.control);
+    const batch = this.outbox.splice(0, 1000);
+    const { rejected, blocked, ...st } = this.status();
+    const few = (m) => Object.fromEntries(Object.entries(m).slice(-100)); // (the full lists can be long; the counts say how long)
+    const status = { ...st, rejectedCount: Object.keys(rejected).length, blockedCount: Object.keys(blocked).length, rejected: few(rejected), blocked: few(blocked), version: 1, pid: process.pid, paused: !!this.control.paused, active: this.bots.size, waiting: Math.max(0, this.s.limit - this.bots.size), settings: { ...this.env, turnTicks: this.s.turnTicks, pollSeconds: this.s.pollMs / 1000, parkedDays: this.s.parkedMs / 86400000 } };
+    try {
+      const r = await this.client.heartbeat(status, batch);
+      if (r && r.control) this.applyControl(r.control);
+      // the panel changed something: report back at once, so it shows what the runner now does
+      if (again && JSON.stringify(this.control) !== before) await this.heartbeat(false);
+    } catch (e) {
+      this.outbox.unshift(...batch); // sent next time
+      if (this.outbox.length > 5000) this.outbox.splice(0, this.outbox.length - 5000);
+      this.say('error', `heartbeat failed: ${e.message}`);
+    }
+  }
+
   async loop() {
     const info = await this.client.info();
     this.tickMs = info.tickMs;
+    if (info.control) this.applyControl(info.control);
     this.config = await this.client.config();
-    await this.poll();
+    if (!this.control.paused) await this.poll();
     while (!this.stopped) {
       const started = Date.now();
-      if (Date.now() - this.lastPoll >= this.s.pollMs) { try { await this.poll(); } catch (e) { this.tel.write('error', { where: 'poll', message: e.message }); this.say('error', `poll failed: ${e.message}`); } }
-      for (const b of [...this.bots.values()]) { if (this.stopped) break; await this.turn(b); }
+      await this.heartbeat();
+      if (!this.control.paused) {
+        if (Date.now() - this.lastPoll >= this.s.pollMs) { try { await this.poll(); } catch (e) { this.tel.write('error', { where: 'poll', message: e.message }); this.say('error', `poll failed: ${e.message}`); } }
+        for (const b of [...this.bots.values()]) { if (this.stopped || this.control.paused) break; await this.turn(b); }
+      } else if (Date.now() - this.lastPoll >= this.s.pollMs) { try { this.lastPoll = Date.now(); await this.sync(); } catch (e) { /* tried again later */ } }
       this.save();
       const wait = Math.max(1000, this.s.turnTicks * this.tickMs - (Date.now() - started));
       await new Promise((r) => { this.wake = r; this.timer = setTimeout(r, wait); });
@@ -287,7 +338,7 @@ class Runner {
 
 async function main() {
   const s = settings();
-  if (!s.key || s.key.length < 16) { console.error('BOT_API_KEY must be set (at least 16 characters), the same key the game server was started with.'); process.exit(2); }
+  if (!s.key || s.key.length < 16) { console.error('BOT_API_KEY (or BOT_API_KEY_FILE) must be set (at least 16 characters), the same key the game server uses.'); process.exit(2); }
   const runner = new Runner(s);
   runner.tel.write('start', { server: s.server, limit: s.limit, profiles: s.profiles, claim: s.claim, turnTicks: s.turnTicks, pollSeconds: s.pollMs / 1000, parkedDays: s.parkedMs / 86400000, recheckHours: s.recheckMs / 3600000, level: s.telemetryLevel });
   if (s.statusPort) {

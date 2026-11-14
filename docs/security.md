@@ -12,7 +12,7 @@ transaction. The simulation is server-authoritative, so there is nothing for a m
 - Slots and rings must be integers inside the unlocked rings (a negative or fractional slot would otherwise be a free extra slot).
 - Request bodies must be plain JSON objects, at most 10 kB, strict JSON. Malformed or oversized bodies are 400/413, never 500.
 - All SQL is parameterised; the only interpolated SQL is built from constants.
-- The only player-chosen text anywhere is the callsign (`[A-Za-z0-9_]{3,20}`), rendered with `textContent`; all other text comes from config. CSP forbids inline script.
+- The only player-chosen text is the callsign (`[A-Za-z0-9_]{3,20}`) and the email address (a strict pattern, no quotes, brackets or control characters), rendered with `textContent` or escaped; all other text comes from config. CSP forbids inline script.
 
 ## HTTP
 - Headers: CSP (`script-src 'self'`, no `unsafe-eval`, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`), `X-Content-Type-Options`, `X-Frame-Options`,
@@ -52,8 +52,28 @@ transaction. The simulation is server-authoritative, so there is nothing for a m
 - Keep `SESSION_SECRET` out of the repository (or let the server generate one in the database). Back up the database file, which is created owner-only (0600).
 - Run `npm audit` now and then (currently clean).
 
+## Email, challenges and suspensions
+- An email address is required and verified before a colony is founded (`EMAIL_VERIFICATION`). Codes and links are stored only as SHA-256 hashes, are single-use,
+  expire (`EMAIL_CODE_MINUTES`), and a code allows 5 guesses. Sending is limited per address (one a minute) and per account and address (6 an hour).
+- Links in emails are built from `PUBLIC_URL` only, never from the request's Host header (no reset-link poisoning). The link opens the sign-in page, which asks
+  for a click before using it, so mail scanners that fetch links do not spend them.
+- A passcode reset goes only to a verified address, answers the same whether or not the account exists, and ends every session of the account.
+- Cloudflare Turnstile (`TURNSTILE_*`) guards sign-in, sign-up and reset requests; a token is checked server-side and the check fails closed. The CSP admits
+  `challenges.cloudflare.com` only when Turnstile is on.
+- A suspended account is refused at sign-in and on every request; its sessions and live connections end at once.
+- Players can change their passcode (current one required; other sessions end) and their address (passcode required; the new one must be confirmed) from the game's
+  menu, and opt into an authenticator code (TOTP). With it on, sign-in is two steps: the passcode (with the challenge), then the code within five minutes; a code is
+  accepted once, wrong codes count toward the per-account throttle, and an email link never signs such an account in. An admin can turn it off for a lost device.
+
+## The admin panel
+- Its own port, bound to `127.0.0.1` by default (`ADMIN_HOST`), optionally limited to addresses (`ADMIN_ALLOW`); the game's port never serves it.
+- Separate admin accounts (bcrypt, 10+ characters), TOTP two-factor with replay protection, failed sign-ins throttled per name and per address, sessions in their
+  own table with a `SameSite=Strict` cookie, the same CSP, same-origin and JSON-only rules as the game, a read-only role, and an audit log of every change.
+- Destructive actions (deleting accounts, wiping colonies, deleting backups, full restores) need the name typed back. Updates run git and npm as argument lists
+  (no shell), with the repository and branch validated.
+
 ## Not done (on purpose)
-- No account recovery, email or CAPTCHA, and no per-account registration cap beyond the IP limit.
+- No per-account registration cap beyond the IP limit and the one-account-per-address rule.
 - Rate limits are in memory, per process (the server is single-instance by design).
 - Seeded randomness (hazards, missions, prices) is deterministic per colony and therefore predictable by a determined player; it is game design, not a secret.
 

@@ -12,6 +12,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failtech-sec-'));
 process.env.DB_PATH = path.join(dir, 'sec.db');
 process.env.SESSION_SECRET = 'test-secret';
 process.env.THEME = 'basic'; // assertions use the neutral wording, whatever the default theme is
+process.env.EMAIL_VERIFICATION = 'off'; // these players sign up without an email address (test/accounts.test.js covers verification)
 process.env.AUTH_RATE_LIMIT = '100000';
 process.env.API_RATE_LIMIT = '100000';
 process.env.BCRYPT_ROUNDS = '4';

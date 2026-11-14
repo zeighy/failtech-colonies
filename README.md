@@ -20,6 +20,7 @@ The game ships with a story and a full theme, **Recontinuation** (Earth after th
 - **Headquarters.** A post-game rebuild that grants the colony an independent charter, then permanent unlocks that make every system a little bigger, at a rising cost.
 - **A story.** Calls with branching scenes, moods and portraits, and mail, paced to the colony's progress.
 - **Desk and phone layouts** over the same game, with live updates and offline catch-up.
+- **An admin panel** on an internal port: accounts and suspensions, colony rollbacks, market intervention, bot control, backups, logs and updates from the repository.
 - **Bots for small worlds.** Bots take over parked and given-up colonies, so there are still neighbours to trade with.
 
 ## Quick start
@@ -29,7 +30,7 @@ npm install
 npm start                 # http://localhost:3000
 ```
 
-Node.js 22. Register a Commander ID and click an empty slot on the radar.
+Node.js 22. Register a Commander ID and click an empty slot on the radar. Without mail settings the email code is printed in the server's console. `npm run admin -- create <name>` makes an admin for the panel at http://127.0.0.1:3001.
 
 ## Documentation
 
@@ -37,7 +38,8 @@ Node.js 22. Register a Commander ID and click an empty slot on the radar.
 | --- | --- |
 | [Playing](docs/gameplay.md) | The full manual: the screen layout, every system, orbit, Headquarters, hazards, story delivery |
 | [Production guide](prod_guide.md) | Every number: buildings, recipes, costs, prices, hazards, orbit, Headquarters |
-| [Deployment](docs/deployment.md) | Server settings, backups, upgrades, the bot runner, security |
+| [Deployment](docs/deployment.md) | Server settings, email and Turnstile, backups, upgrades, the bot runner, security |
+| [Admin panel](docs/admin.md) | Managing players, colonies, markets, bots, backups, logs and updates |
 | [Development](docs/development.md) | Tech stack, architecture, tests, tuning and playtests, themes and story, roadmap |
 | [Design notes](docs/districts.md) | Districts, the exchange and the Free Port; also [orbit](docs/orbital.md) and [Headquarters](docs/headquarters.md) |
 | [Story format](docs/story.md) | Writing a theme and a story; [content checklist](docs/content-needs.md) |

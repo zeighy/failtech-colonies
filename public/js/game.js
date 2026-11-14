@@ -117,7 +117,8 @@
       headers: { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body || {})
     }).then(function (r) {
-      if (r.status === 401) { location.href = '/'; return new Promise(function () {}); }
+      // signed out, or something to settle first (an email to confirm, a suspension, maintenance): the sign-in page says which
+      if (r.status === 401 || (r.status === 403 && path !== 'logout') || r.status === 503) { location.href = '/'; return new Promise(function () {}); }
       return r.json();
     });
   }
@@ -322,9 +323,11 @@
     });
     return { mult: clamp(m, 0.5, 1.6), parts: parts };
   }
+  // While the simulation is paused, time on screen stands still: countdowns hold where they were and nothing moves between ticks.
+  function nowT() { return S && S.paused ? S.serverNow : Date.now() + offset; }
   function frac() {
-    if (!S) return 0;
-    return clamp(1 - (S.nextTickAt - (Date.now() + offset)) / S.tickMs, 0, 1);
+    if (!S || S.paused) return 0;
+    return clamp(1 - (S.nextTickAt - nowT()) / S.tickMs, 0, 1);
   }
   function canAfford(cost) {
     return Object.keys(cost).every(function (r) { return S.resources[r].amount >= cost[r]; });
@@ -511,7 +514,7 @@
   // described as data and patched in place, so a chip under the pointer is never swapped out mid-click.
   function lab(k, dflt) { var l = CFG.ui && CFG.ui.labels && CFG.ui.labels[k]; return esc(l || dflt); }
   function short(n) { return n >= 1e7 ? Math.floor(n / 1e6) + 'M' : n >= 1e6 ? (Math.floor(n / 1e5) / 10) + 'M' : n >= 1e5 ? Math.floor(n / 1e3) + 'k' : n >= 1e4 ? (Math.floor(n / 100) / 10) + 'k' : fmt(n); }
-  function convoyHtml() { return clock(S.convoy.arrivesAt - (Date.now() + offset)) + (MOBILE ? '' : ' <small>' + S.convoy.ticksLeft + 't</small>'); }
+  function convoyHtml() { return clock(S.convoy.arrivesAt - nowT()) + (MOBILE ? '' : ' <small>' + S.convoy.ticksLeft + 't</small>'); }
   function powerChip(label) {
     var e = S.energy, ok = e.satisfaction >= 0.999;
     return { k: 'power', icon: 'bolt', place: true, label: label, cls: ok ? '' : e.satisfaction > 0.5 ? 'warn' : 'bad',
@@ -838,6 +841,8 @@
     var h = '';
     if (!connected) h = '<div class="alert warn">' + icon('warn', 14) + (pending.length ? 'Offline: ' + pending.length + ' action' + (pending.length === 1 ? '' : 's') + ' waiting to be sent' : 'Connection lost. Retrying…') + '</div>';
     else if (flushing) h = '<div class="alert warn">' + icon('truck', 14) + 'Reconnected: sending ' + pending.length + ' queued action' + (pending.length === 1 ? '' : 's') + '…</div>';
+    if (S && S.paused) h += '<div class="alert warn">' + icon('pause', 14) + 'Simulation paused</div>';
+    if (S && S.notice && S.notice.text) h += '<div class="alert ' + (S.notice.level === 'info' ? 'info' : S.notice.level === 'warn' ? 'warn' : '') + '">' + icon('bell', 14) + esc(S.notice.text) + '</div>';
     if ($('net').dataset.h !== h) { $('net').innerHTML = h; $('net').dataset.h = h; }
   }
   function renderAlerts() { renderNet(); }
@@ -926,6 +931,7 @@
       }).join('') + '</div>';
       h += '<div class="nv-sec">Command</div><div class="dim" style="font-size:12px;margin:0 2px 8px">Signed in as <b>' + esc(S.user) + '</b></div><div class="stack">' +
         '<button class="btn block" data-act="layout" data-ui="desktop">' + icon('screen', 14) + ' Use the desktop layout</button>' +
+        '<button class="btn block" data-act="menu" data-m="account">' + icon('lock', 14) + ' Account</button>' +
         '<button class="btn block" data-act="menu" data-m="logout">Sign out</button>' +
         '<button class="btn block danger" data-act="menu" data-m="confirmReset">Abandon colony &amp; start over</button></div>';
     }
@@ -2209,7 +2215,7 @@
     framePanel();
   }
   function framePanel() {
-    var now = Date.now() + offset;
+    var now = nowT();
     document.querySelectorAll('#panel [data-b], #sheet [data-b]').forEach(function (el) {
       var k = el.dataset.b.split(':');
       if (k[0] === 'amt') { var r = S.coreRes[k[1]]; el.textContent = fmt(clamp(r.amount + r.net * frac(), 0, r.cap)); }
@@ -2369,6 +2375,7 @@
     startOver2: function () { awayCall('start-over'); },
     parkedAgain: function () { if (lostView) showLost(lostView); else checkModals(); },
     mobileLayout: function () { setLayout('mobile'); },
+    account: function () { if (window.Account) window.Account.open(); },
     close: function () {}
   };
   function menu() {
@@ -2376,6 +2383,7 @@
     navGroups().forEach(function (g) { g.tabs.forEach(function (t) { if (t[3]) keys.push([t[3].toUpperCase(), tabLabel(t)]); }); });
     modal('<h2>Command menu</h2><p>Signed in as <b>' + esc(S.user) + '</b>.</p><div class="stack">' +
       '<button class="btn block" data-m="mobileLayout">' + icon('phone', 14) + ' Use the phone layout</button>' +
+      '<button class="btn block" data-m="account">' + icon('lock', 14) + ' Account</button>' +
       '<button class="btn block" data-m="logout">Sign out</button>' +
       '<button class="btn block danger" data-m="confirmReset">Abandon colony &amp; start over</button><button class="btn block" data-m="close">Close</button></div>' +
       '<div class="label sec">Keys</div><div class="keys">' + keys.map(function (k) { return '<span><kbd>' + k[0] + '</kbd>' + esc(k[1]) + '</span>'; }).join('') +

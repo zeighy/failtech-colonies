@@ -16,6 +16,7 @@ const theme = require('./src/theme');
 const backup = require('./src/backup');
 const ACTION_ROUTES = require('./src/routes');
 const botApi = require('./src/botApi');
+const admin = require('./src/admin');
 const config = store.config;
 const { body: plainBody } = require('./src/validate');
 const { viewFor, clientConfig } = require('./src/state');
@@ -24,6 +25,10 @@ const { db } = store;
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
 const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS) || 12;
+const accounts = require('./src/accounts');
+const turnstile = require('./src/turnstile');
+const serverlog = require('./src/serverlog');
+const lifecycle = require('./src/lifecycle');
 
 // Session secret: env var, else a generated one kept in the database.
 function sessionSecret() {
@@ -83,74 +88,148 @@ function touch(userId) {
   db.prepare('UPDATE colonies SET last_seen_at = ? WHERE user_id = ?').run(now, userId);
 }
 
+// Signed in, and nothing in the way: an unverified address or a ban is a 403 the client takes back to the sign-in page,
+// and maintenance is a 503 for everyone.
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Not signed in.' });
+  if (closedForMaintenance(res)) return;
+  const g = accounts.gate(req.session.userId);
+  if (g === 'banned' || g === 'gone') {
+    const u = accounts.byId(req.session.userId);
+    return req.session.destroy(() => res.status(g === 'gone' ? 401 : 403).json({ ok: false, error: u ? accounts.banMessage(u) : 'Not signed in.', banned: g === 'banned' }));
+  }
+  if (g) return res.status(403).json({ ok: false, error: 'Confirm your email address first.', next: g });
   touch(req.session.userId);
   next();
 }
 
 // ---- auth -------------------------------------------------------------------
-// bcrypt only looks at the first 72 bytes, so longer passcodes are refused rather than silently truncated.
-const MAX_PASS_BYTES = 72;
-function credentials(b, { registering = false } = {}) {
-  b = plainBody(b);
-  if (typeof b.username !== 'string' || typeof b.password !== 'string') return { error: 'Callsign and passcode are required.' };
-  const username = b.username.trim();
-  const password = b.password;
-  if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) return { error: 'Callsign must be 3-20 letters, numbers or underscores.' };
-  if (Buffer.byteLength(password) > MAX_PASS_BYTES) return { error: `Passcode must be at most ${MAX_PASS_BYTES} bytes.` };
-  if (registering && password.length < 8) return { error: 'Passcode must be at least 8 characters.' };
-  if (!registering && password.length < 1) return { error: 'Passcode is required.' };
-  return { username, password };
-}
-
+// Sign-up takes a callsign, a passcode and (when EMAIL_VERIFICATION is on, the default) an email address, which is verified
+// with a code or a link before the colony is founded (src/accounts.js). Sign-in takes the callsign or the email address.
+// Cloudflare Turnstile guards sign-up, sign-in and reset requests when it is configured (src/turnstile.js).
 function signIn(req, userId) {
   return new Promise((resolve, reject) => {
     req.session.regenerate((err) => { // a fresh session id on every sign-in (no session fixation)
       if (err) return reject(err);
       req.session.userId = userId;
-      // A commander whose parked colony was claimed by someone else chooses what comes next; everyone else has a colony.
-      if (!absence.lostView(userId)) store.ensureColony(userId);
-      absence.markActive(userId);
+      enterGame(userId);
       req.session.save((e) => (e ? reject(e) : resolve()));
     });
   });
 }
+// A commander whose parked colony was claimed by someone else chooses what comes next; everyone else has a colony, once
+// nothing stands in the way (an unverified address, a ban).
+function enterGame(userId) {
+  if (accounts.gate(userId)) return;
+  if (!absence.lostView(userId)) store.ensureColony(userId);
+  absence.markActive(userId);
+  wake();
+}
+// The first player back wakes a world that was held for want of anyone to simulate (engine.js checkHold).
+function wake() {
+  const h = lifecycle.pauseState();
+  if (h && h.reason === 'idle') engine.checkHold();
+}
 
 const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(8).toString('hex'), BCRYPT_ROUNDS); // same cost as real hashes, for timing
+const closedForMaintenance = (res) => {
+  const m = lifecycle.maintenance();
+  if (!m) return false;
+  res.status(503).json({ ok: false, error: m.message || 'The server is down for maintenance.', maintenance: true });
+  return true;
+};
+async function challenge(req, res) {
+  const t = await turnstile.check(plainBody(req.body).turnstile, req.ip);
+  if (!t.ok) { res.status(400).json({ ok: false, error: t.error, challenge: true }); return false; }
+  return true;
+}
 
 app.post('/api/register', authLimit, async (req, res, next) => {
   try {
-    const c = credentials(req.body, { registering: true });
-    if (c.error) return res.status(400).json({ ok: false, error: c.error });
-    const hash = await bcrypt.hash(c.password, BCRYPT_ROUNDS);
+    if (closedForMaintenance(res)) return;
+    const b = plainBody(req.body);
+    if (typeof b.username !== 'string' || typeof b.password !== 'string') return res.status(400).json({ ok: false, error: 'Callsign and passcode are required.' });
+    const username = b.username.trim();
+    if (!accounts.CALLSIGN.test(username)) return res.status(400).json({ ok: false, error: 'Callsign must be 3-20 letters, numbers or underscores.' });
+    const bad = accounts.checkPassword(b.password);
+    if (bad) return res.status(400).json({ ok: false, error: bad });
+    const wantEmail = accounts.verificationRequired() || (typeof b.email === 'string' && b.email.trim() !== '');
+    const email = wantEmail ? accounts.normEmail(b.email) : null;
+    if (wantEmail && !email) return res.status(400).json({ ok: false, error: 'A valid email address is required.' });
+    if (!(await challenge(req, res))) return;
+    const hash = await accounts.hashPassword(b.password);
     // The existence check and the insert happen together, after the slow hash, with nothing awaited in between, and
     // the database enforces uniqueness (case-insensitively) too: two simultaneous sign-ups cannot take the same name.
     let id;
     try {
-      if (db.prepare('SELECT 1 FROM users WHERE username = ? COLLATE NOCASE').get(c.username)) throw new Error('taken');
-      id = Number(db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(c.username, hash).lastInsertRowid);
+      if (db.prepare('SELECT 1 FROM users WHERE username = ? COLLATE NOCASE').get(username)) throw new Error('taken');
+      if (email && accounts.emailTaken(email)) throw new Error('email');
+      id = Number(db.prepare('INSERT INTO users (username, password, email, created_at, created_ip) VALUES (?, ?, ?, ?, ?)').run(username, hash, email, Date.now(), req.ip).lastInsertRowid);
     } catch (e) {
+      if (e.message === 'email' || /users_email/.test(String(e.message))) return res.status(409).json({ ok: false, error: 'That email address is already in use.' });
       if (e.message === 'taken' || /UNIQUE/.test(String(e.code || e.message))) return res.status(409).json({ ok: false, error: 'That callsign is taken.' });
       throw e;
     }
+    serverlog.info('auth', `Registered ${username}`, { userId: id, ip: req.ip });
+    accounts.noteLogin(id, req.ip);
     await signIn(req, id);
-    res.json({ ok: true });
+    let sent = null;
+    if (email) sent = await accounts.sendVerification(accounts.byId(id), email, req.ip);
+    res.json({ ok: true, next: accounts.gate(id) || 'game', sentTo: sent && sent.ok ? sent.sentTo : undefined, mailError: sent && !sent.ok ? sent.error : undefined });
   } catch (e) { next(e); }
 });
 
 app.post('/api/login', authLimit, async (req, res, next) => {
   try {
-    const c = credentials(req.body);
-    const key = c.error ? null : c.username.toLowerCase();
-    if (key && loginFails.blocked(key)) return res.status(429).json({ ok: false, error: 'Too many failed attempts for that callsign. Try again later.' });
-    const user = c.error ? null : db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(c.username);
-    // Always run a compare, at the real cost, so response time doesn't reveal which callsigns exist.
-    const ok = await bcrypt.compare(c.password || '', user ? user.password : DUMMY_HASH);
-    if (!user || !ok) { if (key) loginFails.fail(key); return res.status(401).json({ ok: false, error: 'Invalid callsign or passcode.' }); }
+    if (closedForMaintenance(res)) return;
+    const b = plainBody(req.body);
+    const login = typeof b.login === 'string' ? b.login : b.username;
+    const password = typeof b.password === 'string' ? b.password : '';
+    const okShape = typeof login === 'string' && login.trim() && !accounts.checkPassword(password, { registering: false });
+    const key = okShape ? login.trim().toLowerCase() : null;
+    if (key && loginFails.blocked(key)) return res.status(429).json({ ok: false, error: 'Too many failed attempts for that account. Try again later.' });
+    if (!(await challenge(req, res))) return;
+    const user = okShape ? accounts.byLogin(login) : null;
+    // Always run a compare, at the real cost, so response time doesn't reveal which accounts exist.
+    const ok = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
+    if (!user || !ok || user.generated || user.bot_profile) {
+      if (key) loginFails.fail(key);
+      serverlog.warn('auth', `Failed sign-in for "${String(login || '').slice(0, 64)}"`, { userId: user ? user.id : null, ip: req.ip });
+      return res.status(401).json({ ok: false, error: 'Invalid callsign or passcode.' });
+    }
     loginFails.clear(key);
+    if (accounts.banned(user)) {
+      serverlog.warn('auth', `Suspended account ${user.username} tried to sign in`, { userId: user.id, ip: req.ip });
+      return res.status(403).json({ ok: false, error: accounts.banMessage(user), banned: true });
+    }
+    // With an authenticator code on, the passcode alone does not sign in: the code is asked for next (POST /api/login/totp),
+    // within five minutes, without a second challenge.
+    if (user.totp_on) {
+      req.session.totpLogin = { id: user.id, at: Date.now(), key };
+      return req.session.save((e) => (e ? next(e) : res.json({ ok: true, next: 'totp' })));
+    }
+    accounts.noteLogin(user.id, req.ip);
+    serverlog.info('auth', `Signed in ${user.username}`, { userId: user.id, ip: req.ip });
     await signIn(req, user.id);
-    res.json({ ok: true });
+    res.json({ ok: true, next: accounts.gate(user.id) || 'game' });
+  } catch (e) { next(e); }
+});
+app.post('/api/login/totp', authLimit, async (req, res, next) => {
+  try {
+    const p = req.session.totpLogin;
+    if (!p || Date.now() - p.at > 5 * 60000) { delete req.session.totpLogin; return res.status(400).json({ ok: false, error: 'Sign in again.', restart: true }); }
+    if (loginFails.blocked(p.key)) { delete req.session.totpLogin; return res.status(429).json({ ok: false, error: 'Too many failed attempts for that account. Try again later.', restart: true }); }
+    const user = accounts.byId(p.id);
+    if (!user || !accounts.checkTotp(user, plainBody(req.body).code)) {
+      loginFails.fail(p.key);
+      serverlog.warn('auth', 'Wrong authenticator code at sign-in', { userId: p.id, ip: req.ip });
+      return res.status(400).json({ ok: false, error: 'That code is not right.' });
+    }
+    loginFails.clear(p.key);
+    accounts.noteLogin(user.id, req.ip);
+    serverlog.info('auth', `Signed in ${user.username} (with authenticator code)`, { userId: user.id, ip: req.ip });
+    await signIn(req, user.id);
+    res.json({ ok: true, next: accounts.gate(user.id) || 'game' });
   } catch (e) { next(e); }
 });
 
@@ -158,11 +237,163 @@ app.post('/api/logout', (req, res) => {
   req.session.destroy(() => { res.clearCookie('failtech.sid'); res.json({ ok: true }); });
 });
 
+// The signed-in account, for the sign-in page (which shows the verification step until the address is confirmed).
+app.get('/api/account', (req, res) => {
+  const v = req.session.userId ? accounts.accountView(req.session.userId) : null;
+  if (!v) return res.status(401).json({ ok: false, error: 'Not signed in.' });
+  res.json({ ok: true, ...v });
+});
+// Give (or correct) the address to verify. A verified account changing its address must give its passcode; the new
+// address only replaces the old one once it is confirmed.
+app.post('/api/account/email', authLimit, async (req, res, next) => {
+  try {
+    const u = req.session.userId ? accounts.byId(req.session.userId) : null;
+    if (!u) return res.status(401).json({ ok: false, error: 'Not signed in.' });
+    if (accounts.banned(u)) return res.status(403).json({ ok: false, error: accounts.banMessage(u), banned: true });
+    const b = plainBody(req.body);
+    const email = accounts.normEmail(b.email);
+    if (!email) return res.status(400).json({ ok: false, error: 'A valid email address is required.' });
+    if (accounts.emailTaken(email, u.id)) return res.status(409).json({ ok: false, error: 'That email address is already in use.' });
+    if (u.email_verified) {
+      if (typeof b.password !== 'string' || !(await bcrypt.compare(b.password, u.password))) return res.status(400).json({ ok: false, error: 'Wrong passcode.' });
+    } else {
+      try { db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, u.id); } catch (e) { return res.status(409).json({ ok: false, error: 'That email address is already in use.' }); }
+    }
+    const sent = await accounts.sendVerification(accounts.byId(u.id), email, req.ip);
+    res.status(sent.ok ? 200 : 429).json(sent);
+  } catch (e) { next(e); }
+});
+// The signed-in commander's own account (the game's menu): passcode, and an authenticator code they can opt into.
+// A wrong passcode is a 400, not a 401 (which the game takes to mean signed out).
+async function ownAccount(req, res, { password = true } = {}) {
+  const u = req.session.userId ? accounts.byId(req.session.userId) : null;
+  if (!u) { res.status(401).json({ ok: false, error: 'Not signed in.' }); return null; }
+  if (accounts.banned(u)) { res.status(403).json({ ok: false, error: accounts.banMessage(u), banned: true }); return null; }
+  const b = plainBody(req.body);
+  if (password && (typeof b.password !== 'string' || !(await bcrypt.compare(b.password, u.password)))) { res.status(400).json({ ok: false, error: 'Wrong passcode.' }); return null; }
+  return u;
+}
+app.post('/api/account/password', authLimit, async (req, res, next) => {
+  try {
+    const b = plainBody(req.body);
+    const bad = accounts.checkPassword(b.newPassword);
+    if (bad) return res.status(400).json({ ok: false, error: bad });
+    const u = await ownAccount(req, res);
+    if (!u) return;
+    await accounts.setPassword(u.id, b.newPassword); // every session ends...
+    await signIn(req, u.id); // ...except this one, which starts afresh
+    serverlog.info('account', 'Passcode changed', { userId: u.id, ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+app.post('/api/account/totp/setup', authLimit, async (req, res, next) => {
+  try {
+    const u = await ownAccount(req, res);
+    if (!u) return;
+    const totp = require('./src/totp');
+    const secret = totp.newSecret();
+    req.session.totpPending = secret;
+    const uri = totp.uri(secret, u.username, (config.theme.ui && config.theme.ui.brand) || 'FAILTECH');
+    res.json({ ok: true, secret, uri, qr: totp.qr(uri) });
+  } catch (e) { next(e); }
+});
+app.post('/api/account/totp/enable', authLimit, async (req, res, next) => {
+  try {
+    const u = await ownAccount(req, res, { password: false });
+    if (!u) return;
+    const secret = req.session.totpPending;
+    if (!secret) return res.status(400).json({ ok: false, error: 'Start the setup again.' });
+    const step = require('./src/totp').check(secret, plainBody(req.body).code);
+    if (step === null) return res.status(400).json({ ok: false, error: 'That code is not right.' });
+    db.prepare('UPDATE users SET totp_secret = ?, totp_on = 1, totp_step = ? WHERE id = ?').run(secret, step, u.id);
+    delete req.session.totpPending;
+    serverlog.info('account', 'Authenticator code turned on', { userId: u.id, ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+app.post('/api/account/totp/disable', authLimit, async (req, res, next) => {
+  try {
+    const u = await ownAccount(req, res);
+    if (!u) return;
+    if (u.totp_on && !accounts.checkTotp(u, plainBody(req.body).code)) return res.status(400).json({ ok: false, error: 'That code is not right.' });
+    db.prepare('UPDATE users SET totp_secret = NULL, totp_on = 0, totp_step = 0 WHERE id = ?').run(u.id);
+    serverlog.info('account', 'Authenticator code turned off', { userId: u.id, ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+app.post('/api/verify/resend', authLimit, async (req, res, next) => {
+  try {
+    const u = req.session.userId ? accounts.byId(req.session.userId) : null;
+    if (!u) return res.status(401).json({ ok: false, error: 'Not signed in.' });
+    const pending = db.prepare("SELECT email FROM email_tokens WHERE user_id = ? AND purpose = 'verify' ORDER BY id DESC LIMIT 1").get(u.id);
+    const email = (pending && pending.email) || u.email;
+    if (!email) return res.status(400).json({ ok: false, error: 'No email address on the account.' });
+    const sent = await accounts.sendVerification(u, email, req.ip);
+    res.status(sent.ok ? 200 : 429).json(sent);
+  } catch (e) { next(e); }
+});
+// Confirm the address: the code from the email (signed in), or the link's token (from any browser, which it signs in).
+app.post('/api/verify', authLimit, async (req, res, next) => {
+  try {
+    const b = plainBody(req.body);
+    let found;
+    if (typeof b.token === 'string') found = accounts.byLink('verify', b.token);
+    else if (req.session.userId) found = accounts.byCode(req.session.userId, 'verify', b.code);
+    else return res.status(401).json({ ok: false, error: 'Not signed in.' });
+    if (!found.ok) return res.status(400).json(found);
+    const done = accounts.applyVerify(found.token);
+    if (!done.ok) return res.status(409).json(done);
+    const u = accounts.byId(done.userId);
+    serverlog.info('account', `Email verified for ${u.username}`, { userId: u.id, ip: req.ip });
+    if (accounts.banned(u)) return res.status(403).json({ ok: false, error: accounts.banMessage(u), banned: true });
+    if (req.session.userId === u.id) enterGame(u.id);
+    else if (u.totp_on) return res.json({ ok: true, next: 'login' }); // a link never stands in for the authenticator code
+    else await signIn(req, u.id);
+    res.json({ ok: true, next: accounts.gate(u.id) || 'game' });
+  } catch (e) { next(e); }
+});
+// Passcode reset: ask for it by callsign or address (the answer is the same whether or not the account exists), then set a
+// new passcode with the link's token or the code. Only a verified address can receive one.
+app.post('/api/password-reset/request', authLimit, async (req, res, next) => {
+  try {
+    if (!(await challenge(req, res))) return;
+    const u = accounts.byLogin(plainBody(req.body).login);
+    if (u && u.email && u.email_verified && !u.generated && !u.bot_profile) {
+      const sent = await accounts.sendReset(u, req.ip);
+      if (!sent.ok && sent.wait) return res.status(429).json(sent);
+    } else serverlog.info('auth', 'Reset asked for an account without a verified address', { userId: u ? u.id : null, ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+app.post('/api/password-reset', authLimit, async (req, res, next) => {
+  try {
+    const b = plainBody(req.body);
+    const bad = accounts.checkPassword(b.password);
+    if (bad) return res.status(400).json({ ok: false, error: bad });
+    let found;
+    if (typeof b.token === 'string') found = accounts.byLink('reset', b.token);
+    else {
+      const u = accounts.byLogin(b.login);
+      found = u ? accounts.byCode(u.id, 'reset', b.code) : { ok: false, error: 'That code is not right.' };
+    }
+    if (!found.ok) return res.status(400).json(found);
+    const t = found.token;
+    db.prepare('UPDATE email_tokens SET used_at = ? WHERE id = ?').run(Date.now(), t.id);
+    await accounts.setPassword(t.user_id, b.password);
+    db.prepare('UPDATE users SET email_verified = 1 WHERE id = ? AND email = ? COLLATE NOCASE').run(t.user_id, t.email);
+    serverlog.info('account', 'Passcode reset by email', { userId: t.user_id, ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
 // ---- game api -----------------------------------------------------------------
 const cfgJson = JSON.stringify(clientConfig());
 app.get('/api/config', requireAuth, (req, res) => res.type('json').send(cfgJson));
 // Public: just the wording the login page needs. Nothing about any colony.
-app.get('/api/theme', (req, res) => res.json({ ok: true, id: config.theme.id, ui: config.theme.ui }));
+app.get('/api/theme', (req, res) => {
+  const m = lifecycle.maintenance();
+  res.json({ ok: true, id: config.theme.id, ui: config.theme.ui, auth: { turnstile: turnstile.enabled() ? turnstile.siteKey() : null, email: accounts.verificationRequired(), maintenance: m ? m.message || 'Down for maintenance.' : null }, support: lifecycle.supportUrl() });
+});
 // The text of every message this colony has been sent so far (never the rest of the script).
 app.get('/api/story', requireAuth, (req, res) => {
   const c = actions.colonyOf(req.session.userId);
@@ -209,13 +440,26 @@ app.get('/api/stream', requireAuth, (req, res) => {
   req.on('close', cleanup);
   res.on('error', cleanup);
 });
+// For the admin panel: who is connected, and a way to close a player's connections (a ban).
+lifecycle.onStats(() => ({ streams: streamCount, playersConnected: streams.size }));
+lifecycle.onKick((userId) => { const set = streams.get(userId); if (!set) return 0; const n = set.size; for (const r of [...set]) r.end(); return n; });
 // A colony that is not being simulated does not change from tick to tick, so its open tabs are not sent a view each tick.
 const simulated = (uid) => { const c = db.prepare('SELECT last_active_at, parked_at FROM colonies WHERE user_id = ?').get(uid); return !!c && absence.phase(c) === 'live'; };
+// The world was held or let go (an admin paused the clock, or nobody is around): every open tab gets a fresh view, which
+// says so. While it is held, each tick that does not happen still reaches the tabs, so their watchdog keeps the stream.
+engine.events.on('hold', () => { for (const uid of [...streams.keys()]) { try { push(uid); } catch (e) { console.error('push failed', e); } } });
+engine.events.on('held', () => { for (const set of streams.values()) for (const r of set) r.write('event: idle\ndata: {}\n\n'); });
 engine.events.on('tick', () => { for (const uid of [...streams.keys()]) { if (!simulated(uid)) { for (const r of streams.get(uid)) r.write('event: idle\ndata: {}\n\n'); continue; } try { push(uid); } catch (e) { console.error('push failed', e); } } });
 
 // Real interactions (unlike the live stream and state polls an idle open tab keeps making) keep a colony simulated.
-function here(userId) { if (absence.markActive(userId)) push(userId); }
+function here(userId) { if (absence.markActive(userId)) push(userId); wake(); }
+// While an admin has the clock paused nothing a player does is taken: orders placed then could not move, and anything that
+// spends or trades could be played against a world that is not ticking.
+// (Marking a story call or a notice as seen changes nothing in the world, so those still go through.)
+const PAUSED = { ok: false, error: 'The simulation is paused.', paused: true };
+const WHILE_PAUSED = new Set(['storySeen', 'ack']);
 const act = (name) => (req, res) => {
+  if (lifecycle.clockPaused() && !WHILE_PAUSED.has(name)) return res.status(409).json(PAUSED);
   here(req.session.userId);
   const result = actions[name](req.session.userId, plainBody(req.body));
   if (result.ok) push(req.session.userId);
@@ -227,6 +471,7 @@ for (const [route, name] of ACTION_ROUTES) app.post(`/api/${route}`, requireAuth
 app.post('/api/here', requireAuth, (req, res) => { here(req.session.userId); res.json({ ok: true }); });
 // Absence: dismiss the notice after a long time away; or, for a parked colony, retake it or start a new one.
 const absenceAct = (fn) => (req, res) => {
+  if (lifecycle.clockPaused()) return res.status(409).json(PAUSED);
   const result = fn(req.session.userId);
   if (result.ok) push(req.session.userId);
   res.status(result.ok ? 200 : 400).json({ ...result, state: result.ok ? viewFor(req.session.userId) : undefined });
@@ -236,7 +481,9 @@ app.post('/api/retake', requireAuth, absenceAct((uid) => absence.retake(uid)));
 app.post('/api/start-over', requireAuth, absenceAct((uid) => absence.startOver(uid)));
 
 // ---- pages ----------------------------------------------------------------------
-app.get('/', (req, res) => (req.session.userId ? res.redirect('/game') : res.sendFile(path.join(PUBLIC, 'index.html'))));
+// The sign-in page; a signed-in commander with nothing left to confirm goes straight to the game. (Links from emails come
+// here too: /?verify=<token>, /?reset=<token>.)
+app.get('/', (req, res) => (req.session.userId && !accounts.gate(req.session.userId) && !lifecycle.maintenance() && !req.query.verify && !req.query.reset ? res.redirect('/game') : res.sendFile(path.join(PUBLIC, 'index.html'))));
 // The game has two shells over the same client code: game.html for a desk and mobile.html for a phone. Which one is sent:
 // an explicit ?ui=mobile|desktop, else the player's saved choice (the ft_ui cookie, set from the menu), else the browser's
 // own description of itself. The client corrects a wrong guess once, from the real screen size.
@@ -248,7 +495,7 @@ function wantsMobile(req) {
   return /Mobi|Android|iPhone|iPod|Windows Phone/i.test(req.get('user-agent') || '');
 }
 app.get('/game', (req, res) => {
-  if (!req.session.userId) return res.redirect('/');
+  if (!req.session.userId || accounts.gate(req.session.userId) || lifecycle.maintenance()) return res.redirect('/');
   absence.markActive(req.session.userId); // opening the game is an interaction
   res.set({ Vary: 'User-Agent, Cookie', 'Cache-Control': 'no-store' });
   res.sendFile(path.join(PUBLIC, wantsMobile(req) ? 'mobile.html' : 'game.html'));
@@ -270,6 +517,7 @@ app.use((err, req, res, next) => {
     return res.status(status).json({ ok: false, error: msg });
   }
   console.error(err);
+  serverlog.error('server', `${req.method} ${req.path}: ${err.message}`, { userId: req.session && req.session.userId, ip: req.ip, data: { stack: String(err.stack || '').split('\n').slice(0, 6) } });
   res.status(500).json({ ok: false, error: 'Server error.' });
 });
 
@@ -297,8 +545,9 @@ function acquireLock() {
 // Stop ticking, end the SSE streams (they would keep the server open forever), let in-flight
 // requests finish, then close the database so the WAL is checkpointed. Missed ticks are
 // caught up on the next start, so nothing is lost by stopping early.
-function installShutdown(server, stopBackups) {
+function installShutdown(servers, stopBackups) {
   let closing = false;
+  const [server, ...others] = servers;
   const shutdown = (reason, code = 0) => {
     if (closing) return;
     closing = true;
@@ -308,6 +557,7 @@ function installShutdown(server, stopBackups) {
     engine.stop();
     if (stopBackups) stopBackups();
     for (const set of streams.values()) for (const r of set) r.end();
+    for (const o of others) { o.close(); o.closeIdleConnections(); }
     server.close(() => {
       try { store.db.close(); } catch (e) { console.error('Database close failed:', e); code = code || 1; }
       console.log('Shutdown complete.');
@@ -315,6 +565,7 @@ function installShutdown(server, stopBackups) {
     });
     server.closeIdleConnections();
   };
+  lifecycle.onShutdown(shutdown); // the admin panel restarts the server through this (after an update or a full restore)
   for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => shutdown(sig));
   process.on('uncaughtException', (err) => { console.error('Uncaught exception:', err); shutdown('uncaughtException', 1); });
   process.on('unhandledRejection', (err) => { console.error('Unhandled rejection:', err); shutdown('unhandledRejection', 1); });
@@ -323,14 +574,36 @@ function installShutdown(server, stopBackups) {
 if (require.main === module) {
   acquireLock();
   engine.start();
-  setInterval(() => store.purgeSessions(), 3600000).unref();
+  setInterval(() => { store.purgeSessions(); accounts.pruneTokens(); serverlog.prune(); }, 3600000).unref();
   store.purgeSessions();
   const stopBackups = backup.start();
   const server = app.listen(PORT, () => console.log(`FAILTECH command running at http://localhost:${PORT}`));
-  server.requestTimeout = 30000;
-  server.headersTimeout = 15000;
-  server.keepAliveTimeout = 15000;
-  server.maxHeadersCount = 50;
-  installShutdown(server, stopBackups);
+  const servers = [server];
+  // The admin panel: its own port, on an internal address only (127.0.0.1 unless ADMIN_HOST says otherwise). See src/admin/.
+  const adminAt = admin.listenSettings();
+  if (adminAt) {
+    const a = admin.app().listen(adminAt.port, adminAt.host, () => console.log(`Admin panel on http://${adminAt.host}:${adminAt.port}`));
+    a.on('error', (e) => console.error(`Admin panel could not start on ${adminAt.host}:${adminAt.port}: ${e.message}`));
+    servers.push(a);
+  } else console.log('Admin panel is off (ADMIN_PORT=off).');
+  for (const x of servers) {
+    x.requestTimeout = 30000;
+    x.headersTimeout = 15000;
+    x.keepAliveTimeout = 15000;
+    x.maxHeadersCount = 50;
+  }
+  for (const w of startupWarnings()) { console.warn(`Warning: ${w}`); serverlog.warn('server', w); }
+  serverlog.info('server', `Server started (pid ${process.pid})`);
+  installShutdown(servers, stopBackups);
+}
+
+// What a production deployment probably wants set.
+function startupWarnings() {
+  const out = [];
+  const mail = require('./src/mail');
+  if (accounts.verificationRequired() && mail.transportName() === 'log') out.push('EMAIL_VERIFICATION is on but no mail transport is configured: codes are only written to this log.');
+  if (accounts.verificationRequired() && !process.env.PUBLIC_URL) out.push('PUBLIC_URL is not set: emails carry a code but no link.');
+  if (!turnstile.enabled()) out.push('Cloudflare Turnstile is off (TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY).');
+  return out;
 }
 module.exports = app;

@@ -14,6 +14,7 @@ process.env.BCRYPT_ROUNDS = '4';
 process.env.API_RATE_LIMIT = '100000';
 process.env.HAZARDS = 'off';
 process.env.THEME = 'basic'; // these tests assert the neutral theme's wording and script
+process.env.EMAIL_VERIFICATION = 'off'; // these players sign up without an email address (test/accounts.test.js covers verification)
 
 const app = require('../server');
 const store = require('../src/db');
