@@ -262,6 +262,7 @@ test('an authenticator code: opt in from the game, then sign-in asks for it (onc
   assert.equal((await c.post('/api/account/totp/setup', { password: 'nope-nope' })).status, 400);
   const setup = await c.post('/api/account/totp/setup', { password: 'charlie-new-1' });
   assert.match(setup.body.uri, /^otpauth:/);
+  assert.match(Buffer.from(setup.body.qr.split(',')[1], 'base64').toString(), /^<svg/);
   assert.equal((await c.post('/api/account/totp/enable', { code: '000000' === totp.code(setup.body.secret, step()) ? '111111' : '000000' })).status, 400);
   assert.equal((await c.post('/api/account/totp/enable', { code: totp.code(setup.body.secret, step()) })).status, 200);
   assert.equal((await c.get('/api/account')).body.totp, true);

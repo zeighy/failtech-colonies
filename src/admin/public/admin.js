@@ -572,7 +572,7 @@
   FORM.mypass = function (d, f) { return post('/me/password', d).then(function () { f.reset(); toast('Passcode changed.'); }); };
   ACT.totpsetup = function () {
     return post('/me/totp/setup').then(function (r) {
-      $('totp').innerHTML = '<p class="small">Add this key to an authenticator app (or paste the link), then enter the code it shows.</p><div class="key">' + esc(r.secret.replace(/(.{4})/g, '$1 ').trim()) + '</div><p class="small faint" style="word-break:break-all">' + esc(r.uri) + '</p>' +
+      $('totp').innerHTML = '<img class="qr" alt="QR code" src="' + esc(r.qr) + '"><div class="key">' + esc(r.secret.replace(/(.{4})/g, '$1 ').trim()) + '</div><p class="small faint" style="word-break:break-all">' + esc(r.uri) + '</p>' +
         '<form class="row" data-form="totpon"><input name="code" inputmode="numeric" maxlength="6" placeholder="6-digit code" required><button class="btn primary">Turn on</button></form>';
     });
   };

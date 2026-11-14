@@ -47,6 +47,16 @@ function check(secret, input, now = Date.now()) {
   return null;
 }
 
+// The otpauth URI as a QR code, an SVG data URL an <img> can show (the pages' CSP allows data: images).
+function qr(text) {
+  const mod = require('qrcode-generator');
+  const make = mod.default || mod;
+  const q = make(0, 'M');
+  q.addData(text);
+  q.make();
+  return `data:image/svg+xml;base64,${Buffer.from(q.createSvgTag({ cellSize: 5, margin: 4 })).toString('base64')}`;
+}
+
 const uri = (secret, account, issuer) => `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 
-module.exports = { newSecret, code, check, uri, base32, unbase32 };
+module.exports = { newSecret, code, check, uri, qr, base32, unbase32 };

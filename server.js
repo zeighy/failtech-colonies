@@ -293,7 +293,8 @@ app.post('/api/account/totp/setup', authLimit, async (req, res, next) => {
     const totp = require('./src/totp');
     const secret = totp.newSecret();
     req.session.totpPending = secret;
-    res.json({ ok: true, secret, uri: totp.uri(secret, u.username, (config.theme.ui && config.theme.ui.brand) || 'FAILTECH') });
+    const uri = totp.uri(secret, u.username, (config.theme.ui && config.theme.ui.brand) || 'FAILTECH');
+    res.json({ ok: true, secret, uri, qr: totp.qr(uri) });
   } catch (e) { next(e); }
 });
 app.post('/api/account/totp/enable', authLimit, async (req, res, next) => {

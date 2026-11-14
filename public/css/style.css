@@ -839,6 +839,7 @@ button.mg-c:hover:not(:disabled) { background: #2f3b47; }
 .acc-f input { width: 100%; margin-top: 4px; background: var(--bg2); border: 1px solid var(--line2); border-radius: var(--radius); color: var(--text); padding: 8px 10px; font: inherit; }
 .acc-f input:focus { outline: none; border-color: var(--amber); }
 .acc-msg { min-height: 16px; font-size: 12px; margin: 2px 0 8px; }
+.acc-qr { display: block; width: 180px; height: 180px; margin: 0 auto 10px; border-radius: 6px; image-rendering: pixelated; }
 .acc-key { font-size: 15px; letter-spacing: .08em; border: 1px dashed var(--amber); border-radius: var(--radius); padding: 8px 10px; margin-bottom: 6px; user-select: all; word-break: break-all; }
 .acc-uri { font-size: 10px; color: var(--faint); word-break: break-all; margin-bottom: 8px; user-select: all; }
 .modal.account [hidden] { display: none !important; }

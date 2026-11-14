@@ -63,7 +63,7 @@
             done();
             if (!d.ok) return msg(f, d.error);
             f.dataset.step = 'code';
-            f.querySelector('.acc-setup').innerHTML = '<div class="acc-key">' + esc(d.secret.replace(/(.{4})/g, '$1 ').trim()) + '</div><div class="acc-uri">' + esc(d.uri) + '</div>' + codeIn();
+            f.querySelector('.acc-setup').innerHTML = '<img class="acc-qr" alt="QR code" src="' + esc(d.qr) + '"><div class="acc-key">' + esc(d.secret.replace(/(.{4})/g, '$1 ').trim()) + '</div><div class="acc-uri">' + esc(d.uri) + '</div>' + codeIn();
             f.querySelector('[name=password]').closest('label').hidden = true;
             btn.textContent = 'Turn on';
             msg(f, '');

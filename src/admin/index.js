@@ -157,7 +157,8 @@ function app() {
   r.post('/me/totp/setup', need, (req, res) => {
     const secretKey = totp.newSecret();
     req.session.totpPending = secretKey;
-    h.ok(res, { secret: secretKey, uri: totp.uri(secretKey, req.admin.username, `${(store.config.theme.ui && store.config.theme.ui.brand) || 'FAILTECH'} admin`) });
+    const uri = totp.uri(secretKey, req.admin.username, `${(store.config.theme.ui && store.config.theme.ui.brand) || 'FAILTECH'} admin`);
+    h.ok(res, { secret: secretKey, uri, qr: totp.qr(uri) });
   });
   r.post('/me/totp/enable', need, (req, res) => {
     const pending = req.session.totpPending;

@@ -94,6 +94,7 @@ test('admins sign in with a passcode, then with an authenticator code once set u
   assert.equal(r.body.totpMissing, true);
   const setup = await a.post('/api/me/totp/setup');
   assert.match(setup.body.uri, /^otpauth:\/\/totp\//);
+  assert.match(setup.body.qr, /^data:image\/svg\+xml;base64,/);
   assert.equal((await a.post('/api/me/totp/enable', { code: '000000' === totp.code(setup.body.secret, Math.floor(Date.now() / 30000)) ? '111111' : '000000' })).status, 400);
   assert.equal((await a.post('/api/me/totp/enable', { code: totp.code(setup.body.secret, Math.floor(Date.now() / 30000)) })).status, 200);
   await a.post('/api/logout');
