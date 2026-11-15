@@ -51,7 +51,9 @@ FAILTECH and the world of FAILTECH are part of the FAILTECH story universe and a
 
 The FAILTECH Recontinuation story included in `content/recontinuation/` was created for the game and is licensed alongside the FAILTECH Colonies: Radial Command game. The story license permits deployment of the Recontinuation story as-is, without modification, along with the game. No modification of the Recontinuation story by third parties is permitted under this license without prior authorization. The story is licensed separately from the game itself.
 
-The same notice is kept beside the theme data, in [`content/recontinuation/NOTICE.md`](content/recontinuation/NOTICE.md). To change the wording or the narrative of your own deployment, write a theme of your own in another `content/` folder (see [Themes and story](docs/development.md#themes-and-story)) rather than editing `content/recontinuation/`.
+The same notice is kept beside the theme data, in [`content/recontinuation/NOTICE.md`](content/recontinuation/NOTICE.md). To change the wording or the narrative of your own deployment, write a theme of your own in another `content/` folder (see [Themes and story](docs/development.md#themes-and-story)) rather than editing `content/recontinuation/`. The easiest start is the `basic` theme: edit `content/basic/` (or copy it to a new folder, such as `content/mystory/`), write your own story and wording there, then start the server with `THEME=<folder>` (for example `THEME=mystory npm start`).
+
+The art in `content/recontinuation/assets/` is AI-generated, and you may reuse it in your own theme. The characters, story and world of FAILTECH remain copyrighted intellectual property, so a theme that reuses the art must replace the character names and the narrative with its own.
 
 ## License
 
