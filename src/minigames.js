@@ -1,5 +1,5 @@
 'use strict';
-// Trace recovery: short puzzles that earn one successful recovery attempt toward the next data fragment, the same as a
+// Trace recovery: short puzzles that earn successful recovery attempts (one, more at higher levels) toward the next data fragment, the same as a
 // Data Recovery rig's (territories.addDataSuccess). Opens once the colony has read its first data packet.
 //
 // Server-authoritative. The server makes every puzzle (with crypto randomness, so it cannot be predicted from the colony
@@ -203,6 +203,9 @@ function adjust(c, kind, won) {
   return level;
 }
 
+// Steps toward a fragment for a win at a level (0-based): `progressByLevel`, the last entry covering any level past it.
+const stepsFor = (level) => { const p = M().progressByLevel || [1]; return Math.max(1, toInt(p[Math.min(level, p.length - 1)]) || 1); };
+
 // Close a session. The status guard makes it happen once, however many requests race for it.
 function finish(c, row, status, now, tick) {
   const changed = db.prepare("UPDATE minigame_sessions SET status = ?, ended_at = ?, state = ?, secret = ? WHERE id = ? AND status = 'active'")
@@ -211,7 +214,7 @@ function finish(c, row, status, now, tick) {
   const won = status === 'won';
   const level = adjust(c, row.kind, won);
   const name = M().games[row.kind].name;
-  const award = won ? territories.addDataSuccess(c, tick, `${name}: a trace was recovered`) : null;
+  const award = won ? territories.addDataSuccess(c, tick, `${name}: a trace was recovered`, stepsFor(row.level)) : null;
   if (!won) store.addEvent(c.id, tick, 'info', `${name}: the trace was lost.`);
   return { award, level, levelChanged: level !== row.level };
 }
@@ -306,4 +309,4 @@ function view(c, now = Date.now()) {
   };
 }
 
-module.exports = { start, move, quit, view, dayKey, nextReset, relayValid, turn, standing, unlocked, GAMES };
+module.exports = { stepsFor, start, move, quit, view, dayKey, nextReset, relayValid, turn, standing, unlocked, GAMES };

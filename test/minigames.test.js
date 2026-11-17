@@ -223,6 +223,36 @@ test('the seventh success makes a fragment', () => only('cipher', () => {
   assert.equal(c.row().data_successes, 0);
 }));
 
+test('higher levels give extra progress: 1, 1, 2, 2, 3', () => only('cipher', () => {
+  assert.deepEqual([0, 1, 2, 3, 4].map(mini.stepsFor), [1, 1, 2, 2, 3]);
+  const c = colony({ standing: 5000 });
+  let t = NOON;
+  for (const [level, steps] of [[2, 2], [4, 3]]) {
+    db.prepare("INSERT INTO minigame_skill (colony_id, kind, level, streak) VALUES (?, 'cipher', ?, 0) ON CONFLICT (colony_id, kind) DO UPDATE SET level = excluded.level, streak = 0").run(c.id, level);
+    db.prepare('UPDATE colonies SET data_successes = 0 WHERE id = ?').run(c.id);
+    const r = mini.start(c.row(), {}, t, 1);
+    assert.equal(r.session.level, level);
+    const win = mini.move(c.row(), { id: r.session.id, input: { guess: secretOf(r.session.id).code } }, t, 1);
+    assert.equal(win.award.steps, steps);
+    assert.equal(successes(c), steps);
+    t += 1000;
+  }
+}));
+
+test('extra progress past a fragment carries into the next', () => only('cipher', () => {
+  const c = colony();
+  const per = config.orbital.territories.dataSite.attemptsPerFragment;
+  db.prepare("INSERT INTO minigame_skill (colony_id, kind, level, streak) VALUES (?, 'cipher', 4, 0)").run(c.id);
+  db.prepare('UPDATE colonies SET data_successes = ? WHERE id = ?').run(per - 1, c.id);
+  const before = c.row().data_fragments;
+  const r = mini.start(c.row(), {}, NOON, 1);
+  const win = mini.move(c.row(), { id: r.session.id, input: { guess: secretOf(r.session.id).code } }, NOON, 1);
+  assert.equal(win.award.fragment, true);
+  assert.equal(win.award.carried, 2);
+  assert.equal(c.row().data_fragments, before + 1);
+  assert.equal(successes(c), 2);
+}));
+
 test('the server day and its midnight', () => {
   const saved = G.timezone;
   G.timezone = 'America/Toronto';

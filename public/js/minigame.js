@@ -107,7 +107,10 @@
     var r = result, won = r.status === 'won';
     var why = { lost: 'The trace was lost.', expired: 'Time ran out and the trace was lost.', abandoned: 'You let the trace go.' }[r.status] || '';
     var h = '<div class="mg-result ' + (won ? 'good' : 'bad') + '"><b>' + (won ? 'Trace recovered' : 'Trace lost') + '</b>';
-    if (won && r.award) h += '<div>' + (r.award.fragment ? 'That completes a data fragment.' : r.award.wins + ' of ' + r.award.of + ' toward the next fragment.') + '</div>';
+    if (won && r.award) {
+      var a = r.award, gain = a.steps > 1 ? '+' + a.steps + ' progress. ' : '';
+      h += '<div>' + gain + (a.fragment ? (a.fragments > 1 ? a.fragments + ' data fragments completed' : 'That completes a data fragment') + (a.carried ? ', ' + a.carried + ' of ' + a.of + ' toward the next.' : '.') : a.wins + ' of ' + a.of + ' toward the next fragment.') + '</div>';
+    }
     else if (!won) h += '<div>' + why + '</div>';
     if (r.levelChanged) h += '<div class="dim">This puzzle will be ' + (won ? 'harder' : 'easier') + ' next time.</div>';
     return h + '</div>';

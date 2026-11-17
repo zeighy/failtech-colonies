@@ -5109,7 +5109,8 @@
     }
   },
   "minigames": {
-    "description": "Trace recovery: puzzles that earn one successful recovery attempt (the same as a Data Recovery rig's) when solved. Open once the colony has read its first data packet. One free play a day (resets at midnight, server time, or in `timezone` when set, an IANA name like America/Toronto); further plays cost `cost` spendable standing, at most `paidPerDay` a day. Each game keeps its own difficulty per colony: `promoteAfter` wins in a row move it up a level, `demoteAfter` losses in a row move it down. Levels are meant to be even steps, mostly one change each (2026-11-13 first pass, from a simulated careful player: cipher spare guesses over a perfect solver about 4.9/4.4/3.4/3.0/2.0; sweep perfect-play wins about 100/98/92/87/78%; relay seconds per tile 9.6/7.5/5.8/5.5/4.5). Check real win rates with `npm run minigames:report`.",
+    "description": "Trace recovery: puzzles that earn successful recovery attempts (the same as a Data Recovery rig's) when solved: `progressByLevel[level]` of them, by the level played (L1..L5; the last entry covers any higher level). Open once the colony has read its first data packet. One free play a day (resets at midnight, server time, or in `timezone` when set, an IANA name like America/Toronto); further plays cost `cost` spendable standing, at most `paidPerDay` a day. Each game keeps its own difficulty per colony: `promoteAfter` wins in a row move it up a level, `demoteAfter` losses in a row move it down. Levels are meant to be even steps, mostly one change each (2026-11-13 first pass, from a simulated careful player: cipher spare guesses over a perfect solver about 4.9/4.4/3.4/3.0/2.0; sweep perfect-play wins about 100/98/92/87/78%; relay seconds per tile 9.6/7.5/5.8/5.5/4.5). Check real win rates with `npm run minigames:report`.",
+    "progressByLevel": [1, 1, 2, 2, 3],
     "cost": 50,
     "freePerDay": 1,
     "paidPerDay": 7,
