@@ -789,7 +789,8 @@ body.ws-open .call, body.ws-open #toasts { right: 16px; }
 .mg-key .mg-g { width: 38px; height: 38px; font-size: 21px; }
 .mg-key:hover .mg-g { border-color: var(--g); }
 /* sweep */
-.mg-sweepbar { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; font-size: 12px; }
+.mg-sweepbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-bottom: 8px; font-size: 12px; }
+.mg-sweepbar > span:not(.dim) { white-space: nowrap; }
 .mg-sweepbar .btn { margin-left: auto; }
 .mg-sweep { display: grid; gap: 2px; max-width: 420px; margin: 0 auto; }
 .mg-c { aspect-ratio: 1; display: grid; place-items: center; border-radius: 3px; font-size: 13px; font-weight: 600; min-width: 0; padding: 0; }
@@ -808,6 +809,27 @@ button.mg-c:hover:not(:disabled) { background: #2f3b47; }
 .mg-t circle, .mg-t rect { fill: #4a5560; }
 .mg-t.on path { stroke: var(--cyan); } .mg-t.on circle { fill: var(--cyan); }
 .mg-t.core rect { fill: var(--amber); } .mg-t.core path { stroke: var(--amber); }
+
+.mg-parity { display: grid; gap: 2px; max-width: 440px; margin: 0 auto; }
+.mg-p { aspect-ratio: 1; min-width: 0; padding: 0; background: #26303a; border: 1px solid var(--line2); border-radius: 2px; color: var(--dim); font-size: 14px; line-height: 1; }
+.mg-p:hover:not(:disabled) { background: #2f3b47; }
+.mg-p.on { background: var(--cyan); border-color: var(--cyan); }
+.mg-p.void { background: var(--bg2); border-color: var(--line); }
+.mg-p.br { border-right: 2px solid #6b7a88; } .mg-p.bb { border-bottom: 2px solid #6b7a88; }
+.mg-clue { display: flex; gap: 4px; font-size: 11px; color: var(--amber); font-variant-numeric: tabular-nums; }
+.mg-clue i { font-style: normal; }
+.mg-clue.col { flex-direction: column; justify-content: flex-end; align-items: center; gap: 0; padding-bottom: 3px; line-height: 1.15; }
+.mg-clue.row { justify-content: flex-end; align-items: center; padding-right: 5px; }
+.mg-clue.ok { color: var(--dim); } .mg-clue.lost { color: var(--bad); }
+
+.mg-chain { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.mg-pool { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.mg-piece { display: inline-flex; gap: 3px; padding: 4px; background: var(--bg2); border: 1px solid var(--line2); border-radius: 5px; line-height: 0; }
+.mg-piece:hover:not(:disabled) { border-color: var(--amber); }
+.mg-pool .mg-piece:disabled { opacity: .45; }
+.mg-g.sm { width: 24px; height: 24px; font-size: 14px; }
+.mg-g.mk { width: auto; padding: 0 5px; font-size: 10px; font-weight: 700; letter-spacing: .05em; color: var(--amber); }
+.mg-link { font-size: 12px; padding-left: 12px; line-height: 1; } .mg-link.good { color: var(--good); } .mg-link.bad { color: var(--bad); }
 
 /* Headquarters (game.js hqTab) and what its unlocks add to orbit */
 .hqbadge { margin-left: auto; padding: 2px 8px; border: 1px solid var(--amber-d); border-radius: 99px; color: var(--amber); font-size: 11px; white-space: nowrap; }
