@@ -26,7 +26,7 @@
     var G = M();
     if (!G) return '';
     var h = '<div class="sheet-h">Trace recovery</div>';
-    if (!G.unlocked) return h + '<div class="dim" style="font-size:12px">Opens once you have read a data packet. Solve a short puzzle to recover a trace: one successful attempt toward the next fragment, the same as a recovery rig finds.</div>';
+    if (!G.unlocked) return h + '<div class="dim" style="font-size:12px">Opens once you have read a data packet. Solve a short puzzle to recover a trace toward the next fragment, the same as a recovery rig finds. Harder puzzles recover more.</div>';
     var freeLeft = G.free.used < G.free.limit, paidLeft = G.paid.used < G.paid.limit, afford = G.standing.spendable >= G.cost;
     var reset = span(G.nextReset - H.now());
     h += '<div class="mg-box"><div class="mg-stats">' +
@@ -34,7 +34,7 @@
       '<div><span class="label">Spent</span><b class="num dimb">' + G.standing.spent + '</b></div>' +
       '<div><span class="label">Free trace</span><b class="' + (freeLeft ? 'good' : 'dimb') + '">' + (freeLeft ? 'Ready' : 'in ' + reset) + '</b></div>' +
       '<div><span class="label">Paid today</span><b class="num dimb">' + G.paid.used + ' / ' + G.paid.limit + '</b></div></div>';
-    h += '<div class="dim" style="font-size:12px;margin:8px 0">Solve a short puzzle to recover a trace: one successful attempt toward the next fragment. You get one free trace a day (it resets at midnight, server time). After that, each trace costs ' + G.cost + ' standing. Earned standing (' + G.standing.earned + ') still counts in full with the factions.</div>';
+    h += '<div class="dim" style="font-size:12px;margin:8px 0">Solve a short puzzle to recover a trace toward the next fragment: 1 step at L1–L2, 2 at L3–L4, 3 at L5. You get one free trace a day (it resets at midnight, server time). After that, each trace costs ' + G.cost + ' standing. Earned standing (' + G.standing.earned + ') still counts in full with the factions.</div>';
     if (G.active) h += '<div class="actions"><button class="btn primary" data-mg="resume">' + H.icon('play', 12) + ' Resume ' + esc(G.active.name) + '</button></div>';
     else {
       var btns = [];
@@ -69,6 +69,8 @@
     if (s.kind === 'cipher') return { draft: [] };
     if (s.kind === 'sweep') return { flags: {}, flagMode: false };
     if (s.kind === 'relay') return { turns: s.game.tiles.map(function () { return 0; }) };
+    if (s.kind === 'parity') return { cells: new Array(s.game.size * s.game.size).fill(0), markMode: false };
+    if (s.kind === 'splice') return { chain: [] };
     return {};
   }
   function tickClock() {
@@ -98,9 +100,11 @@
       (result ? '' : '<span class="mg-clock num" data-mg-clock>' + span(cur.expiresAt - H.now()) + '</span>') + '</div>';
     if (info && !result) h += '<p class="mg-blurb">' + esc(info.blurb) + '</p>';
     if (result) h += outcome();
-    h += '<div class="mg-board">' + (cur.kind === 'cipher' ? cipher() : cur.kind === 'sweep' ? sweep() : relay()) + '</div>';
-    h += '<div class="actions">' + (result ? '<button class="btn primary" data-mg="close">Close</button>'
-      : '<button class="btn" data-mg="quit">Give up</button>' + (cur.kind === 'relay' ? '<button class="btn primary" data-mg="transmit"' + (relayDone() ? '' : ' disabled') + '>Transmit</button>' : '')) + '</div>';
+    h += '<div class="mg-board">' + ({ cipher: cipher, sweep: sweep, relay: relay, parity: parity, splice: splice }[cur.kind] || function () { return ''; })() + '</div>';
+    var submit = cur.kind === 'relay' ? '<button class="btn primary" data-mg="transmit"' + (relayDone() ? '' : ' disabled') + '>Transmit</button>'
+      : cur.kind === 'parity' ? '<button class="btn primary" data-mg="commit">Commit</button>'
+      : cur.kind === 'splice' ? '<button class="btn primary" data-mg="splice"' + (local.chain.length === cur.game.length ? '' : ' disabled') + '>Transmit</button>' : '';
+    h += '<div class="actions">' + (result ? '<button class="btn primary" data-mg="close">Close</button>' : '<button class="btn" data-mg="quit">Give up</button>' + submit) + '</div>';
     box.innerHTML = h;
   }
   function outcome() {
@@ -192,6 +196,57 @@
     return h + '</div><div class="dim mg-hint">' + (result && result.status !== 'won' ? 'One working layout.' : lit + ' of ' + ms.length + ' conduits carry signal. Tap to turn clockwise, right-click to turn back.') + '</div>';
   }
 
+  // parity: local cells are 0 unknown, 1 intact, 2 marked void
+  function runs(bits) { var out = [], r = 0; bits.forEach(function (b) { if (b) r++; else if (r) { out.push(r); r = 0; } }); if (r) out.push(r); return out; }
+  function clueHtml(c, bits, cls) {
+    var ok = c && runs(bits).join(',') === c.join(',');
+    return '<span class="mg-clue ' + cls + (ok ? ' ok' : '') + (c ? '' : ' lost') + '">' + (c ? (c.length ? c : [0]).map(function (x) { return '<i>' + x + '</i>'; }).join('') : '<i>?</i>') + '</span>';
+  }
+  function parity() {
+    var g = cur.game, n = g.size, show = result && g.solution && result.status !== 'won', x, y;
+    var cell = function (i) { return show ? g.solution[i] : local.cells[i] === 1 ? 1 : 0; };
+    var row = function (y) { var b = []; for (var x = 0; x < n; x++) b.push(cell(y * n + x)); return b; };
+    var col = function (x) { var b = []; for (var y = 0; y < n; y++) b.push(cell(y * n + x)); return b; };
+    var left = g.maxCommits - g.commits.length;
+    var h = '<div class="mg-sweepbar"><span>Commits left <b class="' + (left > 1 ? 'good' : 'bad') + '">' + left + '</b> / ' + g.maxCommits + '</span>' +
+      (g.commits.length ? '<span>Last commit <b class="warn">' + g.commits[g.commits.length - 1].off + '</b> cells off</span>' : '') +
+      (result ? '' : '<button class="btn' + (local.markMode ? ' primary' : '') + '" data-mg="pmark">' + (local.markMode ? 'Marking void' : 'Mark void') + '</button>') + '</div>';
+    h += '<div class="mg-parity" style="grid-template-columns:auto repeat(' + n + ',1fr)"><span></span>';
+    for (x = 0; x < n; x++) h += clueHtml(g.cols[x], col(x), 'col');
+    for (y = 0; y < n; y++) {
+      h += clueHtml(g.rows[y], row(y), 'row');
+      for (x = 0; x < n; x++) {
+        var i = y * n + x, v = show ? g.solution[i] : local.cells[i];
+        h += '<button class="mg-p' + (v === 1 ? ' on' : v === 2 ? ' void' : '') + ((x + 1) % 5 === 0 && x + 1 < n ? ' br' : '') + ((y + 1) % 5 === 0 && y + 1 < n ? ' bb' : '') + '" data-mg="pcell" data-i="' + i + '"' + (result ? ' disabled' : '') + '>' + (v === 2 ? '·' : '') + '</button>';
+      }
+    }
+    return h + '</div>' + (show ? '<div class="dim mg-hint">The block as it was.</div>' : '');
+  }
+  // splice: symbols are 0..n-1, BEGIN -1, END -2
+  function sym(k) { return k === -1 ? '<span class="mg-g sm mk">BEGIN</span>' : k === -2 ? '<span class="mg-g sm mk">END</span>' : glyph(k, 'sm'); }
+  function fits(a, b, k) { if (a.length < k || b.length < k) return false; for (var i = 0; i < k; i++) { var s = a[a.length - k + i]; if (s < 0 || s !== b[i]) return false; } return true; }
+  function splice() {
+    var g = cur.game, show = result && g.order && result.status !== 'won', chain = show ? g.order : local.chain, inChain = {}, h;
+    chain.forEach(function (p) { inChain[p] = 1; });
+    var left = g.maxAttempts - g.attempts.length, last = g.attempts[g.attempts.length - 1];
+    h = '<div class="mg-sweepbar"><span>Attempts left <b class="' + (left > 1 ? 'good' : 'bad') + '">' + left + '</b> / ' + g.maxAttempts + '</span>' +
+      (last ? '<span>Last attempt <b class="warn">' + last.links + '</b> of ' + (g.length - 1) + ' links right</span>' : '') +
+      '<span class="dim">' + g.length + ' pieces' + (g.decoys ? ' · ' + g.decoys + ' not from this log' : '') + ' · overlap ' + g.overlap + '</span></div>';
+    h += '<div class="mg-chain">' + (chain.length ? '' : '<div class="dim mg-hint">Empty chain.</div>');
+    chain.forEach(function (p, i) {
+      var ok = i && fits(g.pieces[chain[i - 1]], g.pieces[p], g.overlap);
+      if (i) h += '<div class="mg-link ' + (ok ? 'good' : 'bad') + '">' + (ok ? '⋮' : '✕') + '</div>';
+      h += '<button class="mg-piece" data-mg="unpiece" data-i="' + i + '"' + (result ? ' disabled' : '') + '>' + g.pieces[p].map(sym).join('') + '</button>';
+    });
+    h += '</div>';
+    if (!result) {
+      h += '<div class="label" style="margin-top:10px">Pieces</div><div class="mg-pool">';
+      g.pieces.forEach(function (pc, i) { if (!inChain[i]) h += '<button class="mg-piece" data-mg="piece" data-i="' + i + '"' + (local.chain.length >= g.length ? ' disabled' : '') + '>' + pc.map(sym).join('') + '</button>'; });
+      h += '</div>';
+    } else if (show) h += '<div class="dim mg-hint">The log as it was.</div>';
+    return h;
+  }
+
   // ---- input ------------------------------------------------------------------------------------------------------
   function onContext(e) {
     if (!bg || !cur || result) return;
@@ -199,7 +254,9 @@
     if (!el || !bg.contains(el)) return;
     if (el.dataset.mg === 'cell') { e.preventDefault(); toggleFlag(+el.dataset.i); }
     else if (el.dataset.mg === 'rot') { e.preventDefault(); local.turns[+el.dataset.i] = (local.turns[+el.dataset.i] + 3) % 4; draw(); }
+    else if (el.dataset.mg === 'pcell') { e.preventDefault(); markVoid(+el.dataset.i); }
   }
+  function markVoid(i) { local.cells[i] = local.cells[i] === 2 ? 0 : 2; draw(); }
   function toggleFlag(i) { if (local.flags[i]) delete local.flags[i]; else local.flags[i] = 1; draw(); }
   function onClick(e) {
     var el = e.target.closest('[data-mg]');
@@ -226,6 +283,12 @@
     }
     else if (a === 'rot') { local.turns[+el.dataset.i] = (local.turns[+el.dataset.i] + 1) % 4; draw(); }
     else if (a === 'transmit') send('minigame-move', { id: cur.id, input: { turns: local.turns.slice() } });
+    else if (a === 'pmark') { local.markMode = !local.markMode; draw(); }
+    else if (a === 'pcell') { var pi = +el.dataset.i; if (local.markMode) markVoid(pi); else { local.cells[pi] = local.cells[pi] === 1 ? 0 : 1; draw(); } }
+    else if (a === 'commit') send('minigame-move', { id: cur.id, input: { cells: local.cells.map(function (v) { return v === 1 ? 1 : 0; }) } });
+    else if (a === 'piece') { if (local.chain.length < cur.game.length) { local.chain.push(+el.dataset.i); draw(); } }
+    else if (a === 'unpiece') { local.chain.splice(+el.dataset.i, 1); draw(); }
+    else if (a === 'splice') send('minigame-move', { id: cur.id, input: { order: local.chain.slice() } });
   }
 
   window.Mini = { init: init, section: section };

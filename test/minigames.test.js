@@ -1,5 +1,5 @@
 'use strict';
-// Trace recovery: unlocking, paying (free daily play, standing, daily cap), the three games judged on the server, the
+// Trace recovery: unlocking, paying (free daily play, standing, daily cap), the games judged on the server, the
 // award toward a fragment, difficulty that follows the streak, expiry, and what the client is (not) told.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -251,6 +251,63 @@ test('extra progress past a fragment carries into the next', () => only('cipher'
   assert.equal(win.award.carried, 2);
   assert.equal(c.row().data_fragments, before + 1);
   assert.equal(successes(c), 2);
+}));
+
+test('parity rebuild: the clues fit one grid, the grid stays hidden, and a commit is judged', () => only('parity', () => {
+  for (const L of G.games.parity.levels) {
+    const { secret, state } = mini.GAMES.parity.make(L);
+    const solved = mini.paritySolve(L.size, state.rows, state.cols);
+    assert.deepEqual(solved, secret.cells, `L${L.size}: the visible clues alone finish the grid`);
+    assert.equal([...state.rows, ...state.cols].filter((c) => c === null).length, L.hidden);
+  }
+  const c = colony({ standing: 500 });
+  const r = mini.start(c.row(), {}, NOON, 1);
+  assert.equal(r.session.game.solution, undefined);
+  assert.ok(!JSON.stringify(viewFor(c.uid).minigame.active).includes('cells'));
+  const { cells } = secretOf(r.session.id);
+  assert.match(mini.move(c.row(), { id: r.session.id, input: { cells: [1] } }, NOON + 10000, 1).error, /cells/);
+  assert.match(mini.move(c.row(), { id: r.session.id, input: { cells } }, NOON + 1000, 1).error, /loading/);
+  const wrong = cells.slice(); wrong[0] = 1 - wrong[0]; wrong[1] = 1 - wrong[1];
+  const w = mini.move(c.row(), { id: r.session.id, input: { cells: wrong } }, NOON + 10000, 1);
+  assert.equal(w.status, 'active');
+  assert.equal(w.reply.off, 2);
+  const win = mini.move(c.row(), { id: r.session.id, input: { cells } }, NOON + 11000, 1);
+  assert.equal(win.status, 'won');
+  assert.deepEqual(win.session.game.solution, cells);
+  assert.equal(successes(c), 1);
+}));
+
+test('parity rebuild: out of commits loses', () => only('parity', () => {
+  const c = colony();
+  const r = mini.start(c.row(), {}, NOON, 1);
+  const blank = new Array(r.session.game.size ** 2).fill(0);
+  let m;
+  for (let i = 0; i < r.session.game.maxCommits; i++) m = mini.move(c.row(), { id: r.session.id, input: { cells: blank } }, NOON + 10000, 1);
+  assert.equal(m.status, 'lost');
+  assert.equal(successes(c), 0);
+}));
+
+test('log splice: one chain fits, the order stays hidden, and an attempt counts its right links', () => only('splice', () => {
+  for (const L of G.games.splice.levels) {
+    const { secret, state } = mini.GAMES.splice.make(L);
+    assert.equal(state.pieces.length, L.pieces + L.decoys);
+    assert.deepEqual(mini.spliceChains(state.pieces, L.pieces, L.overlap, 5), [secret.order]);
+    assert.equal(state.pieces[secret.order[0]][0], mini.BEGIN);
+    assert.equal(state.pieces[secret.order[L.pieces - 1]].at(-1), mini.END);
+  }
+  const c = colony();
+  const r = mini.start(c.row(), {}, NOON, 1);
+  assert.equal(r.session.game.order, undefined);
+  const { order } = secretOf(r.session.id);
+  assert.match(mini.move(c.row(), { id: r.session.id, input: { order: order.slice(1) } }, NOON, 1).error, /pieces/);
+  assert.match(mini.move(c.row(), { id: r.session.id, input: { order: order.map(() => order[0]) } }, NOON, 1).error, /once/);
+  const swapped = order.slice(); [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
+  const w = mini.move(c.row(), { id: r.session.id, input: { order: swapped } }, NOON, 1);
+  assert.equal(w.status, 'active');
+  assert.equal(w.reply.links, order.length - 3, 'the swap breaks the two links around it, and the one between flips');
+  const win = mini.move(c.row(), { id: r.session.id, input: { order } }, NOON, 1);
+  assert.equal(win.status, 'won');
+  assert.deepEqual(win.session.game.order, order);
 }));
 
 test('the server day and its midnight', () => {

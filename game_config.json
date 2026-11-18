@@ -5109,7 +5109,7 @@
     }
   },
   "minigames": {
-    "description": "Trace recovery: puzzles that earn successful recovery attempts (the same as a Data Recovery rig's) when solved: `progressByLevel[level]` of them, by the level played (L1..L5; the last entry covers any higher level). Open once the colony has read its first data packet. One free play a day (resets at midnight, server time, or in `timezone` when set, an IANA name like America/Toronto); further plays cost `cost` spendable standing, at most `paidPerDay` a day. Each game keeps its own difficulty per colony: `promoteAfter` wins in a row move it up a level, `demoteAfter` losses in a row move it down. Levels are meant to be even steps, mostly one change each (2026-11-13 first pass, from a simulated careful player: cipher spare guesses over a perfect solver about 4.9/4.4/3.4/3.0/2.0; sweep perfect-play wins about 100/98/92/87/78%; relay seconds per tile 9.6/7.5/5.8/5.5/4.5). Check real win rates with `npm run minigames:report`.",
+    "description": "Trace recovery: puzzles that earn successful recovery attempts (the same as a Data Recovery rig's) when solved: `progressByLevel[level]` of them, by the level played (L1..L5; the last entry covers any higher level). Open once the colony has read its first data packet. One free play a day (resets at midnight, server time, or in `timezone` when set, an IANA name like America/Toronto); further plays cost `cost` spendable standing, at most `paidPerDay` a day. Each game keeps its own difficulty per colony: `promoteAfter` wins in a row move it up a level, `demoteAfter` losses in a row move it down. Levels are meant to be even steps, mostly one change each (2026-11-13 first pass, from a simulated careful player: cipher spare guesses over a perfect solver about 4.9/4.4/3.4/3.0/2.0; sweep perfect-play wins about 100/98/92/87/78%; relay seconds per tile 9.6/7.5/5.8/5.5/4.5). Parity and splice (2026-11-18) are untuned first guesses: splice averages 1.1/1.2/1.5/1.7/1.9 pieces that fit after each piece; parity only deals grids a line-by-line reasoner can finish from the visible clues. Check real win rates with `npm run minigames:report`.",
     "progressByLevel": [1, 1, 2, 2, 3],
     "cost": 50,
     "freePerDay": 1,
@@ -5150,6 +5150,29 @@
           { "size": 6, "timeLimitSec": 210 },
           { "size": 7, "timeLimitSec": 270 },
           { "size": 7, "timeLimitSec": 220 }
+        ]
+      },
+      "parity": {
+        "name": "Parity Rebuild",
+        "blurb": "Rebuild the corrupted block. The checksums give the runs of intact cells in each row and column, in order. A ? checksum was lost.",
+        "minSolveSec": 4,
+        "levels": [
+          { "size": 5, "hidden": 0, "commits": 3, "density": 0.6, "timeLimitSec": 240 },
+          { "size": 6, "hidden": 0, "commits": 3, "density": 0.58, "timeLimitSec": 300 },
+          { "size": 8, "hidden": 0, "commits": 3, "density": 0.56, "timeLimitSec": 420 },
+          { "size": 10, "hidden": 2, "commits": 3, "density": 0.55, "timeLimitSec": 600 },
+          { "size": 10, "hidden": 4, "commits": 2, "density": 0.55, "timeLimitSec": 600 }
+        ]
+      },
+      "splice": {
+        "name": "Log Splice",
+        "blurb": "Chain the log back together from BEGIN to END. Each piece starts with the last symbols of the one before it. Some pieces are not from this log.",
+        "levels": [
+          { "pieces": 5, "decoys": 0, "overlap": 2, "symbols": 5, "attempts": 3, "timeLimitSec": 240 },
+          { "pieces": 6, "decoys": 1, "overlap": 2, "symbols": 4, "attempts": 3, "timeLimitSec": 240 },
+          { "pieces": 7, "decoys": 1, "overlap": 1, "symbols": 6, "attempts": 3, "timeLimitSec": 300 },
+          { "pieces": 8, "decoys": 2, "overlap": 1, "symbols": 6, "attempts": 3, "timeLimitSec": 300 },
+          { "pieces": 9, "decoys": 2, "overlap": 1, "symbols": 5, "attempts": 2, "timeLimitSec": 360 }
         ]
       }
     }

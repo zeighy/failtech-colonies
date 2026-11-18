@@ -7,6 +7,8 @@
 //   cipher  the key never leaves the server; each guess is scored here
 //   sweep   the corrupted sectors never leave the server; each read is answered here
 //   relay   the scrambled grid is public (the player turns tiles in the client); the server checks the final layout
+//   parity  the clues are public; the grid never leaves the server; each commit is checked here
+//   splice  the pieces are public; their order (and which are decoys) never leaves the server
 // The secret is revealed in the reply that ends a session, never before.
 //
 // Paying: one free play a server day, then `cost` standing a play, at most `paidPerDay` a day. Standing is spent from a
@@ -40,7 +42,7 @@ function nextReset(ms) {
   return Date.UTC(p.y, p.m - 1, p.d + 1) - off;
 }
 
-// ---- the three games --------------------------------------------------------------------------------------------
+// ---- the games -------------------------------------------------------------------------------------------------
 // Each: make(L) -> { secret, state }; view(L, state, secret|null) -> what the client sees (secret only once it is over);
 // move(L, secret, state, input, ctx) -> { error } | { status: 'active'|'won'|'lost', reply }  (it may change state/secret).
 
@@ -175,7 +177,154 @@ const relay = {
   },
 };
 
-const GAMES = { cipher, sweep, relay };
+// Parity Rebuild: a grid of intact (1) and void (0) cells with run-length clues for every row and column. The clues are
+// public; the grid stays here. Only grids a line-by-line reasoner can finish are dealt (so the visible clues fit exactly
+// one grid and no guessing is needed); `hidden` clues are then scrambled while that still holds.
+const runsOf = (bits) => { const out = []; let r = 0; for (const b of bits) { if (b) r++; else if (r) { out.push(r); r = 0; } } if (r) out.push(r); return out; };
+const lineCache = {};
+// Every pattern of n cells (as an int, bit i = cell i), grouped by its clue.
+function linePatterns(n) {
+  if (lineCache[n]) return lineCache[n];
+  const by = {};
+  for (let p = 0; p < 1 << n; p++) {
+    const key = runsOf(Array.from({ length: n }, (_, i) => (p >> i) & 1)).join(',');
+    (by[key] = by[key] || []).push(p);
+  }
+  return (lineCache[n] = { by, all: [...Array(1 << n).keys()] });
+}
+// Fill in what the clues force, line by line, until nothing changes. Returns the grid (1, 0, or null for unknown).
+function paritySolve(n, rows, cols) {
+  const P = linePatterns(n), grid = new Array(n * n).fill(null);
+  const cand = (clue) => (clue === null ? P.all : P.by[clue.join(',')] || []);
+  const lines = [...rows.map((c, y) => ({ clue: cand(c), at: (i) => y * n + i })), ...cols.map((c, x) => ({ clue: cand(c), at: (i) => i * n + x }))];
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const L of lines) {
+      let K = 0, V = 0;
+      for (let i = 0; i < n; i++) { const v = grid[L.at(i)]; if (v !== null) { K |= 1 << i; if (v) V |= 1 << i; } }
+      if (K === (1 << n) - 1) continue;
+      let on = (1 << n) - 1, off = (1 << n) - 1, any = false;
+      for (const p of L.clue) if ((p & K) === V) { on &= p; off &= ~p; any = true; }
+      if (!any) return null;
+      for (let i = 0; i < n; i++) {
+        if (K & (1 << i)) continue;
+        if (on & (1 << i)) { grid[L.at(i)] = 1; changed = true; } else if (off & (1 << i)) { grid[L.at(i)] = 0; changed = true; }
+      }
+    }
+  }
+  return grid;
+}
+const parityClues = (n, cells) => ({
+  rows: Array.from({ length: n }, (_, y) => runsOf(cells.slice(y * n, y * n + n))),
+  cols: Array.from({ length: n }, (_, x) => runsOf(Array.from({ length: n }, (_, y) => cells[y * n + x]))),
+});
+const solvedBy = (n, rows, cols) => { const g = paritySolve(n, rows, cols); return !!g && !g.includes(null); };
+function parityBoard(L) {
+  const n = L.size, density = L.density || 0.55;
+  for (let tries = 0; ; tries++) {
+    const cells = Array.from({ length: n * n }, () => (ri(1000) < density * 1000 ? 1 : 0));
+    const { rows, cols } = parityClues(n, cells);
+    if (rows.some((r) => !r.length) || cols.some((c) => !c.length)) continue; // no blank lines: they give too much away
+    if (!solvedBy(n, rows, cols)) continue;
+    // Scramble clues one at a time, at random, keeping only those the grid can still be finished without.
+    const vis = { rows: rows.slice(), cols: cols.slice() };
+    let hidden = 0;
+    const order = [...Array(2 * n).keys()];
+    for (let i = order.length - 1; i > 0; i--) { const j = ri(i + 1); [order[i], order[j]] = [order[j], order[i]]; }
+    for (const k of order) {
+      if (hidden >= (L.hidden || 0)) break;
+      const side = k < n ? 'rows' : 'cols', i = k % n, keep = vis[side][i];
+      vis[side][i] = null;
+      if (solvedBy(n, vis.rows, vis.cols)) hidden++; else vis[side][i] = keep;
+    }
+    if (hidden >= (L.hidden || 0) || tries > 200) return { cells, rows: vis.rows, cols: vis.cols };
+  }
+}
+const parity = {
+  make(L) {
+    const b = parityBoard(L);
+    return { secret: { cells: b.cells }, state: { rows: b.rows, cols: b.cols, commits: [] } };
+  },
+  view(L, st, sec) { return { size: L.size, rows: st.rows, cols: st.cols, maxCommits: L.commits, commits: st.commits, solution: sec ? sec.cells : undefined }; },
+  // A commit is the whole grid (1 intact, anything else void). A wrong one is told how many cells are off.
+  move(L, sec, st, input, ctx) {
+    const g = input && input.cells, n = L.size * L.size;
+    if (!Array.isArray(g) || g.length !== n) return { error: `Send all ${n} cells.` };
+    if (ctx.elapsed < (M().games.parity.minSolveSec || 0) * 1000) return { error: 'The block is still loading. Try again in a moment.' };
+    const off = g.reduce((s, v, i) => s + ((v === 1 ? 1 : 0) !== sec.cells[i] ? 1 : 0), 0);
+    st.commits.push({ off });
+    return { status: !off ? 'won' : st.commits.length >= L.commits ? 'lost' : 'active', reply: { off } };
+  },
+};
+
+// Log Splice: a log cut into overlapping pieces, dealt shuffled with decoys. Each real piece starts with the last
+// `overlap` symbols of the one before; the first opens with BEGIN and the last closes with END. Symbols are 0..n-1;
+// BEGIN is -1 and END is -2. Only logs whose pieces fit together in exactly one chain are dealt. Each attempt is told
+// how many of its links are right.
+const BEGIN = -1, END = -2;
+const fits = (a, b, k) => a.length >= k && b.length >= k && a.slice(-k).every((s, i) => s === b[i] && s >= 0);
+// The chains of `count` distinct pieces from a BEGIN piece to an END piece, every link fitting (stops once past `cap`).
+function spliceChains(pieces, count, k, cap = 2) {
+  const out = [], used = new Set();
+  const walk = (path) => {
+    if (out.length > cap) return;
+    const last = pieces[path[path.length - 1]];
+    if (path.length === count) { if (last[last.length - 1] === END) out.push(path.slice()); return; }
+    if (last[last.length - 1] === END) return;
+    for (let j = 0; j < pieces.length; j++) if (!used.has(j) && fits(last, pieces[j], k)) { used.add(j); path.push(j); walk(path); path.pop(); used.delete(j); }
+  };
+  pieces.forEach((p, i) => { if (p[0] === BEGIN) { used.add(i); walk([i]); used.delete(i); } });
+  return out;
+}
+function spliceBoard(L) {
+  const k = L.overlap, sym = () => ri(L.symbols);
+  for (let tries = 0; ; tries++) {
+    const real = [];
+    let prev = null;
+    for (let i = 0; i < L.pieces; i++) {
+      const body = Array.from({ length: Math.max(L.minFresh || 2, k) + ri(2) }, sym);
+      const p = [...(prev ? prev.slice(-k) : [BEGIN]), ...body];
+      if (i === L.pieces - 1) p.push(END);
+      real.push(p); prev = p;
+    }
+    // A decoy opens with the tail of some real piece, so it looks like it follows on, and goes nowhere.
+    const decoys = Array.from({ length: L.decoys || 0 }, () => {
+      const src = real[ri(L.pieces - 1)];
+      return [...src.slice(-k), ...Array.from({ length: Math.max(L.minFresh || 2, k) + ri(2) }, sym)];
+    });
+    const all = [...real.map((p, i) => ({ p, i })), ...decoys.map((p) => ({ p, i: -1 }))];
+    for (let i = all.length - 1; i > 0; i--) { const j = ri(i + 1); [all[i], all[j]] = [all[j], all[i]]; }
+    const pieces = all.map((x) => x.p);
+    const order = real.map((_, r) => all.findIndex((x) => x.i === r));
+    const chains = spliceChains(pieces, L.pieces, k);
+    if (chains.length === 1 || tries > 2000) return { pieces, order };
+  }
+}
+const splice = {
+  make(L) {
+    const b = spliceBoard(L);
+    return { secret: { order: b.order }, state: { pieces: b.pieces, attempts: [] } };
+  },
+  view(L, st, sec) {
+    return { pieces: st.pieces, length: L.pieces, decoys: L.decoys || 0, overlap: L.overlap, maxAttempts: L.attempts, attempts: st.attempts, order: sec ? sec.order : undefined };
+  },
+  // An attempt is the chain, BEGIN to END, as indexes into the pieces.
+  move(L, sec, st, input) {
+    const o = input && input.order;
+    if (!Array.isArray(o) || o.length !== L.pieces) return { error: `A chain is ${L.pieces} pieces.` };
+    const order = o.map(toInt);
+    if (order.some((x) => Number.isNaN(x) || x < 0 || x >= st.pieces.length) || new Set(order).size !== order.length) return { error: 'Each piece once.' };
+    const next = {};
+    sec.order.forEach((p, i) => { if (i + 1 < sec.order.length) next[p] = sec.order[i + 1]; });
+    let links = 0;
+    for (let i = 0; i + 1 < order.length; i++) if (next[order[i]] === order[i + 1]) links++;
+    const won = order.every((p, i) => p === sec.order[i]);
+    st.attempts.push({ order, links });
+    return { status: won ? 'won' : st.attempts.length >= L.attempts ? 'lost' : 'active', reply: { links, of: L.pieces - 1 } };
+  },
+};
+
+const GAMES = { cipher, sweep, relay, parity, splice };
 const kinds = () => Object.keys(GAMES).filter((k) => M().games[k] && M().games[k].levels && M().games[k].levels.length);
 const levelOf = (kind, level) => { const ls = M().games[kind].levels; return ls[Math.max(0, Math.min(ls.length - 1, level))]; };
 
@@ -309,4 +458,4 @@ function view(c, now = Date.now()) {
   };
 }
 
-module.exports = { stepsFor, start, move, quit, view, dayKey, nextReset, relayValid, turn, standing, unlocked, GAMES };
+module.exports = { stepsFor, paritySolve, parityClues, spliceChains, BEGIN, END, start, move, quit, view, dayKey, nextReset, relayValid, turn, standing, unlocked, GAMES };
