@@ -156,7 +156,7 @@
         var r = inv[slot.resource] || { amount: 0, net: 0 };
         return '<div class="oslot hc" style="--c:' + (C().resources[slot.resource] || {}).color + '"><i></i><b>' + esc(rn(slot.resource)) + '</b><span class="num">' + fmt(r.amount) + ' <small>/ ' + fmt(s.hcCap) + '</small></span>' +
           '<small class="' + (r.net > 0.05 ? 'good' : r.net < -0.05 ? 'bad' : 'dim') + '">' + (Math.abs(r.net) < 0.05 ? '±0' : (r.net > 0 ? '+' : '−') + Math.abs(r.net).toFixed(1)) + '/t</small>' +
-          (freeOf(normal) && r.amount <= s.cap ? '<button class="btn" data-orbit="slot-move" data-res="' + slot.resource + '" data-to="normal">To ordinary</button>' : '') +
+          (freeOf(normal) ? '<button class="btn' + (r.amount > s.cap ? ' danger' : '') + '" data-orbit="slot-move" data-res="' + slot.resource + '" data-to="normal" data-over="' + (r.amount > s.cap ? Math.floor(r.amount - s.cap) : 0) + '">' + (isArmed('m' + slot.resource) ? 'Confirm: lose ' + fmt(Math.floor(r.amount - s.cap)) + '?' : 'To ordinary') + '</button>' : '') +
           (r.amount < 1 ? '<button class="btn" data-orbit="slot-release" data-slot="' + slot.idx + '">Free it</button>' : '') + '</div>';
       }).join('');
     }
@@ -382,7 +382,10 @@
     else if (a === 'jettison') {
       if (confirmClick('j' + el.dataset.slot)) act('jettison', { slot: +el.dataset.slot });
     } else if (a === 'rebuild') act('rebuild-slot', { slot: +el.dataset.slot });
-    else if (a === 'slot-move') act('orbit-slot-move', { resource: el.dataset.res, to: el.dataset.to });
+    else if (a === 'slot-move') {
+      var over = +el.dataset.over > 0;
+      if (!over || confirmClick('m' + el.dataset.res)) act('orbit-slot-move', { resource: el.dataset.res, to: el.dataset.to, confirm: over });
+    }
     else if (a === 'slot-release') act('orbit-slot-release', { slot: +el.dataset.slot });
     else if (a === 'ship-refit') act('hq-refit', { ship: +el.dataset.ship }, 'Refitted to level 4.');
     else if (a === 'storage-up') act('orbit-storage', {});

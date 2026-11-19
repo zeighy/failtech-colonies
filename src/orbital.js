@@ -362,8 +362,8 @@ function jettison(c, { slot }) {
 }
 
 // Move a resource between an ordinary slot and a high-capacity one (`to`: 'hc' or 'normal'). It needs an empty open slot
-// of the other kind, and moving out of a high-capacity slot needs the stock to fit an ordinary one. The slot it leaves is free.
-function moveSlot(c, { resource, to }) {
+// of the other kind, and moving out of a high-capacity slot keeps only what an ordinary slot holds (the rest is lost, with `confirm`). The slot it leaves is free.
+function moveSlot(c, { resource, to, confirm }) {
   const st = stationOf(c.id);
   if (!st) return fail('There is no station.');
   if (to !== 'hc' && to !== 'normal') return fail('Move it to a high-capacity slot or an ordinary one.');
@@ -375,7 +375,14 @@ function moveSlot(c, { resource, to }) {
   if (!dest) return fail(to === 'hc' ? 'No high-capacity slot is free.' : 'No ordinary slot is free.');
   const cap = storageLevel(st).cap;
   const have = Math.floor(store.loadInventory(c.id, st.district_id)[resource] || 0);
-  if (to === 'normal' && have > cap) return fail(`An ordinary slot holds ${cap}, and there are ${have}. Use some first.`);
+  const over = to === 'normal' && have > cap;
+  // moving a surplus out of a high-capacity slot forfeits it: only once the player has confirmed
+  if (over && !confirm) return fail(`An ordinary slot holds ${cap}, and there are ${have}. ${have - cap} would be lost.`);
+  if (over) {
+    const inv = store.loadInventory(c.id, st.district_id);
+    inv[resource] = cap;
+    store.saveInventory(c.id, inv, st.district_id);
+  }
   const set = db.prepare('UPDATE orbital_slots SET resource_id = ? WHERE colony_id = ? AND idx = ?');
   set.run(null, c.id, from.idx);
   set.run(resource, c.id, dest.idx);
