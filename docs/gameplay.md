@@ -108,7 +108,7 @@ The post-game sink, for a colony that has done everything else. It opens once th
 - **Discover New District:** charts a copy of an existing district type with its own name (the first is always a Free Port, then a random type, never the same twice running). It is listed for founding at the type's usual cost. Each discovery lies 2 ticks further from the Core.
 - **Station Expansion:**
   - **Orbital link:** one more link between the Core and the station.
-  - **High-capacity storage slot:** a slot of its own that holds 10× the level cap. Goods move between it and the ordinary slots, and it is never jettisoned, only freed once it is empty.
+  - **High-capacity storage slot:** a slot of its own that holds 10× the level cap. Goods move between it and the ordinary slots (moving out keeps only the ordinary cap, and asks first), and it is never jettisoned, only freed once it is empty.
   - **Dropship bay:** one more dropship.
   - **Level 4 refit:** one level-3 ship becomes level 4 (240 power, 3,600 hold, 60/tick links). A level-4 ship is never destroyed: at worst it comes home at 10% with its cargo lost.
 - **Surface Colony Expansion:**

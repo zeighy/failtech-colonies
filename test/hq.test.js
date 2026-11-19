@@ -281,7 +281,13 @@ test('high-capacity storage slots: ten times the cap, goods move in and out, an 
   setStock(c, did, 'frames', cap * 2);
   tick(1);
   assert.ok(stock(c, did, 'frames') > cap * 2, 'the link keeps delivering into it');
-  assert.match(actions.slotMove(c.uid, { resource: 'frames', to: 'normal' }).error, /holds/, 'too much for an ordinary slot');
+  assert.match(actions.slotMove(c.uid, { resource: 'frames', to: 'normal' }).error, /would be lost/, 'too much for an ordinary slot, until confirmed');
+  const before = stock(c, did, 'frames');
+  assert.ok(before > cap);
+  assert.deepEqual(actions.slotMove(c.uid, { resource: 'frames', to: 'normal', confirm: true }), { ok: true });
+  assert.equal(stock(c, did, 'frames'), cap, 'the surplus is forfeited');
+  assert.equal(hc().resource, null);
+  assert.deepEqual(actions.slotMove(c.uid, { resource: 'frames', to: 'hc' }), { ok: true });
   assert.match(actions.jettison(c.uid, { slot: hc().idx }).error, /never jettisoned/);
   assert.match(actions.slotRelease(c.uid, { slot: hc().idx }).error, /Empty/);
   actions.setRoute(c.uid, { from: c.core, to: did, resource: 'frames', rate: 0 });
