@@ -451,7 +451,7 @@ Opens once the colony has read part 1 of any data packet (a screen beside Data).
 | High-capacity storage slot | A storage slot with 10× capacity. Never jettisoned. |
 | Dropship bay | +1 dropship. |
 | Level 4 dropship refit | A level-3 dropship becomes level 4 and indestructible. |
-| Standing route slot | +1 standing route. |
+| Standing route slot | +3 standing routes. |
 | District link capacity | +50/t on every district link. |
 | Territory stabilizer | Take it on a deployment: the territory lasts 100× longer, loses its harm and opens to every station. Reusable. |
 | Stable territory finder | A private, long-lived territory whose rare can always be tapped. |
