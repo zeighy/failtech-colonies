@@ -1139,6 +1139,19 @@
     if (ordersAt(b.ring, b.slot).length) return '';
     return '<button class="btn block" style="margin:-4px 0 12px" data-act="replacemode" title="Swap it for another building on this plot, through the work queue">' + icon('route', 12) + ' Replace with…</button>';
   }
+  function paused0(b) { return b.paused; }
+  // A home's rows: how many people it holds and what that is made of, and the comfort it feels and where that comes from.
+  function homesRows(b, d) {
+    var base = d.housing, tot = b.homes === null || b.homes === undefined ? base * b.plot * (b.xscale || 1) : b.homes, parts = [base + ' base'];
+    if (b.plot < 0.999 || b.plot > 1.001) parts.push('plot ×' + b.plot.toFixed(2));
+    if (b.xscale > 1.001) parts.push('level ×' + b.xscale.toFixed(2));
+    if (b.homeMult > 1.001) parts.push('households ×' + b.homeMult.toFixed(2));
+    var cp = [];
+    if (b.comfortNb) cp.push((b.comfortNb > 0 ? '+' : '−') + Math.abs(b.comfortNb) + ' neighbours');
+    if (b.comfortOpt) cp.push((b.comfortOpt > 0 ? '+' : '−') + Math.abs(b.comfortOpt) + ' households');
+    return '<dt>Homes</dt><dd>+' + Math.floor(tot + 0.0001) + ' people<div class="dim" style="font-size:11px">' + parts.join(' · ') + '</div></dd>' +
+      '<dt>Comfort</dt><dd class="' + (b.comfort > 0 ? 'good' : b.comfort < 0 ? 'bad' : 'dim') + '">' + (b.comfort > 0 ? '+' : '') + (b.comfort || 0) + (cp.length ? '<div class="dim" style="font-size:11px">' + cp.join(' · ') + '</div>' : '') + '</dd>';
+  }
   function builtPanel(b, head) {
     var d = bdef(b.type), st = STATUS[b.paused ? 'paused' : b.status] || STATUS.running;
     var why = (!b.paused && b.limiting) ? ' <span class="dim">(' + esc(CFG.resources[b.limiting].name) + ')</span>' : '';
@@ -1153,11 +1166,14 @@
       '<dt>Adjacency</dt><dd class="' + (b.adj > 1.001 ? 'good' : b.adj < 0.999 ? 'bad' : 'dim') + '">' + (Math.abs(b.adj - 1) < 0.001 ? 'none' : '×' + b.adj.toFixed(2)) + '</dd>' +
       '<dt>Plot</dt><dd class="' + (b.plot < 0.999 ? 'bad' : 'good') + '">' + plotName(b.ring) + (b.plot < 0.999 ? ' · too small for ' + plotName2(d.minPlotSize) + ' · ×' + b.plot.toFixed(2) : (d.minPlotSize > 1 ? ' · fits' : '')) + '</dd>' +
       (d.workers ? '<dt>Crew</dt><dd class="' + (S.colony.staffing.ratio < 0.999 ? 'warn' : '') + '">' + d.workers + ' needed' + (S.colony.staffing.ratio < 0.999 ? ' · colony at ' + pct(S.colony.staffing.ratio) + ' staffed' : '') + '</dd>' : '') +
-      (d.housing ? '<dt>Homes</dt><dd>+' + Math.floor(d.housing * b.plot) + ' people</dd><dt>Comfort</dt><dd class="' + (b.comfort > 0 ? 'good' : b.comfort < 0 ? 'bad' : 'dim') + '">' + (b.comfort > 0 ? '+' : '') + (b.comfort || 0) + '</dd>' : '') +
-      (b.mark ? '<dt>Hazard</dt><dd class="' + (b.mark === 'hit' ? 'bad' : 'warn') + '">' + MARK_TXT[b.mark] + (b.haz < 0.999 ? ' · ×' + b.haz.toFixed(2) : '') + '</dd>' : '') + '</dl>' + rigBlock(b) +
-      (d.buffer ? '' : '<div class="label sec">Per tick at current efficiency</div><div class="io">' + ioPills(ioOf(b, d), (b.paused ? 0 : b.eff) * (b.xscale || 1), b.mult * b.haz) + '</div>') +
-      (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult) + ' storage each') + '</div>' : '') +
-      (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult).toFixed(1) + '</span></div>' : '') +
+      (b.xscale > 1.001 ? '<dt>Level ' + b.level + '</dt><dd class="good">×' + b.xscale.toFixed(2) + ' throughput</dd>' : '') +
+      (!d.housing && b.opt && Math.abs(b.opt - 1) > 0.001 ? '<dt>Optional input</dt><dd class="good">×' + b.opt.toFixed(2) + ' output</dd>' : '') +
+      (!d.housing && !d.buffer && !paused0(b) && Math.abs(b.prod - 1) > 0.001 && d.outputsPerTick && Object.keys(d.outputsPerTick).length ? '<dt>Morale</dt><dd class="' + (b.prod < 1 ? 'bad' : 'good') + '">×' + b.prod.toFixed(2) + ' output</dd>' : '') +
+      (d.housing ? homesRows(b, d) : '') +
+      (b.mark ? '<dt>Hazard</dt><dd class="' + (b.mark === 'hit' ? 'bad' : 'warn') + '">' + MARK_TXT[b.mark] + (b.haz < 0.999 ? ' · ×' + b.haz.toFixed(2) : '') + '</dd>' : (b.haz !== undefined && Math.abs(b.haz - 1) > 0.001 ? '<dt>Events &amp; projects</dt><dd class="' + (b.haz < 1 ? 'bad' : 'good') + '">×' + b.haz.toFixed(2) + ' output</dd>' : '')) + '</dl>' + rigBlock(b) +
+      (d.buffer ? '' : '<div class="label sec">Per tick at current efficiency</div><div class="io">' + ioPills(ioOf(b, d), (b.paused ? 0 : b.eff) * (b.xscale || 1), b.mult * b.haz * (b.opt || 1) * (b.prod === undefined ? 1 : b.prod)) + '</div>') +
+      (d.storageBonus ? '<div class="io" style="margin-top:6px">' + pill('scrap', '+' + fmt(d.storageBonus * b.mult * (b.xscale || 1)) + ' storage each') + '</div>' : '') +
+      (d.defense ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:var(--bad)"></i>Defence ' + (d.defense * b.eff * b.mult * (b.xscale || 1)).toFixed(1) + '</span></div>' : '') +
       (d.transmit && !(d.afterTransmit && S.colony.won) ? '<div class="io" style="margin-top:6px"><span class="pill out"><i style="background:#fff"></i>Signal ' + (b.eff * b.mult).toFixed(2) + ' / tick</span></div>' : '') +
       (d.afterTransmit && S.colony.won ? '<div class="note good" style="margin-top:8px">Transmission complete.</div>' : '');
     if (d.buffer) h += bufferCard(b, d);

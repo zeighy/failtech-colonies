@@ -62,6 +62,13 @@ test('medicine in the homes raises comfort and so the morale target', () => {
   assert.equal(50 - b.inventory.medicine, config.buildings.habitat.optional.inputsPerTick.medicine);
 });
 
+test('a producer reports its optional-input output multiplier', () => {
+  const r = run([...power(), bld(2, 0, 'hydroponics_bay', { boost: 1 })], { fertiliser: 100 });
+  const b = [...r.buildings.values()].find((x) => x.opt !== undefined && x.boost === 'on');
+  assert.equal(b.opt, config.buildings.hydroponics_bay.optional.outputMult);
+  assert.equal(b.prod, sim.moraleMultiplier(config, 100));
+});
+
 test('housing past level 5 can take larger families and tighter spaces: a fixed cost each, homes multiplied', () => {
   const H = config.expansion.classes.housing.options;
   const homes = (extra, inv = {}) => run([...power(), bld(2, 1, 'habitat', { level: 5, ...extra })], { meals: 100, clean_water: 500, scrap: 1500, biomass: 100, ...inv });
@@ -75,6 +82,10 @@ test('housing past level 5 can take larger families and tighter spaces: a fixed 
   assert.ok(Math.abs(plain.inventory.biomass - both.inventory.biomass - H.tighter_spaces.inputsPerTick.biomass) < 1e-9);
   const st = (r) => [...r.buildings.values()].find((x) => x.comfort !== undefined);
   assert.deepEqual(st(both).boosts, { larger_families: 'on', tighter_spaces: 'on' });
+  // the panel is told what the home really holds and where it comes from, so a switched-on household shows
+  assert.ok(Math.abs(st(plain).homes - st(fam).homes / H.larger_families.housingMult) < 1e-9);
+  assert.ok(Math.abs(st(both).homeMult - H.larger_families.housingMult * H.tighter_spaces.housingMult) < 1e-9);
+  assert.equal(st(plain).homeMult, 1);
   assert.equal(st(both).boost, null, 'the clinic supplies are a separate switch, still off');
   // with the clinic supplies on as well: all three run together
   const all = homes({ boost: 1 | H.larger_families.bit | H.tighter_spaces.bit }, { medicine: 50 });

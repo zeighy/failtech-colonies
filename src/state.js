@@ -217,7 +217,8 @@ function viewFor(userId, now = Date.now()) {
             const on = sim.optionsOf(config, config.buildings[b.type]).filter((o) => o.key !== 'base' && (b.boost & o.bit));
             return on.length ? Object.fromEntries(on.map((o) => [o.key, (st.boosts || {})[o.key] || 'starved'])) : null;
           })(),
-          level: b.level || 1, xscale: st.xscale || 1,
+          level: b.level || 1, xscale: st.xscale || 1, opt: st.opt || 1, prod: st.prod === undefined ? 1 : st.prod,
+          homes: st.homes === undefined ? null : st.homes, homeMult: st.homeMult || 1, comfortNb: st.comfortNb || 0, comfortOpt: st.comfortOpt || 0,
           xnext: config.buildings[b.type].expand && (b.level || 1) < xmax ? { level: (b.level || 1) + 1, cost: settlements.discounted(c.id, sim.expansionCost(config, config.buildings[b.type], (b.level || 1) + 1), t.globalTick), ticks: config.expansion.ticks[(b.level || 1) + 1], scale: config.expansion.scale[(b.level || 1) + 1], crew: config.expansion.crew[(b.level || 1) + 1] } : null,
           dataProgress: b.type === 't_data' ? Math.round((b.dataProgress || 0) * 10) / 10 : undefined, recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,
           resetFee: b.recipe && config.buildings[b.type].recipeBuilding ? sim.recipeResetFee(config, b.recipe, b.ring, d.type, config.buildings[b.type]) : 0, comfort: st.comfort === undefined ? null : st.comfort, mark: isCore ? hazardMark(hazard, b, st, d.buildings) : null };

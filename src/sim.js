@@ -458,7 +458,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
       else if (pEff < mEff - EPS) { status = pEff < 0.01 ? 'no_power' : 'low_power'; }
       else { status = mEff < 0.01 ? 'starved' : 'low_input'; why = limiting; }
     }
-    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, batch: i.batch, xscale: i.xscale, status, limiting: why, boost: i.optState.base || null, boosts: i.opts.length ? i.optState : null });
+    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, batch: i.batch, xscale: i.xscale, status, limiting: why, boost: i.optState.base || null, boosts: i.opts.length ? i.optState : null, opt: i.optMult, prod: morOut });
   }
 
   // Housing and neighbourhood comfort. Homes next to noisy, smoky buildings are miserable.
@@ -473,7 +473,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
     housingBuilt += cap;
     comfortWeighted += cap * comfort;
     const s = bstate.get(i.b.id);
-    if (s) s.comfort = comfort;
+    if (s) { s.comfort = comfort; s.homes = cap; s.homeMult = i.homeMult; s.comfortNb = raw - i.optComfort; s.comfortOpt = i.optComfort; }
   }
 
   // Hazard maintenance: extra consumption while a hazard is being weathered.
