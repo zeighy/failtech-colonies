@@ -36,7 +36,8 @@ const opt = (cat, key) => ((((config.hq || {}).categories || {})[cat] || {}).opt
 // Extra capacity on every district link, per tick.
 const linkBonus = (colonyId) => count(colonyId, 'linkBoost') * (opt('surface', 'linkBoost').amount || 0);
 // The standing-route limit between districts.
-const maxRoutes = (colonyId) => config.logistics.maxRoutes + count(colonyId, 'routes');
+const routeBonus = (colonyId) => count(colonyId, 'routes') * (opt('surface', 'route').amount || 1);
+const maxRoutes = (colonyId) => config.logistics.maxRoutes + routeBonus(colonyId);
 // A high-capacity slot holds this many times an ordinary one.
 const hcMult = () => opt('station', 'hcSlot').capMult || 10;
 
@@ -60,4 +61,4 @@ function freeLinkKits(colonyId) {
   return Math.max(0, count(colonyId, 'extraLinks') - out);
 }
 
-module.exports = { of, count, save, add, linkBonus, maxRoutes, hcMult, stabilizers, stabilizerReady, useStabilizer, freeLinkKits };
+module.exports = { of, count, save, add, linkBonus, routeBonus, maxRoutes, hcMult, stabilizers, stabilizerReady, useStabilizer, freeLinkKits };

@@ -5092,7 +5092,7 @@
         "desc": "Ground logistics.",
         "cost": { "credits": 400000, "building_materials": 15000, "machined_parts": 20000, "frames": 1500, "plastics": 3000, "lattice_cores": 150 },
         "options": {
-          "route": { "name": "Standing route slot", "desc": "+1 standing route." },
+          "route": { "name": "Standing route slot", "desc": "+3 standing routes.", "amount": 3 },
           "linkBoost": { "name": "District link capacity", "desc": "+50/t on every district link.", "amount": 50 }
         }
       },

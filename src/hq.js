@@ -209,7 +209,7 @@ function apply(c, cat, opt, shipId, tick) {
     const s = shipId && db.prepare('SELECT * FROM dropships WHERE id = ? AND colony_id = ?').get(shipId, c.id);
     if (s && s.level === 3) { db.prepare('UPDATE dropships SET level = 4 WHERE id = ?').run(s.id); say(`dropship ${s.num} has been refitted to level 4.`); }
     else { perks.add(c.id, 'l4'); say('a level-4 refit is ready, but its dropship is no longer at level 3. Use it on another from the Expeditions screen.'); }
-  } else if (opt === 'route') { perks.add(c.id, 'routes'); say('one more standing route can run between districts.'); }
+  } else if (opt === 'route') { perks.add(c.id, 'routes'); say(`${option(cat, opt).amount} more standing routes can run between districts.`); }
   else if (opt === 'linkBoost') { perks.add(c.id, 'linkBoost'); say(`every district link carries ${option(cat, opt).amount} more per tick.`); }
   else if (opt === 'stabilizer') {
     const p = perks.of(c.id);
@@ -320,7 +320,7 @@ function view(c, tick = tickNow()) {
   } : null;
   out.perks = {
     orbitalLinks: Number(p.orbitalLinks) || 0, hcSlots: Number(p.hcSlots) || 0, dropships: Number(p.dropships) || 0, l4: Number(p.l4) || 0,
-    routes: Number(p.routes) || 0, linkBoost: perks.linkBonus(c.id), stabilizers: (Array.isArray(p.stabilizers) ? p.stabilizers : []).length,
+    routes: perks.routeBonus(c.id), linkBoost: perks.linkBonus(c.id), stabilizers: (Array.isArray(p.stabilizers) ? p.stabilizers : []).length,
     extraLinks: Number(p.extraLinks) || 0, finders: Number(p.finders) || 0, discoveries: Number(p.discoveries) || 0,
   };
   return out;
