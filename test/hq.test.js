@@ -296,7 +296,7 @@ test('high-capacity storage slots: ten times the cap, goods move in and out, an 
   assert.equal(hc().resource, null, 'free for anything');
 });
 
-test('districts: the first discovery is a Free Port copy, then random but never the same twice; founding uses the usual costs, further out', () => {
+test('districts: the first discovery is a Free Port copy, then every other type before any repeats, never the same twice; founding uses the usual costs, further out', () => {
   const c = chartered('Map Room');
   unlock(c, 'district', 'discover');
   let list = viewFor(c.uid).discoveries;
@@ -308,6 +308,12 @@ test('districts: the first discovery is a Free Port copy, then random but never 
   for (let i = 0; i < 6; i++) hq.discover(c, now());
   list = viewFor(c.uid).discoveries;
   for (let i = 1; i < list.length; i++) assert.notEqual(list[i].type, list[i - 1].type, 'never the same type twice in a row');
+  const n = Object.keys(config.districtTypes).length;
+  assert.equal(new Set(list.slice(0, n).map((d) => d.type)).size, n, 'every type turns up before any repeats');
+  for (const t of Object.keys(config.districtTypes)) {
+    const k = list.filter((d) => d.type === t).length;
+    assert.ok(k >= Math.floor(list.length / n) && k <= Math.ceil(list.length / n) + 1, `${t} discovered an even share of times (${k})`);
+  }
   assert.equal(new Set(list.map((d) => d.name)).size, list.length, 'every name differs');
   // found the Free Port copy: the Core pays the Free Port's founding cost and a second Free Port appears
   const d = list[0];

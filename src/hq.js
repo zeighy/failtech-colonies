@@ -230,7 +230,8 @@ function discoveryName(idOrRow) {
   const d = typeof idOrRow === 'object' ? idOrRow : db.prepare('SELECT * FROM hq_discoveries WHERE id = ?').get(idOrRow);
   return d ? store.districtName(d.type, d.type, d.prefix) : 'a discovered district';
 }
-// The first discovery is a Free Port; after that the type is random, never the same as the one before.
+// The first discovery is a Free Port; after that the type is random among those discovered the fewest times (so every
+// type turns up before any comes round again), never the same as the one before.
 function discover(c, tick) {
   const prev = db.prepare('SELECT * FROM hq_discoveries WHERE colony_id = ? ORDER BY seq').all(c.id);
   const seq = prev.length + 1;
@@ -239,7 +240,13 @@ function discover(c, tick) {
   const last = prev.length ? prev[prev.length - 1].type : null;
   let type;
   if (seq === 1 && types.includes('freeport')) type = 'freeport';
-  else { const pool = types.filter((t) => t !== last); type = pool[Math.floor(r() * pool.length) % pool.length]; }
+  else {
+    const count = (t) => prev.filter((p) => p.type === t).length;
+    const fresh = types.filter((t) => t !== last);
+    const fewest = Math.min(...fresh.map(count));
+    const pool = fresh.filter((t) => count(t) === fewest);
+    type = pool[Math.floor(r() * pool.length) % pool.length];
+  }
   const usedPrefix = new Set(prev.map((p) => p.prefix));
   const names = D().names.filter((p) => !usedPrefix.has(p));
   const prefix = names.length ? names[Math.floor(r() * names.length) % names.length] : `${D().names[seq % D().names.length]} ${seq}`;
