@@ -105,7 +105,7 @@ class Reorg {
       if (m.orders(d).some((o) => o.kind === 'replace')) continue; // one at a time per place
       if (type !== 'orbital_staging' && this.G.place(d, type)) { delete wanted[k]; continue; } // room has appeared
       if (this.r.last[did] && m.tick - this.r.last[did] < 60) continue;
-      if (m.byType('freeport') && m.buildings(d).some((x) => x.type === type && x.xnext)) continue; // expanded instead (supply.js)
+      if (m.byType('freeport') && m.buildings(d).some((x) => x.type === type && this.G.expandable(d, x))) continue; // expanded instead (supply.js)
       if (!m.can(d, m.def(type).cost)) continue;
       const b = type === 'orbital_staging' ? await this.padSite(d) : this.victim(d, type);
       if (!b) continue;

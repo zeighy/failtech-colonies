@@ -31,7 +31,7 @@ const GRACE = {
 const DAY = 24 * HOUR;
 
 // The conditions that hold this turn: { code: detail }.
-function conditions(m, mem, out) {
+function conditions(m, mem, out, profile = null) {
   const v = m.v;
   const c = v.colony;
   const now = v.tick;
@@ -49,15 +49,18 @@ function conditions(m, mem, out) {
 
   // progress: growth, or (once in orbit) selling, counts; a day of neither is a stall
   const T = mem.trade || {};
-  const key = JSON.stringify([c.hubLevel, v.districts.map((d) => `${d.type}${d.level}`).sort(), !!c.won, !!(v.orbital && v.orbital.station), T.sold || 0, T.surfaceSold || 0]);
+  // (a profile that settles in orbit makes progress by saving up and by taking goods off the market)
+  const settled = profile && profile.settle ? [Math.floor((c.credits || 0) / 100000), (mem.sink || {}).bought || 0] : [];
+  const key = JSON.stringify([c.hubLevel, v.districts.map((d) => `${d.type}${d.level}`).sort(), !!c.won, !!(v.orbital && v.orbital.station), T.soldFilled || 0, T.surfaceSold || 0, ...settled]);
   const P = (mem.progress = mem.progress || { key, since: now });
   if (P.key !== key) { P.key = key; P.since = now; }
   if (now - P.since >= DAY) on.stalled = { since: P.since, ticks: now - P.since };
 
-  // selling in orbit is every profile's main objective
-  if (v.orbital && v.orbital.station) {
-    const S = (mem.salesWatch = mem.salesWatch || { sold: T.sold || 0, since: now });
-    if ((T.sold || 0) !== S.sold) { S.sold = T.sold || 0; S.since = now; }
+  // selling in orbit is every profile's main objective but the money pit's: what actually sold, not what was put up for sale
+  if (v.orbital && v.orbital.station && (!profile || profile.orbitSell)) {
+    const sold = T.soldFilled || 0;
+    const S = (mem.salesWatch = mem.salesWatch || { sold, since: now });
+    if (sold !== S.sold) { S.sold = sold; S.since = now; }
     if (now - S.since >= DAY) on.no_orbital_sales = { since: S.since, selling: mem.selling || [], ticks: now - S.since };
   }
 
@@ -94,9 +97,9 @@ function conditions(m, mem, out) {
 
 // Compares this turn's conditions with what the bot already flagged. Returns { raised, cleared, open } and keeps the
 // state in mem.issues: { code: { since, raised, detail } }.
-function track(m, mem, out) {
+function track(m, mem, out, profile = null) {
   const now = m.v.tick;
-  const on = conditions(m, mem, out);
+  const on = conditions(m, mem, out, profile);
   const I = (mem.issues = mem.issues || {});
   const raised = [];
   const cleared = [];

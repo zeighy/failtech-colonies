@@ -289,10 +289,11 @@ test('bots flag issues once they have lasted, and clear them when they stop', ()
   assert.ok(t.raised.some((x) => x.code === 'stalled'), JSON.stringify(t.raised));
 });
 
-test('every profile sells something in orbit and has its own temper', () => {
+test('every profile sells something in orbit (the money pit clears it instead) and has its own temper', () => {
   for (const id of profiles.ORDER) {
     const p = profiles.get(id);
-    assert.ok(p.orbitSell && ['orbital', 'trade', 'any'].includes(p.orbitSell.goods), id);
+    // (the money pit sells nothing in orbit: it takes goods off the market)
+    assert.ok(p.orbitSell ? ['orbital', 'trade', 'any'].includes(p.orbitSell.goods) : p.sink && p.sink.from > 0, id);
     assert.ok(p.safety > 0 && p.districts.length === 3, id);
   }
   const broker = profiles.get('broker');

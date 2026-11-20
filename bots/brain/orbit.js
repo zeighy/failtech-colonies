@@ -6,6 +6,7 @@
 const sim = require('../../src/sim');
 
 const FIXED = ['power_cells', 'frames', 'fittings']; // the station always keeps a slot for power and for what slots are rebuilt with
+const LAUNCH_BUY_CREDITS = 300000; // above this a bot buys what the next launch needs instead of waiting for its foundry
 const RAW = { scrap: 'scrap_extractor', unpurified_water: 'water_pump', raw_synthetics: 'synth_reclaimer', ore: 'ore_drill', crude: 'crude_pump' };
 const REFINE = { clean_water: 'water_purifier', machined_parts: 'parts_assembler', ingots: 'smelter', fuel: 'cracking_tower', reagents: 'cracking_tower', polymers: 'polymer_plant' };
 
@@ -24,7 +25,7 @@ class Orbit {
   ships() { return (this.m.v.orbital.ships || {}).ships || []; }
   territories() { return (this.m.v.orbital.ships || {}).territories || []; }
   isRare(r) { return !!(this.config.resources[r] && this.config.resources[r].rare); }
-  foundryMode() { return ['orbital', 'any'].includes(this.P.orbitSell.goods) || (this.P.projects || 0) >= 0.5; }
+  foundryMode() { return (!!this.P.orbitSell && ['orbital', 'any'].includes(this.P.orbitSell.goods)) || (this.P.projects || 0) >= 0.5; }
 
   // ---- global projects --------------------------------------------------------------------------------------------
   // What the open project still needs, for a profile that gives to projects.
@@ -75,8 +76,10 @@ class Orbit {
     const run = this.o.run;
     if (run) { const n = this.needsOf(run.good); n.rares.forEach((r) => k.add(r)); if (n.x) k.add(n.x); k.add(run.good); }
     for (const t of Object.values(this.o.trips)) (t.links || []).forEach((r) => k.add(r));
-    for (const g of this.mem.selling || []) k.add(g);
+    const squeezed = run && run.squeezed;
+    for (const g of this.mem.selling || []) if (!squeezed || this.m.isOrbitalGood(g)) k.add(g);
     for (const g of Object.keys(this.projectNeeds())) k.add(g);
+    for (const g of Object.keys(this.m.launchReserve())) if (this.sinv(g) >= 1 || this.wantsLaunchBuy()) k.add(g);
     for (const o of (this.m.v.orbital.market || {}).orders || []) k.add(o.resource);
     return k;
   }
@@ -135,19 +138,28 @@ class Orbit {
     if (saving.modules) up('modules', saving.modules, saving.modules + 20);
     for (const g of this.mem.selling || []) if (!this.config.resources[g].orbitalOnly) up(g, 20, 120);
     for (const g of Object.keys(this.projectNeeds())) if (!this.config.resources[g].orbitalOnly) up(g, 50, 400);
+    // orbital goods an expansion on the ground is waiting for, from what the launch does not need
+    const reserve = m.launchReserve();
+    for (const [r, x] of Object.entries(this.mem.orbitDown || {})) {
+      if (m.tick - x.at > 200) { delete this.mem.orbitDown[r]; continue; }
+      if (this.sinv(r) - (reserve[r] || 0) >= Math.min(x.qty, 5) && m.amount(core, r) < x.qty) want.push([r, 'down', x.qty, reserve[r] || 0]);
+    }
     const lv = this.st.links;
     const chosen = want.slice(0, lv.count);
+    // selling is the main objective: the first good for sale always has a link, even when upkeep would take them all
+    const sell = want.find(([r, d]) => d === 'up' && (this.mem.selling || []).includes(r));
+    if (sell && !chosen.includes(sell) && chosen.length > 1) chosen[chosen.length - 1] = sell;
     for (const x of m.routes()) {
       const orbitLink = (x.fromDistrict === ST && x.toDistrict === core.id) || (x.toDistrict === ST && x.fromDistrict === core.id);
       if (!orbitLink) continue;
       const dirn = x.toDistrict === ST ? 'up' : 'down';
       if (!chosen.some(([r, d]) => r === x.resource && d === dirn)) await m.act('route', { from: x.fromDistrict, to: x.toDistrict, resource: x.resource, rate: 0 });
     }
-    for (const [r, d, target] of chosen) {
+    for (const [r, d, target, keep = 0] of chosen) {
       const from = d === 'up' ? core.id : ST; const to = d === 'up' ? ST : core.id;
       if (m.routes().some((x) => x.fromDistrict === from && x.toDistrict === to && x.resource === r)) continue;
       if (d === 'up' && !await this.room(r)) continue;
-      if (await m.act('route', { from, to, resource: r, rate: lv.rate, reserve: 0, target }) && d === 'up' && !this.o.expected.includes(r)) this.o.expected.push(r);
+      if (await m.act('route', { from, to, resource: r, rate: lv.rate, reserve: keep, target }) && d === 'up' && !this.o.expected.includes(r)) this.o.expected.push(r);
     }
   }
 
@@ -241,21 +253,26 @@ class Orbit {
 
   // ---- runs: one orbital good at a time, its rare resources fetched by the ships -----------------------------------------
   flexSlots() { return this.st.storage.slots.filter((s) => s.state === 'open' || s.state === 'jettisoned').length - FIXED.length - (this.mem.selling || []).filter((g) => !FIXED.includes(g)).length; }
-  chooseRun(ship) {
+  // `extra`: slots the trade good on sale would give up for the run (see dispatch)
+  chooseRun(ship, extra = 0) {
     const cands = [];
+    const flex = this.flexSlots() + extra;
     for (const g of Object.keys(this.config.orbitalRecipes)) {
       const need = this.needsOf(g);
       const base = need.rares.length + 1 + (need.x && !FIXED.includes(need.x) ? 1 : 0);
-      if (base > this.flexSlots()) continue;
-      const allowLinks = Math.min(this.O.dropships.maxLinks, this.flexSlots() - base);
+      if (base > flex) continue;
+      const allowLinks = Math.min(this.O.dropships.maxLinks, flex - base);
       const plans = need.rares.map((r) => (this.sinv(r) >= 100 ? { plan: { rate: 9 } } : this.tripFor(r, ship, allowLinks)));
       if (plans.some((p) => !p)) continue;
       cands.push({ good: g, allowLinks, score: Math.min(...plans.map((p) => p.plan.rate)) });
     }
     // what the market pays most for (its reference price), then what can be fetched fastest
     const ref = (g) => { const x = ((this.m.v.orbital.market || {}).goods || []).find((y) => y.resource === g); return x ? x.reference : 0; };
+    // what the colony itself is waiting for comes first: the station's next ring, then expansions on the ground
     const wanted = this.projectNeeds({ planning: true });
-    const worth = (c) => c.score * ref(c.good) * (wanted[c.good] ? 3 : 1);
+    const launch = this.m.launchMissing();
+    const down = this.mem.orbitDown || {};
+    const worth = (c) => c.score * ref(c.good) * (wanted[c.good] ? 3 : 1) * (launch[c.good] ? 6 : 1) * (down[c.good] ? 2 : 1);
     cands.sort((a, b) => worth(b) - worth(a));
     return cands[0] || null;
   }
@@ -274,9 +291,12 @@ class Orbit {
       let run = this.o.run;
       if (run && run.done) run = this.o.run = null;
       if (!run) {
-        const c = this.chooseRun(ship);
+        // no room for any run: a trade good on sale gives up its slot until the run is over
+        const sellSlots = (this.mem.selling || []).filter((g) => !FIXED.includes(g) && !m.isOrbitalGood(g)).length;
+        let c = this.chooseRun(ship);
+        if (!c && sellSlots) { c = this.chooseRun(ship, sellSlots); if (c) c.squeezed = true; }
         if (!c) continue;
-        run = this.o.run = { good: c.good, allowLinks: c.allowLinks, fetch: {}, startedAt: m.tick };
+        run = this.o.run = { good: c.good, allowLinks: c.allowLinks, fetch: {}, startedAt: m.tick, squeezed: !!c.squeezed };
         this.mem.events.push(`plan: ${c.good}`);
       }
       const need = this.needsOf(run.good);
@@ -396,16 +416,23 @@ class Orbit {
     const cost = next === 'storage' ? (this.O.storage.levels[st.storage.level + 1] || {}).cost : next === 'links' ? (this.O.links.levels[st.links.level + 1] || {}).cost
       : next === 'ship' ? (ship ? (this.O.dropships.levels[2] || {}).cost : null) : (this.ships().length < this.O.dropships.max ? this.O.dropships.buildCost : null);
     if (!cost) { if (next !== 'ship' || !this.ships().some((x) => x.level === 1)) this.o.bought.push(next); return; }
-    // credits are spent only with a good cushion left: the ground comes first
-    if (m.colony.credits < (cost.credits || 0) * 1.3 + 150000) return;
+    // credits are spent only with a good cushion left: the ground comes first. Storage is the exception: without its
+    // extra slots a foundry run may not fit at all, so it takes a much smaller cushion.
+    const cushion = next === 'storage' ? (cost.credits || 0) + 25000 : (cost.credits || 0) * 1.3 + 150000;
+    if (m.colony.credits < cushion) return;
     for (const [r, q] of Object.entries(cost)) if (r !== 'credits') this.o.saving[r] = q;
     if (Object.entries(cost).some(([r, q]) => r !== 'credits' && this.sinv(r) < q)) return;
     const route = next === 'storage' ? 'orbit-storage' : next === 'links' ? 'orbit-links' : next === 'ship2' ? 'ship-build' : 'ship-upgrade';
     if (await m.act(route, next === 'ship' ? { ship: ship.id } : {})) { this.o.bought.push(next); this.mem.events.push(`bought ${next}`); }
   }
 
+  // A colony with money to spare buys the launch's orbital goods on the market (bots/brain/trade.js) rather than wait for its
+  // own foundry: it needs a slot for each.
+  wantsLaunchBuy() { return !this.P.settle && this.m.colony.credits >= LAUNCH_BUY_CREDITS && Object.keys(this.m.launchMissing()).length > 0; }
+
   async turn() {
     if (!this.st) return;
+    if (this.wantsLaunchBuy()) for (const r of Object.keys(this.m.launchMissing())) await this.room(r);
     await this.stationBuild();
     await this.expeditions();
     if (this.foundryMode()) await this.dispatch();
@@ -417,4 +444,4 @@ class Orbit {
   }
 }
 
-module.exports = { Orbit, FIXED };
+module.exports = { Orbit, FIXED, LAUNCH_BUY_CREDITS };

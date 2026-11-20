@@ -70,7 +70,7 @@ Every hour the runner asks for colonies parked in the last 7 days (`BOT_POLL_SEC
 
 Bots let go of any settlements they inherit (those are for players) and never sponsor new ones. Some profiles give to the **global projects** (see [gameplay.md](gameplay.md#orbit)); stations run by bots are not counted when a project's size is set, so projects stay sized for the people playing and anything bots deliver is help on top. Bots also prepare for forecast hazards: they bring in the stock the Brief asks for and raise the Free Port's shield when they hold its goods.
 
-Every profile's main objective is to **sell on the orbital market**. They differ in temper:
+Every profile's main objective but the money pit's is to **sell on the orbital market**. They differ in temper:
 
 | Profile | Plays |
 | --- | --- |
@@ -79,13 +79,14 @@ Every profile's main objective is to **sell on the orbital market**. They differ
 | `steward` (Steward) | Deep food and water reserves, slow and safe growth; gives everything its foundry makes to the global project, and sells spare trade goods at the reference price. |
 | `industrialist` (Industrialist) | Builds big, takes every alternative recipe, fills requisitions; gives half its orbital goods to the global project and sells whatever it makes most of. |
 | `scavenger` (Scavenger) | Lean; picks up cheap asks in small lots and sells orbital and trade goods near the reference. |
+| `moneypit` (Money Pit) | Plays to orbit, then **settles**: no more launches, expansions or new lines, a steady population, and surplus sold by **convoy** (anything above 60% of the Core's cap, down to 40%). Past **2 million credits** it takes 1-4 units every 30 ticks from the cheapest ask another station has listed (never the market maker's) for the orbital good with the most units waiting, at up to 15% over the reference, and **jettisons** them. When no orbital good qualifies it takes trade goods the same way, 5-30 units at a time, so its money does not sit idle. It sells nothing in orbit: its job is to keep goods moving off the market. |
 
 | Runner variable | Default | Purpose |
 | --- | --- | --- |
 | `BOT_SERVER` | `http://127.0.0.1:3000` | The game server |
 | `BOT_API_KEY` | required | The same key the server was started with |
 | `BOT_LIMIT` | `5` | Most colonies run by bots at once (lowering it gives the newest back) |
-| `BOT_PROFILES` | all five | Which profiles to hand out (the least used goes to each new claim) |
+| `BOT_PROFILES` | all six | Which profiles to hand out (the least used goes to each new claim) |
 | `BOT_CLAIM` | `all` | `given_up` claims only colonies whose commander chose to start over |
 | `BOT_TURN_TICKS` | `4` | Ticks between a bot's turns |
 | `BOT_POLL_SECONDS` | `3600` | How often it looks for parked colonies (bots take their turns in between regardless) |
