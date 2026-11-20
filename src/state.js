@@ -212,7 +212,11 @@ function viewFor(userId, now = Date.now()) {
         const st = bs.get(b.id) || {};
         return { id: b.id, ring: b.ring, slot: b.slot, type: b.type, paused: b.status !== 'active',
           status: st.status, eff: st.eff, mult: st.mult, adj: st.adj, plot: st.plot, haz: st.haz, limiting: st.limiting,
-          boost: b.boost ? (st.boost || 'starved') : null,
+          boost: b.boost & 1 ? (st.boost || 'starved') : null,
+          boosts: (() => { // the other optional inputs switched on (housing's), by key: 'on' or 'starved'
+            const on = sim.optionsOf(config, config.buildings[b.type]).filter((o) => o.key !== 'base' && (b.boost & o.bit));
+            return on.length ? Object.fromEntries(on.map((o) => [o.key, (st.boosts || {})[o.key] || 'starved'])) : null;
+          })(),
           level: b.level || 1, xscale: st.xscale || 1,
           xnext: config.buildings[b.type].expand && (b.level || 1) < xmax ? { level: (b.level || 1) + 1, cost: settlements.discounted(c.id, sim.expansionCost(config, config.buildings[b.type], (b.level || 1) + 1), t.globalTick), ticks: config.expansion.ticks[(b.level || 1) + 1], scale: config.expansion.scale[(b.level || 1) + 1], crew: config.expansion.crew[(b.level || 1) + 1] } : null,
           dataProgress: b.type === 't_data' ? Math.round((b.dataProgress || 0) * 10) / 10 : undefined, recipe: b.recipe || null, resetting: b.resetting ? Math.max(0, b.readyTick - t.globalTick) : 0, batch: st.batch || 1,

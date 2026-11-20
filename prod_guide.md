@@ -219,6 +219,13 @@ A building can be expanded in place up to level 5; its whole line scales and its
 | infrastructure | 4 Spine Frames | 2 Sirius Cell, 2 Phononic Amplifier |
 | industry | 3 Spine Frames, 2 Dampener Fittings | 2 Dense Metal, 2 Sirius Core |
 
+Some classes add optional inputs of their own once a building reaches a level. Each is switched on separately, on top of the building's own optional input, and costs a fixed amount per tick per building (not scaled by level or plot) while it is in stock in that place; their effects multiply.
+
+| Class | Option | Opens at | Costs / tick | Effect |
+| --- | --- | --- | --- | --- |
+| housing | Larger families | level 5 | 5 Heavy Meals, 5 Filtrate | homes ×1.2 |
+| housing | Tighter spaces | level 5 | 10 Reclaim, 10 Mycelial Biomass | homes ×1.1 |
+
 ## **11. Hazards**
 Hazards are forecast, then strike on a fixed tick, then last for a while whatever the outcome. A new hazard is only started while the player is active; once forecast it strikes whether or not they are logged in. At the strike the colony spends its reserves automatically; that gives a preparedness fraction (**prep**), the failure effect applies at severity = 1 - prep, and a maintenance cost applies in proportion to prep. Requirements scale with Core level (+60% per level above 1). The first hazard can come at colony age 45, then every 32-52 ticks, shrinking by 7% per Core level (floor 60%).
 | Hazard (id) | From Core | Warning | Lasts | Requirements (level 1) | Failure effect |
@@ -444,7 +451,7 @@ Opens once the colony has read part 1 of any data packet (a screen beside Data).
 | High-capacity storage slot | A storage slot with 10× capacity. Never jettisoned. |
 | Dropship bay | +1 dropship. |
 | Level 4 dropship refit | A level-3 dropship becomes level 4 and indestructible. |
-| Standing route slot | +1 standing route. |
+| Standing route slot | +3 standing routes. |
 | District link capacity | +50/t on every district link. |
 | Territory stabilizer | Take it on a deployment: the territory lasts 100× longer, loses its harm and opens to every station. Reusable. |
 | Stable territory finder | A private, long-lived territory whose rare can always be tapped. |

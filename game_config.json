@@ -3649,6 +3649,34 @@
         "orbitalCost": {
           "chiral_serum": 2,
           "still_frames": 2
+        },
+        "options": {
+          "larger_families": {
+            "bit": 2,
+            "label": "Larger families",
+            "desc": "Full tables, more children.",
+            "unlock": {
+              "level": 5
+            },
+            "inputsPerTick": {
+              "meals": 5,
+              "clean_water": 5
+            },
+            "housingMult": 1.2
+          },
+          "tighter_spaces": {
+            "bit": 4,
+            "label": "Tighter spaces",
+            "desc": "Partitions, bunks, shared rooms.",
+            "unlock": {
+              "level": 5
+            },
+            "inputsPerTick": {
+              "scrap": 10,
+              "biomass": 10
+            },
+            "housingMult": 1.1
+          }
         }
       },
       "infrastructure": {

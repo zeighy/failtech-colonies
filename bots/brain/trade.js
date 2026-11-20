@@ -3,12 +3,20 @@
 // steady business on the ground exchange. Quantities are kept modest and every order respects the colony's own needs: what
 // it is saving for, the launch, and the stock kept back by the profile's sense of safety.
 const { LAUNCH_GOODS, LAUNCH_INPUTS } = require('./endgame');
+const { LAUNCH_BUY_CREDITS } = require('./orbit');
 
 const randInt = (rng, [a, b]) => a + Math.floor(rng() * (b - a + 1));
 const money = (n) => Math.round(n * 100) / 100;
 
 class Trade {
-  constructor(m, mem, P, ground, rng) { this.m = m; this.mem = mem; this.P = P; this.G = ground; this.rng = rng; this.config = m.config; mem.trade = mem.trade || { sold: 0, bought: 0, surfaceSold: 0, surfaceBought: 0 }; this.t = mem.trade; }
+  // mem.trade: `sold` and `bought` count what was put up on orbital orders, `soldFilled` and `boughtFilled` what actually
+  // changed hands (see fills), `surfaceSold` and `surfaceBought` the ground exchange orders.
+  constructor(m, mem, P, ground, rng) {
+    this.m = m; this.mem = mem; this.P = P; this.G = ground; this.rng = rng; this.config = m.config;
+    this.t = mem.trade = mem.trade || {};
+    // (another step may have started mem.trade first; a counter it lacked would turn NaN at the first sale)
+    for (const k of ['sold', 'bought', 'soldFilled', 'boughtFilled', 'surfaceSold', 'surfaceBought']) if (!Number.isFinite(this.t[k])) this.t[k] = 0;
+  }
 
   isOrbital(g) { return !!this.config.resources[g].orbitalTrade; }
   isTrade(g) { return !!this.config.resources[g].trade; }
@@ -23,8 +31,11 @@ class Trade {
     const m = this.m;
     const mode = this.P.orbitSell.goods;
     const out = [];
-    if (mode === 'orbital' || mode === 'any') for (const g of Object.keys(this.config.orbitalRecipes)) if (m.amount(this.sd(), g) >= 1) out.push(g);
-    if (mode === 'trade' || mode === 'any' || (mode === 'orbital' && !out.length && this.mem.orbitalSoldNothingFor > 2000)) {
+    const reserve = m.launchReserve();
+    if (mode === 'orbital' || mode === 'any') for (const g of Object.keys(this.config.orbitalRecipes)) if (m.amount(this.sd(), g) >= 1 + (reserve[g] || 0)) out.push(g);
+    // a foundry run that only fits in the station by taking the trade good's slot: no trade good is sold until it is over
+    const squeezed = ((this.mem.orbit || {}).run || {}).squeezed;
+    if (!squeezed && (mode === 'trade' || mode === 'any' || (mode === 'orbital' && !out.length && this.mem.orbitalSoldNothingFor > 2000))) {
       const fp = m.byType('freeport');
       const keep = new Set([...LAUNCH_INPUTS, ...LAUNCH_GOODS]);
       const pool = fp ? Object.keys(this.config.resources).filter((g) => this.isTrade(g) && !keep.has(g)).map((g) => [g, m.amount(fp, g) + m.amount(m.core(), g) + m.amount(this.sd(), g)]) : [];
@@ -84,12 +95,13 @@ class Trade {
       if (open >= mk.maxOpenOrders - 2) break;
       if (mine.filter((o) => o.resource === g && o.side === 'sell').length >= 2) continue;
       const fixedKeep = { frames: 150, fittings: 100 }[g] || 0;
-      const avail = Math.floor(m.amount(this.sd(), g) - Math.max(this.P.orbitSell.keep && !this.isOrbital(g) ? this.P.orbitSell.keep : 0, fixedKeep));
+      const launchKeep = m.launchReserve()[g] || 0; // the station's next ring is paid in these
+      const avail = Math.floor(m.amount(this.sd(), g) - Math.max(this.P.orbitSell.keep && !this.isOrbital(g) ? this.P.orbitSell.keep : 0, fixedKeep, launchKeep));
       if (avail < this.P.orbitSell.lot[0]) continue;
       const qty = Math.min(avail, randInt(this.rng, this.P.orbitSell.lot));
       const price = this.priceFor(g, 'sell');
       if (!price) continue;
-      if (await m.act('orbit-market', { resource: g, side: 'sell', price, qty, ttl: mk.ttlOptions[1] })) { open++; this.t.sold += qty; this.mem.events.push(`orbit: sell ${qty} ${g} at ${price}`); }
+      if (await m.act('orbit-market', { resource: g, side: 'sell', price, qty, ttl: mk.ttlOptions[1] })) { this.posted('sell', qty, mk.ttlOptions[1]); open++; this.t.sold += qty; this.mem.events.push(`orbit: sell ${qty} ${g} at ${price}`); }
     }
     if (goods.some((g) => this.isOrbital(g))) this.mem.orbitalSoldNothingFor = 0;
     else this.mem.orbitalSoldNothingFor = (this.mem.orbitalSoldNothingFor || 0) + this.mem.cadence;
@@ -108,7 +120,9 @@ class Trade {
       : B.goods === 'trade' ? [...held].filter((g) => this.isTrade(g))
         : [...held].filter((g) => this.isTrade(g) || this.isOrbital(g));
     const budget = m.colony.credits * B.budget - mine.filter((o) => o.side === 'buy').reduce((n, o) => n + o.price * o.remaining, 0);
-    const cands = wanted.filter((g) => held.has(g) && !mine.some((o) => o.resource === g && o.side === 'buy'));
+    // never what it is selling: buying back its own goods only feeds the market fee
+    const selling = new Set(this.mem.selling || []);
+    const cands = wanted.filter((g) => held.has(g) && !selling.has(g) && !mine.some((o) => o.resource === g && o.side === 'buy'));
     if (!cands.length || budget <= 0) return;
     const g = cands[Math.floor(this.rng() * cands.length)];
     const x = (mk.goods || []).find((y) => y.resource === g);
@@ -117,7 +131,52 @@ class Trade {
     let price; let qty = randInt(this.rng, B.lot);
     if (ask && ask.price <= x.reference * B.maxRef) { price = ask.price; qty = Math.min(qty, ask.qty); } else if (this.rng() < 0.4) price = this.priceFor(g, 'buy'); else return;
     if (!price || price * qty > budget) return;
-    if (await m.act('orbit-market', { resource: g, side: 'buy', price, qty, ttl: mk.ttlOptions[1] })) { this.t.bought += qty; this.mem.events.push(`orbit: buy ${qty} ${g} at ${price}`); }
+    if (await m.act('orbit-market', { resource: g, side: 'buy', price, qty, ttl: mk.ttlOptions[1] })) { this.posted('buy', qty, mk.ttlOptions[1]); this.t.bought += qty; this.mem.events.push(`orbit: buy ${qty} ${g} at ${price}`); }
+  }
+
+  // The next launch's orbital goods, bought by a colony with money to spare instead of waiting for its own foundry: the
+  // cheapest ask within a quarter over the reference, else a bid at the reference, for what is still missing.
+  async launchBuy() {
+    const m = this.m;
+    const mk = this.market();
+    if (!mk || this.P.settle || m.colony.credits < LAUNCH_BUY_CREDITS || !this.G.every(10)) return;
+    const mine = mk.orders || [];
+    const slots = this.station().storage.slots;
+    for (const [g, short] of Object.entries(m.launchMissing())) {
+      if (mine.length >= mk.maxOpenOrders - 1) return;
+      const bidding = mine.filter((o) => o.resource === g && o.side === 'buy').reduce((n, o) => n + o.remaining, 0);
+      const want = Math.min(short - bidding, mk.maxQty || short);
+      if (want < 1) continue;
+      if (!slots.some((x) => x.resource === g) && !slots.some((x) => !x.resource && x.state === 'open')) continue; // (the orbit step makes room)
+      const x = (mk.goods || []).find((y) => y.resource === g);
+      if (!x) continue;
+      const ask = (x.asks || []).find((a) => !a.mine && a.price <= x.reference * 1.25);
+      const price = ask ? ask.price : money(Math.min(x.band[1], x.reference));
+      const qty = ask ? Math.min(want, ask.qty) : want;
+      if (price * qty > (m.colony.credits - LAUNCH_BUY_CREDITS / 2) * 0.5) continue;
+      if (await m.act('orbit-market', { resource: g, side: 'buy', price, qty, ttl: mk.ttlOptions[1] })) { this.posted('buy', qty, mk.ttlOptions[1]); this.t.bought += qty; this.mem.events.push(`orbit: buy ${qty} ${g} at ${price} for the launch`); return; }
+    }
+  }
+
+  // What the bot's orbital orders actually traded since the last turn: an order's remaining going down, or an order gone
+  // before it was due to expire (bots do not cancel orbital orders), counts as filled.
+  fills() {
+    const mk = this.market();
+    if (!mk) return;
+    const seen = this.t.open || {};
+    const now = {};
+    for (const o of mk.orders || []) now[o.id] = { side: o.side, rem: o.remaining, exp: this.m.tick + (o.ticksLeft || 0) };
+    for (const [id, o] of Object.entries(seen)) {
+      const cur = now[id];
+      const done = cur ? Math.max(0, o.rem - cur.rem) : this.m.tick < o.exp ? o.rem : 0;
+      if (done > 0) this.t[o.side === 'sell' ? 'soldFilled' : 'boughtFilled'] += done;
+    }
+    this.t.open = now;
+  }
+  // An orbital order just posted is watched from its full size, so a fill the moment it was posted counts too.
+  posted(side, qty, ttl) {
+    const id = this.m.lastResult && this.m.lastResult.id;
+    if (id) (this.t.open = this.t.open || {})[id] = { side, rem: qty, exp: this.m.tick + ttl };
   }
 
   // ---- the ground exchange (the port trader) -------------------------------------------------------------------------
@@ -166,7 +225,9 @@ class Trade {
   async turn() {
     await this.surface();
     if (!this.station()) return;
-    await this.orbitSell();
+    this.fills();
+    await this.launchBuy();
+    if (this.P.orbitSell) await this.orbitSell();
     await this.orbitBuy();
   }
 }

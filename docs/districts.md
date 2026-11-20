@@ -150,6 +150,10 @@ Districts at level 5 are the endgame reward, not part of the path to it.
   While on and fully in stock the building spends a fixed amount per tick from its own district stockpile and gets a bonus (`outputMult` on its output, or `comfort` on
   homes, which feeds the morale target). If the stock is short nothing is spent and the pane says it is waiting. Hydroponics Bay: fertiliser (x1.35 rations).
   Dormitory/Habitat: medicine (+6/+8 comfort). It is generic, so more can be added in config.
+  An expansion class can add optional inputs of its own (`expansion.classes.<class>.options`), each with its own bit of `boost` (the building's own is bit 1)
+  and an `unlock.level` on the building's expansion level; `POST /api/boost` takes `option` to name one. Housing has two from level 5, flat per building and
+  stackable with the clinic supplies and each other: Larger families (5 meals + 5 clean water a tick, homes x1.2) and Tighter spaces (10 scrap + 10 biomass,
+  homes x1.1). They give housing a ground-side way to grow past level 5, where expansions start to cost orbital goods.
 - **Hazard sinks**: from hub level 4 Crop Blight also wants fertiliser, Toxic Spill and Raid want medicine (`requires[].fromHub`), so the Greenbelt matters all game.
 
 ## Step 5 notes: the exchange (built)

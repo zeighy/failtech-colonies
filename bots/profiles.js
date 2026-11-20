@@ -19,6 +19,14 @@
 //   projects     the share of what the station holds that it gives to the global project (0: it sells instead)
 //   requisitions fill the Office's requisitions from what it can spare
 //   alts         switch to alternative recipes as they open
+// and, for a profile that does not chase growth (the money pit):
+//   settle       once the station is up it stays as it is: no more launches, expansions, new lines or household options
+//   convoy       sells surplus by convoy earlier and deeper: { from, to } as shares of the Core's storage cap
+//   sink         takes goods off the orbital market once rich: past `from` credits, every `every` ticks it buys `lot` units
+//                of what other stations have listed (never the market maker's asks) at up to `maxRef` times the reference,
+//                and jettisons them; `goods`: 'orbital' (orbital goods only), 'any', or 'orbital_first' (trade goods too, only
+//                when no orbital good qualifies, in lots of `tradeLot`); a slot is dumped at `dumpAt` units (`tradeDumpAt` for
+//                trade goods)
 const PROFILES = {
   broker: {
     name: 'Foundry Broker',
@@ -84,6 +92,22 @@ const PROFILES = {
     projects: 0,
     requisitions: true,
     alts: true,
+  },
+  moneypit: {
+    name: 'Money Pit',
+    blurb: 'Reaches orbit and settles: a steady population, surplus sold by convoy, and past 2 million credits it buys up the orbital goods (failing those, trade goods) others have listed, a few at a time, and jettisons them.',
+    safety: 1.4,
+    districts: ['greenbelt', 'pits', 'stacks'],
+    workshops: ['preserves', 'tool_steel', 'plastics'],
+    orbitSell: null,
+    orbitBuy: null,
+    surface: null,
+    projects: 0,
+    requisitions: true,
+    alts: true,
+    settle: true,
+    convoy: { from: 0.6, to: 0.4 },
+    sink: { from: 2000000, every: 30, lot: [1, 4], maxRef: 1.15, goods: 'orbital_first', dumpAt: 40, tradeLot: [5, 30], tradeDumpAt: 200 },
   },
 };
 

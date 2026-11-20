@@ -102,6 +102,35 @@ class Colony {
   shipments() { return this.v.shipments || []; }
   link(d) { const m = this.meta(d); return m && m.link; }
   essentialFood() { return ['clean_water', 'rations']; }
+
+  // ---- orbital goods ------------------------------------------------------------------------------------------------
+  isOrbitalGood(r) { return !!(this.config.resources[r] && this.config.resources[r].orbitalOnly && !this.config.resources[r].rare); }
+  stationView() { const st = this.v.orbital && this.v.orbital.station; return st ? this.v.views[st.districtId] : null; }
+  // The orbital goods the next launch cycle takes from station storage (the station's next ring): kept back from sale and
+  // from expansions until it has gone.
+  launchReserve() {
+    const L = this.v.orbital && this.v.orbital.launch;
+    const cyc = L && L.next && ((this.config.orbital || {}).launch || {}).cycles[L.next];
+    return cyc && cyc.orbitalCost ? { ...cyc.orbitalCost } : {};
+  }
+  // What of the launch reserve the station does not hold yet.
+  launchMissing() {
+    const sd = this.stationView();
+    const out = {};
+    for (const [r, q] of Object.entries(this.launchReserve())) { const have = sd ? this.amount(sd, r) : 0; if (have < q) out[r] = q - have; }
+    return out;
+  }
+  // The orbital goods in a cost that neither this place nor the Core holds: they can only come down from the station.
+  orbitalMissing(d, cost) {
+    const out = {};
+    const core = this.core();
+    for (const [r, q] of Object.entries(cost || {})) {
+      if (!this.isOrbitalGood(r)) continue;
+      const have = this.amount(d, r) + (core && core.id !== d.id ? this.amount(core, r) : 0);
+      if (have < q) out[r] = q - have;
+    }
+    return out;
+  }
 }
 
 module.exports = { Colony };

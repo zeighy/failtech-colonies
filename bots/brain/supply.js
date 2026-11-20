@@ -109,6 +109,7 @@ class Supply {
       }
       // nobody has any to spare: buy a lot to keep things moving, and see to the supply as well
       await this.buy(here, r, r === 'frames' || r === 'fittings' || r === 'modules' ? 40 : 200);
+      if (G.settled()) continue; // (a settled colony keeps its lines fed, but builds no more)
       // another line where it is made
       // a trade good is made by another workshop at the Free Port
       const mk = this.config.resources[r].trade ? ['freeport', 'trade_workshop', r] : MAKES[r];
@@ -139,10 +140,13 @@ class Supply {
 
   // Build upward: expand an existing building of this kind (the cheapest step first), paying with what the place holds and
   // having the rest (mostly the Free Port's trade goods) shipped over. True when an expansion was ordered or paid towards.
+  // Past level 5 an expansion also takes orbital goods: when nobody on the ground holds them, the station is asked to send
+  // them down and this is false, so whatever wanted the building looks elsewhere (another plot, a reorganised one).
   async expand(d, type, { forShortage = false } = {}) {
     const m = this.m;
     const G = this.G;
     if (!m.byType('freeport')) return false; // expansions are paid in trade goods
+    if (G.settled()) return false; // a settled colony stays the size it is
     if (m.orders(d).some((o) => o.kind === 'expand') || m.waiting(d).length > 1) return false;
     const opts = m.buildings(d).filter((b) => b.type === type && b.xnext && !b.paused).sort((a, b) => a.level - b.level);
     const b = opts[0];
@@ -150,6 +154,8 @@ class Supply {
     if (G.shortHanded(type)) return false;
     // while the launch stock is building up, the launch goods are not spent on expansions
     if (!forShortage && this.mem.launchSaving && Object.keys(b.xnext.cost).some((r) => (this.mem.launchShort || {})[r])) return false;
+    const miss = m.orbitalMissing(d, b.xnext.cost);
+    if (Object.keys(miss).length) { G.askDown(miss); return false; }
     if (!m.can(d, b.xnext.cost)) { await G.topUp(d, b.xnext.cost); return true; }
     if (await m.act('expand', { ring: b.ring, slot: b.slot, district: d.id })) { this.mem.events.push(`expanded ${type} in ${d.type} to level ${b.xnext.level}`); return true; }
     return false;

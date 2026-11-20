@@ -230,7 +230,7 @@ class Endgame {
     }
     await this.missions(m.byType('freeport'));
     if (m.v.orbital.unlocked && !m.v.orbital.station) await this.launchChain(m.core(), m.byType('freeport'));
-    else if (m.v.orbital.station) {
+    else if (m.v.orbital.station && !this.P.settle) { // (a settled profile launches nothing more)
       await this.cycle();
       const L = m.v.orbital.launch;
       if (L.ready && L.ready !== 'station' && await m.act('launch', {})) this.mem.events.push(`launched ${L.ready}`);

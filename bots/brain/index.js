@@ -12,6 +12,7 @@ const { Orbit } = require('./orbit');
 const { Trade } = require('./trade');
 const { Reorg } = require('./reorg');
 const { Supply } = require('./supply');
+const { Sink } = require('./sink');
 const issues = require('./issues');
 const { assess } = require('../assess');
 
@@ -47,9 +48,14 @@ function postmortem(v, config, mem) {
 
 // The parts of the bot's memory that explain what it was doing (kept small for the log).
 function brief(mem) {
+  const run = (mem.orbit || {}).run;
+  const { open, ...trade } = mem.trade || {}; // (the orders being watched for fills are not worth logging)
   return {
     selling: mem.selling || [], launchSaving: !!mem.launchSaving, launchShort: mem.launchSaving ? mem.launchShort || {} : {},
-    paused: ((mem.supply || {}).paused || []).length, trade: mem.trade || null,
+    paused: ((mem.supply || {}).paused || []).length, trade: mem.trade ? trade : null,
+    run: run ? { good: run.good, running: !!run.running, squeezed: !!run.squeezed, fetch: run.fetch } : null,
+    down: Object.fromEntries(Object.entries(mem.orbitDown || {}).map(([r, x]) => [r, x.qty])),
+    sink: mem.sink ? { bought: mem.sink.bought, spent: mem.sink.spent, dumped: mem.sink.dumped } : undefined,
   };
 }
 
@@ -79,6 +85,7 @@ async function takeTurn({ config, api, profile, mem, log = () => {}, maxActions 
     if (m.v.colony.won) await new Endgame(m, mem, profile, G, rng).turn();
     if (m.v.orbital && m.v.orbital.station) await new Orbit(m, mem, profile, G).turn();
     await new Trade(m, mem, profile, G, rng).turn();
+    if (profile.sink) await new Sink(m, mem, profile, rng).turn();
     await new Reorg(m, mem, profile, G).turn();
   } finally {
     mem.lastTick = m.tick;
@@ -87,7 +94,7 @@ async function takeTurn({ config, api, profile, mem, log = () => {}, maxActions 
     out.summary = summary(m.v);
     out.brief = brief(mem);
   }
-  out.issues = issues.track(m, mem, out);
+  out.issues = issues.track(m, mem, out, profile);
   return out;
 }
 
@@ -99,6 +106,19 @@ function summary(v) {
     tick: v.tick, hub: c.hubLevel, pop: c.population, morale: Math.round(c.morale), credits: c.credits,
     places, won: c.won, orbit: !!(v.orbital && v.orbital.unlocked), station: !!(v.orbital && v.orbital.station),
     standing: v.orbital ? v.orbital.standing : 0, doom: v.doom ? `${v.doom.phase} ${v.doom.ticks}` : null, shutdown: !!c.shutdown,
+    homes: c.maxPopulation, stationInfo: stationBrief(v),
+  };
+}
+
+// The station at a glance: its storage (level, and each slot's good and amount), its links up and down, and the next launch.
+function stationBrief(v) {
+  const st = v.orbital && v.orbital.station;
+  if (!st) return null;
+  return {
+    storage: st.storage.level,
+    slots: st.storage.slots.map((x) => (x.state !== 'open' ? x.state : x.resource ? `${x.resource}:${x.amount}` : 'free')).join(' '),
+    links: ((st.links || {}).list || []).map((x) => `${x.dir}:${x.resource}`).join(' '),
+    next: (v.orbital.launch || {}).next || null,
   };
 }
 

@@ -108,7 +108,7 @@ class Ground {
       let sent = false;
       for (const from of m.places()) {
         if (from.id === d.id) continue;
-        const keep = from.type === 'core' ? (r === 'building_materials' ? 40 : r === 'scrap' ? 700 : ['clean_water', 'rations'].includes(r) ? 300 * this.P.safety : 150) : from.type === 'freeport' && this.config.resources[r].trade ? 200 : 15;
+        const keep = m.isOrbitalGood(r) ? 0 : from.type === 'core' ? (r === 'building_materials' ? 40 : r === 'scrap' ? 700 : ['clean_water', 'rations'].includes(r) ? 300 * this.P.safety : 150) : from.type === 'freeport' && this.config.resources[r].trade ? 200 : 15;
         const spare = Math.floor(m.amount(from, r) - keep);
         const qty = Math.min(short, spare, this.config.logistics.shipmentMax);
         if (qty >= 1 && await m.act('shipment', { from: from.id, to: d.id, resource: r, qty })) { sent = true; break; }
@@ -196,7 +196,17 @@ class Ground {
     }
   }
 
+  // A profile that settles stops growing once its station is up: it keeps what it has fed and running.
+  settled() { return !!this.P.settle && !!(this.m.v.orbital && this.m.v.orbital.station); }
+
   missing(d, type) { (this.mem.wanted = this.mem.wanted || {})[`${d.id}:${type}`] = this.m.tick; }
+  // Orbital goods an expansion needs that only the station has: the orbit step brings them down when it can spare them.
+  askDown(miss) {
+    const D = (this.mem.orbitDown = this.mem.orbitDown || {});
+    for (const [r, q] of Object.entries(miss)) D[r] = { qty: Math.max(q, (D[r] && this.m.tick - D[r].at < 200 ? D[r].qty : 0)), at: this.m.tick };
+  }
+  // Can this building be expanded with what is on the ground (orbital goods included)?
+  expandable(d, b) { return !!b.xnext && !Object.keys(this.m.orbitalMissing(d, b.xnext.cost)).length; }
 
   // ---- survival: water, food, meals, homes, power -----------------------------------------------------------------
   async survival() {
@@ -210,12 +220,13 @@ class Ground {
     const net = (r) => m.net(core, r);
     const grow = async (type) => {
       if (pendingAny(FOOD)) return;
-      for (const t of SPILL.slice(0, 2)) { // the Core, then the farm district
+      for (const t of SPILL) { // the Core, the farm district, then wherever else there is room
         const d = m.byType(t);
         if (!d || (t !== 'core' && d.level < 2)) continue;
         let what = type;
         if (t !== 'core' && what === 'hydroponics_bay' && m.net(d, 'clean_water') < 5) what = 'water_purifier';
         if (what === 'water_purifier' && m.net(d, 'unpurified_water') < (t === 'core' ? 8 : 15)) what = 'water_pump';
+        if (!m.buildable(what, d.type)) continue;
         const pos = this.roomFor(d, what);
         if (!pos) { this.missing(d, what); continue; }
         if (!m.can(d, m.def(what).cost)) { if (t !== 'core') await this.topUp(d, m.def(what).cost); return; }
@@ -234,11 +245,43 @@ class Ground {
       if (pos) await this.build(m.core(), 'kitchen', { urgent: true, pos }); // eating well keeps the colony growing
     }
     await this.homes(pendingAny);
+    if (this.every(10)) await this.households();
     await this.power();
     // what a district grows for the colony goes home
     if (this.every(5)) {
       const has = (t, type) => { const d = m.byType(t); return !!d && m.buildings(d).some((b) => b.type === type); };
       await this.routes(SPILL.slice(1).flatMap((t) => [[t, 'core', 'rations', 30, 20, () => has(t, 'hydroponics_bay')], [t, 'core', 'clean_water', 30, 60, () => has(t, 'water_purifier')]]));
+    }
+  }
+
+  // Housing past its level-5 expansion can take more people for a steady supply (the housing class's options): switched on,
+  // one building at a time, while the homes are full and the place makes the goods with room to spare; switched off when
+  // the goods run short.
+  async households() {
+    const m = this.m;
+    const v = m.v;
+    const opts = Object.entries(((this.config.expansion.classes.housing || {}).options) || {});
+    if (!opts.length || this.settled()) return;
+    const full = v.colony.population >= v.colony.maxPopulation - 2 && v.colony.morale >= this.config.global.populationGrowth.minMorale;
+    let added = false;
+    for (const d of m.places()) {
+      for (const b of m.buildings(d)) {
+        const def = m.def(b.type);
+        if (!def || def.expand !== 'housing' || b.paused) continue;
+        for (const [k, o] of opts) {
+          const on = !!(b.boosts || {})[k];
+          const ins = Object.entries(o.inputsPerTick);
+          if (on) {
+            const short = b.boosts[k] === 'starved' || ins.some(([r, q]) => m.amount(d, r) < q * 30 && m.net(d, r) < 0)
+              || ['clean_water', 'rations'].some((r) => v.resources[r].amount < 150 * this.P.safety && v.resources[r].net < 0);
+            if (short && await m.act('boost', { ring: b.ring, slot: b.slot, enabled: false, option: k, district: d.id })) this.mem.events.push(`${o.label} off in ${d.type}`);
+            continue;
+          }
+          if (added || !full || (b.level || 1) < ((o.unlock || {}).level || 1)) continue;
+          if (!ins.every(([r, q]) => m.amount(d, r) >= q * 200 && m.net(d, r) >= q * 1.1)) continue;
+          if (await m.act('boost', { ring: b.ring, slot: b.slot, enabled: true, option: k, district: d.id })) { added = true; this.mem.events.push(`${o.label} on in ${d.type}`); }
+        }
+      }
     }
   }
 
@@ -402,9 +445,15 @@ class Ground {
     const core = m.core();
     const cap = m.cap(core);
     const have = m.v.contracts || { export: {}, import: {} };
-    for (const r of ['machined_parts', 'building_materials', 'alloys', 'clean_water', 'rations', 'meals', 'scrap']) {
+    // a profile with its own convoy habit (the money pit) sells whatever the convoy carries, earlier and deeper
+    const C = this.P.convoy || { from: 0.9, to: 0.75 };
+    const carried = (r) => { const x = this.config.resources[r]; return !!x && !x.trade && !x.orbitalOnly && x.sell > 0; };
+    const list = this.P.convoy ? Object.keys(core.resources || {}).filter(carried)
+      : ['machined_parts', 'building_materials', 'alloys', 'clean_water', 'rations', 'meals', 'scrap'];
+    for (const r of list) {
       const a = m.amount(core, r);
-      const spare = a >= cap * 0.9 ? Math.floor(a - cap * 0.75) : 0;
+      let spare = a >= cap * C.from ? Math.floor(a - cap * C.to) : 0;
+      if (this.P.convoy) spare = Math.min(spare, Math.floor(sim.convoyLimit(this.config, m.hub, r))); // (the server caps it there anyway)
       if ((have.export[r] || 0) === spare) continue;
       await m.act('contract', { resource: r, side: 'export', amount: Math.max(0, spare) });
     }
