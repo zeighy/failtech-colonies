@@ -193,7 +193,7 @@ test('unlocks: amounts hidden until committed, one escalating counter, a timer t
   assert.equal(JSON.parse(hqRow(c).cur).opt, 'orbitalLink', 'the unlock under way is untouched');
 });
 
-test('surface unlocks: one more standing route, and +50 on every district link whatever its level', () => {
+test('surface unlocks: three more standing routes, and +50 on every district link whatever its level', () => {
   const c = chartered('Road Works');
   const pits = Number(db.prepare("INSERT INTO districts (colony_id, type, level, name, created_tick) VALUES (?, 'pits', 4, 'The Pits', 0)").run(c.id).lastInsertRowid);
   store.saveInventory(c.id, Object.fromEntries(Object.keys(config.resources).map((r) => [r, 100])), pits);
@@ -203,15 +203,17 @@ test('surface unlocks: one more standing route, and +50 on every district link w
   assert.equal(cap(pits), base + 50);
   assert.equal(cap(c.fp), Math.floor(config.logistics.link.levels[1].capacity) + 50, 'every link, at any level');
   assert.deepEqual(actions.setRoute(c.uid, { from: c.core, to: pits, resource: 'scrap', rate: base + 50, reserve: 0 }), { ok: true });
-  // the route limit: fill it, then one more fits after the unlock
+  // the route limit: fill it, then three more fit after the unlock
   const L = config.logistics.maxRoutes;
   const ins = db.prepare('INSERT INTO colony_routes (colony_id, from_district, to_district, resource_id, rate, reserve) VALUES (?, ?, ?, ?, 0, 0)');
   const res = Object.keys(config.resources);
   for (let i = 1; i < L; i++) ins.run(c.id, i % 2 ? c.fp : pits, i % 2 ? pits : c.fp, res[i]);
   assert.match(actions.setRoute(c.uid, { from: c.core, to: c.fp, resource: 'ore', rate: 1, reserve: 0 }).error, /At most/);
   unlock(c, 'surface', 'route');
-  assert.deepEqual(actions.setRoute(c.uid, { from: c.core, to: c.fp, resource: 'ore', rate: 1, reserve: 0 }), { ok: true });
-  assert.equal(viewFor(c.uid).maxRoutes, L + 1);
+  assert.equal(viewFor(c.uid).maxRoutes, L + 3);
+  assert.equal(viewFor(c.uid).hq.perks.routes, 3);
+  for (const r of ['ore', 'alloys', 'frames']) assert.deepEqual(actions.setRoute(c.uid, { from: c.core, to: c.fp, resource: r, rate: 1, reserve: 0 }), { ok: true }, r);
+  assert.match(actions.setRoute(c.uid, { from: c.core, to: c.fp, resource: 'fittings', rate: 1, reserve: 0 }).error, /At most/);
 });
 
 test('station unlocks: an orbital link, a dropship bay, and a level-4 refit that cannot be destroyed', () => {
