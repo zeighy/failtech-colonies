@@ -62,6 +62,34 @@ test('medicine in the homes raises comfort and so the morale target', () => {
   assert.equal(50 - b.inventory.medicine, config.buildings.habitat.optional.inputsPerTick.medicine);
 });
 
+test('housing past level 5 can take larger families and tighter spaces: a fixed cost each, homes multiplied', () => {
+  const H = config.expansion.classes.housing.options;
+  const homes = (extra, inv = {}) => run([...power(), bld(2, 1, 'habitat', { level: 5, ...extra })], { meals: 100, clean_water: 500, scrap: 1500, biomass: 100, ...inv });
+  const plain = homes({});
+  const fam = homes({ boost: H.larger_families.bit });
+  const both = homes({ boost: H.larger_families.bit | H.tighter_spaces.bit });
+  const built = (r) => r.housing.built;
+  assert.ok(Math.abs(built(fam) / built(plain) - H.larger_families.housingMult) < 1e-9, `${built(plain)} -> ${built(fam)}`);
+  assert.ok(Math.abs(built(both) / built(plain) - H.larger_families.housingMult * H.tighter_spaces.housingMult) < 1e-9);
+  assert.ok(Math.abs(plain.inventory.meals - fam.inventory.meals - H.larger_families.inputsPerTick.meals) < 1e-9, 'a flat amount, whatever the level (people eat meals too)');
+  assert.ok(Math.abs(plain.inventory.biomass - both.inventory.biomass - H.tighter_spaces.inputsPerTick.biomass) < 1e-9);
+  const st = (r) => [...r.buildings.values()].find((x) => x.comfort !== undefined);
+  assert.deepEqual(st(both).boosts, { larger_families: 'on', tighter_spaces: 'on' });
+  assert.equal(st(both).boost, null, 'the clinic supplies are a separate switch, still off');
+  // with the clinic supplies on as well: all three run together
+  const all = homes({ boost: 1 | H.larger_families.bit | H.tighter_spaces.bit }, { medicine: 50 });
+  assert.equal(st(all).boost, 'on');
+  assert.ok(Math.abs(built(all) - built(both)) < 1e-9);
+  // out of stock: nothing spent, no extra homes
+  const dry = homes({ boost: H.larger_families.bit }, { meals: 1 });
+  assert.ok(dry.inventory.meals >= 0 && built(dry) === built(plain));
+  assert.equal(built(dry), built(plain));
+  assert.equal(st(dry).boosts.larger_families, 'starved');
+  // below level 5 the bit does nothing
+  const low = run([...power(), bld(2, 1, 'habitat', { level: 4, boost: H.larger_families.bit })], { meals: 100 });
+  assert.equal(low.housing.built, run([...power(), bld(2, 1, 'habitat', { level: 4 })], { meals: 100 }).housing.built);
+});
+
 test('hazard requirements for fertiliser and medicine only count once districts are open', () => {
   const hz = require('../src/hazards');
   const lowInv = { clean_water: 500, fertiliser: 0, medicine: 0, building_materials: 500, scrap: 500, machined_parts: 100 };
@@ -109,5 +137,18 @@ test('the boost action switches a building, explicitly and idempotently, and onl
   assert.ok(viewFor(uid).buildings.find((b) => b.type === 'hydroponics_bay').boost);
   assert.deepEqual(actions.setBoost(uid, { ring: 1, slot: 0, enabled: false }), { ok: true });
   assert.equal(viewFor(uid).buildings.find((b) => b.type === 'hydroponics_bay').boost, null);
+  // housing: its own clinic supplies, and the housing options once it is level 5, each on its own bit
+  ins.run(cid, 2, 0, 'habitat');
+  const home = () => viewFor(uid).buildings.find((b) => b.type === 'habitat');
+  assert.match(actions.setBoost(uid, { ring: 2, slot: 0, enabled: true, option: 'larger_families' }).error, /level 5/);
+  assert.match(actions.setBoost(uid, { ring: 2, slot: 0, enabled: true, option: 'bogus' }).error, /no such optional input/);
+  store.db.prepare('UPDATE colony_buildings SET level = 5 WHERE colony_id = ? AND building_type = ?').run(cid, 'habitat');
+  assert.deepEqual(actions.setBoost(uid, { ring: 2, slot: 0, enabled: true, option: 'larger_families' }), { ok: true });
+  assert.deepEqual(actions.setBoost(uid, { ring: 2, slot: 0, enabled: true }), { ok: true });
+  assert.ok(home().boost);
+  assert.deepEqual(Object.keys(home().boosts), ['larger_families']);
+  assert.deepEqual(actions.setBoost(uid, { ring: 2, slot: 0, enabled: false, option: 'larger_families' }), { ok: true });
+  assert.equal(home().boosts, null);
+  assert.ok(home().boost, 'switching one option off leaves the others as they were');
   store.db.close();
 });

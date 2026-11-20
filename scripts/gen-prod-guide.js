@@ -132,7 +132,11 @@ const E = C.expansion;
 add('## **10. Building expansion**',
   `A building can be expanded in place up to level ${E.maxLevel}; its whole line scales and its crew grows. Cost is the class base cost × (level - 1), paid from the district's own stockpile.${E.orbitalMaxLevel ? ` Levels ${E.maxLevel + 1}-${E.orbitalMaxLevel} stay hidden until the colony's first rare resource has come home to its station (section 16); they also cost the class's orbital goods × ${Object.entries(E.orbitalCostMult).map(([l, k]) => `${k} (level ${l})`).join(', ')}, which have to come down from orbit by link or express drop.` : ''}`,
   table(['Level', 'Output scale', 'Crew scale', 'Ticks'], Object.keys(E.scale).sort((a, b) => a - b).map((l) => [l, `×${E.scale[l]}`, `×${E.crew[l]}`, E.ticks[l] || '–'])),
-  table(['Class', 'Base cost', 'Orbital goods (levels 6+)'], Object.entries(E.classes).map(([k, v]) => [k, list(v.baseCost), list(v.orbitalCost)])));
+  table(['Class', 'Base cost', 'Orbital goods (levels 6+)'], Object.entries(E.classes).map(([k, v]) => [k, list(v.baseCost), list(v.orbitalCost)])),
+  '',
+  'Some classes add optional inputs of their own once a building reaches a level. Each is switched on separately, on top of the building\'s own optional input, and costs a fixed amount per tick per building (not scaled by level or plot) while it is in stock in that place; their effects multiply.',
+  '',
+  table(['Class', 'Option', 'Opens at', 'Costs / tick', 'Effect'], Object.entries(E.classes).flatMap(([k, v]) => Object.values(v.options || {}).map((o) => [k, o.label, `level ${(o.unlock || {}).level || 1}`, list(o.inputsPerTick), o.housingMult ? `homes ×${o.housingMult}` : o.outputMult ? `output ×${o.outputMult}` : '–']))));
 
 // ---- hazards
 const H = C.hazards;

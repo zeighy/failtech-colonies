@@ -186,6 +186,19 @@ function alternativeOf(def, recipeId) {
 // Is an alternative open to a building? `unlock.level` is the level of the place the building stands in (the hub for the
 // Core, the district's own level elsewhere); `unlock.milestone` is something the whole colony has done ('beacon': the
 // Beacon is built; 'freeport': the Free Port is founded; 'station': the station is in orbit).
+// A building's optional inputs, each switched on by its own bit of the building's `boost`: the building's own `optional`
+// (bit 1), then those of its expansion class (housing has two that open at level 5). Each costs a fixed amount per tick.
+function optionsOf(config, def) {
+  const out = [];
+  if (!def) return out;
+  if (def.optional) out.push({ key: 'base', bit: 1, ...def.optional });
+  const cls = def.expand && config.expansion && config.expansion.classes[def.expand];
+  for (const [key, o] of Object.entries((cls && cls.options) || {})) out.push({ key, ...o });
+  return out;
+}
+// Whether an optional input is open on a building of this expansion level.
+const optionOpen = (o, level) => !(o.unlock && o.unlock.level) || (level || 1) >= o.unlock.level;
+
 function altUnlocked(alt, { level = 1, milestones = {} } = {}) {
   const u = alt.unlock || {};
   if (u.level && level < u.level) return false;
@@ -305,7 +318,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
     const plot = plotMultiplier(config, def, b.ring, d.type);
     const gm = (ctx.globalOut && ctx.globalOut[b.type] !== undefined ? ctx.globalOut[b.type] : 1) * (d.outputMult && d.outputMult[b.type] !== undefined ? d.outputMult[b.type] : 1);
     const haz = (outMult[b.type] === undefined ? 1 : outMult[b.type]) * (degraded[b.id] === undefined ? 1 : degraded[b.id]) * gm;
-    infos.push({ b, def, adj, plot, haz, nbs, mult: adj * plot, inputs: rt.inputs, outputs: rt.outputs, workers: rt.workers, idle: rt.idle, batch: rt.batch, xscale: rt.scale, opt: def.optional && b.boost ? def.optional : null, optMult: 1, optOn: false });
+    infos.push({ b, def, adj, plot, haz, nbs, mult: adj * plot, inputs: rt.inputs, outputs: rt.outputs, workers: rt.workers, idle: rt.idle, batch: rt.batch, xscale: rt.scale, opts: optionsOf(config, def).filter((o) => (b.boost & o.bit) && optionOpen(o, b.level)), optMult: 1, homeMult: 1, optComfort: 0, optState: {} });
   }
   const offline = (i) => i.b.status !== 'active' || disabled.has(i.b.id) || !!i.idle;
   const running = sortBuildings(config, infos.filter((i) => !offline(i)));
@@ -422,12 +435,16 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
     const pEff = hasPower ? sat : 1;
     const sEff = staffOf(i);
     const eff = Math.min(mEff, pEff, sEff);
-    // Optional input: switched on by the player, a fixed amount per tick while the building is working, and only
+    // Optional inputs: switched on by the player, a fixed amount per tick while the building is working, and only
     // if the whole amount is in stock (otherwise it sits idle and nothing is spent).
-    if (i.opt && eff > 0.01 && Object.entries(i.opt.inputsPerTick).every(([r, a]) => (inv[r] || 0) >= a)) {
-      for (const [r, a] of Object.entries(i.opt.inputsPerTick)) { inv[r] -= a; flows[r].consumed += a; }
-      i.optOn = true;
-      if (i.opt.outputMult) i.optMult = i.opt.outputMult;
+    for (const o of i.opts) {
+      const on = eff > 0.01 && Object.entries(o.inputsPerTick).every(([r, a]) => (inv[r] || 0) >= a);
+      i.optState[o.key] = on ? 'on' : 'starved';
+      if (!on) continue;
+      for (const [r, a] of Object.entries(o.inputsPerTick)) { inv[r] -= a; flows[r].consumed += a; }
+      if (o.outputMult) i.optMult *= o.outputMult;
+      if (o.housingMult) i.homeMult *= o.housingMult;
+      if (o.comfort) i.optComfort += o.comfort;
     }
     apply(i, eff, inv, flows);
     if (i.def.transmit) progressGain += eff * i.mult * i.haz;
@@ -441,7 +458,7 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
       else if (pEff < mEff - EPS) { status = pEff < 0.01 ? 'no_power' : 'low_power'; }
       else { status = mEff < 0.01 ? 'starved' : 'low_input'; why = limiting; }
     }
-    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, batch: i.batch, xscale: i.xscale, status, limiting: why, boost: i.opt ? (i.optOn ? 'on' : 'starved') : null });
+    bstate.set(i.b.id, { eff, mult: i.mult, adj: i.adj, plot: i.plot, haz: i.haz, batch: i.batch, xscale: i.xscale, status, limiting: why, boost: i.optState.base || null, boosts: i.opts.length ? i.optState : null });
   }
 
   // Housing and neighbourhood comfort. Homes next to noisy, smoky buildings are miserable.
@@ -450,9 +467,8 @@ function stepDistrict(config, d, ctx, neighborMap, mods = {}) {
   let comfortWeighted = 0;
   for (const i of running) {
     if (!i.def.housing) continue;
-    const cap = i.def.housing * i.plot * i.xscale;
-    const raw = i.nbs.reduce((s, n) => s + (n.status === 'active' ? (config.buildings[n.type].comfort || 0) : 0), 0)
-      + (i.optOn && i.opt.comfort ? i.opt.comfort : 0);
+    const cap = i.def.housing * i.plot * i.xscale * i.homeMult;
+    const raw = i.nbs.reduce((s, n) => s + (n.status === 'active' ? (config.buildings[n.type].comfort || 0) : 0), 0) + i.optComfort;
     const comfort = Math.max(g.morale.comfortMin, Math.min(g.morale.comfortMax, raw));
     housingBuilt += cap;
     comfortWeighted += cap * comfort;
@@ -775,6 +791,6 @@ function slotUnlocked(config, hubLevel, ring, slot, type = 'core') {
 }
 
 module.exports = {
-  key, canFeed, alternativeOf, altUnlocked, recipeBook, territoryDef, districtFoundable, expansionCost, expansionMax, expansionTop, rates, recipeAdjacency, recipeResetFee, storageCap, capOf, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
+  key, canFeed, alternativeOf, altUnlocked, optionsOf, optionOpen, recipeBook, territoryDef, districtFoundable, expansionCost, expansionMax, expansionTop, rates, recipeAdjacency, recipeResetFee, storageCap, capOf, applyRoutes, ringRotation, maxLevel, districtType, levelDef, buildableIn, shipDistance, districtsUnlocked, districtLevelCap, districtLevelNeeds, stepDistrict, stepColony, coreView, moraleMultiplier, ringCapacities, buildNeighborMap, adjacencyMultiplier, plotSize, plotMultiplier,
   marketMult, marketPrices, nextConvoyK, expressPrices, expressFee, convoyLimit, step, runConvoy, slotUnlocked,
 };

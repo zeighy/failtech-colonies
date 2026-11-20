@@ -212,14 +212,20 @@ const expand = guarded((c, { ring, slot, district }) => {
   return order(c, d, 'expand', { ring: b.ring_index, slot: b.slot_index, type: b.building_type, level: level + 1 });
 });
 
-// Switch a building's optional input on or off (off by default). Clients send the state they want.
-const setBoost = guarded((c, { ring, slot, enabled, district }) => {
+// Switch one of a building's optional inputs on or off (off by default). Clients send the state they want, and which
+// input (`option`: 'base', the building's own, when left out; housing also has its expansion class's options).
+const setBoost = guarded((c, { ring, slot, enabled, district, option }) => {
   const d = districtFor(c, district);
   if (!d) return fail(NO_DISTRICT);
   const b = buildingAt(d, ring, slot);
   if (!b) return fail('Nothing there.');
-  if (!config.buildings[b.building_type].optional) return fail('This building has no optional input.');
-  db.prepare('UPDATE colony_buildings SET boost = ? WHERE id = ?').run(enabled ? 1 : 0, b.id);
+  const opts = sim.optionsOf(config, config.buildings[b.building_type]);
+  if (!opts.length) return fail('This building has no optional input.');
+  const o = opts.find((x) => x.key === (option === undefined || option === null ? 'base' : option));
+  if (!o) return fail('This building has no such optional input.');
+  if (enabled && !sim.optionOpen(o, b.level)) return fail(`${o.label} opens at level ${o.unlock.level}.`);
+  const cur = b.boost || 0;
+  db.prepare('UPDATE colony_buildings SET boost = ? WHERE id = ?').run(enabled ? cur | o.bit : cur & ~o.bit, b.id);
   return OK;
 });
 
