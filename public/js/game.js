@@ -1139,6 +1139,12 @@
     if (ordersAt(b.ring, b.slot).length) return '';
     return '<button class="btn block" style="margin:-4px 0 12px" data-act="replacemode" title="Swap it for another building on this plot, through the work queue">' + icon('route', 12) + ' Replace with…</button>';
   }
+  // Crew grows with level, a little less than the throughput does (config.expansion.crew).
+  function crewNeed(b, d) {
+    var k = d.expand && b.level > 1 ? (CFG.expansion.crew[b.level] || 1) : 1;
+    var n = Math.round(d.workers * k * 10) / 10;
+    return n + (k > 1.001 ? ' <span class="dim">(' + d.workers + ' base · level ×' + k.toFixed(1) + ')</span>' : '');
+  }
   function paused0(b) { return b.paused; }
   // A home's rows: how many people it holds and what that is made of, and the comfort it feels and where that comes from.
   function homesRows(b, d) {
@@ -1165,7 +1171,7 @@
       (d.buffer ? '' : '<dt>Efficiency</dt><dd>' + pct(b.paused ? 0 : b.eff) + '</dd>') +
       '<dt>Adjacency</dt><dd class="' + (b.adj > 1.001 ? 'good' : b.adj < 0.999 ? 'bad' : 'dim') + '">' + (Math.abs(b.adj - 1) < 0.001 ? 'none' : '×' + b.adj.toFixed(2)) + '</dd>' +
       '<dt>Plot</dt><dd class="' + (b.plot < 0.999 ? 'bad' : 'good') + '">' + plotName(b.ring) + (b.plot < 0.999 ? ' · too small for ' + plotName2(d.minPlotSize) + ' · ×' + b.plot.toFixed(2) : (d.minPlotSize > 1 ? ' · fits' : '')) + '</dd>' +
-      (d.workers ? '<dt>Crew</dt><dd class="' + (S.colony.staffing.ratio < 0.999 ? 'warn' : '') + '">' + d.workers + ' needed' + (S.colony.staffing.ratio < 0.999 ? ' · colony at ' + pct(S.colony.staffing.ratio) + ' staffed' : '') + '</dd>' : '') +
+      (d.workers ? '<dt>Crew</dt><dd class="' + (S.colony.staffing.ratio < 0.999 ? 'warn' : '') + '">' + crewNeed(b, d) + ' needed' + (S.colony.staffing.ratio < 0.999 ? ' · colony at ' + pct(S.colony.staffing.ratio) + ' staffed' : '') + '</dd>' : '') +
       (b.xscale > 1.001 ? '<dt>Level ' + b.level + '</dt><dd class="good">×' + b.xscale.toFixed(2) + ' throughput</dd>' : '') +
       (!d.housing && b.opt && Math.abs(b.opt - 1) > 0.001 ? '<dt>Optional input</dt><dd class="good">×' + b.opt.toFixed(2) + ' output</dd>' : '') +
       (!d.housing && !d.buffer && !paused0(b) && Math.abs(b.prod - 1) > 0.001 && d.outputsPerTick && Object.keys(d.outputsPerTick).length ? '<dt>Morale</dt><dd class="' + (b.prod < 1 ? 'bad' : 'good') + '">×' + b.prod.toFixed(2) + ' output</dd>' : '') +
