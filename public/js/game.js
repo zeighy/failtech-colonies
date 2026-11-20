@@ -2817,6 +2817,7 @@
   function frame(t) {
     requestAnimationFrame(frame);
     if (!S || t - lastFrame < 70) return;
+    if (window.Mini && window.Mini.isOpen()) return; // hidden behind the puzzle: redrawing it only costs the GPU
     lastFrame = t;
     var f = frac();
     frameStock(f); frameQueue(f); frameRadar(f);

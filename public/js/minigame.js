@@ -57,7 +57,7 @@
     cur = session;
     if (!bg) {
       bg = document.createElement('div');
-      bg.className = 'modal-bg';
+      bg.className = 'modal-bg mg-bg';
       bg.innerHTML = '<div class="modal mg" role="dialog" aria-modal="true" data-lock></div>';
       document.body.appendChild(bg);
     }
@@ -291,5 +291,7 @@
     else if (a === 'splice') send('minigame-move', { id: cur.id, input: { order: local.chain.slice() } });
   }
 
-  window.Mini = { init: init, section: section };
+  // Open and still on the page (a reload of the panels can remove every modal). The colony view pauses while it is.
+  function isOpen() { return !!(bg && bg.isConnected); }
+  window.Mini = { init: init, section: section, isOpen: isOpen };
 })();

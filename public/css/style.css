@@ -196,6 +196,8 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .toast.out { opacity: 0; transform: translateX(-20px); transition: all .3s; }
 
 .modal-bg { position: fixed; inset: 0; background: rgba(4,6,8,.72); backdrop-filter: blur(3px); display: grid; place-items: center; z-index: 60; padding: 16px; animation: fade .15s; }
+/* The puzzle stays open for minutes over a page that keeps animating: a blurred backdrop would be recomputed every frame. */
+.modal-bg.mg-bg { backdrop-filter: none; background: rgba(4,6,8,.9); }
 .modal { background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 30px 90px rgba(0,0,0,.7); }
 .modal h2 { font-size: 18px; margin-bottom: 8px; }
 .modal p { color: var(--dim); margin: 0 0 16px; }
