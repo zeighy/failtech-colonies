@@ -45,7 +45,11 @@ database size, recent server errors.
 - suspend, with a reason the player sees, for some hours or until lifted (sessions end and live connections close at once), or lift it;
 - set a passcode, or email a reset link (verified addresses only); sign out everywhere; turn off a player's authenticator code (lost device);
 - delete the account, with its colony **parked** for someone else (bots may take it up) or **wiped**;
-- give or take credits (a line goes into the colony log), set a stock in any district;
+- give or take credits or data fragments (a line goes into the colony log). Fragments given also count as recovered, so the
+  first ones open the Data screen and raise the `dataFragment` story flag;
+- set a stock in any district, picking the resource from a list;
+- set the time left on the Headquarters work in progress (the rebuild, or an unlock being built), anywhere from zero to its
+  full duration. At zero it finishes on the colony's next tick;
 - **roll the colony back** to any backup that holds it (below);
 - the colony's recent events, the account's server log, and other accounts seen at the same address.
 

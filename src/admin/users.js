@@ -1,7 +1,8 @@
 'use strict';
 // Admin panel: player accounts and their colonies. Create, edit (callsign, email, note), verify the address by hand, ban
 // and lift bans, set a passcode or send a reset email, sign out everywhere, delete (parking the colony for someone else, or
-// wiping it), grant credits or set a stock, roll a colony back to a backup, and read the account's log and colony events.
+// wiping it), grant credits or fragments, set a stock or the Headquarters timer, roll a colony back to a backup, and read the
+// account's log and colony events.
 const store = require('../db');
 const accounts = require('../accounts');
 const absence = require('../absence');
@@ -9,6 +10,9 @@ const backup = require('../backup');
 const colonyRestore = require('../colonyRestore');
 const serverlog = require('../serverlog');
 const lifecycle = require('../lifecycle');
+const engine = require('../engine');
+const orbital = require('../orbital');
+const hq = require('../hq');
 const { db, config } = store;
 
 const DAY = 86400000;
@@ -68,6 +72,8 @@ module.exports = (r, h) => {
     const districts = c ? store.loadDistricts(c.id).map((d) => ({ id: d.id, type: d.type, name: d.name, level: d.type === 'core' ? c.hub_level : d.level })) : [];
     ok(res, {
       user: userRow(u), colony: colonyBrief(c), districts,
+      resources: Object.entries(config.resources).map(([id, x]) => ({ id, name: x.name })).sort((a, b) => a.name.localeCompare(b.name)),
+      fragments: c ? c.data_fragments : null, hqTimer: c ? hq.timer(c.id) : null, tickMs: engine.TICK_MS,
       events: c ? db.prepare('SELECT tick, kind, message FROM colony_events WHERE colony_id = ? ORDER BY id DESC LIMIT 60').all(c.id) : [],
       log: serverlog.query({ userId: u.id, limit: 100 }),
       sameIp: u.last_ip ? db.prepare('SELECT id, username FROM users WHERE (last_ip = ? OR created_ip = ?) AND id != ? LIMIT 20').all(u.last_ip, u.last_ip, u.id) : [],
@@ -232,6 +238,40 @@ module.exports = (r, h) => {
     store.addEvent(c.id, Number(store.getMeta('global_tick', 0)), delta > 0 ? 'good' : 'warn', `${delta > 0 ? 'Received' : 'Charged'} ${Math.abs(delta)} cr${b.reason ? `: ${String(b.reason).slice(0, 120)}` : ''}.`);
     audit(req, 'colony.credits', `colony #${c.id}`, { delta, reason: b.reason || null, before: c.credits, after: now });
     ok(res, { credits: now });
+  });
+  // delta: fragments to give or take. What is given also counts as recovered, which is what opens the Data screen.
+  r.post('/colonies/:id/fragments', need, (req, res) => {
+    const c = colonyOr404(req, res);
+    if (!c) return;
+    const b = body(req.body);
+    const delta = toInt(b.delta);
+    if (!delta || Math.abs(delta) > 10000) return bad(res, 'Bad amount.');
+    const now = Math.max(0, c.data_fragments + delta);
+    const change = now - c.data_fragments;
+    if (!change) return bad(res, 'The colony has no fragments to take.');
+    const tick = Number(store.getMeta('global_tick', 0));
+    db.transaction(() => {
+      db.prepare('UPDATE colonies SET data_fragments = ?, data_total = data_total + ? WHERE id = ?').run(now, Math.max(0, change), c.id);
+      if (change > 0) orbital.setFlag(c.id, 'dataFragment', tick);
+      const n = Math.abs(change);
+      store.addEvent(c.id, tick, change > 0 ? 'good' : 'warn', `${change > 0 ? 'Received' : 'Lost'} ${n} data fragment${n === 1 ? '' : 's'}${b.reason ? `: ${String(b.reason).slice(0, 120)}` : ''}.`);
+      audit(req, 'colony.fragments', `colony #${c.id}`, { delta: change, reason: b.reason || null, before: c.data_fragments, after: now });
+    })();
+    ok(res, { fragments: now });
+  });
+  // left: ticks from now; readyTick: the timer the admin was looking at, so a page left open cannot move the next one
+  r.post('/colonies/:id/hq-timer', need, (req, res) => {
+    const c = colonyOr404(req, res);
+    if (!c) return;
+    const b = body(req.body);
+    const t = hq.timer(c.id);
+    if (!t) return bad(res, 'No Headquarters work is in progress.', 409);
+    if (toInt(b.readyTick) !== t.readyTick) return bad(res, 'The timer has changed. Reload the page.', 409);
+    const left = toInt(b.left);
+    if (!(left >= 0 && left <= t.total)) return bad(res, 'Time left must be between zero and the full duration.');
+    hq.setTimer(c.id, left);
+    audit(req, 'colony.hq-timer', `colony #${c.id}`, { work: t.name, before: t.left, after: left });
+    ok(res);
   });
   r.post('/colonies/:id/stock', need, (req, res) => {
     const c = colonyOr404(req, res);

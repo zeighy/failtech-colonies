@@ -292,6 +292,27 @@ function advance(c, tick) {
   return 0;
 }
 
+// ---- the admin panel ---------------------------------------------------------------------------------
+// The timer running now: the rebuild, or the unlock being built (null when neither is). Unlike view(), this never makes
+// the colony's row, so looking at a colony does not open its Headquarters.
+function timer(colonyId, tick = tickNow()) {
+  if (!H) return null;
+  const r = db.prepare('SELECT * FROM colony_hq WHERE colony_id = ?').get(colonyId);
+  if (!r) return null;
+  const running = (name, readyTick, total) => ({ name, readyTick, total, left: Math.max(0, readyTick - tick) });
+  if (r.stage === 'rebuilding') return running('Rebuild', r.ready_tick, H.activation.ticks);
+  const cur = parse(r.cur, null);
+  if (r.stage !== 'chartered' || !cur || cur.state !== 'building') return null;
+  const o = option(cur.cat, cur.opt);
+  return running(o ? o.name : cur.opt, cur.readyTick, ticksFor(cur.n));
+}
+// Move the running timer to `left` ticks from now. At 0 advance() finishes the work on the colony's next tick.
+function setTimer(colonyId, left, tick = tickNow()) {
+  const r = db.prepare('SELECT stage, cur FROM colony_hq WHERE colony_id = ?').get(colonyId);
+  if (r.stage === 'rebuilding') db.prepare('UPDATE colony_hq SET ready_tick = ? WHERE colony_id = ?').run(tick + left, colonyId);
+  else db.prepare('UPDATE colony_hq SET cur = ? WHERE colony_id = ?').run(JSON.stringify({ ...parse(r.cur, null), readyTick: tick + left }), colonyId);
+}
+
 // ---- the view --------------------------------------------------------------------------------------
 function view(c, tick = tickNow()) {
   const r = rowOf(c, tick);
@@ -336,4 +357,4 @@ function discoveries(c) {
   });
 }
 
-module.exports = { unlocked, rowOf, chartered, billFor, ticksFor, give, start, abort, refit, advance, view, discoveries, discover, found, discoveryRow, discoveryName, apply };
+module.exports = { unlocked, rowOf, chartered, billFor, ticksFor, give, start, abort, refit, advance, view, timer, setTimer, discoveries, discover, found, discoveryRow, discoveryName, apply };
