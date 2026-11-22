@@ -38,6 +38,7 @@
     return s < 0 ? f + t : t + ' ago';
   }
   function dur(ms) { var h = Math.floor(ms / 3600000); return h >= 48 ? Math.floor(h / 24) + 'd ' + (h % 24) + 'h' : h + 'h ' + Math.floor(ms / 60000) % 60 + 'm'; }
+  function hoursMins(ms) { var m = Math.floor(ms / 60000); return { h: Math.floor(m / 60), m: m % 60 }; }
   function bytes(n) { return n > 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' kB'; }
   function num(x) { return x === null || x === undefined ? '—' : Number(x).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
   function pill(text, kind) { return '<span class="pill ' + (kind || '') + '">' + esc(text) + '</span>'; }
@@ -200,10 +201,13 @@
         (can() && !u.banned ? '<h3>Suspend</h3><form class="row" data-form="uban"><input class="grow" name="reason" placeholder="Reason (shown to them)"><input name="hours" type="number" min="0" placeholder="Hours (blank: no end)" style="width:170px"><button class="btn danger">Suspend</button></form>' : '') +
         (can() ? '<h3>Passcode</h3><form class="row" data-form="upass"><input class="grow" type="password" name="password" placeholder="New passcode" autocomplete="new-password"><button class="btn">Set</button></form>' : '') + '</div></div>';
       html += '<div class="card"><h2>Colony</h2>' + (c ? '<div class="kv"><div>colony</div><div>#' + c.id + (c.station ? ' · station ' + esc(c.station) : '') + '</div><div>state</div><div>' + colonyCell(c) + (c.noBots ? ' ' + pill('no bots') : '') + '</div>' +
-        '<div>credits</div><div>' + num(c.credits) + '</div><div>morale · age</div><div>' + c.morale + ' · ' + num(c.age) + ' ticks</div><div>last active</div><div>' + ago(c.lastActive) + '</div></div>' +
+        '<div>credits</div><div>' + num(c.credits) + '</div><div>data fragments</div><div>' + num(d.fragments) + '</div><div>morale · age</div><div>' + c.morale + ' · ' + num(c.age) + ' ticks</div><div>last active</div><div>' + ago(c.lastActive) + '</div></div>' +
         (can() ? '<h3>Credits</h3><form class="row" data-form="ucredits"><input name="delta" type="number" placeholder="+/- amount" required><input class="grow" name="reason" placeholder="Reason (in their log)"><button class="btn">Apply</button></form>' +
+          '<h3>Data fragments</h3><form class="row" data-form="ufragments"><input name="delta" type="number" step="1" placeholder="+/- amount" required><input class="grow" name="reason" placeholder="Reason (in their log)"><button class="btn">Apply</button></form>' +
           '<h3>Stock</h3><form class="row" data-form="ustock"><select name="district">' + d.districts.map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + '</option>'; }).join('') + '</select>' +
-          '<input name="resource" placeholder="resource id (e.g. scrap)" required><input name="amount" type="number" min="0" step="any" placeholder="new amount" required><button class="btn">Set</button> <button class="btn small" type="button" data-act="ustockview">Show stock</button></form><div id="stockview"></div>' : '')
+          '<select name="resource" required><option value="">Resource</option>' + d.resources.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name + ' (' + x.id + ')') + '</option>'; }).join('') + '</select>' +
+          '<input name="amount" type="number" min="0" step="any" placeholder="new amount" required><button class="btn">Set</button> <button class="btn small" type="button" data-act="ustockview">Show stock</button></form><div id="stockview"></div>' : '') +
+        '<h3>Headquarters</h3>' + hqTimerHtml(d.hqTimer, d.tickMs)
         : '<p class="dim">No colony.</p>') +
         (can() ? '<h3>Roll back</h3><div id="rollback"><button class="btn" data-act="ubackups">Find this colony in backups</button></div>' : '') + '</div>';
       html += '<div class="cols"><div class="card"><h2>Colony events</h2>' + table([{ h: 'Tick', num: 1, v: function (e) { return num(e.tick); } }, { h: '', v: function (e) { return pill(e.kind, e.kind === 'bad' ? 'bad' : e.kind === 'warn' ? 'warn' : e.kind === 'good' ? 'good' : ''); } }, { h: 'Message', wrap: 1, v: function (e) { return esc(e.message); } }], d.events, { empty: 'No events.' }) + '</div>' +
@@ -211,11 +215,23 @@
       main(html);
     });
   }
+  function hqTimerHtml(t, tickMs) {
+    if (!t) return '<p class="dim">No work in progress.</p>';
+    var left = hoursMins(t.left * tickMs), all = hoursMins(t.total * tickMs);
+    return '<p>' + esc(t.name) + ' · ' + left.h + 'h ' + left.m + 'm left of ' + all.h + 'h ' + all.m + 'm</p>' +
+      (can() ? '<form class="row" data-form="uhqtimer"><label><input name="hours" type="number" min="0" step="1" value="' + left.h + '" style="width:90px" required> h</label>' +
+        '<label><input name="minutes" type="number" min="0" max="59" step="1" value="' + left.m + '" style="width:70px" required> m left</label><button class="btn">Set</button></form>' : '');
+  }
   var uid = function () { return current.user.id; };
   FORM.uupdate = function (d) { return post('/users/' + uid() + '/update', d).then(function () { toast('Saved.'); reload(); }); };
   FORM.uban = function (d) { return post('/users/' + uid() + '/ban', d).then(function () { toast('Suspended.'); reload(); }); };
   FORM.upass = function (d, f) { return post('/users/' + uid() + '/password', d).then(function (r) { f.reset(); toast('Passcode set; ' + r.sessionsEnded + ' session(s) ended.'); }); };
   FORM.ucredits = function (d) { return post('/colonies/' + current.colony.id + '/credits', d).then(function (r) { toast('Credits now ' + num(r.credits) + '.'); reload(); }); };
+  FORM.ufragments = function (d) { return post('/colonies/' + current.colony.id + '/fragments', d).then(function (r) { toast('Fragments now ' + num(r.fragments) + '.'); reload(); }); };
+  FORM.uhqtimer = function (d) {
+    var left = Math.round((Number(d.hours) * 60 + Number(d.minutes)) * 60000 / current.tickMs);
+    return post('/colonies/' + current.colony.id + '/hq-timer', { left: left, readyTick: current.hqTimer.readyTick }).then(function () { toast(left ? 'Time left set.' : 'Finishes on the colony\'s next tick.'); reload(); });
+  };
   FORM.ustock = function (d) { return post('/colonies/' + current.colony.id + '/stock', d).then(function () { toast('Stock set.'); ACT.ustockview(); }); };
   ACT.ustockview = function () {
     return get('/colonies/' + current.colony.id + '/stock').then(function (r) {

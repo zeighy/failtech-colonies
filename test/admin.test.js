@@ -173,6 +173,76 @@ test('game-master tools: credits and stock, with a line in the colony log', asyn
   assert.ok(db.prepare("SELECT 1 FROM colony_events WHERE colony_id = ? AND message LIKE 'Received 500 cr: outage%'").get(colony.id));
 });
 
+test('game-master tools: the resources to pick from, and data fragments given and taken', async () => {
+  const p = await player('gm_fragments');
+  const id = db.prepare('SELECT id FROM colonies WHERE user_id = ?').get(p.id).id;
+  const row = () => db.prepare('SELECT data_fragments, data_total, orbital_flags FROM colonies WHERE id = ?').get(id);
+  const give = (delta, reason) => a.post(`/api/colonies/${id}/fragments`, { delta, reason });
+
+  const d = (await a.get(`/api/users/${p.id}`)).body;
+  assert.deepEqual(d.resources.map((x) => x.id).sort(), Object.keys(config.resources).sort());
+  assert.equal(d.fragments, 0);
+  assert.equal((await p.c.get('/api/state')).body.data.unlocked, false);
+
+  for (const delta of [0, '', 1.5, 'x', null, 10001]) assert.equal((await give(delta)).status, 400, `refused: ${delta}`);
+  assert.equal((await give(-1)).status, 400, 'nothing to take');
+  assert.equal((await give('3', 'outage')).body.fragments, 3);
+  assert.equal(row().data_total, 3);
+  assert.ok(JSON.parse(row().orbital_flags).dataFragment !== undefined);
+  assert.equal((await p.c.get('/api/state')).body.data.unlocked, true, 'a grant opens the Data screen');
+  assert.equal((await give(-5)).body.fragments, 0, 'never below zero');
+  assert.equal(row().data_total, 3, 'taking does not undo what was recovered');
+  const said = db.prepare('SELECT message FROM colony_events WHERE colony_id = ?').all(id).map((e) => e.message);
+  assert.ok(said.includes('Received 3 data fragments: outage.'));
+  assert.ok(said.includes('Lost 3 data fragments.'), 'the log has what was really taken');
+});
+
+test('game-master tools: the Headquarters timer, for the rebuild and for an unlock', async () => {
+  const p = await player('gm_hq');
+  const id = db.prepare('SELECT id FROM colonies WHERE user_id = ?').get(p.id).id;
+  const shown = async () => (await a.get(`/api/users/${p.id}`)).body.hqTimer;
+  const set = (left, readyTick, as = a) => as.post(`/api/colonies/${id}/hq-timer`, { left, readyTick });
+  const row = () => db.prepare('SELECT * FROM colony_hq WHERE colony_id = ?').get(id);
+  const now = () => Number(store.getMeta('global_tick', 0));
+
+  db.prepare("INSERT INTO colony_data_packets (colony_id, packet_id, level) VALUES (?, 'p01', 1)").run(id);
+  assert.equal(await shown(), null);
+  assert.equal(row(), undefined, 'looking does not open Headquarters');
+  assert.equal((await set(0, 0)).status, 409, 'nothing in progress');
+
+  const total = config.hq.activation.ticks;
+  db.prepare("INSERT INTO colony_hq (colony_id, opened_tick, stage, ready_tick) VALUES (?, 0, 'rebuilding', ?)").run(id, now() + total);
+  let t = await shown();
+  assert.deepEqual([t.name, t.left, t.total], ['Rebuild', total, total]);
+  for (const left of [-1, total + 1, '', 1.5, null]) assert.equal((await set(left, t.readyTick)).status, 400, `refused: ${left}`);
+  const v = client(adminBase);
+  await v.post('/api/login', { username: 'watcher', password: 'watcher-pass-1' });
+  assert.equal((await set(0, t.readyTick, v)).status, 403, 'not for a viewer');
+  assert.equal((await set(100, t.readyTick)).status, 200);
+  assert.equal(row().ready_tick, now() + 100);
+  assert.equal((await set(0, t.readyTick)).status, 409, 'a page showing the old timer is refused');
+  t = await shown();
+  assert.equal((await set(0, t.readyTick)).status, 200);
+  tick();
+  assert.equal(row().stage, 'chartered', 'zero finishes on the next tick');
+
+  const cur = { cat: 'surface', opt: 'route', need: {}, got: {}, n: 0, state: 'funding' };
+  const put = (c) => db.prepare('UPDATE colony_hq SET cur = ? WHERE colony_id = ?').run(JSON.stringify(c), id);
+  put(cur);
+  assert.equal(await shown(), null, 'waiting for goods is not a timer');
+  put({ ...cur, state: 'building', readyTick: now() + 900 });
+  t = await shown();
+  assert.deepEqual([t.name, t.left, t.total], [config.hq.categories.surface.options.route.name, 900, config.hq.baseTicks]);
+  assert.equal((await set(50, t.readyTick)).status, 200);
+  assert.deepEqual(JSON.parse(row().cur), { ...cur, state: 'building', readyTick: now() + 50 }, 'only the time moves');
+  t = await shown();
+  assert.equal((await set(0, t.readyTick)).status, 200);
+  tick();
+  assert.equal(row().cur, null);
+  assert.equal(row().unlocks, 1);
+  assert.ok(db.prepare("SELECT 1 FROM admin_audit WHERE action = 'colony.hq-timer' AND target = ?").get(`colony #${id}`));
+});
+
 test('a colony rolls back to a backup: its rows replaced, its old open orders refunded, everything else untouched', async () => {
   const p = await player('rollback_me');
   const other = await player('bystander');
